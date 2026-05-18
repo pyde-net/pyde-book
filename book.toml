@@ -12,4 +12,4 @@ build-dir = "book"
 [output.html]
 default-theme = "dark"
 preferred-dark-theme = "ayu"
-git-repository-url = "https://github.com/pyde-network/pyde-book"
+git-repository-url = "https://github.com/pyde-net/pyde-book"

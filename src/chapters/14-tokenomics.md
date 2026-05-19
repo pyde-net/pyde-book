@@ -353,10 +353,10 @@ absolute PYDE per validator differs because committee bond (10M) is 100×
 the non-committee bond (100K).
 
 At year 1 with 128 committee validators, modest fee volume, and 60% of
-mint flowing to the validator pool:
+mint flowing to the reward pool:
 
 ```
-Inflation share to validator pool (assume 60% of mint):
+Inflation share to reward pool (assume 60% of mint):
   ~30M PYDE / 128 validators ≈ 234K PYDE per committee validator
   / 10M committee bond       ≈ 2.34% APY
   per-token yield is identical for non-committee at 100K bond
@@ -380,7 +380,7 @@ without astronomical inflation, so the bootstrap incentive at year 1 is
 the **absolute PYDE reward** (~234K/year per committee validator), not
 the percentage.
 
-The exact split between validator pool and treasury inside the inflation
+The exact split between reward pool and treasury inside the inflation
 mint, and the trajectory of total validator count, are governance
 parameters; the numbers above are rough sketches, not commitments.
 

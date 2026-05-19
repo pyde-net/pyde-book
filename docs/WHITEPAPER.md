@@ -404,9 +404,9 @@ This is non-negotiable. No TPS claim is published externally without harness evi
 Each transaction's base fee:
 - **70% burned** (deflationary pressure)
 - **10% to treasury** (multisig-controlled, public PIP review)
-- **20% to validator pool**, split:
-  - 70% activity-weighted across active committee (vertices certified, batches included, decryption shares submitted, anchor selections)
-  - 30% flat across full stake pool (non-committee staking yield)
+- **20% to the reward pool**, split:
+  - 70% activity-weighted across the active committee (vertices certified, batches included, decryption shares submitted, anchor selections)
+  - 30% flat across the full stake pool (committee + non-committee, by stake)
 
 ### 12.3 Governance
 

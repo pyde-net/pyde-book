@@ -32,7 +32,7 @@ The PYDE token is the native asset of the Pyde blockchain. It is used for: gas p
 
 Rationale: front-loaded inflation rewards early validators; fixed 1% tail provides long-term security budget without unbounded dilution.
 
-Inflation accrues to the **validator rewards pool**, distributed per fee model (see below).
+Inflation accrues to the **reward pool**, distributed per the same rule as the fee share (see below).
 
 ## Fee Model (EIP-1559 Style)
 
@@ -56,7 +56,7 @@ For every transaction's base fee:
 100% of base_fee
 ├── 70% burned (deflationary pressure)
 ├── 10% to treasury (multisig-controlled)
-└── 20% to validator pool
+└── 20% to the reward pool
     ├── 70% activity-weighted across active committee  (= 14% of total)
     │     • Vertices certified by ≥85 peers
     │     • Batches included in committed waves (× tx count)
@@ -66,7 +66,7 @@ For every transaction's base fee:
           (includes non-committee validators; baseline yield)
 ```
 
-Plus inflation issuance (from validator rewards pool) distributed proportionally.
+Plus inflation issuance (also flowing into the reward pool) distributed by the same rule.
 
 ## Validator Staking
 
@@ -104,8 +104,8 @@ Specific yields depend on actual network activity. Numbers above are illustrativ
 
 | Role | Earnings Source |
 |---|---|
-| Committee validator | Activity rewards (70% of validator pool) + flat yield share (30% of validator pool, proportional) + inflation share |
-| Non-committee validator | Only flat yield share (30% of validator pool, proportional) + inflation share |
+| Committee validator | Activity rewards (70% of reward pool) + flat yield share (30% of reward pool, by stake) + inflation share |
+| Non-committee validator | Only flat yield share (30% of reward pool, by stake) + inflation share |
 
 Committee validators earn substantially more — incentivizing operational quality.
 
@@ -147,7 +147,7 @@ The treasury cannot be unilaterally drained — public PIPs + multisig threshold
 Parachain operators stake PYDE as their bond and earn from the **combined gas** of every `cross_call!` invocation. The split is:
 
 - **70% to parachain operator(s)** providing the cross-chain service
-- **20% to Pyde-side validator pool** (for executing the originating transaction)
+- **20% to the Pyde-side reward pool** (for executing the originating transaction)
 - **10% burned** (consistent with main fee model)
 
 Parachain operators face their own slashing for misbehavior (incorrect responses, downtime), creating staked-honesty guarantees comparable to validators.

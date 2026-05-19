@@ -9,7 +9,7 @@ and a unified gas model that prices cross-chain calls — the protocol
 surface that parachain operators and bridge contracts will integrate
 against is **stable at genesis**. The parachain layer itself — the
 permissionless network of operators who stake PYDE and serve cross-chain
-calls — ships ~6-12 months post-mainnet, once mainnet stability is proven.
+calls — ships post-mainnet, once mainnet stability is proven.
 
 This chapter covers what mainnet does and doesn't do, what the bridge
 threat model looks like, and the parachain layer direction.
@@ -89,7 +89,7 @@ struct HardFinalityCert {
     block_hash:   Hash,
     state_root:   Hash,
     voter_bitmap: u128,                     // 128-bit bitmap
-    signatures:   Vec<FalconSignature>,     // 86+
+    signatures:   Vec<FalconSignature>,     // ≥ 85
 }
 ```
 
@@ -105,10 +105,10 @@ input a future light-client bridge needs:
 - Verification is `(86 × FALCON_verify) + (one Merkle path verification)`,
   feasible on any chain with a reasonable VM.
 
-The committee size of 128 caps the per-cert verification cost at 86 FALCON
-verifies. At ~1 ms per verify on commodity hardware, that's ~86 ms of
-counterparty execution per accepted Pyde event — non-trivial but not
-catastrophic.
+The committee size of 128 caps the per-cert verification cost at ≥ 85
+FALCON verifies. At ~1 ms per verify on commodity hardware, that's
+~85 ms of counterparty execution per accepted Pyde event — non-trivial
+but not catastrophic.
 
 ---
 
@@ -169,8 +169,7 @@ The parachain SDK aims to provide:
 | Operator discovery              | On-chain registry of staked operators + reputation |
 | Multi-chain support             | Ethereum, Bitcoin, Solana, Polkadot adapters     |
 
-The SDK does not exist yet. The rough timeline puts it in the ~6-12
-months post-mainnet window once mainnet stability is established.
+The SDK does not exist yet. It ships post-mainnet, once mainnet stability is established.
 
 ---
 
@@ -261,23 +260,23 @@ collects fees in their parachain's native token and converts.
 This means PYDE is the bandwidth token of the parachain ecosystem (Pyde's
 state writes are the bandwidth) without requiring parachain users to hold
 PYDE. The ecosystem-level economics will be designed in detail when the
-parachain SDK is on a real timeline.
+parachain SDK is closer to launch.
 
 ---
 
 ## 13.9 What the Roadmap Looks Like
 
-| Phase                   | Cross-chain capability                                |
-| ----------------------- | ---------------------------------------------------- |
-| Mainnet (v1)            | Surface-only: `cross_call!`, `HardFinalityCert` available |
-| Post-mainnet (~+6 mo)   | Parachain SDK alpha (Rust operator runtime)            |
-| Post-mainnet (~+9 mo)   | First Ethereum parachain operator (FALCON-verifier on EVM) |
-| Post-mainnet (~+12 mo)  | Parachain layer live; permissionless operator registry |
-| Post-mainnet (~+18 mo)  | Multi-chain operators (Ethereum + others)              |
-| Post-mainnet (~+24 mo)  | Operator slashing on-chain; reputation system mature    |
+| Stage                      | Cross-chain capability                                |
+| -------------------------- | ---------------------------------------------------- |
+| **Mainnet (v1)**           | Surface-only: `cross_call!`, `HardFinalityCert` available |
+| **Stage 1 (post-mainnet)** | Parachain SDK alpha (Rust operator runtime)            |
+| **Stage 2**                | First Ethereum parachain operator (FALCON-verifier on EVM) |
+| **Stage 3**                | Parachain layer live; permissionless operator registry |
+| **Stage 4**                | Multi-chain operators (Ethereum + others)              |
+| **Stage 5**                | Operator slashing on-chain; reputation system mature    |
 
-These are direction estimates, not commitments. Each step is gated on the
-maturity of the previous step and on credible auditor capacity.
+These are directional. Each stage is gated on the maturity of the previous
+stage and on credible auditor capacity, not on a calendar.
 
 ---
 

@@ -72,10 +72,14 @@ Plus inflation issuance (from validator rewards pool) distributed proportionally
 
 ### Bond Requirements
 
-- **Minimum stake per validator:** 10,000 PYDE
-- **Maximum validators per operator:** 5 (anti-Sybil cap)
+Two-tier staking:
+
+- **Committee minimum:** 10,000,000 PYDE (10M) — eligible for the active 128-member committee
+- **Non-committee minimum:** 100,000 PYDE (100K) — earns yield while standing by for selection
+
+- **Maximum validators per operator:** 5 (anti-Sybil cap, enforced on operator identity)
 - **Bonding period:** 1 epoch (~3 hours) before active
-- **Unbonding period:** 30 days (must exceed evidence freshness window of 21 days)
+- **Unbonding period:** 30 days (must exceed the 21-day safety evidence freshness window)
 
 ### Staking Yield Estimate
 
@@ -153,7 +157,7 @@ Parachain operators face their own slashing for misbehavior (incorrect responses
 PYDE is intended to be used for transactions, staking, and bond, not held purely as speculative store-of-value. Mechanisms to encourage utility:
 
 1. **Gas burn (70%):** every transaction reduces supply, creating deflationary pressure when network usage is high
-2. **Validator bond locking:** 10K PYDE per validator slot, locked during operation
+2. **Validator bond locking:** 10M PYDE per committee slot (or 100K per non-committee slot), locked during operation
 3. **Treasury spending:** continually deploys PYDE into the ecosystem
 4. **No priority tips:** removes the speculative auction layer that creates token-velocity drag
 
@@ -180,4 +184,4 @@ Post year-4, supply economics are:
 
 ---
 
-**Version 0.1 — 2026-05-18**
+**Version 0.1**

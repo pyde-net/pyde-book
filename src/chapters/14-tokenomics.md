@@ -295,22 +295,26 @@ slashed (forced) -> Exited (stake reduced or zero)
 ### Unbonding period
 
 ```rust
-pub const UNBONDING_PERIOD: u64 = 3_024_000;   // 14 days at 0.4s/block
+pub const UNBONDING_PERIOD_DAYS: u64 = 30;   // wall-clock, independent of consensus cadence
 ```
 
-(`crates/consensus/src/validator.rs:20`)
+(`crates/consensus/src/validator.rs`)
 
 A validator who initiates `StakeWithdraw` (tx type 4) cannot reclaim their
-stake until 14 days have passed. During that window:
+stake until 30 days have passed. The period must exceed the
+21-day safety-evidence freshness window so attackers cannot withdraw before
+their offense becomes provable.
+
+During the unbonding window:
 
 - Status is `Unbonding`.
 - Stake is locked.
 - Validator no longer signs (removed from active committee).
 - Pending rewards continue to accrue and can be claimed via `ClaimReward`.
-- Slashing for past offenses still applies (the unbonding window exists
-  precisely so post-exit evidence can still penalize).
+- Slashing for past offenses still applies — the unbonding window exists
+  precisely so post-exit evidence can still penalize.
 
-After the 14 days, an explicit follow-up sweeps the unbonded stake back to
+After 30 days, an explicit follow-up sweeps the unbonded stake back to
 the validator's spendable balance and marks them `Exited`.
 
 ### Slashing
@@ -692,7 +696,7 @@ expected state.
 | Fee distribution        | 70% burn / 20% reward pool / 10% treasury           |
 | Committee stake (min)   | 10,000,000 PYDE                                      |
 | Non-committee stake (min)| 100,000 PYDE                                         |
-| Unbonding period        | 14 days                                              |
+| Unbonding period        | 30 days (must exceed 21-day safety evidence freshness) |
 | Slashing finder fee     | 10% of slashed amount                               |
 | Vesting                 | On-chain, balance-locked at validation              |
 | Airdrop                 | Merkle-proof claim, Sweep after deadline             |

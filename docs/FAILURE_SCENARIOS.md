@@ -1,6 +1,6 @@
 # Pyde Failure Scenarios
 
-**Version 0.1 — May 2026**
+**Version 0.1**
 
 Operational walk-throughs of failure modes. Complements [THREAT_MODEL.md](./THREAT_MODEL.md) (what attacks exist) with step-by-step recovery procedures.
 
@@ -312,5 +312,5 @@ Each runbook contains: trigger conditions, detection criteria, step-by-step resp
 ---
 
 **Document version:** 0.1
-**Date:** 2026-05-18
+
 **License:** See repository root

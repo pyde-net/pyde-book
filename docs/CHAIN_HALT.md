@@ -1,6 +1,6 @@
 # Pyde Chain Halt + Recovery Procedures
 
-**Version 0.1 — May 2026**
+**Version 0.1**
 
 The HotStuff lesson made operational: explicit halt detection → investigation → recovery procedures. No live-patching under pressure.
 
@@ -257,5 +257,5 @@ This is the lesson learned from the pivot.
 ---
 
 **Document version:** 0.1
-**Date:** 2026-05-18
+
 **License:** See repository root

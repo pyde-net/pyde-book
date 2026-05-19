@@ -1,6 +1,6 @@
 # Pyde Validator Lifecycle
 
-**Version 0.1 — May 2026**
+**Version 0.1**
 
 This document specifies the validator state machine, operations, parameters, and anti-Sybil mechanisms.
 
@@ -8,7 +8,8 @@ This document specifies the validator state machine, operations, parameters, and
 
 ```
 [NOT REGISTERED]
-    ↓ register_validator(stake ≥ 10K PYDE, falcon_pubkey, threshold_key)
+    ↓ register_validator(stake ≥ tier-min PYDE, falcon_pubkey, threshold_key)
+    ↓   (10M committee tier; 100K non-committee tier)
 [PENDING ACTIVATION] (1 epoch bonding period)
     ↓ next epoch boundary
 [ACTIVE - WAITING] ←──────┐
@@ -30,8 +31,9 @@ Side states (from any active state):
 
 | Parameter | Value | Notes |
 |---|---|---|
-| `MIN_STAKE` | 10,000 PYDE | Anti-Sybil minimum bond |
-| `MAX_STAKE_PER_OPERATOR` | 50,000 PYDE | Cap at 5 validators per operator |
+| `MIN_COMMITTEE_STAKE` | 10,000,000 PYDE (10M) | Eligible for the active 128-member committee |
+| `MIN_NON_COMMITTEE_STAKE` | 100,000 PYDE (100K) | Earns yield while standing by for selection |
+| `MAX_VALIDATORS_PER_OPERATOR` (cap) | 5 | Anti-Sybil; enforced on operator identity, not stake |
 | `BONDING_PERIOD` | 1 epoch (~3 hours) | Time from registration to active eligibility |
 | `UNBONDING_PERIOD` | 30 days | Long enough for safety evidence to surface |
 | `EVIDENCE_FRESHNESS_SAFETY` | 21 days | Must be < unbonding period |
@@ -44,6 +46,11 @@ Side states (from any active state):
 | `MAX_VALIDATORS_PER_OPERATOR` | 5 | Identity-bound cap |
 | `SLASHING_ESCROW` | 24 hours | Dispute window before slash finalizes |
 | `NEW_VALIDATOR_GRACE_EPOCHS` | 1 | 50% reduced slashing in first epoch |
+
+> **Pseudocode convention.** Where this document writes `MIN_STAKE` in
+> pseudocode below, it means the validator's tier-specific minimum:
+> `MIN_COMMITTEE_STAKE` (10M) for committee-tier validators,
+> `MIN_NON_COMMITTEE_STAKE` (100K) for non-committee validators.
 
 ## State Details
 
@@ -227,15 +234,17 @@ Identity binding via `operator_identity` field:
 
 ### Optional Stronger Anti-Sybil
 
-Escalating bond for additional validators:
+Escalating bond for additional validators registered under the same
+operator identity (committee tier shown; non-committee scales the same
+way relative to its floor):
 
-| Validator slot | Required stake |
+| Validator slot | Required committee stake |
 |---|---|
-| 1st | 10,000 PYDE |
-| 2nd | 10,000 PYDE |
-| 3rd | 10,000 PYDE |
-| 4th | 20,000 PYDE |
-| 5th | 20,000 PYDE |
+| 1st | 10,000,000 PYDE |
+| 2nd | 10,000,000 PYDE |
+| 3rd | 10,000,000 PYDE |
+| 4th | 20,000,000 PYDE |
+| 5th | 20,000,000 PYDE |
 
 Reduces ROI on heavy concentration. (Optional; numbers tunable.)
 
@@ -298,5 +307,5 @@ Stake does NOT influence committee selection probability. Equal probability amon
 ---
 
 **Document version:** 0.1
-**Date:** 2026-05-18
+
 **License:** See repository root

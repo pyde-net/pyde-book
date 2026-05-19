@@ -283,7 +283,7 @@ validator upgrade:
 | Equivocation threshold (44)    | `crates/consensus/src/quorum.rs`      |
 | Committee min stake (10M PYDE) | `crates/slashing/src/lib.rs`          |
 | Non-committee min stake (100K) | `crates/slashing/src/lib.rs`          |
-| Unbonding period (14 days)     | `crates/consensus/src/validator.rs`   |
+| Unbonding period (30 days)     | `crates/consensus/src/validator.rs`   |
 | Inflation schedule             | `crates/tx/src/fee.rs`                |
 | Fee split (70/20/10)           | `crates/tx/src/execution.rs`          |
 | Gas target / ceiling           | `crates/tx/src/fee.rs`                |

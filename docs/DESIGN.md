@@ -1,6 +1,6 @@
 # Pyde Technical Design
 
-**Version 0.1 — May 2026**
+**Version 0.1**
 
 This is the comprehensive technical design document for Pyde. For high-level pitch, see [WHITEPAPER.md](./WHITEPAPER.md). For operational specs, see the individual documents linked below.
 
@@ -117,7 +117,7 @@ End-to-end latency: ~500ms median for plaintext, ~700ms for encrypted (decryptio
 ### Committee
 
 - **Size:** 128 validators per epoch
-- **Selection:** uniform random from validators with stake ≥ 10K PYDE
+- **Selection:** uniform random from validators with stake ≥ 10M PYDE (committee tier; non-committee 100K standby pool stakes but isn't sampled until next selection)
 - **Anti-Sybil:** operator identity binding, max 5 validators per operator
 - **Equal power:** all 128 have equal voting weight, vertex production rate, anchor probability
 - **Stake influence:** only on eligibility + flat 30% pool yield share. Activity rewards within committee are contribution-weighted, not stake-weighted.
@@ -482,7 +482,7 @@ This documentation reflects **designed architecture**, not shipped implementatio
 
 | Component | Status |
 |---|---|
-| Architecture design | ✅ Complete (Q2 2026) |
+| Architecture design | ✅ Complete |
 | PVM + Otigen | 🟡 Functional, needs extensions (programmable accounts hooks, hybrid scheduler integration) |
 | State layer (JMT) | 🟡 In place, needs hybrid hashing |
 | Consensus (Mysticeti DAG) | 🔴 Not yet — rebuild post-pivot |
@@ -493,7 +493,7 @@ This documentation reflects **designed architecture**, not shipped implementatio
 | State sync | 🟡 Partial design |
 | Documentation | 🟡 This is the current state |
 
-**Realistic v1 mainnet timeline:** 24-36 months solo dev including external audit.
+**Mainnet ships when the work above is complete and the external audit passes.** No public schedule.
 
 **Highest-risk piece:** post-quantum threshold cryptography. Research-stage, may require classical-crypto transitional v1 with migration to PQ threshold in v2 as standards mature.
 
@@ -514,5 +514,5 @@ This documentation reflects **designed architecture**, not shipped implementatio
 ---
 
 **Document version:** 0.1
-**Date:** 2026-05-18
+
 **License:** See repository root

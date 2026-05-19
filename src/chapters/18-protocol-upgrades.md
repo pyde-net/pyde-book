@@ -75,7 +75,7 @@ Step 7 — Stable state
 
 There is no on-chain "yes/no" vote. The closest signal is **what fraction
 of the active committee runs the new code at activation**. If less than
-2f+1 (86 of 128) validators upgrade, the new rule cannot reach finality
+2f+1 (85 of 128) validators upgrade, the new rule cannot reach finality
 and the change is effectively rejected by the network.
 
 This is governance through validator opt-in. It is slow and conservative
@@ -137,7 +137,7 @@ Per Chapter 15:
 | Equivocation threshold (44)    | `crates/consensus/src/quorum.rs`      |
 | Committee min stake (10M PYDE) | `crates/slashing/src/lib.rs`          |
 | Non-committee min stake (100K) | `crates/slashing/src/lib.rs`          |
-| Unbonding period (14 days)     | `crates/consensus/src/validator.rs`   |
+| Unbonding period (30 days)     | `crates/consensus/src/validator.rs`   |
 | Inflation schedule             | `crates/tx/src/fee.rs`                |
 | Fee split (70/20/10)           | `crates/tx/src/execution.rs`          |
 | Gas target / ceiling           | `crates/tx/src/fee.rs`                |
@@ -299,8 +299,8 @@ T+1 week:   Old releases marked deprecated.
 ```
 
 The "80% signaling threshold" is a social norm, not a protocol enforced
-threshold. The protocol-enforced threshold is 2f+1 = 86 of 128 — but
-shipping with 87/128 is brittle if a validator goes offline mid-flight.
+threshold. The protocol-enforced threshold is 2f+1 = 85 of 128 — but
+shipping with 86/128 is brittle if a validator goes offline mid-flight.
 80%+ as a social coordination target gives margin.
 
 ### Validator signaling

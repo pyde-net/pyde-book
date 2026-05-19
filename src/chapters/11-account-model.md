@@ -414,8 +414,8 @@ variants:
 | 0   | `Standard`        | Value transfer or contract call                             |
 | 1   | `Deploy`          | Contract deployment (`to == Address::ZERO`, data == initcode)|
 | 2   | `Batch`           | Multiple operations atomically (or best-effort)             |
-| 3   | `StakeDeposit`    | Lock 10K PYDE, register validator (data = FALCON pubkey 897 B)|
-| 4   | `StakeWithdraw`   | Begin 14-day unbonding                                       |
+| 3   | `StakeDeposit`    | Lock ≥ tier-min PYDE (10M committee / 100K non-committee), register validator (data = FALCON pubkey 897 B)|
+| 4   | `StakeWithdraw`   | Begin 30-day unbonding                                       |
 | 5   | `Slash`           | Submit double-sign evidence (data = serialized evidence)    |
 | 6   | `ClaimReward`     | Claim accrued staking yield from the pool                   |
 | 7   | `ClaimAirdrop`    | Claim genesis airdrop with Merkle proof                     |

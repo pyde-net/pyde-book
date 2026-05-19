@@ -1,6 +1,6 @@
 # Pyde Network Protocol
 
-**Version 0.1 — May 2026**
+**Version 0.1**
 
 Transport, peer discovery, gossip, message types, DoS protections, and committee defense patterns.
 
@@ -33,7 +33,7 @@ Kademlia DHT (used by IPFS, Filecoin) is for content discovery. Pyde is a chain 
 
 **Why layered > DHT for Pyde:**
 - ✅ Peer identity is on-chain (validator FALCON-bound)
-- ✅ Sybil cost is real (10K PYDE min stake)
+- ✅ Sybil cost is real (10M PYDE committee min stake, 100K non-committee)
 - ✅ Far simpler (~1K LOC vs ~10K LOC for DHT)
 - ✅ Faster discovery (single-hop vs multi-hop)
 - ✅ Smaller audit surface
@@ -305,5 +305,5 @@ State sync chunks are large (4 MB). Special handling:
 ---
 
 **Document version:** 0.1
-**Date:** 2026-05-18
+
 **License:** See repository root

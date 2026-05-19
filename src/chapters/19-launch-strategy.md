@@ -8,8 +8,8 @@ exit criteria. Some phases run in parallel; some are strictly sequential.
 implementation hit a wall — repeated wedges, view-change cascades, and a
 peak of ~4K TPS in lab tests (with full launch tests never run).
 The May 2026 pivot to Mysticeti DAG consensus reset the consensus
-critical path. Realistic mainnet timeline: **24-36 months from project
-start, including external audit and incentivized testnet**.
+critical path. Mainnet ships when the work below is complete and the
+external audit + incentivized testnet pass — no public schedule.
 
 The summary up front: Pyde mainnet ships **committee-only DAG consensus
 with FALCON state-root attestation**, no STARK proving on the critical
@@ -44,7 +44,7 @@ launch is not.
 The phase structure (from `MAINNET_PLAN.md`):
 
 ```
-Critical path: Phase 1 -> 3 -> 6 -> 7 -> 9 -> 10  (~9-11 months)
+Critical path: Phase 1 -> 3 -> 6 -> 7 -> 9 -> 10
 Parallel:      Phases 2, 4, 5, 8 piggyback on the critical path
 ```
 
@@ -152,8 +152,8 @@ everything required at genesis to actually fund and govern a network.
 | Inflation schedule 5%→3%→2%→1%                                  | Done   |
 | Block reward distribution (validator + treasury, two-tier)       | Done (slice 4.1) |
 | Active-validator divisor + unified `ValidatorEntry::decode`     | Done (slice 4.2) |
-| Validator staking (10K PYDE)                                    | Done   |
-| Unbonding period (14 days, `UNBONDING_PERIOD = 3,024,000`)       | Done   |
+| Validator staking (pre-pivot 10K; needs migration to 10M/100K tiers)| Pre-pivot done; tier migration pending |
+| Unbonding period (30 days)                                       | Done   |
 | Slashing wired to slash-tx handler                              | Done   |
 | Total burned counter + audit trail                              | Done (slice 4.1) |
 | Weak-subjectivity checkpoint enforcement + bootstrap + gossip   | Done (slice 4.3, PR #208) |
@@ -358,9 +358,9 @@ Tracked but explicitly **not** required for genesis:
 | Item                                                       | Tracked as            |
 | ---------------------------------------------------------- | --------------------- |
 | ZK-proven execution (STARK validity proofs)                 | Post-mainnet research |
-| Parachain SDK (Rust/Go/C++)                                 | Post-mainnet (~+12 mo)|
+| Parachain SDK (Rust/Go/C++)                                 | Post-mainnet          |
 | TypeScript SDK (dedicated package)                          | Post-mainnet          |
-| Native bridge to Ethereum                                   | Post-mainnet (~+9 mo) |
+| Native bridge to Ethereum                                   | Post-mainnet          |
 | Native bridge to Bitcoin                                    | Post-mainnet (per demand)|
 | Signed-mempool commitments + censorship slashing            | Post-mainnet hardening|
 | Pedersen / KZG commitments for PSS                          | Post-mainnet hardening|
@@ -391,35 +391,34 @@ The honest list of what could go wrong.
 | Treasury multisig signer compromise            | Rotate via `RotateMultisig`; bound scope keeps damage |
 | Validator-key compromise                       | Key rotation + slashing makes operator response a clear path|
 
-The plan assumes things will go wrong. The structure — three months of
+The plan assumes things will go wrong. The structure — extended
 incentivized testnet, five external audits, voluntary upgrade path — is
 about giving the chain enough visibility and recovery margin that no
 single failure ends it.
 
 ---
 
-## 19.15 Timeline
+## 19.15 Sequencing
 
-A directional estimate, not a commitment. Reset post-pivot (May 2026):
+Pyde mainnet is **gated on completion, not on a date**. The phases above
+have clear exit criteria; the chain ships when every gate is passed.
 
-| Phase            | Window (months from May 2026 pivot) |
-| ---------------- | ----------------------------------- |
-| Phase 0 — Pivot reset & DAG rebuild start | Months 0-3      |
-| Phase 1 — Critical safety fixes (carryover) | Months 0-4    |
-| Phase 2 — Book reconciliation (this rewrite) | Months 3-5  |
-| Phase 3 — Mysticeti DAG consensus implementation | Months 4-12|
-| Phase 4 — Tokenomics + governance (largely shipped) | Months 6-10 |
-| Phase 5 — Hardening + CI                | Months 8-14 (continuous) |
-| Phase 6 — Devnet + multi-node tests     | Months 10-18    |
-| Phase 7 — Testnet alpha + perf harness | Months 14-24    |
-| Phase 8 — External audits (5 specialists) | Months 18-30  |
-| Phase 9 — Incentivized testnet         | Months 22-32    |
-| Phase 10 — Mainnet genesis             | Months 30-36    |
+Strict prerequisites:
+- Phase 1 (safety fixes) must complete before any testnet load.
+- Phase 3 (MEV pipeline + DAG consensus) must complete before Phase 6
+  multi-node tests.
+- Phase 7 (testnet alpha) must demonstrate the headline numbers before
+  Phase 8 audits begin.
+- Phase 8 audits must remediate all critical + high findings before
+  Phase 9 incentivized testnet.
+- Phase 9 must run for an extended period without critical incidents
+  before Phase 10 mainnet genesis.
 
-Critical path: **24-36 months end-to-end** post-pivot. Solo dev + external
-audit is the bottleneck. Slips happen — and the chain only ships when the
-DAG consensus + cryptography + performance harness all pass. Public
-progress is tracked in `MAINNET_PLAN.md` in the repo.
+Phases 2, 4, 5, and 8 can overlap with the critical path. Phase 5
+(hardening + CI) is continuous from Phase 4 onward.
+
+Public progress lives in `MAINNET_PLAN.md` at the repo root. No external
+timeline is published — the chain ships when it's ready.
 
 ---
 

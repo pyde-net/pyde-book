@@ -1,6 +1,6 @@
 # Pyde Threat Model
 
-**Version 0.1 — May 2026**
+**Version 0.1**
 
 This is the canonical threat model for Pyde. It catalogs ~50 threats across 7 layers, maps each to its mitigation in the protocol design, and acknowledges residual risks.
 
@@ -261,5 +261,5 @@ This document is the entry point for external security review. Auditors should:
 ---
 
 **Document version:** 0.1
-**Date:** 2026-05-18
+
 **License:** See repository root

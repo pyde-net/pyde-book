@@ -168,7 +168,7 @@ Accounts hold:
 
 Cross-chain interactions happen through a permissionless **parachain layer** — operators implement a Pyde-published specification, stake PYDE, follow protocol rules, and earn gas fees from contracts that call them via the `cross_call!` macro.
 
-The protocol-level surface (`cross_call!` macro, `HardFinalityCert` primitive, unified gas model) is settled at v1 genesis. The actual parachain layer ships post-mainnet on a 6-12 month horizon.
+The protocol-level surface (`cross_call!` macro, `HardFinalityCert` primitive, unified gas model) is settled at v1 genesis. The actual parachain layer ships post-mainnet.
 
 ## Three-Tier Node Model
 

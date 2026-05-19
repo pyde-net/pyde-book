@@ -301,7 +301,8 @@ When a block is executed, the state pipeline runs in this order:
    groups, in parallel against the same `pre_state_root`.
 4. Apply state writes to the batch.
 5. Distribute fees: 70% to the burn counter (`TOTAL_BURNED` discriminator),
-   20% to the slot proposer, 10% to the treasury account.
+   20% to the epoch reward pool (distributed at epoch end by stake × uptime),
+   10% to the treasury account.
 6. Commit the batch with `update_all`. The new root is `post_state_root`.
 7. Set `witness.post_state_root` and stamp the block header.
 

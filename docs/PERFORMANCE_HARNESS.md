@@ -1,6 +1,6 @@
 # Pyde Performance Harness
 
-**Version 0.1 — May 2026**
+**Version 0.1**
 
 The gate before any external TPS claim. This is testing infrastructure that protects against the HotStuff trap: claimed numbers production cannot reproduce.
 
@@ -253,5 +253,5 @@ This is the HotStuff lesson. Don't skip.
 ---
 
 **Document version:** 0.1
-**Date:** 2026-05-18
+
 **License:** See repository root

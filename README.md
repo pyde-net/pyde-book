@@ -6,9 +6,8 @@ via Mysticeti DAG consensus, and a smart-contract language (Otigen)
 designed for safety-by-default.
 
 > **Honest status.** This book describes the *designed* architecture —
-> implementation is in flight. Pyde mainnet timeline: **24-36 months**
-> post-May-2026 pivot, gated on external audit and incentivized testnet
-> exposure. See Chapter 19 for the launch plan.
+> implementation is in flight. Mainnet ships when the work in Chapter 19
+> is complete and the external audit passes. No public schedule.
 
 ## Reading the Book
 

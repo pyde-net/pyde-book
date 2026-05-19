@@ -1,6 +1,6 @@
 # Pyde Slashing Rules
 
-**Version 0.1 — May 2026**
+**Version 0.1**
 
 This document specifies all slashable offenses, detection mechanisms, slash amounts, evidence flow, jail mechanics, and the interaction with the validator lifecycle.
 
@@ -60,19 +60,32 @@ Caps at **2×** to avoid disproportionate punishment in bug scenarios.
 
 Combined with repeat-offense escalation, a coordinated 43-attack can hit the maximum 50% slash within an epoch.
 
-## Slash Math (Validator Bond = 10,000 PYDE)
+## Slash Math (Percentages of Offender's Stake)
+
+All percentages apply to the **offender's current stake at the time of
+offense**. Pyde uses two staking tiers:
+
+- **Committee** validators: minimum 10,000,000 PYDE (10M)
+- **Non-committee** validators: minimum 100,000 PYDE (100K)
 
 ```
-Equivocation (10% × correlation × repeat):
-  1st instance, alone:     1,000 PYDE
-  1st instance, 42 others: 2,000 PYDE
-  2nd instance, 42 others: 4,000 PYDE (caps at 50%)
+Equivocation (10% × correlation × repeat) — committee tier, 10M PYDE bond:
+  1st instance, alone:        1,000,000 PYDE
+  1st instance, 42 others:    2,000,000 PYDE
+  2nd instance, 42 others:    4,000,000 PYDE   (caps at 50%)
 
-Downtime (0.05%/round):
-  10 rounds missed:        50 PYDE
-  100 rounds missed:       500 PYDE (5% — also triggers jail)
-  At 10% epoch cap:        1,000 PYDE
+Equivocation — non-committee tier, 100K PYDE bond:
+  1st instance, alone:        10,000 PYDE
+  1st instance, 42 others:    20,000 PYDE
+
+Downtime (0.05%/round) — committee tier, 10M PYDE bond:
+  10 rounds missed:           5,000 PYDE
+  100 rounds missed:          50,000 PYDE     (5% — also triggers jail)
+  At 10% epoch cap:           1,000,000 PYDE
 ```
+
+Liveness penalties apply only to committee validators (non-committee
+validators have no liveness obligation while standing by for selection).
 
 ## Evidence Submission
 
@@ -119,7 +132,8 @@ When a validator is jailed:
 - Unjail requirements:
   - Time elapsed ≥ jail period
   - Pays unjail fee (10 PYDE — anti-griefing)
-  - Remaining stake ≥ minimum bond (10,000 PYDE)
+  - Remaining stake ≥ minimum bond for the validator's tier
+    (10M committee / 100K non-committee)
 
 ### Escalating Jail Periods
 
@@ -172,9 +186,9 @@ Slashing applies during BOTH bonded and unbonding states. After withdrawal (past
 ### 1. Network Partition
 
 If >43 validators go offline simultaneously due to network split:
-- Downtime slashing PAUSES (auto-detected by protocol — committee active count < 86 → liveness mode)
-- Resumes once active count ≥ 86
-- Prevents punishing 86 healthy validators while 42 are partitioned
+- Downtime slashing PAUSES (auto-detected by protocol — committee active count < 85 → liveness mode)
+- Resumes once active count ≥ 85
+- Prevents punishing the 85+ honest majority while 43+ are partitioned
 
 ### 2. Key Compromise
 
@@ -198,16 +212,16 @@ If chain hard-forks:
 
 ## Sanity Check
 
-Total bond in committee: 128 × 10,000 = 1,280,000 PYDE
+Total committee bond: 128 × 10M = **1.28B PYDE** at minimum.
 
-Max single-event slash (42 offenders × equivocation × 2× correlation):
+Max single-event slash (42 offenders × equivocation × 2× correlation, committee tier):
 ```
-42 × 10,000 × 10% × 2.0 = 84,000 PYDE  (= 6.5% of total bond)
+42 × 10M × 10% × 2.0 = 84M PYDE   (= 6.5% of total committee bond)
 ```
 
 Max correlated attack across epoch (42 offenders × 5 events × 2× correlation, capped at 50%):
 ```
-42 × 10,000 × 50% = 210,000 PYDE  (= 16.4% of total bond)
+42 × 10M × 50% = 210M PYDE   (= 16.4% of total committee bond)
 ```
 
 Designed to make coordinated attacks economically catastrophic. Attackers lose more than possible reorg gain.
@@ -238,5 +252,4 @@ All slashing state is part of validator account state, indexed by validator_id.
 ---
 
 **Document version:** 0.1
-**Date:** 2026-05-18
 **License:** See repository root

@@ -1,6 +1,6 @@
 # Pyde State Sync Protocol
 
-**Version 0.1 — May 2026**
+**Version 0.1**
 
 How new nodes join the network at any point in time. At 30K+ TPS, replaying from genesis is infeasible — snapshot sync is the default.
 
@@ -219,5 +219,5 @@ Future mitigations (defer to v2):
 ---
 
 **Document version:** 0.1
-**Date:** 2026-05-18
+
 **License:** See repository root

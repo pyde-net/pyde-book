@@ -46,7 +46,7 @@ Chains optimizing for throughput have ended up requiring datacenter-class valida
 - **JMT state tree** (Jellyfish Merkle Tree, radix-16) replaces fixed-depth SMT
 - **Encryption opt-in** per-tx — MEV protection where needed, no overhead where not
 - **Honest performance targets** — 10-30K TPS realistic v1, validated by multi-region performance harness
-- **24-36 month timeline** to v1 mainnet, including external audit
+- **Phased mainnet plan** — external audit + incentivized testnet before launch (Chapter 19)
 
 ## Honest Status
 
@@ -62,7 +62,7 @@ This book describes **designed architecture**, not shipped implementation:
 | Network protocol | 🟡 Existing, needs libp2p+QUIC migration |
 | Performance harness | 🔴 Not yet built |
 
-**Realistic v1 mainnet timeline:** 24-36 months solo dev + external audit.
+**Mainnet ships when the work in Chapter 19 is done and the external audit passes** — no public schedule.
 
 ## Performance Targets
 

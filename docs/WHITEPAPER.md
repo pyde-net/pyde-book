@@ -1,6 +1,6 @@
 # Pyde: A Post-Quantum, MEV-Resistant Layer 1 with DAG Consensus
 
-**Version 0.1 — May 2026**
+**Version 0.1**
 
 ## Abstract
 
@@ -180,7 +180,7 @@ When the anchor vertex collects sufficient support from later rounds (Mysticeti'
 ### 5.5 The Committee
 
 128 validators per epoch, selected from the global validator pool:
-- **Selection:** uniform random from validators with stake ≥ minimum bond (10,000 PYDE)
+- **Selection:** uniform random from validators with stake ≥ committee minimum (10,000,000 PYDE)
 - **Anti-Sybil:** operator identity binding, max 5 validators per operator
 - **Equal power:** all 128 have equal voting weight, equal vertex production rate, equal anchor probability (uniform over members)
 - **Stake influence:** only on selection probability (uniform within eligible pool) and proportion of flat 30% stake-pool yield. Activity rewards within the committee are contribution-weighted, not stake-weighted.
@@ -341,13 +341,13 @@ The macro is asynchronous. The originating transaction marks the call pending an
 
 ### 10.2 HardFinalityCert
 
-A bridge-out primitive: a FALCON quorum certificate over `(block_number, state_root)` for Pyde block N. Verification cost on any counterparty chain: ~86 FALCON-512 verifications (~86ms) plus a Merkle path. Feasible on any chain with a reasonable VM.
+A bridge-out primitive: a FALCON quorum certificate over `(wave_id, blake3_state_root, poseidon2_state_root)`. Verification cost on any counterparty chain: ≥ 85 FALCON-512 verifications (~85ms) plus a Merkle path. Feasible on any chain with a reasonable VM.
 
 The cert's stability across the chain's lifetime is what makes parachains feasible without further protocol changes after mainnet.
 
 ### 10.3 Architecture vs Implementation
 
-The architecture surface (the `cross_call!` macro, `HardFinalityCert`, unified gas model) is settled at genesis. The actual parachain layer ships post-mainnet on a 6-12 month horizon. The mainnet `cross_call!` macro initially returns a runtime "not yet supported" — contracts written today work without rewriting when parachains activate.
+The architecture surface (the `cross_call!` macro, `HardFinalityCert`, unified gas model) is settled at genesis. The actual parachain layer ships post-mainnet. The mainnet `cross_call!` macro initially returns a runtime "not yet supported" — contracts written today work without rewriting when parachains activate.
 
 ## 11. Performance
 
@@ -396,7 +396,7 @@ This is non-negotiable. No TPS claim is published externally without harness evi
 
 - **Total genesis supply:** 1,000,000,000 PYDE
 - **Inflation schedule:** 5% year 1, decreasing 3% / 2% / 1%, fixed at 1% thereafter
-- **Validator bond:** 10,000 PYDE per validator (anti-Sybil, not stake-weighted power)
+- **Validator bond:** two-tier — 10M PYDE committee / 100K PYDE non-committee (anti-Sybil, not stake-weighted power)
 - **Fee model:** EIP-1559 with elastic 4× blocks; **no priority tips** (priority would price the information asymmetry the encrypted mempool eliminates)
 
 ### 12.2 Fee Distribution
@@ -419,7 +419,8 @@ Two-chamber on-chain governance was evaluated and rejected — protocol upgrade 
 Validators progress through a state machine: registration → pending activation (1 epoch bonding) → active waiting → committee active (during selected epoch) → unbonding (30 days) → withdrawable.
 
 Key parameters:
-- Minimum stake: 10,000 PYDE
+- Committee minimum stake: 10,000,000 PYDE (10M)
+- Non-committee minimum stake: 100,000 PYDE (100K)
 - Maximum 5 validators per operator (identity-bound)
 - Bonding: 1 epoch
 - Unbonding: 30 days (must exceed safety evidence freshness window of 21 days)
@@ -462,23 +463,22 @@ Pyde's hybrid hashing (Poseidon2 for ZK paths) keeps zero-knowledge proof option
 
 ### 15.4 Programmable Accounts & Session Keys
 
-Native multisig ships at v1. Programmable accounts (PVM bytecode policies authorizing arbitrary spending logic) and session keys (scoped dApp delegation without per-action wallet popups) ship post-mainnet (~12-18 months). The `AuthKeys` enum reserves the `Programmable` variant at genesis so contracts written today survive the upgrade without rewriting.
+Native multisig ships at v1. Programmable accounts (PVM bytecode policies authorizing arbitrary spending logic) and session keys (scoped dApp delegation without per-action wallet popups) ship post-mainnet. The `AuthKeys` enum reserves the `Programmable` variant at genesis so contracts written today survive the upgrade without rewriting.
 
 ### 15.5 Parachain Layer
 
-The protocol-level cross-chain primitives (`cross_call!`, `HardFinalityCert`) ship at genesis with mainnet stubs. The actual parachain layer — specification, reference implementations, operator economics, bridges to Ethereum/Cosmos/Solana — ships post-mainnet on a 6-12 month horizon.
+The protocol-level cross-chain primitives (`cross_call!`, `HardFinalityCert`) ship at genesis with mainnet stubs. The actual parachain layer — specification, reference implementations, operator economics, bridges to Ethereum/Cosmos/Solana — ships post-mainnet.
 
 ## 16. Conclusion
 
 Pyde represents a chain built around the architectural requirements of the next decade: post-quantum security, MEV resistance, sub-second finality, and commodity-hardware decentralization for users and infrastructure. The pivot from in-house HotStuff to Mysticeti-style DAG consensus reflects an explicit commitment to designing from a clean foundation rather than patching accumulated technical debt.
 
-Realistic timeline to v1 mainnet: **24-36 months** of focused engineering, including external security audit and multi-region testnet validation. The design is complete; implementation is the multi-year work ahead.
+The design is complete; implementation is the work ahead. Mainnet ships when external security audit + multi-region testnet validation pass — no public schedule.
 
 This is not a chain that ships in six months. It is a chain that aims to occupy a category — post-quantum, MEV-free, commodity-validated — that no production chain occupies today. The window for that occupancy is open and time-bound.
 
 ---
 
 **Document version:** 0.1
-**Date:** 2026-05-18
 **Status:** Living document
 **License:** See repository root

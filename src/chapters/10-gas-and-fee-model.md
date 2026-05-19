@@ -252,10 +252,12 @@ when inflation is generous, but it makes the security budget brittle: as
 inflation decreases, validator economics become fully dependent on tip
 volume, which Pyde doesn't have.
 
-The 20% proposer cut directly compensates the validator that proposed the
-block and ties their compensation to network usage in addition to
-inflation. The 10% treasury share funds protocol work via PIP-driven
-multisig spends (Chapter 15).
+The 20% reward-pool share compensates the staked validator set (committee
++ non-committee, per stake × uptime) and ties their compensation to
+network usage in addition to inflation. Under the DAG there is no single
+proposer to credit, so the share is pooled and distributed at epoch end.
+The 10% treasury share funds protocol work via PIP-driven multisig spends
+(Chapter 15).
 
 ### Why no prover share?
 
@@ -551,7 +553,7 @@ The base fee for block `N+1` is computed from block `N`'s header by
 | Gas target                | 400,000,000 (50% of ceiling)                    |
 | Gas ceiling               | 1,600,000,000 (4× target — elastic max)         |
 | Priority fee / tip        | None                                             |
-| Fee distribution          | 70% burn / 20% proposer / 10% treasury          |
+| Fee distribution          | 70% burn / 20% reward pool / 10% treasury       |
 | Sponsored transactions    | Native (`gas_tank` field + paymaster pattern)   |
 | Validation gas cap (paymaster)| 100,000                                      |
 | Max tx size               | 128 KB (`MAX_TX_SIZE`)                           |

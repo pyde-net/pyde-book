@@ -52,7 +52,7 @@ This documentation reflects **designed architecture**, not shipped implementatio
 
 | Aspect | Status |
 |---|---|
-| Architecture design | ✅ Complete (Q2 2026) |
+| Architecture design | ✅ Complete |
 | Execution layer (PVM + Otigen) | 🟡 Functional, needs hybrid execution + access list extensions |
 | State layer (JMT) | 🟡 In place, needs hybrid hashing (Blake3 + Poseidon2) |
 | Consensus (Mysticeti DAG) | 🔴 Not yet implemented (post-pivot rebuild) |
@@ -60,7 +60,7 @@ This documentation reflects **designed architecture**, not shipped implementatio
 | Network protocol | 🟡 Existing in legacy, needs libp2p + QUIC migration |
 | Performance harness | 🔴 Not yet built |
 
-Realistic v1 mainnet timeline: **24-36 months** of solo development, plus external audit.
+Mainnet ships when the work above is complete and external audit passes. No public schedule.
 
 ## Reading Order
 
@@ -76,4 +76,4 @@ See [LICENSE](../LICENSE) at repository root.
 
 ## Status
 
-**Living documents.** Updated as the design evolves. Last major revision: 2026-05-18.
+**Living documents.** Updated as the design evolves.

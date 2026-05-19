@@ -149,7 +149,7 @@ When a round skips, its vertices aren't lost — the next round's commit absorbs
 ### Size & Selection
 
 - **128 validators per epoch**
-- **Selection: uniform random** from validators with stake ≥ 10K PYDE minimum bond
+- **Selection: uniform random** from validators with stake ≥ 10M PYDE (committee tier; non-committee 100K validators stake but aren't eligible for the active committee until their stake reaches the committee floor)
 - **Anti-Sybil:** operator identity binding, max 5 validators per operator
 - **Epoch length:** 10,000 slots ≈ 2.78 hours
 
@@ -339,10 +339,10 @@ The chain self-heals from any subset failure that maintains ≥85 functional val
 🔴 **Mysticeti DAG implementation: not yet built.** Pre-pivot HotStuff archived in `legacy/`.
 
 Implementation strategies:
-- **Option A: Fork Sui's Mysticeti** (open source) and adapt to FALCON sigs. Saves 6-12 months of consensus engineering.
-- **Option B: Write from scratch** for full control. Doubles timeline.
+- **Option A: Fork Sui's Mysticeti** (open source) and adapt to FALCON sigs. Saves substantial consensus engineering — Mysten Labs has spent years getting the algorithm correct.
+- **Option B: Write from scratch** for full control. Larger surface to audit, more bugs to find.
 
-Recommendation: Option A for v1. Audit + adaptation for FALCON sigs is the work; correctness of the core algorithm leverages Mysten Labs' years of engineering.
+Recommendation: Option A for v1. The work is audit + adaptation for FALCON sigs; correctness of the core algorithm leverages Mysten Labs' existing engineering.
 
 ## References & Cross-References
 

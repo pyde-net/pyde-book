@@ -71,7 +71,7 @@ and the post-mainnet roadmap.
 | `RESHARE_AGGREGATION_DELAY_WAVES`  | 5                               | `crypto/threshold.rs` / validator   |
 | `MIN_COMMITTEE_STAKE`              | 10M PYDE                        | `slashing/lib.rs`                   |
 | `MIN_NON_COMMITTEE_STAKE`          | 100K PYDE                       | `slashing/lib.rs`                   |
-| `UNBONDING_PERIOD`                 | 14 days                          | `consensus/validator.rs`            |
+| `UNBONDING_PERIOD`                 | 30 days                          | `consensus/validator.rs`            |
 | `FINDER_FEE_PERCENT`               | 10                              | `slashing/lib.rs`                   |
 | `EVIDENCE_VERSION`                 | 1                               | `slashing/lib.rs`                   |
 | `MULTISIG_VERSION`                 | 0x01                            | `tx/multisig.rs`                    |
@@ -175,7 +175,7 @@ Defined in `crates/tx/src/types.rs`.
 | 0   | `Standard`        | Value transfer or contract call                         |
 | 1   | `Deploy`          | Contract deployment                                     |
 | 2   | `Batch`           | Multiple operations atomically (or best-effort)         |
-| 3   | `StakeDeposit`    | Lock 10K PYDE, register validator (data = FALCON pubkey)|
+| 3   | `StakeDeposit`    | Lock ≥ tier-min PYDE (10M committee / 100K non-committee), register validator|
 | 4   | `StakeWithdraw`   | Begin 14-day unbonding                                  |
 | 5   | `Slash`           | Submit double-sign evidence                             |
 | 6   | `ClaimReward`     | Claim accrued staking yield from the pool               |

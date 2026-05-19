@@ -57,7 +57,6 @@ protocol that Sui has been running in production since 2024.
 | Committee defense | Operational sentry pattern only | Sentry pattern with protocol support |
 | Cross-chain | Stub `cross_call!` | `cross_call!` + parachain operator network (v2) |
 | Account abstraction | Single + Multisig | Single + Multisig (max 16) + Programmable (v2 reserved) |
-| Timeline | 9-11 months from project start | 24-36 months from May 2026 pivot |
 
 ## What Stayed the Same
 

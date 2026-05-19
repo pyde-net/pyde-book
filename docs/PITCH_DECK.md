@@ -71,7 +71,7 @@ A Layer 1 chain built from scratch with all four properties as defaults:
 - Consensus (Mysticeti DAG): rebuild post-pivot
 - Network (libp2p migration): planned
 
-**Realistic v1 mainnet timeline: 24-36 months** including external audit.
+**Mainnet ships when the work above is complete and the external audit passes.** No public schedule.
 
 ## Performance Targets (Honest)
 
@@ -116,4 +116,4 @@ Looking for:
 
 **This is not vaporware. This is the architecture of the chain that exists for the next decade.**
 
-**Version 0.1 — 2026-05-18**
+**Version 0.1**

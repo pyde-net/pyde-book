@@ -115,7 +115,7 @@ This book is the comprehensive technical reference. Different paths for differen
 
 ## License
 
-See repository root.
+Apache-2.0 — see `LICENSE` at the repository root.
 
 ## Status
 

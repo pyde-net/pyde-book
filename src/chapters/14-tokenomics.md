@@ -246,25 +246,27 @@ running the production-grade hardware required for committee duty.
 A validator's gross income per year:
 
 1. **Inflation share.** A portion of the per-block inflation reward, paid
-   to the validator pool and divided by `ACTIVE_VALIDATOR_COUNT`
-   (discriminator `0x15` — diverges from the total registered count once
-   validators exit or are slashed).
-2. **Fee revenue.** 20% of every fee on every block they propose. Roughly
-   `1/n` of the total fee revenue at steady state.
+   to the epoch reward pool. Distributed across staked validators
+   (committee + non-committee) proportional to stake × uptime —
+   discriminator `0x15` tracks the active stake-weighted total used as
+   the denominator.
+2. **Fee revenue.** 20% of every fee in every committed wave flows to the
+   same epoch reward pool, distributed by the same stake × uptime rule
+   (there is no single proposer in the DAG to credit).
 
 ### Lazy reward accrual
 
 Rewards do not get pushed to the validator on every block — that would
-mean N writes per block. Instead, a global accumulator
-(`REWARDS_PER_VALIDATOR` at discriminator `0x14`) tracks the cumulative
-per-validator yield:
+mean N writes per block. Instead, a global per-stake accumulator
+(`REWARDS_PER_STAKE_UNIT` at discriminator `0x14`) tracks the cumulative
+yield per unit of staked PYDE × uptime:
 
 ```
 On each block:
-  rewards_per_validator += per_block_reward / ACTIVE_VALIDATOR_COUNT
+  rewards_per_stake_unit += per_block_reward / total_active_stake_weighted_by_uptime
 
 On ClaimReward (tx type 6):
-  owed = current_accumulator - validator.last_claimed_at
+  owed = (current_accumulator - validator.last_claimed_at) * validator.stake * validator.uptime_share
   pay owed
   validator.last_claimed_at = current_accumulator
 ```
@@ -287,7 +289,7 @@ Transitions:
 
 ```
 register     ->  Active
-StakeWithdraw ->  Unbonding (14-day countdown)
+StakeWithdraw ->  Unbonding (30-day countdown)
 unbond expires -> Exited (stake returned, removed from pool)
 slashed (forced) -> Exited (stake reduced or zero)
 ```
@@ -345,31 +347,38 @@ profit" incentives).
 
 ### Indicative APY
 
-APY is `(annual_rewards / 10_000 PYDE) * 100`. Rough numbers depend on:
-inflation rate that year, active validator count, fee revenue.
+APY = `(annual_PYDE_rewards / staked_PYDE) × 100`. The percentage is the
+same for both staking tiers (rewards distribute by stake × uptime);
+absolute PYDE per validator differs because committee bond (10M) is 100×
+the non-committee bond (100K).
 
-At year 1 with 128 validators and modest fee volume:
+At year 1 with 128 committee validators, modest fee volume, and 60% of
+mint flowing to the validator pool:
 
 ```
 Inflation share to validator pool (assume 60% of mint):
-  ~30M PYDE / 128 validators ≈ 234K PYDE per validator
-  / 10K stake = ~2,340% APY
-
-This drops sharply as the validator set grows and inflation falls:
-
-Year   Validators   Inflation   Indicative APY
-----   ----------   ---------   --------------
-1      128          5.0%        ~2,340%
-2      256          3.0%        ~700%
-3      512          2.0%        ~234%
-4+     ~1,000        1.0%        ~78%
-4+     ~5,000        1.0%        ~16%
-4+     ~10,000       1.0%        ~8%
+  ~30M PYDE / 128 validators ≈ 234K PYDE per committee validator
+  / 10M committee bond       ≈ 2.34% APY
+  per-token yield is identical for non-committee at 100K bond
+    (≈ 2.34K PYDE/year on a 100K stake)
 ```
 
-The high early APY is intentional — bootstrapping a 128-validator network
-with serious capital at risk requires enough early reward to cover the
-opportunity cost.
+The percentage drops as the validator set grows (more total bond competing
+for the same pool) and as inflation tapers from 5% to the 1% tail:
+
+| Year | Validators | Inflation | Indicative APY |
+| ---- | ---------- | --------- | -------------- |
+| 1    | 128        | 5.0%      | ~2.3%          |
+| 2    | 256        | 3.0%      | ~0.7%          |
+| 3    | 512        | 2.0%      | ~0.23%         |
+| 4+   | ~1,000     | 1.0%      | ~0.08%         |
+| 4+   | ~5,000     | 1.0%      | ~0.016%        |
+| 4+   | ~10,000    | 1.0%      | ~0.008%        |
+
+These are modest by design. High-bond tiers can't deliver 4-digit APYs
+without astronomical inflation, so the bootstrap incentive at year 1 is
+the **absolute PYDE reward** (~234K/year per committee validator), not
+the percentage.
 
 The exact split between validator pool and treasury inside the inflation
 mint, and the trajectory of total validator count, are governance

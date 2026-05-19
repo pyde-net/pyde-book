@@ -230,12 +230,12 @@ The node exposes a `pyde_`-prefixed JSON-RPC API on the configured port
 | `pyde_getCode`                     | address                     | hex bytecode                      |
 | `pyde_getStorageAt`                | (address, slot)             | hex value                         |
 | `pyde_chainId`                     | —                           | 0x-prefixed hex chain_id          |
-| `pyde_blockNumber`                 | —                           | 0x-prefixed hex head slot         |
+| `pyde_blockNumber`                 | —                           | 0x-prefixed hex head block number |
 | `pyde_gasPrice`                    | —                           | current base fee (quanta)         |
 | `pyde_stateRoot`                   | —                           | current state root (hex)          |
-| `pyde_syncing`                     | —                           | `{headSlot, epoch, stateRoot}`    |
+| `pyde_syncing`                     | —                           | `{headBlock, epoch, stateRoot}`   |
 | `pyde_getValidators`               | —                           | validators with status + stake    |
-| `pyde_getBlockByNumber`            | slot                        | BlockHeader                       |
+| `pyde_getBlockByNumber`            | block_number                | BlockHeader                       |
 | `pyde_getBlockByHash`              | hash                        | BlockHeader                       |
 | `pyde_getTransactionReceipt`       | tx_hash                     | receipt with logs + fee breakdown |
 | `pyde_getLogs`                     | filter                      | matching logs                     |
@@ -261,7 +261,7 @@ The node exposes a `pyde_`-prefixed JSON-RPC API on the configured port
 - Nonce bitmap window.
 - Balance vs `gas_limit * base_fee + value`.
 - Gas bounds (`21_000 <= gas_limit <= GAS_CEILING`).
-- Deadline (if set) > current slot.
+- Deadline (if set) > current block number.
 - Access list dedup.
 - Tx size (≤ 128 KB), calldata size (≤ 64 KB).
 

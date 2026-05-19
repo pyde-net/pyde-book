@@ -141,7 +141,8 @@ target┤----+                 +---+----  target line
   decrypt, and execute. The per-validator memory ceiling caps how high this
   can safely go on commodity hardware.
 - **Decryption + voting timing.** Threshold decryption shares for a 4× block
-  take longer to combine; the slot timing budget assumes the worst case fits.
+  take longer to combine; the wave-commit timing budget assumes the worst
+  case fits.
 - **State growth.** Larger blocks drive faster state growth. The 4× ceiling
   bounds worst-case growth by the same factor.
 
@@ -178,9 +179,9 @@ pays exactly:
 fee = gas_used * base_fee
 ```
 
-There is no bidding, no auction, no out-of-protocol payment to the
-proposer. The MEV-protection consequences are spelled out in Chapter 9; the
-gas-economics consequences are:
+There is no bidding, no auction, no out-of-protocol payment to any
+committee validator. The MEV-protection consequences are spelled out in
+Chapter 9; the gas-economics consequences are:
 
 - **Predictable fees.** Wallets can quote a single number, not a range.
 - **No fee market gaming.** No need for fee-estimation oracles or

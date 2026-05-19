@@ -5,8 +5,8 @@ The PYDE token is the native asset of the Pyde blockchain. It is used for: gas p
 ## Total Supply & Genesis
 
 - **Total genesis supply:** 1,000,000,000 PYDE
-- **Decimal places:** 18 (canonical for L1 chains)
-- **Smallest unit:** 1 PYDE-wei = 10^-18 PYDE
+- **Decimal places:** 9 (1 PYDE = 10^9 quanta — see Chapter 14 for the full denomination ladder)
+- **Smallest unit:** 1 quanta = 10^-9 PYDE
 
 ## Initial Distribution (v1)
 

@@ -341,10 +341,10 @@ less).
 
 Even if encryption + commitment + mandatory inclusion fully closed the
 direct ordering attacks, a tip would re-open the bribery channel. A
-searcher could pay a proposer out-of-protocol to delay a tx, to position
-their own tx first, or to censor a competitor's tx. Tips create the
-economic incentive for all of those attacks; absent tips, the proposer
-gains nothing from any of them.
+searcher could pay a committee validator out-of-protocol to delay a tx,
+to position their own tx first, or to censor a competitor's tx. Tips
+create the economic incentive for all of those attacks; absent tips, no
+validator gains anything from any of them.
 
 ### How ordering happens
 
@@ -448,7 +448,7 @@ Sandwich attack requires:
 Censoring a competitor's tx requires:
   - Selectively omitting it           <- blocked by mandatory inclusion (Layer 3)
 
-Bribing a proposer for ordering requires:
+Bribing a committee validator for ordering requires:
   - A protocol mechanism to pay them   <- doesn't exist (Layer 4)
 ```
 
@@ -491,8 +491,8 @@ tx/s, 100 concurrent) caps the throughput an attacker can sustain.
 
 PSS resharing happens at every epoch boundary. The threshold public key is
 unchanged across boundaries — wallets continue encrypting against the same
-key. The 5-slot aggregation delay
-(`RESHARE_AGGREGATION_DELAY_SLOTS`) ensures every new committee member
+key. The 5-round aggregation delay
+(`RESHARE_AGGREGATION_DELAY_ROUNDS`) ensures every new committee member
 agrees on the same canonical contribution set before the new shares
 become live.
 
@@ -582,9 +582,9 @@ Honest about the limits:
   has a built-in tip mechanism (priority gas auctions inside the contract
   itself), Pyde's protocol-level MEV protection doesn't reach into it.
 
-For mainnet, the in-scope guarantees are: no front-running by the
-proposer, no sandwich attacks composable through the mempool, no censorship
-by the proposer of decryptable txs, and no bribery channel for ordering.
+For mainnet, the in-scope guarantees are: no front-running by any
+committee member, no sandwich attacks composable through the mempool, no
+censorship of decryptable txs, and no bribery channel for ordering.
 
 ---
 

@@ -315,7 +315,7 @@ Correlated slashing applies a 2× multiplier when many validators offend simulta
 ## 15. Recovery Properties
 
 - **Single validator offline:** other 127 continue normally. Validator catches up via gossip; loses activity rewards.
-- **43+ validators offline (just below BFT threshold):** soft stall; downtime slashing PAUSES (partition-aware); resumes when active count returns to 86+.
+- **43+ validators offline (at the BFT quorum boundary, 85 active = 2f+1 with no margin):** soft stall; downtime slashing PAUSES (partition-aware); resumes when active count returns to 86+ (one above the quorum minimum).
 - **Network partition:** majority-side continues if quorum maintained; minority stalls.
 - **State root divergence:** hard halt; investigation; rollback within 1 epoch; slashing for wrong-root signers.
 

@@ -314,9 +314,9 @@ discouraged — it is structurally unexpressible.
 
 ### The attack
 
-A malicious proposer produces a block whose claimed post-state root
-doesn't actually match the result of executing the block's transactions.
-Honest validators would incorrectly accept a bogus state.
+A malicious vertex producer submits a wave-anchor candidate whose claimed
+post-state root doesn't actually match the result of executing the wave's
+transactions. Honest validators would incorrectly accept a bogus state.
 
 ### The defense
 
@@ -588,7 +588,7 @@ flooding, RPC DoS, eclipse simulations) runs in parallel.
 | Property / defense                          | Status at mainnet                |
 | ------------------------------------------- | -------------------------------- |
 | BFT safety `f < n/3`                        | Shipped                          |
-| Liveness `86/128 honest + online`           | Shipped                          |
+| Liveness `85/128 honest + online` (2f+1)    | Shipped                          |
 | Weak-subjectivity checkpoints                | Shipped                          |
 | FALCON peer authentication                   | Shipped                          |
 | Validator-channel filtering                  | Shipped                          |

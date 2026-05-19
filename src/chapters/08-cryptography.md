@@ -417,7 +417,7 @@ the first `t`. This is implemented as `canonical_resharing_subset()` in
 ### The aggregation delay
 
 Because the network delivers contributions asynchronously, every new member
-waits `RESHARE_AGGREGATION_DELAY_SLOTS = 5` slots after entering the new
+waits `RESHARE_AGGREGATION_DELAY_ROUNDS = 5` rounds after entering the new
 epoch before aggregating. This guarantees that the same canonical set is
 visible to every new member when aggregation begins.
 
@@ -468,15 +468,18 @@ Verify(pk, input, output, proof):
 
 ### Where the VRF is used
 
-1. **Proposer selection.** Each slot, every committee member computes their
-   own VRF output for `epoch_randomness || slot`. Lowest score is the
-   primary proposer; second-lowest is the fallback.
+1. **Anchor selection (indirect).** Each round, the canonical anchor is
+   computed as `Hash(beacon, round, recent_state_root) mod 128` (see
+   Chapter 6 §3). The beacon itself is the threshold-aggregated VRF
+   output of the prior epoch's committee — so VRF underpins anchor
+   selection one step removed, not per-round.
 2. **Epoch randomness contributions.** Each member of the previous epoch's
    committee contributes a VRF share that, combined with 84 others, seeds
-   the next epoch's committee selection.
+   the next epoch's beacon.
 3. **Committee selection scoring.** At each epoch boundary, every registered
-   validator gets a VRF score from `epoch_randomness || "committee"`; top
-   128 form the next committee.
+   validator gets a VRF score from `epoch_randomness || "committee"`; the
+   uniform-random subset of eligible validators chosen by this score
+   forms the next committee.
 
 ---
 
@@ -615,5 +618,5 @@ happen if a substantive cryptanalytic break appeared.
 | AES-256-GCM        | Symmetric AEAD (mempool payload, wallet keystore)| (via the `aes-gcm` crate)        |
 
 The next chapter walks through MEV protection end-to-end — how these
-primitives combine in the slot pipeline to make front-running and sandwich
-attacks not "discouraged," but unexpressible.
+primitives combine in the DAG wave-commit pipeline to make front-running
+and sandwich attacks not "discouraged," but unexpressible.

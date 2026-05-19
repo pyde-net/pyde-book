@@ -58,7 +58,7 @@ T+30d   Drill that scenario in testnet
 
 - **Trigger:** BGP routing issue, undersea cable cut, ISP outage
 - **Detection:**
-  - Active committee count drops below 86 (quorum threshold)
+  - Active committee count drops below 85 (quorum threshold = 2f+1, f=42)
   - Soft stall triggered automatically
   - Downtime slashing PAUSES (partition-aware)
 - **Initial Response:**

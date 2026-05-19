@@ -63,8 +63,8 @@ Step 5 — Validator upgrade
     early as they want; the new code is dormant until activation block.
 
 Step 6 — Activation
-    At the named slot, every node running the new release starts using
-    the new rule. Nodes still on the old release either:
+    At the named activation block, every node running the new release
+    starts using the new rule. Nodes still on the old release either:
       - Fork off (if the change is consensus-incompatible).
       - Stay in sync (if the change is backward-compatible).
 
@@ -300,8 +300,9 @@ T+1 week:   Old releases marked deprecated.
 
 The "80% signaling threshold" is a social norm, not a protocol enforced
 threshold. The protocol-enforced threshold is 2f+1 = 85 of 128 — but
-shipping with 86/128 is brittle if a validator goes offline mid-flight.
-80%+ as a social coordination target gives margin.
+shipping at exactly 85 is brittle: a single validator going offline
+mid-flight drops the network below quorum. 80%+ as a social coordination
+target gives margin above the protocol minimum.
 
 ### Validator signaling
 
@@ -314,7 +315,8 @@ signaling happens out-of-band:
 - Validators may also announce intent in PIP discussion threads.
 
 A more formal on-chain signal (e.g., embedding the running release in
-the proposer's vote) is on the post-mainnet improvement list.
+each committee member's vertex attestation) is on the post-mainnet
+improvement list.
 
 ---
 

@@ -176,7 +176,7 @@ Defined in `crates/tx/src/types.rs`.
 | 1   | `Deploy`          | Contract deployment                                     |
 | 2   | `Batch`           | Multiple operations atomically (or best-effort)         |
 | 3   | `StakeDeposit`    | Lock ≥ tier-min PYDE (10M committee / 100K non-committee), register validator|
-| 4   | `StakeWithdraw`   | Begin 14-day unbonding                                  |
+| 4   | `StakeWithdraw`   | Begin 30-day unbonding                                  |
 | 5   | `Slash`           | Submit double-sign evidence                             |
 | 6   | `ClaimReward`     | Claim accrued staking yield from the pool               |
 | 7   | `ClaimAirdrop`    | Claim genesis airdrop with Merkle proof                 |
@@ -359,7 +359,7 @@ The key headline figures, with their sources:
 | 5% → 1% inflation schedule          | `INFLATION_BPS` in `tx/fee.rs`                 |
 | 10M PYDE committee min stake        | `MIN_COMMITTEE_STAKE` in `slashing/lib.rs`     |
 | 100K PYDE non-committee min stake   | `MIN_NON_COMMITTEE_STAKE` in `slashing/lib.rs` |
-| 14-day unbonding                    | `UNBONDING_PERIOD` in `consensus/validator.rs` |
+| 30-day unbonding                    | `UNBONDING_PERIOD` in `consensus/validator.rs` |
 | 16-slot nonce window                | `WINDOW_SIZE` in `account/nonce.rs`            |
 | 128 KB tx / 64 KB calldata caps     | `MAX_TX_SIZE`, `MAX_CALLDATA` in `tx/validation.rs`|
 | 4 MB batch hard cap                 | `MAX_BATCH_SIZE` in `mempool/batch.rs`          |

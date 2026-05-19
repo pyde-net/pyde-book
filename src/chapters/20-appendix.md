@@ -151,8 +151,8 @@ Defined in `crates/state/src/keys.rs`.
 | ------------- | ------------------------- | --------------------------------------- |
 | 0x12          | `SUPPLY`                  | Total PYDE supply counter                |
 | 0x13          | `TOTAL_BURNED`            | Cumulative fee burn counter              |
-| 0x14          | `REWARDS_PER_VALIDATOR`   | Lazy-accrual block reward accumulator    |
-| 0x15          | `ACTIVE_VALIDATOR_COUNT`  | Pool divisor (excludes exited / slashed) |
+| 0x14          | `REWARDS_PER_STAKE_UNIT`  | Lazy-accrual per-stake-unit reward accumulator |
+| 0x15          | `ACTIVE_STAKE_WEIGHTED_TOTAL` | Pool divisor (sum of stake × uptime; excludes exited / slashed) |
 | 0x16          | `VESTING`                 | Per-account vesting schedule (40 bytes)  |
 | 0x17          | `VALIDATOR_SUBSIDY`       | (total_amount, end_wave) streaming subsidy|
 | 0x18          | `AIRDROP_ROOT`            | Genesis airdrop Merkle root              |

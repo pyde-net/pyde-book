@@ -82,7 +82,7 @@ Compact-encoded (parent refs as bitmap, hash truncation):
 
 A round is a layer in the DAG. The round counter is **data-driven**, not clock-driven:
 
-A member ticks from round N to N+1 the moment they collect ≥85 valid round-N parent vertices in their local DAG view. Slow members lag behind in their counter; the slowest 42 of 128 don't block anyone.
+A member ticks from round N to N+1 the moment they collect ≥85 valid round-N parent vertices in their local DAG view. Slow members lag behind in their counter; the slowest 43 of 128 don't block anyone (128 − 85 = 43 can lag without holding up the rest).
 
 ```
 Round 5: [128 vertices, one per member]
@@ -195,7 +195,7 @@ The number 85 appears throughout the protocol:
 
 ### Safety
 
-Holds under any network conditions assuming fewer than `f=42` Byzantine members. Safety property: no two conflicting commits.
+Holds under any network conditions assuming at most `f = 42` Byzantine members (the BFT tolerance `⌊(n-1)/3⌋` with n = 128). Safety property: no two conflicting commits.
 
 ### Liveness
 

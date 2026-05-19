@@ -189,7 +189,7 @@ When the anchor vertex collects sufficient support from later rounds (Mysticeti'
 
 ### 5.6 Safety, Liveness, and Halt Recovery
 
-Pyde inherits standard BFT guarantees: safety holds under any network conditions assuming fewer than `f=42` Byzantine members; liveness holds under partial synchrony.
+Pyde inherits standard BFT guarantees: safety holds under any network conditions assuming at most `f = 42` Byzantine members (the BFT tolerance `⌊(n-1)/3⌋` with n = 128); liveness holds under partial synchrony.
 
 When safety appears at risk (e.g., contradictory state-root signatures detected), the protocol auto-halts. Three halt classes — **soft stall** (auto-recover), **hard halt** (manual investigation), **emergency halt** (governance multisig) — each with explicit detection, investigation, and recovery procedures.
 

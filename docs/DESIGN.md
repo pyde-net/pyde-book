@@ -126,7 +126,7 @@ End-to-end latency: ~500ms median for plaintext, ~700ms for encrypted (decryptio
 
 ### Safety & Liveness
 
-- **Safety:** Mysticeti BFT — holds under any network with fewer than `f=42` Byzantine members
+- **Safety:** Mysticeti BFT — holds under any network with at most `f = 42` Byzantine members (BFT tolerance `⌊(n-1)/3⌋` for n = 128)
 - **Liveness:** holds under partial synchrony
 - **Recovery:** explicit halt detection + investigation + recovery (see [CHAIN_HALT.md](./CHAIN_HALT.md))
 - **Rollback:** bounded to 1 epoch (3 hours) via governance multisig; beyond that, only hard fork

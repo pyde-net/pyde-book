@@ -651,18 +651,24 @@ collision from clobbering the signer-set update.
 
 ---
 
-## 14.11 Active-Validator Divisor and Unified Parsing
+## 14.11 Active-Stake Divisor and Unified Parsing
 
-The pool-share calculation divides by `ACTIVE_VALIDATOR_COUNT`
-(discriminator `0x15`) — the count of validators currently in `Active`
-status. This diverges from `VALIDATOR_COUNT` (the total registered
-count) once validators exit or are slashed.
+The pool-share calculation divides by `ACTIVE_STAKE_WEIGHTED_TOTAL`
+(discriminator `0x15`) — the sum of `stake × uptime_share` across every
+validator currently in `Active` status. This diverges from
+`VALIDATOR_COUNT` (the total registered count) once validators exit or
+are slashed, and from a flat-per-validator divisor once validators
+differ in stake or uptime (the common case across the two staking tiers).
 
 Without this divisor, exited validators would dilute the pool share —
-even though they're not contributing security. Decremented on:
+even though they're not contributing security. Adjusted on:
 
-- `StakeWithdraw` (validator transitions to `Unbonding`)
-- `Slash` of an `Active` validator
+- `StakeWithdraw` (validator transitions to `Unbonding`; their stake
+  weight is removed from the total)
+- `Slash` of an `Active` validator (stake weight decreases, or removed
+  entirely on jail/exit)
+- Each block where a validator's `uptime_share` changes (lazy, indexed
+  by the same accumulator pattern as `REWARDS_PER_STAKE_UNIT`)
 
 `ValidatorEntry` parsing is unified through `ValidatorEntry::decode()` —
 the same parser is used by every consensus and tx-handler call site.

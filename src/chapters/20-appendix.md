@@ -340,8 +340,8 @@ root.
 | Rust SDK             | `crates/pyde-rust-sdk/src/{lib,client,wallet,contract,signer,abi,types,ws}.rs` |
 | WASM crypto          | `crates/pyde-crypto-wasm/src/lib.rs`                          |
 
-Mainnet plan, audit trail, and current task status: `MAINNET_PLAN.md` at
-the repo root.
+Launch plan, hardening status, and the phased route to mainnet:
+chapter 19 (Launch Strategy).
 
 ---
 
@@ -401,6 +401,7 @@ Everything that doesn't ship at mainnet is tracked, scoped, and
 prioritized for post-launch work. Honesty about what's in vs out is the
 single biggest difference between this book and earlier drafts.
 
-The next thing to read isn't a chapter — it's the `MAINNET_PLAN.md` in
-the repo root, where the work-in-flight to launch lives, and the
-`docs/` directory at the repo root for full technical specs.
+The next thing to read isn't a separate file — it's chapter 19
+(Launch Strategy), where the phased work-in-flight to mainnet lives.
+The `docs/` directory at the repo root holds the full technical specs
+(WHITEPAPER, DESIGN, threat model, performance harness).

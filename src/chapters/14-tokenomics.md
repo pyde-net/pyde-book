@@ -640,7 +640,7 @@ unconditionally writes the sender's and recipient's account state back to
 the JMT. If a `MultisigTx` handler credits a `target` that collides with
 either `tx.from` or `tx.to`, the writeback would overwrite the credit.
 
-The fix (slice 4.5 audit-fix):
+The fix:
 
 - `MultisigTx` rejects if `spend.target == tx.from` (submitter).
 - `MultisigTx` rejects if `tx.to != Address::ZERO` (must not collide with

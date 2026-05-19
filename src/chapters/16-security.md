@@ -392,9 +392,8 @@ emit bytecode that violates the source semantics. Mitigations:
 
 - **Unit tests per codegen pattern.** The `crates/otic/tests` suite
   covers every lowering pattern.
-- **Property tests** (slice 5.1) for core mechanics.
-- **External audit** of the otic compiler is in Phase 8 of the mainnet
-  plan (external audit: otic compiler, task 093).
+- **Property tests** for core mechanics.
+- **External audit** of the otic compiler before mainnet.
 
 ---
 
@@ -415,12 +414,12 @@ behavior path.
 Post-audit hardening specific to the VM:
 
 - **Wide register index check.** `read_wide_checked`/`write_wide_checked`
-  trap on indices ≥ 8 instead of silently masking (task 013).
+  trap on indices ≥ 8 instead of silently masking.
 - **Jump/call bounds check.** The interpreter validates
-  `CODE_START <= pc < code_end` on every jump (task 008).
+  `CODE_START <= pc < code_end` on every jump.
 - **AOT host error propagation.** Storage host calls return `1` on fault;
   the JITed code branches to its trap handler instead of silently
-  succeeding (task 014).
+  succeeding.
 - **Push-error propagation.** `host_push` now returns 1 on underlying
   store error — a stack push that hit a memory fault now traps cleanly.
 
@@ -473,7 +472,7 @@ testnet tx cannot be submitted to mainnet. Chain IDs:
 The chain_id is always enforced; the `dev_skip_signature` flag only
 disables *signature* verification for chain_id 31337 (devnet), and only
 if the config explicitly allows it. On any chain_id other than 31337,
-signatures are always required (task 012).
+signatures are always required.
 
 ### Same-chain replay
 
@@ -485,7 +484,7 @@ slides past it. A replayed tx hits the bitmap and is rejected.
 
 Treasury multisig spends include the current `MULTISIG_NONCE` in the
 signing bytes. After a spend, the nonce bumps, so the same signed bytes
-cannot be replayed (task 044).
+cannot be replayed.
 
 ### Emergency replay
 
@@ -507,7 +506,7 @@ protections:
 3. **Rotation.** `RotateMultisig` can replace the signer set; no single
    signer is entrenched.
 4. **Writeback-clobber protection.** `spend.target != tx.from`,
-   `tx.to == 0x00` (task 045). Prevents the post-execution pipeline from
+   `tx.to == 0x00`. Prevents the post-execution pipeline from
    accidentally overwriting the spend.
 5. **Nonce-bound signatures.** Each spend bumps `MULTISIG_NONCE`; replays
    fail.
@@ -542,20 +541,20 @@ Aspects that are not cryptographic but matter at mainnet operation:
 
 ## 16.16 Hardening Work In-Flight
 
-Post-audit but pre-mainnet work being tracked (from the mainnet plan):
+Pre-mainnet hardening work tracked in the launch plan (chapter 19):
 
-| Task   | Status at launch                                          |
+| Task   | Status                                                   |
 | ------ | --------------------------------------------------------- |
-| Clippy/fmt/audit/deny in CI | Phase 5 hardening; shipping          |
-| `cargo-fuzz` on PVM/tx/consensus/RPC/otic | Phase 5; 72+ h runs |
-| Property tests on pipeline + tokenomics | Slice 5.1 shipped; 5.2 in flight |
-| Witness 1 MB bound validation | Shipped (task 056)                    |
-| Separate `MAX_CALLDATA` cap | Shipped (task 055)                       |
-| `unsafe` block invariant docs | Phase 5; being documented              |
-| `unwrap()` triage on untrusted paths | Phase 5; ongoing                |
+| Clippy/fmt/audit/deny in CI | Hardening track; shipping             |
+| `cargo-fuzz` on PVM/tx/consensus/RPC/otic | 72+ h runs           |
+| Property tests on pipeline + tokenomics | Initial properties shipped; expanding |
+| Witness 1 MB bound validation | Shipped                              |
+| Separate `MAX_CALLDATA` cap | Shipped                                |
+| `unsafe` block invariant docs | Being documented                     |
+| `unwrap()` triage on untrusted paths | Ongoing                       |
 | ml-kem 0.3.0-rc -> stable upgrade | Post-standards-release         |
-| Persistent receipt store (archive mode) | Post-mainnet (task 058)  |
-| Signed-commitment mandatory inclusion | Post-mainnet (Ch 9)         |
+| Persistent receipt store (archive mode) | Post-mainnet            |
+| Signed-commitment mandatory inclusion | Post-mainnet (Ch 9)     |
 | Pedersen / KZG commitments for PSS   | Post-mainnet                   |
 | Algebraic batch FALCON verify         | Post-mainnet                   |
 
@@ -566,8 +565,8 @@ well-scoped set of known future hardening items.
 
 ## 16.17 External Audits
 
-Phase 8 of the mainnet plan schedules five independent external audits
-before launch:
+The launch plan schedules five independent external audits before
+mainnet:
 
 | Audit scope                                                                       |
 | --------------------------------------------------------------------------------- |

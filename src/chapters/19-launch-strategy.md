@@ -18,6 +18,18 @@ from genesis. ZK proving, parachain operator network, additional SDKs,
 signed-mempool commitments, and other hardening items are **explicitly
 post-mainnet**.
 
+> **Honest framing for the "Done" rows below.** Many tables in this
+> chapter list items completed against the pre-pivot HotStuff codebase
+> (now in `legacy/`). Work in the PVM, AOT compiler, state layer (JMT),
+> transaction pipeline, tokenomics, vesting, airdrop, and multisig
+> **survives the pivot intact** — those "Done" rows still apply. Work in
+> consensus, mempool, networking, and gossip describes **properties** —
+> the test cases, invariants, and lessons stay; **the code does not** and
+> the same properties must be re-established in the new Mysticeti DAG
+> implementation. The "Done" status records progress on the property,
+> not shipped DAG code. Phase 6 multi-node tests in particular were
+> against the HotStuff implementation and must be redone post-pivot.
+
 ---
 
 ## 19.1 Launch Philosophy
@@ -70,29 +82,34 @@ to be true before the chain can move on.
 
 **Goal.** Fix the issues that would make any later test or launch unsafe.
 
-The audit at the start of this phase identified specific bugs:
+> **Pivot scoping note.** Most items in the table below were completed
+> against the pre-pivot HotStuff codebase. After the May 2026 pivot,
+> consensus / mempool / networking moved to `legacy/` and need to be
+> re-built on Mysticeti DAG. **Items marked "Done (pre-pivot, applies)"
+> are in code that survives the pivot (PVM, AOT, state, transaction
+> pipeline). Items marked "Done (pre-pivot, redo for DAG)" describe
+> properties that must be re-established in the new consensus
+> implementation — the lessons are kept; the code is not.**
 
-| Item                                                            | Status |
-| --------------------------------------------------------------- | ------ |
-| Persist `ConsensusState.pending_votes` to RocksDB                | Done   |
-| Persist `seen_proposals` and `seen_votes`                        | Done   |
-| Reload vote log on node startup; crash-kill-restart safety test  | Done   |
-| Define `TransactionType::Slash` variant                          | Done   |
-| Implement slash-tx handler that drains pending evidence          | Done   |
-| Set `submitter` in `DoubleSignEvidence`; pay 10% finder's fee     | Done   |
-| Evidence gossip on consensus channel                             | Done   |
-| PVM jump/call bounds check (`CODE_START <= pc < code_end`)       | Done   |
-| Set `witness.post_state_root` after execution                    | Done   |
-| Lock 70/20/10 fee split in code + comments + README              | Done   |
-| Bootstrap node lists for `MAINNET_BOOTSTRAP` / `TESTNET_BOOTSTRAP`| Done (config-injection ready)|
-| Config safeguard: `chain_id == 31337` sig-bypass cannot apply elsewhere | Done |
-| Trap on invalid wide-register index `>= 8`                        | Done   |
-| Propagate store errors in AOT host                               | Done   |
-| `WriteOptions::set_sync(true)` on consensus writes               | Done (task 014a) |
-| Halt validator on persist failure                                | Done (task 014b) |
-| Persist evidence state across restarts                           | Done (task 014c) |
-| Peer-score + rate-limit evidence ingest                          | Done (task 014d) |
-| Microbenchmark fsync overhead                                    | Done (task 014f) |
+| Item                                                                  | Status |
+| --------------------------------------------------------------------- | ------ |
+| Vote / vertex persistence durability (sync writes + crash safety)     | Done (pre-pivot, redo for DAG)   |
+| Define `TransactionType::Slash` variant                                | Done (pre-pivot, applies)   |
+| Slash-tx handler drains pending evidence                              | Done (pre-pivot, evidence format updates for DAG) |
+| Reporter field in evidence + 10% finder's fee                          | Done (pre-pivot, applies)   |
+| Evidence gossip channel                                               | Done (pre-pivot, redo for DAG)   |
+| PVM jump/call bounds check (`CODE_START <= pc < code_end`)            | Done (pre-pivot, applies)   |
+| Set `witness.post_state_root` after execution                          | Done (pre-pivot, applies)   |
+| Lock 70/20/10 fee split in code + comments + README                    | Done (pre-pivot, applies; recipient renamed to reward pool) |
+| Bootstrap seed lists for mainnet/testnet                               | Pending (depends on final genesis ceremony) |
+| Config safeguard: `chain_id == 31337` sig-bypass cannot apply elsewhere | Done (pre-pivot, applies) |
+| Trap on invalid wide-register index `>= 8`                            | Done (pre-pivot, applies)   |
+| Propagate store errors in AOT host                                    | Done (pre-pivot, applies)   |
+| `WriteOptions::set_sync(true)` on consensus writes                    | Done (pre-pivot, redo for DAG) |
+| Halt validator on persist failure (panic = "abort")                    | Done (pre-pivot, redo for DAG) |
+| Persist evidence state across restarts                                | Done (pre-pivot, redo for DAG) |
+| Peer-score + rate-limit evidence ingest                                | Done (pre-pivot, redo for DAG) |
+| Microbenchmark fsync overhead                                          | Done (pre-pivot, applies — ~25.5 µs per write) |
 | Unify slashing constants into shared crate                       | Done (task 014g) |
 
 **Exit criterion.** No critical-severity items remaining; the consensus
@@ -319,7 +336,7 @@ real PYDE-equivalent rewards, and a wide validator + user base.
 | Mainnet-scale bug bounty                                    | Pending |
 | Reference dApps: DEX, lending, NFT marketplace              | Pending |
 | Run 3+ months continuously                                  | Pending |
-| 12,500 sustained TPS under incentivized load                | Pending |
+| Headline TPS (v1 target band 10-30K plaintext) sustained under incentivized load, harness-measured | Pending |
 | 7-day no-restart sustain test                                | Pending |
 | Document all community-found issues                         | Pending |
 | Fix all critical + high severity before launch              | Pending |

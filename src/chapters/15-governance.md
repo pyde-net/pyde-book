@@ -140,15 +140,15 @@ land, regardless of how many off-chain signers nominally approved.
 
 ### Activation parameters
 
-Most consensus changes ship with an **activation block** — a specific slot
-height at which old nodes will produce blocks the new nodes reject (or
-vice versa). Validators run the upgrade window with both code paths
-available, switching to the new path at the activation block.
+Most consensus changes ship with an **activation height** — a specific
+`wave_id` at which old nodes will produce waves the new nodes reject
+(or vice versa). Validators run the upgrade window with both code paths
+available, switching to the new path at the activation wave.
 
 Backward-compatible changes (e.g., new opcodes that no existing contract
-uses) can ship without coordinated activation — they take effect when the
-upgraded validator is in the slot, are simply not used by old contracts,
-and become standard once enough nodes have upgraded.
+uses) can ship without coordinated activation — they take effect when an
+upgraded validator processes the wave, are simply not used by old
+contracts, and become standard once enough nodes have upgraded.
 
 ---
 
@@ -257,7 +257,7 @@ governance-relevant points:
   multisig (the same configuration mechanism, different state slot in a
   proper deployment).
 - Pausing requires the emergency signers; resuming requires the same.
-- Pause is auto-expiring at `MAX_PAUSE_DURATION_SLOTS` (~30 days). A
+- Pause is auto-expiring at `MAX_PAUSE_DURATION_WAVES` (~30 days). A
   paused chain cannot stay paused indefinitely without a fresh
   authorization.
 

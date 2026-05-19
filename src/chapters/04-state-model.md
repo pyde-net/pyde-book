@@ -186,7 +186,7 @@ Some discriminators currently in use (defined in `crates/state/src/keys.rs`):
 | 0x14          | `REWARDS_PER_VALIDATOR`   | Lazy-accrual block reward accumulator          |
 | 0x15          | `ACTIVE_VALIDATOR_COUNT`  | Pool divisor (excludes exited/slashed)         |
 | 0x16          | `VESTING`                 | Per-account vesting schedule                   |
-| 0x17          | `VALIDATOR_SUBSIDY`       | `(total_amount, end_slot)` for streaming subsidy|
+| 0x17          | `VALIDATOR_SUBSIDY`       | `(total_amount, end_wave)` for streaming subsidy|
 | 0x18          | `AIRDROP_ROOT`            | Genesis airdrop Merkle root                    |
 | 0x19          | `AIRDROP_DEADLINE`        | Slot height after which sweep is allowed       |
 | 0x1A          | `AIRDROP_CLAIMED`         | Per-leaf-index claim bitmap                    |
@@ -194,7 +194,7 @@ Some discriminators currently in use (defined in `crates/state/src/keys.rs`):
 | 0x1C          | `MULTISIG_SIGNERS`        | Treasury multisig signer set (FALCON pks)      |
 | 0x1D          | `MULTISIG_THRESHOLD`      | Required signature count                       |
 | 0x1E          | `MULTISIG_NONCE`          | Replay-protection counter for multisig actions |
-| 0x1F          | `EMERGENCY_PAUSE_END_SLOT`| End slot of an active emergency pause          |
+| 0x1F          | `EMERGENCY_PAUSE_END_WAVE`| End wave_id of an active emergency pause       |
 
 This flat scheme means a single Merkle path can prove any state claim — there
 is no nested account-trie / storage-trie indirection (the classic
@@ -353,9 +353,9 @@ A few things deliberately do **not** live in the JMT:
 
 - **Receipts.** Stored in an in-memory ring buffer
   (`crates/node/src/receipt_store.rs`, `MAX_RECEIPT_SLOTS = 10_000`). At
-  400 ms per slot, this is roughly 70 minutes of receipt history. Persisting
-  receipts across restarts (archive-node mode) is tracked as post-mainnet
-  hardening.
+  ~500 ms per wave commit, this is roughly 80 minutes of recent receipt
+  history. Persistent receipt storage (archive-node mode) is tracked as
+  post-mainnet hardening.
 
 - **Mempool contents.** Encrypted transactions live in process memory,
   bounded per sender by the rate-limiting subsystem (10 tx/s, 100 concurrent

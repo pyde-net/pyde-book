@@ -47,7 +47,7 @@ and the post-mainnet roadmap.
 | **Multisig signers** | The on-chain set authorized to spend the treasury (`MULTISIG_SIGNERS`).     |
 | **Emergency pause**  | Multisig-authorized halt of non-Resume txs; max 30 days, auto-expiring.     |
 | **Hard halt**        | Automatic chain halt on detected safety violation (state root divergence, equivocation cluster). |
-| **Weak-subjectivity checkpoint**| Hard-finalized block hash a fresh node trusts to anchor sync.    |
+| **Weak-subjectivity checkpoint**| Hard-finalized wave commit (`wave_id` + `state_root` + committee FALCON sigs) that a fresh node trusts to anchor sync. |
 | **Quanta**           | Smallest PYDE denomination. 1 PYDE = 10^9 quanta.                           |
 | **Access list**      | Per-tx declaration of state slots the tx will read or write.                |
 | **Nonce window**     | 16-slot bitmap of in-flight nonces per account.                              |
@@ -154,15 +154,15 @@ Defined in `crates/state/src/keys.rs`.
 | 0x14          | `REWARDS_PER_VALIDATOR`   | Lazy-accrual block reward accumulator    |
 | 0x15          | `ACTIVE_VALIDATOR_COUNT`  | Pool divisor (excludes exited / slashed) |
 | 0x16          | `VESTING`                 | Per-account vesting schedule (40 bytes)  |
-| 0x17          | `VALIDATOR_SUBSIDY`       | (total_amount, end_slot) streaming subsidy|
+| 0x17          | `VALIDATOR_SUBSIDY`       | (total_amount, end_wave) streaming subsidy|
 | 0x18          | `AIRDROP_ROOT`            | Genesis airdrop Merkle root              |
-| 0x19          | `AIRDROP_DEADLINE`        | Slot height after which sweep is allowed |
+| 0x19          | `AIRDROP_DEADLINE`        | wave_id after which sweep is allowed     |
 | 0x1A          | `AIRDROP_CLAIMED`         | Per-leaf-index claim bitmap              |
 | 0x1B          | `AIRDROP_EXPECTED_SUM`    | Genesis pool size invariant              |
 | 0x1C          | `MULTISIG_SIGNERS`        | Treasury multisig signer set (FALCON pks)|
 | 0x1D          | `MULTISIG_THRESHOLD`      | Required signature count                  |
 | 0x1E          | `MULTISIG_NONCE`          | Replay-protection counter for multisig   |
-| 0x1F          | `EMERGENCY_PAUSE_END_SLOT`| End slot of an active emergency pause    |
+| 0x1F          | `EMERGENCY_PAUSE_END_WAVE`| End wave_id of an active emergency pause    |
 
 ---
 
@@ -242,7 +242,7 @@ Full reference in Chapter 17. The methods, prefixed `pyde_`:
 | `pyde_getCode`                  | hex bytecode                           |
 | `pyde_getStorageAt`             | hex value                              |
 | `pyde_chainId`                  | hex chain_id                           |
-| `pyde_blockNumber`              | hex head slot                          |
+| `pyde_blockNumber`              | hex head wave_id                       |
 | `pyde_gasPrice`                 | base fee (quanta)                      |
 | `pyde_stateRoot`                | current state root                     |
 | `pyde_syncing`                  | sync status object                     |

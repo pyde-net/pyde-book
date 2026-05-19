@@ -130,7 +130,7 @@ rejected and the originating peer takes a reputation penalty.
 | Parameter                | Value                | Why                                |
 | ------------------------ | -------------------- | ---------------------------------- |
 | `validation_mode`        | `Permissive`         | Auto-forward; see throughput note  |
-| `heartbeat_interval`     | 400 ms               | Matches the slot cadence           |
+| `heartbeat_interval`     | 150 ms               | Matches DAG round cadence; amortizes mesh maintenance without blocking round progress |
 | `mesh_n`                 | 8                    | Mesh size per node                 |
 | `mesh_n_low`             | 4                    | Trigger mesh expansion             |
 | `mesh_n_high`            | 12                   | Trigger mesh pruning               |
@@ -391,13 +391,13 @@ does not modify the underlying behavior.
 
 ## 12.9 Bandwidth Profile
 
-At the steady-state target (12,500 sustained TPS, ~80 KB blocks every
-400 ms):
+At a steady-state v1 target of 10-30K plaintext TPS (~80 KB average
+batches, ~500 ms median wave commit cadence):
 
 | Channel               | Inbound       | Outbound      |
 | --------------------- | ------------- | ------------- |
 | Transactions          | ~3 MB/s        | ~3 MB/s        |
-| Blocks                | ~1 MB/s        | ~1 MB/s        |
+| Batches               | ~1 MB/s        | ~1 MB/s        |
 | Consensus (validator) | ~0.3 MB/s      | ~0.3 MB/s      |
 | Sync (serving)        | ~2 MB/s        | ~2 MB/s        |
 | DHT / discovery       | ~0.1 MB/s      | ~0.1 MB/s      |

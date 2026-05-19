@@ -113,12 +113,16 @@ context to prevent cross-protocol signature reuse.
 
 1. **Transaction signing** — every transaction carries a FALCON-512 sig from
    the sender's account.
-2. **Validator votes** — soft + hard finality votes, view-change messages,
-   and vote-message attestations.
-3. **Block proposals** — proposers sign their proposed blocks.
-4. **PSS resharing contributions** — contributors sign their shares.
-5. **P2P peer authentication** — the FALCON handshake (`crates/net/src/auth.rs`).
-6. **VRF proofs** — every VRF output is paired with a FALCON proof.
+2. **Vertex production** — every DAG vertex is FALCON-signed by its producer.
+3. **State-root attestations** — committee members sign `(wave_id,
+   blake3_state_root, poseidon2_state_root)` after each wave commit;
+   ≥ 85 sigs constitute the `HardFinalityCert`.
+4. **Decryption share authentication** — threshold partial decryptions
+   are FALCON-signed by their producer.
+5. **PSS resharing contributions** — contributors sign their shares.
+6. **P2P peer authentication** — the FALCON handshake (`crates/net/src/auth.rs`).
+7. **VRF proofs** — every VRF output is paired with a FALCON proof.
+8. **Slashing evidence** — submitters sign their evidence transactions.
 
 ### Batch verification
 

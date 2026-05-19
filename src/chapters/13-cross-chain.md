@@ -85,24 +85,25 @@ The one piece of cross-chain infrastructure mainnet does ship — implicitly
 
 ```rust
 struct HardFinalityCert {
-    slot:         u64,
-    block_hash:   Hash,
-    state_root:   Hash,
-    voter_bitmap: u128,                     // 128-bit bitmap
-    signatures:   Vec<FalconSignature>,     // ≥ 85
+    wave_id:              u64,
+    blake3_state_root:    Hash,
+    poseidon2_state_root: Hash,
+    voter_bitmap:         u128,                     // 128-bit bitmap
+    signatures:           Vec<FalconSignature>,     // ≥ 85
 }
 ```
 
-This certificate, signed by 2f+1 of the active committee, is exactly the
-input a future light-client bridge needs:
+This certificate, signed by ≥ 2f+1 = 85 of the active committee, is
+exactly the input a future light-client bridge needs:
 
 - A counterparty bridge contract holds the active committee's FALCON
   public keys (refreshed at epoch boundaries).
 - To accept a Pyde-side event, the bridge requires:
-  1. A `HardFinalityCert` for the block that included the event.
-  2. A Merkle proof from the block's state root to the event's storage
+  1. A `HardFinalityCert` for the wave commit that included the event.
+  2. A Merkle proof from the wave's `blake3_state_root` (native) or
+     `poseidon2_state_root` (ZK-circuit-friendly) to the event's storage
      slot.
-- Verification is `(86 × FALCON_verify) + (one Merkle path verification)`,
+- Verification is `(85 × FALCON_verify) + (one Merkle path verification)`,
   feasible on any chain with a reasonable VM.
 
 The committee size of 128 caps the per-cert verification cost at ≥ 85

@@ -136,7 +136,7 @@ Plaintext (visible from submission):
   nonce        u64
   gas_limit    u64     (>= 21,000, <= 1.6B gas ceiling)
   access_list  Vec     (state slots the tx will touch)
-  deadline     u64?    (slot height after which the tx is invalid)
+  deadline     u64?    (wave height after which the tx is invalid)
   chain_id     u64
   signature    ~666 B  (FALCON-512 over the canonical hash of all fields)
 
@@ -416,9 +416,9 @@ Step 6 — EXECUTION (hybrid scheduler)
     (Layer 4: no tip is paid because no tip field exists in the wire format.)
 
 Step 7 — STATE ROOT ATTESTATION
-  - Each committee member FALCON-signs (slot, block, blake3_root, poseidon2_root).
+  - Each committee member FALCON-signs (wave_id, blake3_state_root, poseidon2_state_root).
   - Sigs piggyback on subsequent vertices.
-  - 85+ sigs -> finality. Typically ~500 ms median end-to-end.
+  - ≥ 85 sigs -> finality. Typically ~500 ms median end-to-end.
 
 Step 8 — RECEIPT
   - Receipt available via pyde_getTransactionReceipt:

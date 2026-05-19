@@ -526,17 +526,25 @@ non-determinism. Quanta are `u128` (1 PYDE = 10^9 quanta — note this is
 in `u128` (max product ≈ `2^60 * 2^40 = 2^100`, well below `2^128`). The
 overflow check guards against pathological encodings.
 
-### Base fee in the block header
+### Base fee in the wave commit header
+
+Pyde's wave commit header is the equivalent of Ethereum's block header
+for fee-market purposes — each wave commit carries the base fee for
+transactions executed in that wave:
 
 ```rust
-struct BlockHeader {
+struct WaveCommitHeader {
     // ...
-    base_fee:    u128,     // base fee for THIS block
-    gas_used:    u64,      // total gas consumed by this block's txs
+    base_fee:    u128,     // base fee for txs in THIS wave
+    gas_used:    u64,      // total gas consumed by this wave's txs
     gas_target:  u64,      // = GAS_TARGET (always 400M)
     gas_limit:   u64,      // = GAS_CEILING (always 1.6B)
 }
 ```
+
+(The web3-compatibility RPC methods `pyde_getBlockByNumber` /
+`pyde_getBlockByHash` return a representation of this header, since
+external tooling expects "block" terminology.)
 
 The base fee for block `N+1` is computed from block `N`'s header by
 `adjust_base_fee()` — every honest node arrives at the same value.

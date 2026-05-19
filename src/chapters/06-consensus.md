@@ -106,7 +106,7 @@ anchor_member_id = Hash(beacon, round, recent_state_root) mod 128
 ```
 
 Components:
-- **beacon:** epoch-scoped randomness, published in last block of prior epoch
+- **beacon:** epoch-scoped randomness, published in last wave of prior epoch
 - **round:** current round number
 - **recent_state_root:** state root from N=3 rounds ago (limits anchor predictability to ~450ms)
 
@@ -151,7 +151,7 @@ When a round skips, its vertices aren't lost — the next round's commit absorbs
 - **128 validators per epoch**
 - **Selection: uniform random** from validators with stake ≥ 10M PYDE (committee tier; non-committee 100K validators stake but aren't eligible for the active committee until their stake reaches the committee floor)
 - **Anti-Sybil:** operator identity binding, max 5 validators per operator
-- **Epoch length:** 10,000 slots ≈ 2.78 hours
+- **Epoch length:** ~3 hours (wall-clock; round count varies with network conditions)
 
 ```python
 # At epoch boundary, derive committee:
@@ -209,7 +209,7 @@ Each epoch's beacon is produced by the previous epoch's committee:
 1. All 128 members sign known message "epoch_N_beacon" with threshold-share keys
 2. ≥85 shares combine into deterministic aggregated signature
 3. beacon_N = Hash(aggregated_signature) → 32 bytes
-4. Published in last block of epoch N
+4. Published in last wave of epoch N
 ```
 
 Properties:

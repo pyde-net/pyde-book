@@ -193,7 +193,7 @@ t+24h     EmergencyResume submitted; chain resumes
 t+24h     Validator operators upgrade to the patched release
 ```
 
-The 30-day max pause window (`MAX_PAUSE_DURATION_SLOTS`) is a hard
+The 30-day max pause window (`MAX_PAUSE_DURATION_WAVES`) is a hard
 ceiling — no extension mechanism. If an issue genuinely requires longer
 than 30 days to fix, the chain restarts via genesis adjustment plus
 voluntary validator upgrade — a much heavier process designed for the

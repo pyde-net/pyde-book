@@ -383,9 +383,9 @@ Genesis allocations (team, ecosystem) are subject to on-chain vesting.
 
 ```rust
 struct VestingSchedule {
-    start_slot:     u64,
-    cliff_slots:    u64,
-    duration_slots: u64,
+    start_wave:     u64,
+    cliff_waves:    u64,
+    duration_waves: u64,
     total_amount:   u128,
 }
 ```
@@ -396,9 +396,9 @@ struct VestingSchedule {
 ### Unlock curve
 
 ```
-slot < start + cliff               -> unlocked = 0
-slot >= start + duration           -> unlocked = total_amount
-otherwise                           -> unlocked = total_amount * (slot - start) / duration
+wave_id < start + cliff             -> unlocked = 0
+wave_id >= start + duration         -> unlocked = total_amount
+otherwise                            -> unlocked = total_amount * (wave_id - start) / duration
 ```
 
 ### Cliff > duration safeguard
@@ -409,10 +409,10 @@ forever (the cliff fires before the duration ends, then the duration
 end-of-vesting over cliff:
 
 ```rust
-if slot >= start + duration {
+if wave_id >= start + duration {
     return total_amount;          // FULL UNLOCK regardless of cliff
 }
-if slot < start + cliff {
+if wave_id < start + cliff {
     return 0;
 }
 // linear interpolation
@@ -423,7 +423,7 @@ Plus genesis validation rejects schedules where `cliff > duration`.
 ### Validation integration
 
 Every transaction validation reads the sender's vesting schedule and
-subtracts `vesting.locked_at(current_slot)` from the account's balance
+subtracts `vesting.locked_at(current_wave_id)` from the account's balance
 before checking that the sender can pay `gas_limit * base_fee + value`. A
 sender cannot transfer locked tokens — the protocol enforces it at
 ingress.
@@ -464,7 +464,7 @@ an attacker could swap left and right siblings to forge a proof).
 data = [leaf_index:8 LE][amount:16 LE][proof_len:1][sibling_0:32]...[sibling_N-1:32]
 
 ClaimAirdrop handler:
-  1. Check current_slot <= AIRDROP_DEADLINE.
+  1. Check current_wave_id <= AIRDROP_DEADLINE.
   2. Check claim hasn't been redeemed (AIRDROP_CLAIMED bit unset).
   3. Verify Merkle path against AIRDROP_ROOT.
   4. Debit pool by amount; credit claimant.
@@ -482,7 +482,7 @@ After the deadline, anyone can call `SweepAirdrop`:
 
 ```
 SweepAirdrop handler (any sender):
-  1. Check current_slot > AIRDROP_DEADLINE.
+  1. Check current_wave_id > AIRDROP_DEADLINE.
   2. Move pool's residual balance to the treasury account.
 ```
 
@@ -571,16 +571,16 @@ A multisig-authorized circuit breaker that halts all transactions except
 
 ```rust
 struct EmergencyPausePayload {
-    duration_slots: u64,
+    duration_waves: u64,
     sigs:           Vec<SigEntry>,
 }
 ```
 
-- `duration_slots ∈ [1, MAX_PAUSE_DURATION_SLOTS]` where the cap is
+- `duration_waves ∈ [1, MAX_PAUSE_DURATION_WAVES]` where the cap is
   6,500,000 slots (≈ 30 days). Reject zero or excessive durations.
 - Reject re-pause if the chain is already paused.
-- Sets `EMERGENCY_PAUSE_END_SLOT` (discriminator `0x1F`) =
-  `current_slot + duration_slots`.
+- Sets `EMERGENCY_PAUSE_END_WAVE` (discriminator `0x1F`) =
+  `current_wave_id + duration_waves`.
 - Bumps multisig nonce.
 - Gas: 40,000 base + 50,000 per signature.
 
@@ -593,19 +593,19 @@ struct EmergencyResumePayload {
 ```
 
 - Requires the chain to be currently paused.
-- Zeros `EMERGENCY_PAUSE_END_SLOT`.
+- Zeros `EMERGENCY_PAUSE_END_WAVE`.
 - Bumps multisig nonce.
 - Gas: 40,000 base + 50,000 per signature.
 
 ### Pause-gate semantics
 
-`is_paused(state, current_slot)` returns true if
-`current_slot < EMERGENCY_PAUSE_END_SLOT`. While paused, the pipeline
+`is_paused(state, current_wave_id)` returns true if
+`current_wave_id < EMERGENCY_PAUSE_END_WAVE`. While paused, the pipeline
 rejects every transaction type **except** `EmergencyResume` *before*
 running validation or charging gas. This means a paused chain cannot be
 spammed into draining gas budgets.
 
-The pause auto-expires (`current_slot >= end_slot`) without an explicit
+The pause auto-expires (`current_wave_id >= end_wave`) without an explicit
 sweep — the gate just stops returning true. This means the worst case for
 a runaway pause is the 30-day cap, never indefinite.
 

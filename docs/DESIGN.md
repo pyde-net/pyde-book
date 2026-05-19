@@ -121,7 +121,7 @@ End-to-end latency: ~500ms median for plaintext, ~700ms for encrypted (decryptio
 - **Anti-Sybil:** operator identity binding, max 5 validators per operator
 - **Equal power:** all 128 have equal voting weight, vertex production rate, anchor probability
 - **Stake influence:** only on eligibility + flat 30% pool yield share. Activity rewards within committee are contribution-weighted, not stake-weighted.
-- **Epoch length:** 10,000 slots ≈ 2.78 hours
+- **Epoch length:** ~3 hours (measured in wall-clock, not in round count, so it's stable across consensus-cadence changes)
 - **DKG ceremony:** runs in background during prior epoch's last minutes
 
 ### Safety & Liveness
@@ -176,7 +176,7 @@ Each epoch's beacon is produced by the previous epoch's committee:
 1. All 128 members sign a known message `"epoch_N_beacon"` with threshold-share keys
 2. ≥85 shares combine into deterministic aggregated signature
 3. `beacon_N = Hash(aggregated_signature)` → 32 bytes randomness
-4. Published in last block of epoch N
+4. Published in last wave of epoch N
 
 Properties: deterministic given shares, unpredictable until reveal, bias-resistant.
 
@@ -416,7 +416,7 @@ Consensus orders encrypted transactions before decryption shares are released. B
 
 ### Layer 3: No Proposer
 
-Pyde's DAG consensus has no single party empowered to choose which transactions enter a block or in what order. The canonical order emerges deterministically from the DAG; no member can selectively reorder, exclude, or front-run.
+Pyde's DAG consensus has no single party empowered to choose which transactions enter a wave commit or in what order. The canonical order emerges deterministically from the DAG; no member can selectively reorder, exclude, or front-run.
 
 **Combined effect:** sandwich attacks, front-running, proposer extraction are structurally impossible — not policed, not auctioned, not made more efficient, but eliminated.
 

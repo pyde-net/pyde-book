@@ -184,7 +184,7 @@ When the anchor vertex collects sufficient support from later rounds (Mysticeti'
 - **Anti-Sybil:** operator identity binding, max 5 validators per operator
 - **Equal power:** all 128 have equal voting weight, equal vertex production rate, equal anchor probability (uniform over members)
 - **Stake influence:** only on selection probability (uniform within eligible pool) and proportion of flat 30% stake-pool yield. Activity rewards within the committee are contribution-weighted, not stake-weighted.
-- **Epoch length:** 10,000 slots ≈ 2.78 hours
+- **Epoch length:** ~3 hours (measured in wall-clock)
 - **DKG ceremony:** runs in background during the prior epoch's last minutes; new committee has threshold key ready by epoch start
 
 ### 5.6 Safety, Liveness, and Halt Recovery
@@ -282,7 +282,7 @@ Three structural defenses, layered:
 
 **Layer 2: Commit-before-reveal.** Consensus orders encrypted transactions before decryption shares are released. By the time content is revealed, the ordering is fixed and irreversible. An attacker has no information about transaction content during the ordering phase.
 
-**Layer 3: No proposer.** Pyde's DAG consensus has no single party empowered to choose which transactions enter a block or in what order. The canonical order emerges deterministically from the DAG; no member can selectively reorder, exclude, or front-run.
+**Layer 3: No proposer.** Pyde's DAG consensus has no single party empowered to choose which transactions enter a wave commit or in what order. The canonical order emerges deterministically from the DAG; no member can selectively reorder, exclude, or front-run.
 
 The combination eliminates the structural conditions for sandwich attacks, front-running, and proposer extraction. **MEV is not policed or auctioned — it is structurally impossible at the protocol layer.**
 

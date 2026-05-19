@@ -209,7 +209,8 @@ Submit tx with nonce=102:
 
 If a power user genuinely needs more than 16 in-flight, they use multiple
 accounts. In practice, even high-frequency market makers rarely exceed 16
-pending — a 400 ms slot at the target throughput drains the queue quickly.
+pending — at ~500ms median wave commit and v1 target TPS, the queue
+drains in a handful of waves.
 
 ---
 
@@ -336,16 +337,16 @@ touches a slot not in the access list, the transaction reverts cleanly with
 
 ### `deadline`
 
-A slot height after which the tx becomes invalid. If included before
+A wave_id after which the tx becomes invalid. If included before
 `deadline` it executes normally; if not, it is dropped from mempools and
 the nonce slot frees up. Recommended values:
 
-| Use case          | Deadline (slots after submission) | Wall time     |
+| Use case          | Deadline (waves after submission) | Wall time     |
 | ----------------- | --------------------------------- | ------------- |
-| DEX swap          | +25                                | ~10 sec       |
-| Token transfer    | +150                               | ~60 sec       |
-| Mint              | +750                               | ~5 min        |
-| Governance vote   | +37,500                            | ~4 hr         |
+| DEX swap          | +20                                | ~10 sec       |
+| Token transfer    | +120                               | ~60 sec       |
+| Mint              | +600                               | ~5 min        |
+| Governance vote   | +28,800                            | ~4 hr         |
 | No urgency        | `None`                             | indefinite    |
 
 ### Transaction hash
@@ -550,10 +551,10 @@ contract address with a discriminator that came from a typed declaration.
 Accounts and their storage all live in the same JMT. A single Merkle path
 from the JMT root proves any claim about any account.
 
-To prove "Alice's balance at slot S equals X":
+To prove "Alice's balance at wave W equals X":
 
-1. Show the JMT path from the slot-S state root (in the block header) to
-   Alice's account leaf.
+1. Show the JMT path from the wave-W state root (in the wave commit
+   header) to Alice's account leaf.
 2. Decode the account record; read the `balance` field.
 
 There is no separate "account trie" + "storage trie" indirection. One root,
@@ -585,7 +586,7 @@ Step 2 — RPC ingress
   - FALCON sig verifies against Alice's auth_keys
   - nonce 42 is in [40, 55]
   - DEX.gas_tank >= 150_000 * base_fee
-  - deadline > current_slot
+  - deadline > current_wave_id
   - access_list dedup OK
   - tx size + calldata size within limits
   -> ENQUEUE on gossip channel BEFORE returning Ok

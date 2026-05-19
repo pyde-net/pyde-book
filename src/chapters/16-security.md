@@ -96,14 +96,14 @@ reference point, it cannot distinguish the real chain from the alternative.
 
 ### The defense: weak-subjectivity checkpoints
 
-When a block reaches hard finality, the validator writes a
-`FinalityCheckpoint` to the consensus store:
+When a wave commit collects ≥ 85 FALCON state-root signatures, the
+validator writes a `FinalityCheckpoint` to the consensus store:
 
 ```rust
 struct FinalityCheckpoint {
-    slot:       u64,
-    block_hash: Hash,
-    state_root: Hash,
+    wave_id:    u64,
+    blake3_state_root:    Hash,
+    poseidon2_state_root: Hash,
 }
 ```
 
@@ -111,8 +111,8 @@ struct FinalityCheckpoint {
 `crates/node/src/consensus_store.rs`.)
 
 A node that's currently synced will **refuse to reorg past the latest
-checkpoint**. `FinalityTracker::can_reorg(slot)` returns false for any
-slot at or before the checkpoint's slot.
+checkpoint**. `FinalityTracker::can_reorg(wave_id)` returns false for any
+wave at or before the checkpoint's `wave_id`.
 
 For a cold-syncing node, the protocol doesn't pick a checkpoint on its
 own — the node's operator provides a **trusted recent block hash** from a
@@ -447,8 +447,9 @@ durable, and restarts with a different view, it can double-vote on restart
 3. Restart recovery reloads `seen_proposals`, `seen_votes`,
    `pending_evidence` from the consensus store (task 003, 014c).
 
-Microbenchmark (task 014f) confirmed the per-vote fsync cost is ~25.5 µs
-on Apple Silicon NVMe — 39K writes/sec headroom at a 400 ms slot time.
+Microbenchmark (task 014f) confirmed the per-vertex-sig fsync cost is
+~25.5 µs on Apple Silicon NVMe — ~39K writes/sec headroom against the
+~150 ms round cadence (≥ 1000× margin).
 
 Gradeful drain-and-shutdown on persist failure is a post-mainnet
 operational polish, not a launch blocker.

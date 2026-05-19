@@ -444,9 +444,9 @@ Used when the callee's interface is not known at compile time.
 | `msg.sender`      | `Address` | immediate caller                                |
 | `msg.value`       | `u256`    | native PYDE value sent with the call             |
 | `msg.data`        | `bytes`   | raw calldata                                     |
-| `block.height`    | `u64`     | current block (slot) number                     |
-| `block.timestamp` | `u64`     | proposer-set timestamp (seconds)                |
-| `block.proposer`  | `Address` | the proposer of the current block               |
+| `block.height`    | `u64`     | wave_id of the committing wave                  |
+| `block.timestamp` | `u64`     | wave commit timestamp (seconds, consensus-set)  |
+| `block.anchor`    | `Address` | address of the anchor member of the committing wave |
 | `tx.gas_price`    | `u256`    | base fee at submission                          |
 | `tx.nonce`        | `u64`     | sender's nonce in the bitmap window              |
 | `tx.hash`         | `u256`    | this transaction's hash                          |
@@ -455,6 +455,12 @@ Used when the callee's interface is not known at compile time.
 | `gas_remaining()` | `u64`     | remaining gas in the current execution context   |
 
 `tx.origin` is **deliberately not provided**. Use `msg.sender`.
+
+`block.proposer` (the Solidity convention) does not exist on Pyde — the
+DAG has no single proposer. `block.anchor` is the closest analog: the
+deterministically-selected committee member whose vertex commits the
+wave. Contracts that depended on `block.proposer` for proposer rewards
+or proposer-gated logic on other chains do not have an analog here.
 
 ### Built-in functions and macros (5)
 

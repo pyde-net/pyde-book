@@ -42,7 +42,7 @@ with full specifications for the parts the chapters summarize.
 | 14 | [Tokenomics](src/chapters/14-tokenomics.md) | PYDE supply, single-tier staking (10K PYDE min), reward pool |
 | 15 | [Governance](src/chapters/15-governance.md) | PIPs + on-chain multisig, voluntary upgrade |
 | 16 | [Security & Threat Model](src/chapters/16-security.md) | Attack surface, BFT proofs, mitigations |
-| 17 | [Developer Tools](src/chapters/17-developer-tools.md) | `otic`, `pyde-dev`, JSON-RPC, SDKs |
+| 17 | [Developer Tools](src/chapters/17-developer-tools.md) | `otic`, `wright`, JSON-RPC, SDKs |
 | 18 | [Protocol Upgrades](src/chapters/18-protocol-upgrades.md) | Voluntary validator upgrade, hard/soft fork |
 | 19 | [Launch Strategy](src/chapters/19-launch-strategy.md) | 10-phase mainnet plan, audits, testnet |
 | 20 | [Appendix](src/chapters/20-appendix.md) | Glossary, constants, post-mainnet roadmap |

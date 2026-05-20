@@ -3,7 +3,7 @@
 Pyde's smart contract language is **Otigen**. Source files use the `.oti`
 extension. The compiler is **`otic`**. Output is a JSON artifact containing
 PVM bytecode, an ABI, and metadata — deployable directly via
-`pyde-dev deploy`.
+`wright deploy`.
 
 Otigen is a domain-specific language for blockchain execution. It looks like
 Rust at the statement level, but every default is biased toward safety:
@@ -649,7 +649,7 @@ otic abi   <file.oti>    Print only the ABI JSON
 otic lex   <file.oti>    (debug) Dump the token stream
 ```
 
-Most projects use `pyde-dev build` / `pyde-dev test` instead, which wraps
+Most projects use `wright build` / `wright test` instead, which wraps
 `otic` and applies project-level conventions (multiple files, dependencies,
 `pyde.toml` config).
 
@@ -712,7 +712,7 @@ contract Token {
 ```
 
 `use` can also pull in items from sibling files relative to the source root
-(e.g. `use events::transfer::Transfer`). `pyde-dev` resolves the import
+(e.g. `use events::transfer::Transfer`). `wright` resolves the import
 graph during `build`.
 
 ---

@@ -7,7 +7,7 @@ contracts. This chapter is the reference.
 What's in scope for mainnet:
 
 - `otic` — the Otigen compiler.
-- `pyde-dev` — the project-level CLI (build, test, deploy, wallet, etc.).
+- `wright` — the project-level CLI (build, test, deploy, wallet, etc.).
 - `pyde` — the node binary (validator + full node) with JSON-RPC.
 - `pyde-rust-sdk` — Rust client SDK.
 - `pyde-crypto-wasm` — WASM bindings for browser/Node.
@@ -38,7 +38,7 @@ otic abi   <file.oti>    Print only the ABI JSON
 otic lex   <file.oti>    (debug) Dump the token stream
 ```
 
-Most projects call `otic` indirectly through `pyde-dev build` / `pyde-dev
+Most projects call `otic` indirectly through `wright build` / `wright
 test`, which adds project-level conventions (multiple files, dependency
 resolution, `pyde.toml` config).
 
@@ -47,7 +47,7 @@ details.
 
 ---
 
-## 17.2 `pyde-dev` — Project CLI
+## 17.2 `wright` — Project CLI
 
 The Foundry-style project CLI. This is the tool most contract developers
 use day-to-day.
@@ -55,22 +55,22 @@ use day-to-day.
 ### Project lifecycle
 
 ```
-pyde-dev init <name>               Create a new project (src/, test/, pyde.toml, pyde.lock)
-pyde-dev build                     Compile all .oti files under src/
-pyde-dev test [--filter] [-v|-vv]  Run #[test] functions across test/
-pyde-dev fmt                       Auto-format .oti sources
-pyde-dev clean                     Remove out/ artifacts
-pyde-dev doc                       Generate docs from contract sources
+wright init <name>               Create a new project (src/, test/, pyde.toml, pyde.lock)
+wright build                     Compile all .oti files under src/
+wright test [--filter] [-v|-vv]  Run #[test] functions across test/
+wright fmt                       Auto-format .oti sources
+wright clean                     Remove out/ artifacts
+wright doc                       Generate docs from contract sources
 ```
 
 ### Deployment and interaction
 
 ```
-pyde-dev deploy [--network N] [--contract C] [--value V] [--private-key K | --wallet W] [--verify]
-pyde-dev script <file.oti[:Contract]> [--network N] [--private-key K | --wallet W]
-pyde-dev call   <address> <function()> [--network N]
-pyde-dev send   <address> <function()> [--network N] [--value V] [--private-key K | --wallet W]
-pyde-dev tx     <hash> [--network N]
+wright deploy [--network N] [--contract C] [--value V] [--private-key K | --wallet W] [--verify]
+wright script <file.oti[:Contract]> [--network N] [--private-key K | --wallet W]
+wright call   <address> <function()> [--network N]
+wright send   <address> <function()> [--network N] [--value V] [--private-key K | --wallet W]
+wright tx     <hash> [--network N]
 ```
 
 `call` runs read-only (no state mutation); `send` builds, signs, and
@@ -79,11 +79,11 @@ broadcasts a real transaction.
 ### Wallet management
 
 ```
-pyde-dev wallet create [--name N]
-pyde-dev wallet import <pk_hex> <sk_hex> [--name N]
-pyde-dev wallet list
-pyde-dev wallet balance [--name N] [--network NET]
-pyde-dev transfer <to> <amount> [--wallet W] [--network NET]
+wright wallet create [--name N]
+wright wallet import <pk_hex> <sk_hex> [--name N]
+wright wallet list
+wright wallet balance [--name N] [--network NET]
+wright transfer <to> <amount> [--wallet W] [--network NET]
 ```
 
 Wallets live in `~/.pyde/wallets/`, encrypted with AES-256-GCM under a
@@ -92,8 +92,8 @@ user-provided password.
 ### Package management
 
 ```
-pyde-dev install [<git-url>] [--rev R] [--name N]
-pyde-dev remove <name>
+wright install [<git-url>] [--rev R] [--name N]
+wright remove <name>
 ```
 
 Dependencies are git-based (no central registry at launch). `pyde.lock`
@@ -102,8 +102,8 @@ pins the resolved revisions.
 ### Dev loop
 
 ```
-pyde-dev console [--network N] [--private-key K | --wallet W]    REPL
-pyde-dev verify <address> [--contract C] [--network N]           Re-deploy and diff
+wright console [--network N] [--private-key K | --wallet W]    REPL
+wright verify <address> [--contract C] [--network N]           Re-deploy and diff
 ```
 
 The `console` REPL lets you poke at deployed contracts interactively —
@@ -454,30 +454,30 @@ integrators want.
 
 ## 17.9 Deploying a Contract
 
-End-to-end with `pyde-dev`:
+End-to-end with `wright`:
 
 ```bash
 # Create a project
-pyde-dev init mytoken
+wright init mytoken
 cd mytoken
 
 # Write src/Token.oti (see Chapter 5)
 # ...
 
 # Build
-pyde-dev build
+wright build
 
 # Test
-pyde-dev test
+wright test
 
 # Create a wallet
-pyde-dev wallet create --name deployer
+wright wallet create --name deployer
 
 # Fund via faucet (testnet) or transfer
-pyde-dev wallet balance --name deployer --network testnet
+wright wallet balance --name deployer --network testnet
 
 # Deploy
-pyde-dev deploy \
+wright deploy \
     --network testnet \
     --contract Token \
     --wallet deployer
@@ -485,14 +485,14 @@ pyde-dev deploy \
 # >>> tx hash 0xdef123...
 
 # Interact
-pyde-dev call 0xpyde1abc... "total_supply()" --network testnet
-pyde-dev send 0xpyde1abc... "transfer(Address,u256)" \
+wright call 0xpyde1abc... "total_supply()" --network testnet
+wright send 0xpyde1abc... "transfer(Address,u256)" \
     --wallet deployer \
     --network testnet \
     --args 0xpyde1xyz... 100
 ```
 
-`pyde-dev verify <addr>` re-builds the local sources and compares the
+`wright verify <addr>` re-builds the local sources and compares the
 resulting bytecode to the on-chain deployment — the standard contract-
 verification flow.
 
@@ -521,7 +521,7 @@ receipt — works end-to-end at mainnet.
 | Tool                  | Purpose                                              |
 | --------------------- | ---------------------------------------------------- |
 | `otic`                | Compile `.oti` → JSON artifact (bytecode + ABI)      |
-| `pyde-dev`            | Project-level workflow (build, test, deploy, wallet) |
+| `wright`            | Project-level workflow (build, test, deploy, wallet) |
 | `pyde` binary         | Run validator or full node; JSON-RPC on 8545         |
 | `pyde-rust-sdk`       | Rust client SDK (provider, wallet, contract helpers) |
 | `pyde-crypto-wasm`    | Browser / Node WASM for FALCON, Poseidon2, tx hash   |

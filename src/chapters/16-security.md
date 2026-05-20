@@ -652,5 +652,5 @@ flooding, RPC DoS, eclipse simulations) runs in parallel.
 | Archive-node receipt store                   | Post-mainnet                     |
 | External audits (5 specialists)              | Pre-mainnet, Phase 8             |
 
-The next chapter covers developer tools: the `pyde-dev` CLI, the RPC API,
+The next chapter covers developer tools: the `wright` CLI, the RPC API,
 the Rust and WASM SDKs, and the testnet quickstart.

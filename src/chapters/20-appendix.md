@@ -340,7 +340,7 @@ root.
 | Mempool              | `crates/mempool/src/{pool,block_builder,inclusion,encrypted}.rs` |
 | Node binary + RPC    | `crates/node/src/{main,cli,rpc,validator,consensus_store,receipt_store}.rs` |
 | Otigen compiler      | `crates/otic/src/{lexer,parser,resolve,typecheck,safety,lower,optimize,codegen,abi}.rs` |
-| Project dev CLI      | `crates/pyde-dev/src/{main,cli}.rs`                           |
+| Project dev CLI      | `crates/wright/src/{main,cli}.rs`                           |
 | Rust SDK             | `crates/pyde-rust-sdk/src/{lib,client,wallet,contract,signer,abi,types,ws}.rs` |
 | WASM crypto          | `crates/pyde-crypto-wasm/src/lib.rs`                          |
 

@@ -1,6 +1,6 @@
 # Consensus: Mysticeti DAG
 
-**Note: This chapter reflects the post-May-2026 pivot. The previous HotStuff variant is archived in `legacy/`.**
+**Note: This chapter reflects the post-May-2026 pivot. The previous HotStuff variant is archived in `archive/`.**
 
 Pyde's consensus is a **Mysticeti-style DAG protocol**. A committee of 128 validators participates each epoch; every round (~150ms), each member produces exactly one vertex; commits flow continuously at the round rate; finality lands at ~500ms median.
 
@@ -115,7 +115,7 @@ Properties:
 - **Unpredictable** — depends on state root that wasn't known until recently
 - **No single proposer authority** — anchor doesn't propose, it's just a starting point for the subdag walk
 
-## 6. Wave Commit
+## 6. Commit
 
 When the anchor vertex collects sufficient support from later rounds (Mysticeti 3-stage support), a commit fires:
 
@@ -148,14 +148,15 @@ When a round skips, its vertices aren't lost — the next round's commit absorbs
 
 ### Size & Selection
 
-- **128 validators per epoch**
-- **Selection: uniform random** from validators with stake ≥ 10M PYDE (committee tier; non-committee 100K validators stake but aren't eligible for the active committee until their stake reaches the committee floor)
-- **Anti-Sybil:** operator identity binding, max 5 validators per operator
-- **Epoch length:** ~3 hours (wall-clock; round count varies with network conditions)
+- **128 active committee members per epoch**, selected from the global validator pool
+- **Selection: uniform random** from all validators with stake ≥ `MIN_VALIDATOR_STAKE` = 10,000 PYDE (single-tier model; no separate committee vs non-committee stake floor)
+- **Anti-Sybil:** operator identity binding, **max 3 validators per operator**
+- **Epoch length:** ~3 hours wall-clock (commit count varies with network conditions — typically ~21,600 commits at the 500 ms median cadence)
 
 ```python
 # At epoch boundary, derive committee:
-eligible = [v for v in all_validators if v.stake >= MIN_STAKE and not v.jailed]
+eligible = [v for v in all_validators
+            if v.stake >= MIN_VALIDATOR_STAKE and not v.jailed]
 for slot in 0..128:
     seed = Hash(beacon, slot)
     member = uniform_random_pick(eligible, seed)
@@ -166,8 +167,8 @@ for slot in 0..128:
 ### Equal Power Within Committee
 
 All 128 members have equal voting weight, equal vertex production rate, equal anchor probability (uniform over members). Stake influences only:
-- (a) probability of being eligible (must meet MIN_STAKE)
-- (b) proportion of flat 30% stake-pool yield
+- (a) eligibility (must meet `MIN_VALIDATOR_STAKE` = 10,000 PYDE)
+- (b) proportion of the stake-weighted reward pool (yield distributes by `stake × uptime`)
 
 Activity rewards within the committee are **contribution-weighted, not stake-weighted**.
 
@@ -186,7 +187,7 @@ For n=128 validators:
 
 The number 85 appears throughout the protocol:
 - Vertex certification (parent refs in next round)
-- Wave commit support
+- Commit support
 - Threshold decryption shares
 - State root signatures
 - DKG share threshold
@@ -244,7 +245,7 @@ DKG runs in **background** during the prior epoch's last minutes. New committee 
 
 ## 11. Threshold Decryption Ceremony
 
-After wave commit fires, for each encrypted batch in the canonical order:
+After commit fires, for each encrypted batch in the canonical order:
 
 ```
 Each committee member i:
@@ -262,7 +263,7 @@ Receivers:
 
 ### Pipelining
 
-Partials can be computed **as soon as the batch enters the DAG**, before the commit fires. By wave commit time, partials are typically 80%+ propagated. Effective post-commit decryption latency: tens of milliseconds.
+Partials can be computed **as soon as the batch enters the DAG**, before the commit fires. By commit time, partials are typically 80%+ propagated. Effective post-commit decryption latency: tens of milliseconds.
 
 ### Scale
 
@@ -336,7 +337,7 @@ The chain self-heals from any subset failure that maintains ≥85 functional val
 
 ## 17. Implementation Status
 
-🔴 **Mysticeti DAG implementation: not yet built.** Pre-pivot HotStuff archived in `legacy/`.
+🔴 **Mysticeti DAG implementation: not yet built.** Pre-pivot HotStuff archived in `archive/`.
 
 Implementation strategies:
 - **Option A: Fork Sui's Mysticeti** (open source) and adapt to FALCON sigs. Saves substantial consensus engineering — Mysten Labs has spent years getting the algorithm correct.

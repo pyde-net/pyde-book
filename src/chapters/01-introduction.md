@@ -7,7 +7,7 @@ Pyde is a Layer 1 blockchain built greenfield to deliver four properties no chai
 1. **Post-quantum cryptography by default** — FALCON-512 signatures, Kyber-768 threshold encryption, Poseidon2 hashing
 2. **MEV resistance by structure** — threshold-encrypted mempool + commit-before-reveal ordering + DAG consensus eliminates proposer extraction
 3. **Sub-second finality** — Mysticeti-style DAG consensus, ~500ms median finality
-4. **Commodity decentralization** — modest hardware for non-committee participants; equal voting power within the active committee
+4. **Commodity decentralization** — modest hardware for validators not currently on the active committee; equal voting power within the active committee
 
 The execution layer is a register-based Pyde Virtual Machine (PVM) with a hybrid parallel scheduler combining Solana-style declared access lists with Aptos-style Block-STM speculation. Smart contracts are written in **Otigen**, a purpose-built language with reentrancy guards, checked arithmetic, and compile-time access list inference.
 
@@ -21,7 +21,7 @@ Pyde's earlier architecture used an in-house HotStuff variant with 400ms slot ti
 - **Replaced with:** a Mysticeti-style DAG consensus rebuild starting from a clean foundation
 - **Refocused:** execution layer + cryptography first, consensus on solid ground
 
-This book reflects the post-pivot architecture. Previous architecture (HotStuff) is archived in `legacy/` for reference.
+This book reflects the post-pivot architecture. Previous architecture (HotStuff) is archived in `archive/` for reference.
 
 ## Why a New Layer 1?
 
@@ -35,7 +35,7 @@ Maximum Extractable Value has hardened into a multi-billion-dollar tax paid by r
 
 ### The Decentralization Problem
 
-Chains optimizing for throughput have ended up requiring datacenter-class validator hardware. Chains optimizing for decentralization have ended up with throughput unusable for serious applications. **Pyde scales hardware requirements by role** — commodity for non-committee, modest professional for committee at production targets, datacenter only for aspirational TPS levels.
+Chains optimizing for throughput have ended up requiring datacenter-class validator hardware. Chains optimizing for decentralization have ended up with throughput unusable for serious applications. **Pyde scales hardware requirements by role** — commodity for validators awaiting committee selection, modest professional for validators on the active committee at production targets, datacenter only for aspirational TPS levels.
 
 ## What's New (Post-Pivot)
 

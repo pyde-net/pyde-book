@@ -170,7 +170,7 @@ This is a living document. Update on new threats discovered, protocol changes, a
 
 | ID | Threat | Severity | Detection | Mitigation |
 |---|---|---|---|---|
-| T-ECON-1 | Stake concentration (rich operator, many cheap validators) | High | On-chain analysis | Operator identity binding, max 5 per operator |
+| T-ECON-1 | Stake concentration (rich operator, many cheap validators) | High | On-chain analysis | Operator identity binding, max 3 per operator |
 | T-ECON-2 | Validator collusion (43+ coordinated offline DoS) | High | Quorum detection | Slashing + partition handling |
 | T-ECON-3 | Treasury attacks (governance capture) | Medium | Public proposals | Off-chain governance, transparent PIP process |
 | T-ECON-4 | Multisig compromise (emergency halt abuse) | High | Multi-key threshold | 7-of-12 multisig, slashable malicious unhalt |

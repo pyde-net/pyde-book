@@ -131,12 +131,12 @@ Per Chapter 15:
 | Constant                       | Where                                |
 | ------------------------------ | ------------------------------------ |
 | DAG round period (~150 ms)     | `crates/consensus/src/round.rs`       |
-| Wave commit target (~500 ms)   | `crates/consensus/src/wave.rs`        |
+| Commit target (~500 ms)   | `crates/consensus/src/wave.rs`        |
 | Committee size (128)           | `crates/consensus/src/committee.rs`   |
 | Quorum / threshold (85)        | `crates/consensus/src/quorum.rs`      |
 | Equivocation threshold (44)    | `crates/consensus/src/quorum.rs`      |
-| Committee min stake (10M PYDE) | `crates/slashing/src/lib.rs`          |
-| Non-committee min stake (100K) | `crates/slashing/src/lib.rs`          |
+| Validator min stake (10,000 PYDE) | `crates/tx/src/pipeline.rs` (will move to shared crate post-consensus-rebuild) |
+| Operator-identity cap (3 / operator) | `crates/tx/src/pipeline.rs`     |
 | Unbonding period (30 days)     | `crates/consensus/src/validator.rs`   |
 | Inflation schedule             | `crates/tx/src/fee.rs`                |
 | Fee split (70/20/10)           | `crates/tx/src/execution.rs`          |

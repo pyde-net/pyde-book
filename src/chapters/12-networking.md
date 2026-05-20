@@ -112,7 +112,7 @@ current committee set. A non-validator that subscribes to the topic gets
 
 This matters: the vertex channel carries committee FALCON sigs,
 piggybacked decryption shares, and state-root attestations. A malicious
-non-validator that could flood the channel could DoS the wave-commit
+non-validator that could flood the channel could DoS the commit
 pipeline. The validator-only filter prevents this by construction.
 
 ### Per-channel size limits
@@ -392,7 +392,7 @@ does not modify the underlying behavior.
 ## 12.9 Bandwidth Profile
 
 At a steady-state v1 target of 10-30K plaintext TPS (~80 KB average
-batches, ~500 ms median wave commit cadence):
+batches, ~500 ms median commit cadence):
 
 | Channel               | Inbound       | Outbound      |
 | --------------------- | ------------- | ------------- |

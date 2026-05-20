@@ -22,7 +22,7 @@ who need to reconcile against pre-pivot artifacts.
 - DAG consensus — every round every committee member produces one vertex.
 - No proposers, no view changes. Anchor selection is deterministic.
 - Optional threshold encryption per-tx (plaintext or encrypted).
-- Two-tier staking — 10M committee, 100K non-committee.
+- Single-tier staking — 10,000 PYDE minimum, uniform-random committee selection per epoch, operator-identity cap (3 per operator).
 - Jellyfish Merkle Tree (radix-16, path-compressed).
 - Hybrid hashing — Blake3 (high-volume native) + Poseidon2 (ZK-bearing).
 - v1 honest target: 10-30K plaintext / 0.5-2K encrypted TPS on commodity
@@ -43,7 +43,7 @@ protocol that Sui has been running in production since 2024.
 | Component | Pre-pivot | Post-pivot |
 |-----------|-----------|------------|
 | Consensus | HotStuff variant, 1 proposer/slot | Mysticeti DAG, 128 vertices/round |
-| Slot timing | 400 ms slot | ~150 ms round, ~500 ms median wave commit |
+| Slot timing | 400 ms slot | ~150 ms round, ~500 ms median commit |
 | Ordering | Proposer-asserted ordering commitment | Structural via committed subdag |
 | Validator architecture | Monolithic | Worker (tx batching) + Primary (consensus) |
 | Mempool | Always-encrypted | Optional encryption per-tx |
@@ -51,7 +51,7 @@ protocol that Sui has been running in production since 2024.
 | Hashing | Poseidon2 everywhere | Blake3 (native) + Poseidon2 (ZK-bearing) |
 | State root | Single Poseidon2 root | Dual: Blake3 + Poseidon2 |
 | Execution | Static access lists only | Hybrid: static + Block-STM speculation |
-| Staking tiers | Single 10K PYDE | 10M committee / 100K non-committee |
+| Staking model | Single 10K PYDE | Single 10K PYDE (unchanged; an interim mid-pivot draft of the book proposed 10M/100K tiers — that was an error; flat-tier with operator-cap was the actual decision) |
 | Reward distribution | Direct proposer share (20%) | Epoch reward pool (20%, distributed by stake×uptime) |
 | Peer discovery | Kademlia DHT | Layered (seeds → DNS → on-chain registry → PEX → cache) |
 | Committee defense | Operational sentry pattern only | Sentry pattern with protocol support |
@@ -85,8 +85,9 @@ changed most are:
 4. **Chapter 4 (State Model)** — hybrid hashing, dual state roots.
 5. **Chapter 8 (Cryptography)** — Blake3 added; Poseidon2 scope narrowed.
 6. **Chapter 12 (Networking)** — DHT removed; layered discovery + sentry.
-7. **Chapter 14 (Tokenomics)** — two-tier staking, reward pool, updated
-   inflation math.
+7. **Chapter 14 (Tokenomics)** — single-tier staking (10K PYDE min,
+   uniform-random committee selection, operator-identity cap), reward
+   pool, updated inflation math.
 8. **Chapter 19 (Launch Strategy)** — timeline reset post-pivot.
 9. **Chapter 20 (Appendix)** — glossary, constants, post-mainnet roadmap
    updated.
@@ -95,7 +96,7 @@ Chapters that changed less:
 
 - **Chapter 3 (Virtual Machine)** — added hybrid scheduler note.
 - **Chapter 5 (Otigen)** — added compile-time access list inference note.
-- **Chapter 10 (Gas/Fee)** — wave-commit-cadence + honest TPS numbers.
+- **Chapter 10 (Gas/Fee)** — commit-cadence + honest TPS numbers.
 - **Chapter 11 (Account Model)** — reserved `Programmable` AuthKeys
   variant for v2.
 - **Chapter 13 (Cross-Chain)** — parachain layer framed as permissionless

@@ -115,7 +115,7 @@ context to prevent cross-protocol signature reuse.
    the sender's account.
 2. **Vertex production** — every DAG vertex is FALCON-signed by its producer.
 3. **State-root attestations** — committee members sign `(wave_id,
-   blake3_state_root, poseidon2_state_root)` after each wave commit;
+   blake3_state_root, poseidon2_state_root)` after each commit;
    ≥ 85 sigs constitute the `HardFinalityCert`.
 4. **Decryption share authentication** — threshold partial decryptions
    are FALCON-signed by their producer.
@@ -618,5 +618,5 @@ happen if a substantive cryptanalytic break appeared.
 | AES-256-GCM        | Symmetric AEAD (mempool payload, wallet keystore)| (via the `aes-gcm` crate)        |
 
 The next chapter walks through MEV protection end-to-end — how these
-primitives combine in the DAG wave-commit pipeline to make front-running
+primitives combine in the DAG commit pipeline to make front-running
 and sandwich attacks not "discouraged," but unexpressible.

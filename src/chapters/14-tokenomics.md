@@ -111,7 +111,7 @@ economics viable.
 ### Per-wave inflation reward
 
 ```
-waves_per_year = 63_113_904         (2 wave commits/sec * 86400 s/day * 365.25 days)
+waves_per_year = 63_113_904         (2 commits/sec * 86400 s/day * 365.25 days)
 
 reward_per_wave = GENESIS_SUPPLY * inflation_rate_bps / (10_000 * waves_per_year)
 ```
@@ -215,31 +215,48 @@ even very low TPS produces net deflation.
 
 ## 14.5 Validator Economics
 
-### Two staking tiers
+### Single-tier staking
 
 ```rust
-pub const MIN_COMMITTEE_STAKE: u128 = 10_000_000_000_000_000;   // 10M PYDE
-pub const MIN_NON_COMMITTEE_STAKE: u128 =       100_000_000_000_000;   // 100K PYDE
+pub const MIN_VALIDATOR_STAKE: u128 = 10_000_000_000_000;   // 10,000 PYDE
 ```
 
-| Tier | Min stake | Role | Earns |
-|------|-----------|------|-------|
-| **Committee validator** | 10M PYDE | Active in DAG (1 of 128) | Reward pool share + uptime bonus + inflation share |
-| **Non-committee validator** | 100K PYDE | Standby; eligible for committee selection next epoch | Reward pool share + inflation share |
-| RPC node | — | None (no stake) | Off-chain RPC fees only |
+| Role | Min stake | Committee role | Earns |
+|------|-----------|----------------|-------|
+| **Validator** | 10,000 PYDE | Eligible — uniformly-random selection each epoch picks 128 of the eligible pool | Reward pool share (stake × uptime) + inflation share. When selected to the committee: additional activity-weighted share |
+| RPC node | — | None | Off-chain RPC fees only |
+
+**Single pool, no tiers.** Every validator meeting the 10K PYDE minimum is
+in the same pool. At each epoch boundary, uniform-random selection picks
+128 from the pool to form the active committee for that epoch (see
+Chapter 6 §7). There is no "committee tier" vs. "non-committee tier" —
+just one validator role, with committee duty rotating per epoch.
 
 **Equal voting in committee.** All 128 committee members have equal vote
-weight regardless of stake (Chapter 6 — the committee is selected via
-uniform random sampling with min-stake filter, not stake-weighted). To
-get additional votes, a wealthy staker must register multiple distinct
-validators with separate FALCON keys and operator identities — and each
-faces independent slashing exposure.
+weight regardless of stake. To get additional selection probability, a
+wealthy staker must register multiple distinct validators with separate
+FALCON keys and operator identities — and each faces independent slashing
+exposure plus the per-operator cap (see below).
 
-**Why two tiers.** A 10M PYDE committee floor is high enough to make
-committee participation a serious commitment, low enough that ~1000+
-viable committee candidates exist at launch. The 100K non-committee tier
-opens staking to a much broader set of participants who earn yield without
-running the production-grade hardware required for committee duty.
+**Why 10K, not higher.** Pyde's MEV-extraction attack value is structurally
+near-zero (threshold encryption + commit-before-reveal ordering eliminate
+the profit motive that drives Ethereum-scale stake floors). With the
+attack-incentive removed, stake serves as a credible-commitment deposit
+against slashable misbehavior rather than as the load-bearing economic
+defense. Pyde's Sybil resistance is layered (operator-identity cap +
+slashing + threshold encryption + state-root divergence detection) —
+see Chapter 16 §16.4 for the full security argument.
+
+The 10K floor matches the spirit of Ethereum's "Lean Consensus" direction
+(reducing 32 ETH → 4 ETH as fast finality reduces reversibility-window
+risk) and keeps the modest-hardware-decentralization promise intact: at
+realistic launch valuations, the bond is accessible without being
+trivial.
+
+**Anti-Sybil: operator-identity cap.** Maximum 3 validators per operator
+identity. An attacker pursuing a Byzantine fork needs 43 committee slots,
+which translates to ≥ 15 distinct KYC'd operator identities under the
+cap — meaningfully harder to manufacture than capital alone.
 
 ### Income sources
 
@@ -347,38 +364,40 @@ profit" incentives).
 
 ### Indicative APY
 
-APY = `(annual_PYDE_rewards / staked_PYDE) × 100`. The percentage is the
-same for both staking tiers (rewards distribute by stake × uptime);
-absolute PYDE per validator differs because committee bond (10M) is 100×
-the non-committee bond (100K).
+APY = `(annual_PYDE_rewards / staked_PYDE) × 100`. Rewards distribute by
+stake × uptime, so per-token yield is uniform across all validators —
+only the absolute PYDE earned scales with stake. Committee participation
+adds an activity-weighted bonus, but the base yield is the same.
 
-At year 1 with 128 committee validators, modest fee volume, and 60% of
-mint flowing to the reward pool:
+At year 1, assume 5,000 active validators averaging 100K PYDE staked each
+(~500M total staked, modest middle ground while supply distributes), 128
+selected to the active committee, modest fee volume, 60% of mint flowing
+to the reward pool:
 
 ```
 Inflation share to reward pool (assume 60% of mint):
-  ~30M PYDE / 128 validators ≈ 234K PYDE per committee validator
-  / 10M committee bond       ≈ 2.34% APY
-  per-token yield is identical for non-committee at 100K bond
-    (≈ 2.34K PYDE/year on a 100K stake)
+  ~30M PYDE / 500M total staked  ≈ 6% APY on staked balance
+Committee bonus (activity-weighted, 128 of 5000):
+  marginal additional ~0.5-1% APY during the ~3 hr epoch a validator
+  is on the committee (and 0 the rest of the time)
+Average over a year: small uplift for active operators
 ```
 
-The percentage drops as the validator set grows (more total bond competing
-for the same pool) and as inflation tapers from 5% to the 1% tail:
+Yields vary with how much total stake competes for the pool and where
+inflation sits on the taper:
 
-| Year | Validators | Inflation | Indicative APY |
-| ---- | ---------- | --------- | -------------- |
-| 1    | 128        | 5.0%      | ~2.3%          |
-| 2    | 256        | 3.0%      | ~0.7%          |
-| 3    | 512        | 2.0%      | ~0.23%         |
-| 4+   | ~1,000     | 1.0%      | ~0.08%         |
-| 4+   | ~5,000     | 1.0%      | ~0.016%        |
-| 4+   | ~10,000    | 1.0%      | ~0.008%        |
+| Year | Active validators | Avg stake | Total staked | Inflation | Indicative APY |
+| ---- | ----------------- | --------- | ------------ | --------- | -------------- |
+| 1    | ~1,000            | 100K      | 100M         | 5.0%      | ~30%           |
+| 2    | ~5,000            | 100K      | 500M         | 3.0%      | ~3.6%          |
+| 3    | ~10,000           | 100K      | 1B (incl. inflation) | 2.0% | ~1.2%   |
+| 4+   | ~10,000           | 100K      | 1B+          | 1.0%      | ~0.6%          |
 
-These are modest by design. High-bond tiers can't deliver 4-digit APYs
-without astronomical inflation, so the bootstrap incentive at year 1 is
-the **absolute PYDE reward** (~234K/year per committee validator), not
-the percentage.
+Year 1 yields are high by design — bootstrap incentive while the validator
+set grows from genesis. As more validators come online, the per-token
+yield compresses naturally. The 1% terminal inflation rate plus the 20%
+fee-share keeps the steady-state validator economic viable without
+unbounded dilution.
 
 The exact split between reward pool and treasury inside the inflation
 mint, and the trajectory of total validator count, are governance
@@ -707,10 +726,10 @@ expected state.
 | Genesis supply          | 1,000,000,000 PYDE                                  |
 | Supply cap              | None (decreasing inflation, fee burn)               |
 | Inflation schedule      | 5% → 3% → 2% → 1% (terminal)                        |
-| Wave commits per year   | ~63,113,904 (2/sec)                                 |
+| Commits per year        | ~63,113,904 (2/sec median)                          |
 | Fee distribution        | 70% burn / 20% reward pool / 10% treasury           |
-| Committee stake (min)   | 10,000,000 PYDE                                      |
-| Non-committee stake (min)| 100,000 PYDE                                         |
+| Validator stake (min)   | 10,000 PYDE (single tier, uniform-random committee selection) |
+| Operator-identity cap   | 3 validators per operator                            |
 | Unbonding period        | 30 days (must exceed 21-day safety evidence freshness) |
 | Slashing finder fee     | 10% of slashed amount                               |
 | Vesting                 | On-chain, balance-locked at validation              |

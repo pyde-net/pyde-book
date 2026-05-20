@@ -209,7 +209,7 @@ Submit tx with nonce=102:
 
 If a power user genuinely needs more than 16 in-flight, they use multiple
 accounts. In practice, even high-frequency market makers rarely exceed 16
-pending — at ~500ms median wave commit and v1 target TPS, the queue
+pending — at ~500ms median commit and v1 target TPS, the queue
 drains in a handful of waves.
 
 ---
@@ -408,14 +408,13 @@ cannot be replayed.
 ## 11.8 Transaction Types
 
 The `TransactionType` enum (in `crates/tx/src/types.rs`) currently has 13
-variants:
+variants. Tag `2` is intentionally vacant — `Batch` was prototyped pre-mainnet but removed before launch (the dispatch arm was a 21k-gas no-op and never wired to real semantics; keeping the gap means a forged `tx_type = 2` fails decode rather than silently aliasing to another type).
 
 | ID  | Name              | What it does                                                |
 | --- | ----------------- | ----------------------------------------------------------- |
 | 0   | `Standard`        | Value transfer or contract call                             |
 | 1   | `Deploy`          | Contract deployment (`to == Address::ZERO`, data == initcode)|
-| 2   | `Batch`           | Multiple operations atomically (or best-effort)             |
-| 3   | `StakeDeposit`    | Lock ≥ tier-min PYDE (10M committee / 100K non-committee), register validator (data = FALCON pubkey 897 B)|
+| 3   | `StakeDeposit`    | Lock ≥ `MIN_VALIDATOR_STAKE` (10,000 PYDE) and register as validator (data = FALCON pubkey 897 B). Single-tier — any validator meeting the floor is eligible for the per-epoch uniform-random committee selection (see Chapter 14 §14.5). |
 | 4   | `StakeWithdraw`   | Begin 30-day unbonding                                       |
 | 5   | `Slash`           | Submit double-sign evidence (data = serialized evidence)    |
 | 6   | `ClaimReward`     | Claim accrued staking yield from the pool                   |
@@ -425,6 +424,7 @@ variants:
 | 10  | `RotateMultisig`  | Rotate multisig signer set + threshold                      |
 | 11  | `EmergencyPause`  | Halt block production (multisig-signed)                     |
 | 12  | `EmergencyResume` | Resume normal processing (multisig-signed, clears pause)    |
+| 13  | `RegisterPubkey`  | First-time pubkey registration for a funded-but-unregistered account. No signature, no gas, no value — proof of pubkey ownership is the address-derivation check (only the keypair holder can produce a pubkey that hashes to a given address). Allowed only when `balance > 0` and `auth_keys == AuthKeys::None`. After execution, `auth_keys = AuthKeys::Single(tx.data)` and the account can sign normal txs. |
 
 Each handler in `crates/tx/src/pipeline.rs` validates the type-specific
 payload, applies the state effect, and runs through the same fee
@@ -433,69 +433,19 @@ rejected at validation.
 
 ---
 
-## 11.9 Batch Transactions
+## 11.9 Batch Transactions (removed pre-mainnet)
 
-```rust
-enum FailureMode {
-    Atomic,       // failure -> revert the entire batch
-    BestEffort,   // failure -> skip and continue
-}
+Multi-operation batch transactions were prototyped under tag `2` but
+removed before launch. The dispatch arm was a 21k-gas no-op never wired
+to real semantics, and ABI-level multi-call patterns (a contract that
+takes a `Vec<(Address, u128, bytes)>` and dispatches internally) cover
+the same use cases without protocol-level complexity. Tag `2` remains
+reserved (decodes to `None`) so a forged transaction with `tx_type = 2`
+fails decode rather than silently aliasing to another variant.
 
-struct BatchOperation {
-    to:           Address,
-    value:        u128,
-    data:         Vec<u8>,
-    gas_limit:    u64,           // per-op (0 = use remaining gas)
-    failure_mode: FailureMode,
-}
-
-struct BatchTransaction {
-    // standard tx fields...
-    tx_type:    TransactionType::Batch,
-    operations: Vec<BatchOperation>,
-}
-```
-
-A `Batch` consumes one nonce, one signature, and one base-tx overhead. Each
-operation runs sequentially within the batch.
-
-### Per-op failure modes
-
-- **Atomic**: a revert in the operation reverts the whole batch.
-- **BestEffort**: the operation reverts, the batch continues, and the
-  receipt records the per-op outcome.
-
-### Gas savings
-
-| Cost component        | N individual txs    | One batch tx                    |
-| --------------------- | ------------------- | ------------------------------- |
-| Base tx cost (21,000)  | 21,000 × N          | 21,000                          |
-| Signature verify (FALCON)| 20,000 × N        | 20,000                          |
-| Nonce validation      | ~100 × N            | ~100                            |
-| Per-op execution gas  | sum of op gas       | sum of op gas                    |
-| **Overhead saved**    | —                   | **(41,100 × (N − 1))**          |
-
-For 5 operations, that's roughly 164,400 gas saved on overhead alone.
-
-### Receipt
-
-```rust
-struct BatchReceipt {
-    tx_hash:           Hash,
-    success:           bool,            // false if any Atomic op failed
-    total_gas_used:    u64,
-    total_fee:         u128,
-    operation_results: Vec<OperationResult>,
-}
-
-struct OperationResult {
-    success:       bool,
-    gas_used:      u64,
-    return_data:   Vec<u8>,
-    logs:          Vec<Log>,
-    revert_reason: Option<Vec<u8>>,
-}
-```
+If multi-op atomicity becomes a documented need post-mainnet, a future
+PIP can re-introduce the variant at the next unused tag with a real
+implementation.
 
 ---
 
@@ -553,7 +503,7 @@ from the JMT root proves any claim about any account.
 
 To prove "Alice's balance at wave W equals X":
 
-1. Show the JMT path from the wave-W state root (in the wave commit
+1. Show the JMT path from the wave-W state root (in the commit
    header) to Alice's account leaf.
 2. Decode the account record; read the `balance` field.
 
@@ -598,7 +548,7 @@ Step 4 — DAG vertex production (round R)
   Tx referenced by batch hash in worker batch; each committee member's
   primary references the batch in its round-R vertex.
 
-Step 5 — Wave commit (round R+3, ~500 ms after submission)
+Step 5 — Commit (round R+3, ~500 ms after submission)
   Deterministic anchor commits the subdag; canonical order emitted.
 
 Step 6 — Threshold decryption (rounds R+4 to R+5)
@@ -644,8 +594,8 @@ Step 11 — Receipt
 | Native account abstraction| Yes (`fee_payer = GasTank` / `Paymaster(addr)`) |
 | Multisig per-account      | Yes (via `AuthKeys::MultiSig`)                  |
 | Multisig treasury         | Yes (`MultisigTx` = type 9)                     |
-| Batch transactions        | Yes (`Batch` = type 2, `Atomic` / `BestEffort`) |
-| Transaction types         | 13 (Standard, Deploy, Batch, Stake*, Slash, Claim*, Sweep*, Multisig*, Emergency*) |
+| Batch transactions        | Removed pre-mainnet (tag 2 reserved-as-vacant)  |
+| Transaction types         | 13 active (Standard, Deploy, Stake*, Slash, Claim*, Sweep*, Multisig*, Emergency*, RegisterPubkey) |
 | Validation gas cap        | 100,000 for paymaster validation                |
 
 The next chapter covers the networking layer that ferries all these

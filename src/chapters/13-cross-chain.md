@@ -99,7 +99,7 @@ exactly the input a future light-client bridge needs:
 - A counterparty bridge contract holds the active committee's FALCON
   public keys (refreshed at epoch boundaries).
 - To accept a Pyde-side event, the bridge requires:
-  1. A `HardFinalityCert` for the wave commit that included the event.
+  1. A `HardFinalityCert` for the commit that included the event.
   2. A Merkle proof from the wave's `blake3_state_root` (native) or
      `poseidon2_state_root` (ZK-circuit-friendly) to the event's storage
      slot.

@@ -100,7 +100,7 @@ Concrete workloads:
 - `tx_submission_to_finality` — end-to-end
 - `tx_in_batch_latency` — submit → in batch
 - `batch_to_vertex_latency` — batch → referenced by vertex
-- `vertex_to_commit_latency` — vertex → wave commit
+- `vertex_to_commit_latency` — vertex → commit
 - `commit_to_execution_latency` — commit → PVM executed
 - `decryption_ceremony_latency` — start partial → ≥85 received
 

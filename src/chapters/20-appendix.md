@@ -35,7 +35,7 @@ and the post-mainnet roadmap.
 | **HardFinalityCert** | ≥ 85 FALCON sigs over `(wave_id, blake3_state_root, poseidon2_state_root)`. |
 | **Committee**        | The 128 active validators per epoch. Equal vote weight; uniform random selection. |
 | **Epoch**            | ~3 hours of waves. PSS resharing fires at epoch boundary.                   |
-| **Validator**        | Node staking PYDE; eligible for committee selection (tiered: 10M committee, 100K non-committee). |
+| **Validator**        | Node staking ≥ `MIN_VALIDATOR_STAKE` (10,000 PYDE). Single tier — uniform-random committee selection picks 128 from the eligible pool each epoch. |
 | **Full node**        | Node that executes waves and serves RPC, but does not stake.                |
 | **MEV**              | Maximal Extractable Value. The MEV class is structurally closed in Pyde.    |
 | **Encrypted mempool**| Optional Kyber-encrypted submission. Decryption deferred until after DAG anchor commit. |
@@ -47,7 +47,7 @@ and the post-mainnet roadmap.
 | **Multisig signers** | The on-chain set authorized to spend the treasury (`MULTISIG_SIGNERS`).     |
 | **Emergency pause**  | Multisig-authorized halt of non-Resume txs; max 30 days, auto-expiring.     |
 | **Hard halt**        | Automatic chain halt on detected safety violation (state root divergence, equivocation cluster). |
-| **Weak-subjectivity checkpoint**| Hard-finalized wave commit (`wave_id` + `state_root` + committee FALCON sigs) that a fresh node trusts to anchor sync. |
+| **Weak-subjectivity checkpoint**| Hard-finalized commit (`wave_id` + `state_root` + committee FALCON sigs) that a fresh node trusts to anchor sync. |
 | **Quanta**           | Smallest PYDE denomination. 1 PYDE = 10^9 quanta.                           |
 | **Access list**      | Per-tx declaration of state slots the tx will read or write.                |
 | **Nonce window**     | 16-slot bitmap of in-flight nonces per account.                              |
@@ -62,15 +62,15 @@ and the post-mainnet roadmap.
 | Constant                           | Value                          | Where                              |
 | ---------------------------------- | ------------------------------ | ---------------------------------- |
 | `ROUND_PERIOD_MS`                  | 150 (DAG round cadence)         | `consensus/round.rs`                |
-| `WAVE_COMMIT_TARGET_MS`            | 500 (median wave commit)        | `consensus/wave.rs`                 |
+| `WAVE_COMMIT_TARGET_MS`            | 500 (median commit)        | `consensus/wave.rs`                 |
 | `EPOCH_LENGTH`                     | ~3 hours of waves               | `consensus/epoch.rs`                |
 | `COMMITTEE_SIZE` (mainnet)         | 128                             | `consensus/committee.rs`            |
 | `THRESHOLD` (2f+1)                 | 85                              | `consensus/quorum.rs`               |
 | `EQUIVOCATION_THRESHOLD` (n-2f)    | 44                              | `consensus/quorum.rs`               |
 | `RANDOMNESS_THRESHOLD`             | 85 (sorted before combine)     | `consensus/epoch_randomness.rs`     |
 | `RESHARE_AGGREGATION_DELAY_WAVES`  | 5                               | `crypto/threshold.rs` / validator   |
-| `MIN_COMMITTEE_STAKE`              | 10M PYDE                        | `slashing/lib.rs`                   |
-| `MIN_NON_COMMITTEE_STAKE`          | 100K PYDE                       | `slashing/lib.rs`                   |
+| `MIN_VALIDATOR_STAKE`              | 10,000 PYDE                     | `tx/pipeline.rs` (single tier)      |
+| `MAX_VALIDATORS_PER_OPERATOR`      | 3                               | `tx/pipeline.rs` (anti-Sybil cap)   |
 | `UNBONDING_PERIOD`                 | 30 days                          | `consensus/validator.rs`            |
 | `FINDER_FEE_PERCENT`               | 10                              | `slashing/lib.rs`                   |
 | `EVIDENCE_VERSION`                 | 1                               | `slashing/lib.rs`                   |
@@ -170,12 +170,15 @@ Defined in `crates/state/src/keys.rs`.
 
 Defined in `crates/tx/src/types.rs`.
 
+Tag `2` is intentionally vacant — `Batch` was prototyped pre-mainnet and
+removed before launch (see Chapter 11 §11.9). A forged `tx_type = 2`
+fails decode.
+
 | ID  | Name              | Purpose                                                |
 | --- | ----------------- | ------------------------------------------------------ |
 | 0   | `Standard`        | Value transfer or contract call                         |
 | 1   | `Deploy`          | Contract deployment                                     |
-| 2   | `Batch`           | Multiple operations atomically (or best-effort)         |
-| 3   | `StakeDeposit`    | Lock ≥ tier-min PYDE (10M committee / 100K non-committee), register validator|
+| 3   | `StakeDeposit`    | Lock ≥ 10,000 PYDE and register validator (single tier, uniform-random committee selection per epoch) |
 | 4   | `StakeWithdraw`   | Begin 30-day unbonding                                  |
 | 5   | `Slash`           | Submit double-sign evidence                             |
 | 6   | `ClaimReward`     | Claim accrued staking yield from the pool               |
@@ -185,6 +188,7 @@ Defined in `crates/tx/src/types.rs`.
 | 10  | `RotateMultisig`  | Rotate multisig signer set + threshold                   |
 | 11  | `EmergencyPause`  | Halt block production (multisig-signed)                  |
 | 12  | `EmergencyResume` | Resume normal processing                                  |
+| 13  | `RegisterPubkey`  | First-time pubkey binding for a funded-but-unregistered account (no sig, no gas; proof is address-derivation) |
 
 ---
 
@@ -352,13 +356,13 @@ The key headline figures, with their sources:
 | Claim                              | Source                                       |
 | ---------------------------------- | -------------------------------------------- |
 | ~150 ms DAG round period            | `ROUND_PERIOD_MS` in `consensus/round.rs`     |
-| ~500 ms median wave commit          | `WAVE_COMMIT_TARGET_MS` in `consensus/wave.rs`|
+| ~500 ms median commit          | `WAVE_COMMIT_TARGET_MS` in `consensus/wave.rs`|
 | v1 plaintext TPS: 10-30K            | Performance harness measurement, "claim 1/3 of measured peak" rule (`docs/PERFORMANCE_HARNESS.md`) |
 | v1 encrypted TPS: 0.5-2K             | Same harness; threshold-decryption serial cost |
 | 70 / 20 / 10 fee split              | `FEE_BURN_PCT` etc in `tx/execution.rs`        |
 | 5% → 1% inflation schedule          | `INFLATION_BPS` in `tx/fee.rs`                 |
-| 10M PYDE committee min stake        | `MIN_COMMITTEE_STAKE` in `slashing/lib.rs`     |
-| 100K PYDE non-committee min stake   | `MIN_NON_COMMITTEE_STAKE` in `slashing/lib.rs` |
+| 10,000 PYDE validator min stake     | `MIN_VALIDATOR_STAKE` in `tx/pipeline.rs` (single tier)|
+| 3 max validators per operator       | `MAX_VALIDATORS_PER_OPERATOR` in `tx/pipeline.rs` (anti-Sybil) |
 | 30-day unbonding                    | `UNBONDING_PERIOD` in `consensus/validator.rs` |
 | 16-slot nonce window                | `WINDOW_SIZE` in `account/nonce.rs`            |
 | 128 KB tx / 64 KB calldata caps     | `MAX_TX_SIZE`, `MAX_CALLDATA` in `tx/validation.rs`|

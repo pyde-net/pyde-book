@@ -8,8 +8,8 @@ This document specifies the validator state machine, operations, parameters, and
 
 ```
 [NOT REGISTERED]
-    ↓ register_validator(stake ≥ tier-min PYDE, falcon_pubkey, threshold_key)
-    ↓   (10M committee tier; 100K non-committee tier)
+    ↓ register_validator(stake ≥ MIN_VALIDATOR_STAKE, falcon_pubkey, threshold_key)
+    ↓   (single tier; MIN_VALIDATOR_STAKE = 10,000 PYDE)
 [PENDING ACTIVATION] (1 epoch bonding period)
     ↓ next epoch boundary
 [ACTIVE - WAITING] ←──────┐
@@ -31,9 +31,8 @@ Side states (from any active state):
 
 | Parameter | Value | Notes |
 |---|---|---|
-| `MIN_COMMITTEE_STAKE` | 10,000,000 PYDE (10M) | Eligible for the active 128-member committee |
-| `MIN_NON_COMMITTEE_STAKE` | 100,000 PYDE (100K) | Earns yield while standing by for selection |
-| `MAX_VALIDATORS_PER_OPERATOR` (cap) | 5 | Anti-Sybil; enforced on operator identity, not stake |
+| `MIN_VALIDATOR_STAKE` | 10,000 PYDE | Single-tier minimum; any validator meeting this threshold enters the eligible pool for uniform-random committee selection |
+| `MAX_VALIDATORS_PER_OPERATOR` (cap) | 3 | Anti-Sybil; enforced on operator identity, not stake |
 | `BONDING_PERIOD` | 1 epoch (~3 hours) | Time from registration to active eligibility |
 | `UNBONDING_PERIOD` | 30 days | Long enough for safety evidence to surface |
 | `EVIDENCE_FRESHNESS_SAFETY` | 21 days | Must be < unbonding period |
@@ -43,14 +42,12 @@ Side states (from any active state):
 | `JAIL_PERIOD_2ND` | 7 days | Within 30 days of first |
 | `JAIL_3RD` | Permanent | 3rd jail = permanent removal |
 | `UNJAIL_FEE` | 10 PYDE | Anti-griefing |
-| `MAX_VALIDATORS_PER_OPERATOR` | 5 | Identity-bound cap |
 | `SLASHING_ESCROW` | 24 hours | Dispute window before slash finalizes |
 | `NEW_VALIDATOR_GRACE_EPOCHS` | 1 | 50% reduced slashing in first epoch |
 
 > **Pseudocode convention.** Where this document writes `MIN_STAKE` in
-> pseudocode below, it means the validator's tier-specific minimum:
-> `MIN_COMMITTEE_STAKE` (10M) for committee-tier validators,
-> `MIN_NON_COMMITTEE_STAKE` (100K) for non-committee validators.
+> pseudocode below, it refers to `MIN_VALIDATOR_STAKE` (10,000 PYDE) —
+> the single-tier minimum.
 
 ## State Details
 
@@ -224,29 +221,27 @@ Identity binding via `operator_identity` field:
 
 - Default: same address as stake account (1:1 binding)
 - Optional: multiple validators per operator if registered under same identity
-- Cap: `MAX_VALIDATORS_PER_OPERATOR = 5`
+- Cap: `MAX_VALIDATORS_PER_OPERATOR = 3`
 
 ### Why Cap?
 
-- Sybil amplification: rich operator could otherwise run 50 cheap validators to win 50/128 committee slots
-- Cap forces multi-operator diversity in committee
-- 5 still allows operational diversity (HSM groups, redundant infrastructure)
+- Sybil amplification: without a cap, a rich operator could run dozens of validators under different keys and dominate committee selection
+- Cap forces multi-operator diversity — a 43-Byzantine fork requires ≥ 15 distinct KYC'd operator identities
+- 3 still allows operational diversity (HA pair + standby, or three-region geographic distribution)
 
-### Optional Stronger Anti-Sybil
+### Optional Stronger Anti-Sybil (Post-Mainnet PIP)
 
 Escalating bond for additional validators registered under the same
-operator identity (committee tier shown; non-committee scales the same
-way relative to its floor):
+operator identity:
 
-| Validator slot | Required committee stake |
+| Validator slot | Required stake |
 |---|---|
-| 1st | 10,000,000 PYDE |
-| 2nd | 10,000,000 PYDE |
-| 3rd | 10,000,000 PYDE |
-| 4th | 20,000,000 PYDE |
-| 5th | 20,000,000 PYDE |
+| 1st | 10,000 PYDE |
+| 2nd | 10,000 PYDE |
+| 3rd | 20,000 PYDE |
 
-Reduces ROI on heavy concentration. (Optional; numbers tunable.)
+Reduces ROI on heavy concentration. Tracked as post-mainnet hardening;
+not in scope for v1.
 
 ## Committee Selection (Each Epoch)
 

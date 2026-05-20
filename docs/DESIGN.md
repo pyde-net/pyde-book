@@ -97,7 +97,7 @@ The `recent_state_root` lookback (N=3 rounds) limits anchor predictability to ~4
 
 A commit fires when the anchor vertex has sufficient support (Mysticeti 3-stage support). Multiple commits can be in flight; ~95% of rounds commit successfully.
 
-### Wave Commit
+### Commit
 
 ```
 1. Anchor selected by deterministic rule
@@ -117,8 +117,8 @@ End-to-end latency: ~500ms median for plaintext, ~700ms for encrypted (decryptio
 ### Committee
 
 - **Size:** 128 validators per epoch
-- **Selection:** uniform random from validators with stake ≥ 10M PYDE (committee tier; non-committee 100K standby pool stakes but isn't sampled until next selection)
-- **Anti-Sybil:** operator identity binding, max 5 validators per operator
+- **Selection:** uniform random from all validators with stake ≥ `MIN_VALIDATOR_STAKE` (10,000 PYDE). Single tier — every staked validator meeting the floor is in the same pool
+- **Anti-Sybil:** operator identity binding, max 3 validators per operator
 - **Equal power:** all 128 have equal voting weight, vertex production rate, anchor probability
 - **Stake influence:** only on eligibility + flat 30% pool yield share. Activity rewards within committee are contribution-weighted, not stake-weighted.
 - **Epoch length:** ~3 hours (measured in wall-clock, not in round count, so it's stable across consensus-cadence changes)
@@ -284,7 +284,7 @@ Dual-rooted:
 - **Blake3 root:** fast native verification (used by validators)
 - **Poseidon2 root:** ZK-circuit-friendly (future light clients, validity proofs)
 
-Both computed at each wave commit, both signed by committee.
+Both computed at each commit, both signed by committee.
 
 ### State Pruning
 
@@ -380,7 +380,7 @@ Primary (every ~150ms):
   13. Gossip vertex
   14. Peer primaries cert via next-round parent refs
 
-Wave commit (per round, ~390ms median):
+Commit (per round, ~390ms median):
   15. Anchor selected; subdag walked; canonical order emitted
   16. PVM executes in canonical order:
        - Nonce window check (state may have changed)
@@ -399,7 +399,7 @@ Same as above, with:
 - Step 4.5: After FALCON-sign, Kyber-encrypt signed_tx with epoch PK
 - Step 5: pyde_sendRawEncryptedTransaction(encrypted_blob)
 - Worker step 8: cannot verify sig (encrypted) — only verify wire format
-- Wave commit step 15.5: threshold decryption ceremony — ≥85 partials combine per batch → plaintexts revealed
+- Commit step 15.5: threshold decryption ceremony — ≥85 partials combine per batch → plaintexts revealed
 - Then PVM step 16 includes first sig verification
 
 ## Encryption & MEV Resistance
@@ -416,7 +416,7 @@ Consensus orders encrypted transactions before decryption shares are released. B
 
 ### Layer 3: No Proposer
 
-Pyde's DAG consensus has no single party empowered to choose which transactions enter a wave commit or in what order. The canonical order emerges deterministically from the DAG; no member can selectively reorder, exclude, or front-run.
+Pyde's DAG consensus has no single party empowered to choose which transactions enter a commit or in what order. The canonical order emerges deterministically from the DAG; no member can selectively reorder, exclude, or front-run.
 
 **Combined effect:** sandwich attacks, front-running, proposer extraction are structurally impossible — not policed, not auctioned, not made more efficient, but eliminated.
 
@@ -474,7 +474,7 @@ No external TPS claim without harness evidence.
 | Committee at 100K TPS | 16c / 32GB / 2TB SSD / 1 Gbps |
 | Committee at 500K TPS | 32c / 64GB / 4TB SSD / 10 Gbps |
 
-Modest hardware applies to non-committee at all levels. Committee scales with throughput target.
+Modest hardware applies to any validator awaiting committee selection at all levels. Active-committee hardware scales with throughput target.
 
 ## Implementation Status
 
@@ -487,9 +487,9 @@ This documentation reflects **designed architecture**, not shipped implementatio
 | State layer (JMT) | 🟡 In place, needs hybrid hashing |
 | Consensus (Mysticeti DAG) | 🔴 Not yet — rebuild post-pivot |
 | Threshold cryptography | 🔴 Research-grade (PQ threshold is bleeding-edge) |
-| Network protocol (libp2p) | 🟡 Existing in legacy, needs migration |
+| Network protocol (libp2p) | 🟡 Existing in archive, needs migration |
 | Performance harness | 🔴 Not yet built |
-| Slashing + lifecycle | 🟡 Partial in legacy |
+| Slashing + lifecycle | 🟡 Partial in archive |
 | State sync | 🟡 Partial design |
 | Documentation | 🟡 This is the current state |
 

@@ -115,7 +115,7 @@ T+30d   Drill that scenario in testnet
 - **Recovery (options):**
   - A: Retry DKG with backup committee members
   - B: Continue without encryption for this epoch
-  - C: Pull non-committee validators in as replacements
+  - C: Replace problematic members from the validators-awaiting-selection pool
 - **Time to Recovery:** Same epoch (~3 hours) or next epoch
 - **Slashing:** DKG-failure for non-contributors (~5%)
 - **Drill Frequency:** Annual

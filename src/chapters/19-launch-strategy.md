@@ -20,7 +20,7 @@ post-mainnet**.
 
 > **Honest framing for the "Done" rows below.** Many tables in this
 > chapter list items completed against the pre-pivot HotStuff codebase
-> (now in `legacy/`). Work in the PVM, AOT compiler, state layer (JMT),
+> (now in `archive/`). Work in the PVM, AOT compiler, state layer (JMT),
 > transaction pipeline, tokenomics, vesting, airdrop, and multisig
 > **survives the pivot intact** — those "Done" rows still apply. Work in
 > consensus, mempool, networking, and gossip describes **properties** —
@@ -84,7 +84,7 @@ to be true before the chain can move on.
 
 > **Pivot scoping note.** Most items in the table below were completed
 > against the pre-pivot HotStuff codebase. After the May 2026 pivot,
-> consensus / mempool / networking moved to `legacy/` and need to be
+> consensus / mempool / networking moved to `archive/` and need to be
 > re-built on Mysticeti DAG. **Items marked "Done (pre-pivot, applies)"
 > are in code that survives the pivot (PVM, AOT, state, transaction
 > pipeline). Items marked "Done (pre-pivot, redo for DAG)" describe
@@ -167,9 +167,9 @@ everything required at genesis to actually fund and govern a network.
 | --------------------------------------------------------------- | ------ |
 | PYDE native token + 1B genesis allocation                       | Done   |
 | Inflation schedule 5%→3%→2%→1%                                  | Done   |
-| Block reward distribution (validator + treasury, two-tier)       | Done (slice 4.1) |
+| Block reward distribution (single-tier reward pool, stake × uptime)| Done (slice 4.1) |
 | Active-validator divisor + unified `ValidatorEntry::decode`     | Done (slice 4.2) |
-| Validator staking (pre-pivot 10K; needs migration to 10M/100K tiers)| Pre-pivot done; tier migration pending |
+| Validator staking (single tier, 10K PYDE min, operator-cap = 3)  | Done |
 | Unbonding period (30 days)                                       | Done   |
 | Slashing wired to slash-tx handler                              | Done   |
 | Total burned counter + audit trail                              | Done (slice 4.1) |

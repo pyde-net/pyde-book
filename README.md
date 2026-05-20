@@ -1,4 +1,14 @@
-# The Pyde Book
+<p align="center">
+  <img src="./assets/logo.png" width="120" alt="Pyde logo" />
+</p>
+
+<h1 align="center">The Pyde Book</h1>
+
+<p align="center">
+  <em>Post-quantum · MEV-free · Sub-second · Commodity-decentralized</em>
+</p>
+
+---
 
 The comprehensive technical reference for **Pyde** — a post-quantum
 Layer 1 blockchain with structural MEV protection, sub-second finality
@@ -21,7 +31,7 @@ with full specifications for the parts the chapters summarize.
 | 3 | [Virtual Machine](src/chapters/03-virtual-machine.md) | PVM register-based ISA, 62 opcodes, AOT compiler |
 | 4 | [State Model](src/chapters/04-state-model.md) | JMT (radix-16), hybrid Blake3 + Poseidon2 hashing |
 | 5 | [Otigen Language](src/chapters/05-otigen-language.md) | Smart-contract language, compile-time access lists |
-| 6 | [Consensus (Mysticeti DAG)](src/chapters/06-consensus.md) | DAG vertices, anchor selection, wave commits |
+| 6 | [Consensus (Mysticeti DAG)](src/chapters/06-consensus.md) | DAG vertices, anchor selection, commit ceremony |
 | 7 | [State Sync & Chain Halt](src/chapters/07-state-sync.md) | Snapshot sync, halt types, recovery procedures |
 | 8 | [Cryptography](src/chapters/08-cryptography.md) | FALCON-512, Kyber-768, Blake3, Poseidon2, threshold, DKG |
 | 9 | [MEV Protection](src/chapters/09-mev-protection.md) | Commit-before-reveal DAG, optional encryption |
@@ -29,7 +39,7 @@ with full specifications for the parts the chapters summarize.
 | 11 | [Account Model](src/chapters/11-account-model.md) | 32-byte addresses, 16-slot nonce window, multisig |
 | 12 | [Networking](src/chapters/12-networking.md) | libp2p + QUIC, layered discovery (no DHT), sentry pattern |
 | 13 | [Cross-Chain](src/chapters/13-cross-chain.md) | Parachain operator layer (v2), `cross_call!` |
-| 14 | [Tokenomics](src/chapters/14-tokenomics.md) | PYDE supply, two-tier staking, reward pool |
+| 14 | [Tokenomics](src/chapters/14-tokenomics.md) | PYDE supply, single-tier staking (10K PYDE min), reward pool |
 | 15 | [Governance](src/chapters/15-governance.md) | PIPs + on-chain multisig, voluntary upgrade |
 | 16 | [Security & Threat Model](src/chapters/16-security.md) | Attack surface, BFT proofs, mitigations |
 | 17 | [Developer Tools](src/chapters/17-developer-tools.md) | `otic`, `pyde-dev`, JSON-RPC, SDKs |

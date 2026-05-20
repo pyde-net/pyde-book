@@ -353,7 +353,7 @@ A few things deliberately do **not** live in the JMT:
 
 - **Receipts.** Stored in an in-memory ring buffer
   (`crates/node/src/receipt_store.rs`, `MAX_RECEIPT_SLOTS = 10_000`). At
-  ~500 ms per wave commit, this is roughly 80 minutes of recent receipt
+  ~500 ms per commit, this is roughly 80 minutes of recent receipt
   history. Persistent receipt storage (archive-node mode) is tracked as
   post-mainnet hardening.
 

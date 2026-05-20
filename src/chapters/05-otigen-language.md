@@ -445,7 +445,7 @@ Used when the callee's interface is not known at compile time.
 | `msg.value`       | `u256`    | native PYDE value sent with the call             |
 | `msg.data`        | `bytes`   | raw calldata                                     |
 | `block.height`    | `u64`     | wave_id of the committing wave                  |
-| `block.timestamp` | `u64`     | wave commit timestamp (seconds, consensus-set)  |
+| `block.timestamp` | `u64`     | commit timestamp (seconds, consensus-set)  |
 | `block.anchor`    | `Address` | address of the anchor member of the committing wave |
 | `tx.gas_price`    | `u256`    | base fee at submission                          |
 | `tx.nonce`        | `u64`     | sender's nonce in the bitmap window              |

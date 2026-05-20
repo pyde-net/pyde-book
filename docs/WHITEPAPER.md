@@ -11,8 +11,8 @@ Pyde is a Layer 1 blockchain built greenfield to ship four properties as default
 
 1. **Post-quantum cryptography** — FALCON-512 signatures, Kyber-768 threshold encryption, Poseidon2 + Blake3 hybrid hashing. No pre-quantum primitive on any consensus or account path.
 2. **MEV resistance** — threshold-encrypted mempool + commit-before-reveal ordering + DAG consensus. Sandwich attacks, front-running, and proposer extraction are not policed or auctioned; they are structurally impossible.
-3. **Sub-second finality** — Mysticeti-style DAG consensus, ~500 ms median wave-commit finality, an 85-of-128 FALCON quorum certificate.
-4. **Commodity-hardware decentralization** — full nodes and non-committee validators run on 8 cores / 16 GB RAM. Committee members at production throughput require a 500 Mbps – 1 Gbps NIC; every committee seat carries one vote regardless of stake.
+3. **Sub-second finality** — Mysticeti-style DAG consensus, ~500 ms median commit finality, an 85-of-128 FALCON quorum certificate.
+4. **Commodity-hardware decentralization** — full nodes and validators awaiting committee selection run on 8 cores / 16 GB RAM. Validators on the active committee at production throughput require a 500 Mbps – 1 Gbps NIC; every committee seat carries one vote regardless of stake.
 
 The execution layer is a register-based virtual machine (PVM) with a hybrid parallel scheduler that combines static access lists (Solana-style) with optimistic Block-STM speculation (Aptos-style). Smart contracts are written in **Otigen**, a purpose-built language with reentrancy guards, checked arithmetic, and compile-time access-list inference. Cross-chain interactions are served by a permissionless **parachain layer** (post-mainnet) gated by `HardFinalityCert` — a FALCON quorum certificate verifiable on any chain.
 
@@ -67,10 +67,10 @@ Pyde's earlier architecture used an in-house pipelined HotStuff variant with VRF
 Post-pivot:
 
 - The active engine workspace contains six execution-layer crates: `crypto`, `pvm`, `aot`, `state`, `account`, `tx`. Nothing else.
-- Consensus, mempool, networking, slashing, and the node binary have been moved to a `legacy/` archive for reference.
+- Consensus, mempool, networking, slashing, and the node binary have been moved to a `archive/` archive for reference.
 - The next consensus layer is being designed against the lessons of HotStuff failure: no view changes, no single-proposer bottleneck, data-driven round advancement, structural censorship resistance.
 
-The decision: **Mysticeti-style DAG consensus**, with FALCON-bound vertex production and threshold-decryption ceremonies pipelined into the wave-commit boundary. The remainder of this document describes the post-pivot design.
+The decision: **Mysticeti-style DAG consensus**, with FALCON-bound vertex production and threshold-decryption ceremonies pipelined into the commit boundary. The remainder of this document describes the post-pivot design.
 
 ---
 
@@ -109,8 +109,7 @@ Three operational tiers run the same binary; role differentiation is configurati
 
 | Tier | Stake | Committee role | Earns |
 | --- | --- | --- | --- |
-| Committee validator | 10M PYDE min | Active (1 of 128 per epoch) | Activity rewards + reward-pool share + inflation |
-| Non-committee validator | 100K PYDE min | Standby, eligible for selection | Reward-pool share (flat-stake portion) + inflation |
+| Validator | 10K PYDE min (single tier) | Eligible for uniform-random committee selection each epoch | Reward-pool share (stake × uptime) + inflation share + activity-weighted bonus while on active committee |
 | RPC node / full node | None | None | Off-chain RPC fees (market-set) |
 
 ---
@@ -172,7 +171,7 @@ The pre-pivot HotStuff variant exhibited persistent wedges and view-change casca
 | Proposer can selectively censor | 127 honest members can include any tx; censorship requires near-unanimous collusion |
 | Throughput limited by leader bandwidth | Throughput scales with committee size |
 
-The DAG also integrates cleanly with threshold decryption: the wave-commit boundary is the natural place to run the decryption ceremony, with partial shares piggybacked on vertices in the rounds leading up to it.
+The DAG also integrates cleanly with threshold decryption: the commit boundary is the natural place to run the decryption ceremony, with partial shares piggybacked on vertices in the rounds leading up to it.
 
 ### 6.2 Worker / Primary Split (Narwhal Pattern)
 
@@ -204,7 +203,7 @@ Parents must come strictly from the prior round (no skip edges in v1). The DAG i
 
 Vertex size: typically ~ 830 bytes minimal, ~ 25 KB heavy (50 batches + 5 state-root sigs + 85 decryption-share partials); hard cap 64 KB.
 
-### 6.4 Rounds, Anchor, and Wave Commit
+### 6.4 Rounds, Anchor, and Commit
 
 Rounds are data-driven: a member ticks from round N to N + 1 once it collects ≥ 85 valid round-N parents (the slowest 43 can lag without blocking anyone). Round rate: ~ 5–10 rounds / sec depending on network conditions.
 
@@ -214,7 +213,7 @@ Each round has a deterministically-selected anchor:
 anchor_member_id = Hash(beacon, round, recent_state_root) mod 128
 ```
 
-When the anchor vertex collects sufficient Mysticeti 3-stage support from later rounds, a wave commit fires:
+When the anchor vertex collects sufficient Mysticeti 3-stage support from later rounds, a commit fires:
 
 1. Anchor's subdag is collected by walking `parent_vertex_refs` transitively.
 2. The subdag is sorted deterministically: `(round, member_id, list_order)`.
@@ -230,15 +229,15 @@ When the anchor vertex collects sufficient Mysticeti 3-stage support from later 
 
 128 validators per epoch, drawn from the global validator pool:
 
-- **Selection:** uniform random from validators with stake ≥ 10 M PYDE (committee tier). Non-committee 100 K-tier validators stake but are not eligible for committee selection until reaching the 10 M floor.
-- **Anti-Sybil:** operator identity binding, max 5 validators per operator.
+- **Selection:** uniform random from all validators with stake ≥ `MIN_VALIDATOR_STAKE` (10,000 PYDE). Single tier — no separate committee/non-committee stake floors.
+- **Anti-Sybil:** operator identity binding, max 3 validators per operator.
 - **Equal power:** every committee member has equal voting weight, equal vertex production rate, equal anchor probability. Stake influences only (a) eligibility and (b) the proportion of the flat 30 % stake-pool yield share. Activity rewards are contribution-weighted, not stake-weighted.
 - **Epoch length:** ~ 3 hours wall-clock (round count varies with network conditions).
 - **DKG:** runs in the background during the prior epoch's last minutes; the new committee has the threshold key ready by epoch start.
 
 ### 6.6 BFT Properties
 
-For `n = 128`: `f = ⌊(n − 1) / 3⌋ = 42` is the maximum tolerable Byzantine count; the quorum threshold is `2f + 1 = 85`. This single number appears throughout the protocol (vertex certification, wave-commit support, threshold decryption, state-root sigs, DKG output) — consistency across uses avoids attack edges from boundary mismatches.
+For `n = 128`: `f = ⌊(n − 1) / 3⌋ = 42` is the maximum tolerable Byzantine count; the quorum threshold is `2f + 1 = 85`. This single number appears throughout the protocol (vertex certification, commit support, threshold decryption, state-root sigs, DKG output) — consistency across uses avoids attack edges from boundary mismatches.
 
 Safety holds under any network conditions assuming at most `f = 42` Byzantine members. Liveness holds under partial synchrony.
 
@@ -315,7 +314,7 @@ Primary:
   11. Produce vertex referencing available batches
   12. Gossip vertex; peers attest as parents in next round
 
-Wave commit (~500 ms median):
+Commit (~500 ms median):
   13. Anchor selected; subdag walked; canonical order emitted
   14. (Encrypted) threshold-decrypt batches
   15. PVM executes in canonical order
@@ -323,7 +322,7 @@ Wave commit (~500 ms median):
   17. Finality declared on 85 state-root sigs
 ```
 
-End-to-end latency: ~ 500 ms median for plaintext, ~ 700 ms for encrypted (adds the decryption ceremony to the wave-commit budget).
+End-to-end latency: ~ 500 ms median for plaintext, ~ 700 ms for encrypted (adds the decryption ceremony to the commit budget).
 
 ---
 
@@ -336,7 +335,7 @@ State is stored in a Jellyfish Merkle Tree (radix-16, path-compressed), persiste
 - Same authentication properties (Merkle commitment, inclusion / exclusion proofs)
 - Production-proven (Diem, Aptos)
 
-State commitment is dual-rooted at every wave commit: Blake3 for fast native verification by committee and validators, Poseidon2 for future ZK light clients and validity proofs. Both roots are signed by ≥ 85 committee members.
+State commitment is dual-rooted at every commit: Blake3 for fast native verification by committee and validators, Poseidon2 for future ZK light clients and validity proofs. Both roots are signed by ≥ 85 committee members.
 
 The block witness — every state slot touched by a wave plus a single batched JMT proof against the pre-state root — has a hard 1 MB cap, rejected at verification before any proof work runs.
 
@@ -350,7 +349,7 @@ Three structural defenses, layered:
 
 **Layer 2 — Commit-before-reveal.** Consensus orders encrypted transactions at the DAG anchor before any decryption share is released. By the time content is revealed, the order is fixed and irreversible.
 
-**Layer 3 — No proposer.** Pyde's DAG consensus has no single party empowered to choose which transactions enter a wave commit or in what order. The canonical order emerges deterministically from the DAG; no committee member can selectively reorder, exclude, or front-run.
+**Layer 3 — No proposer.** Pyde's DAG consensus has no single party empowered to choose which transactions enter a commit or in what order. The canonical order emerges deterministically from the DAG; no committee member can selectively reorder, exclude, or front-run.
 
 The combination eliminates the structural conditions for sandwich attacks, front-running, and proposer extraction. MEV is not policed or auctioned — it is structurally impossible at the protocol layer.
 
@@ -410,7 +409,7 @@ Realistic v1 mainnet throughput, validated by a multi-region production-realisti
 | --- | --- | --- | --- |
 | Plaintext TPS (sustained, commodity) | 10 K – 30 K | 50 K – 100 K | 500 K |
 | Encrypted TPS (sustained, commodity) | 0.5 K – 2 K | 5 K – 10 K | 50 K + (GPU) |
-| Median wave-commit finality | ~ 500 ms | ~ 400 ms | ~ 300 ms |
+| Median commit finality | ~ 500 ms | ~ 400 ms | ~ 300 ms |
 | Committee NIC at sustained TPS | 500 Mbps | 1 Gbps | 10 Gbps |
 
 These numbers will be revised based on actual harness output and adjusted using the **"claim one-third of measured peak" rule**.
@@ -426,7 +425,7 @@ These numbers will be revised based on actual harness output and adjusted using 
 | Committee validator (100 K TPS) | 16c / 32 GB / 2 TB SSD / 1 Gbps |
 | Committee validator (500 K TPS) | 32c / 64 GB / 4 TB SSD / 10 Gbps |
 
-The commodity-hardware promise applies layered: full nodes and non-committee validators stay on a developer workstation at every TPS level; committee hardware scales with the production throughput target.
+The commodity-hardware promise applies layered: full nodes and validators awaiting committee selection stay on a developer workstation at every TPS level; active-committee hardware scales with the production throughput target.
 
 ### 12.3 Methodology
 
@@ -454,10 +453,9 @@ No TPS claim is published externally without harness evidence. This is non-negot
 
 | Tier | Minimum stake | Role |
 | --- | --- | --- |
-| Committee | 10,000,000 PYDE (10M) | Active 1-of-128 per selected epoch |
-| Non-committee | 100,000 PYDE (100K) | Stake-only, eligible for committee once stake reaches the 10M floor |
+| Validator | 10,000 PYDE (single tier) | Eligible for uniform-random committee selection; 128 of the pool serve each epoch |
 
-Anti-Sybil cap: max 5 validators per operator (identity-bound). Bonding: 1 epoch before active. Unbonding: 30 days (must exceed the 21-day safety-evidence freshness window). Slashing applies during both bonded and unbonding states — preventing attack-then-exit.
+Anti-Sybil cap: max 3 validators per operator (identity-bound). Bonding: 1 epoch before active. Unbonding: 30 days (must exceed the 21-day safety-evidence freshness window). Slashing applies during both bonded and unbonding states — preventing attack-then-exit.
 
 ### 13.3 Fee Model
 
@@ -469,11 +467,11 @@ Each transaction's base fee splits deterministically:
 - **10 % to treasury** (multisig-controlled, PIP-reviewed)
 - **20 % to the reward pool**, distributed at epoch end:
   - 70 % of the pool, activity-weighted across the active committee (vertices certified, batches included, decryption shares submitted, anchor selections)
-  - 30 % of the pool, flat across the full stake pool (committee + non-committee, by stake)
+  - 30 % of the pool, flat across all staked validators (active-committee + awaiting-selection), distributed by stake × uptime
 
 ### 13.4 Indicative APY
 
-Per-stake APY is the same percentage across both staking tiers (rewards distribute by stake × uptime); absolute PYDE per validator differs because the committee bond is 100 × the non-committee bond. At year 1, with 128 committee validators and 60 % of mint flowing to the reward pool, the rough committee yield is ~ 2.3 % APY; the absolute reward magnitude (~ 234 K PYDE / year per committee validator) is the bootstrap incentive rather than the percentage.
+Per-token yield is uniform across all validators (single tier; rewards distribute by stake × uptime). The activity-weighted committee bonus is layered on top during the ~3-hr epoch a validator is on the active committee. Year-1 yields are high while the validator pool is small and inflation is at the 5 % rate; the rate compresses as the pool grows and inflation tapers to the 1 % terminal floor.
 
 ### 13.5 Net Inflation
 
@@ -521,8 +519,8 @@ Coordinated safety offenses apply a 2 × multiplier. Reporter receives 10 % of s
 | Encrypted mempool (default) | **Yes** (Kyber-768 threshold) | No (PBS auction) | No (Jito auction) | No | No | No | Proposals in IBC track | No |
 | Sandwich-attack prevention | **Structural** | Partial (PBS) | Partial (Jito) | Partial | Partial | N/A (relay-chain) | Partial | Partial |
 | Sustained throughput target | 10 K – 30 K v1 (harness-validated) | ~ 15 TPS L1 | High peak; outage history | Lab high | Lab high | Variable (per parachain) | Variable (per zone) | High (per subnet) |
-| Hard-finality time | ~ 500 ms (DAG wave commit) | ~ 12 min | Probabilistic (~ 13 s) | < 1 s | < 1 s | ~ 12 – 60 s | ~ 6 s | ~ 1 s |
-| Validator hardware | 8c / 16 GB / 500 GB / 100 Mbps (non-committee) | Modest | 12 + cores / 256 + GB | Modest | Modest | Modest (validator tier) | Modest (per zone) | Modest |
+| Hard-finality time | ~ 500 ms (DAG commit) | ~ 12 min | Probabilistic (~ 13 s) | < 1 s | < 1 s | ~ 12 – 60 s | ~ 6 s | ~ 1 s |
+| Validator hardware | 8c / 16 GB / 500 GB / 100 Mbps (awaiting committee) | Modest | 12 + cores / 256 + GB | Modest | Modest | Modest (validator tier) | Modest (per zone) | Modest |
 | Equal validator voting | **Yes** (1 = 1) | Stake-weighted | Stake-weighted | Stake-weighted | Stake-weighted | Stake-weighted | Stake-weighted | Stake-weighted |
 | Permissionless cross-chain infra layer | Roadmap (parachain spec, PYDE-staked, unified gas) | L2s (per-L2 sequencer); third-party oracles | Third-party (Pyth / Switchboard) | No | No | App-chains via auctions | IBC zone-to-zone (no integrated infra) | Subnet model (sovereign, not infra) |
 

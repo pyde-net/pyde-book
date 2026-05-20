@@ -186,7 +186,7 @@ bootstrap_peers = [
 
 [consensus]
 round_period_ms = 150            # DAG round cadence
-wave_commit_target_ms = 500      # median wave commit latency target
+wave_commit_target_ms = 500      # median commit latency target
 gas_target = 400_000_000
 gas_ceiling = 1_600_000_000
 initial_ws_checkpoint_wave = 0

@@ -17,7 +17,7 @@ the post-mainnet hardening list rather than live, the chapter says so.
 | --------------------------- | --------- | --------------------------------------------------------- |
 | 51% / Byzantine takeover    | Critical  | BFT `f < n/3` with equal-vote committee, Mysticeti DAG safety|
 | Long-range attack           | High      | Weak-subjectivity checkpoints; hard-finality irreversibility|
-| Sybil attack                | High      | Two-tier staking (10M committee / 100K non-committee) + operator-identity cap |
+| Sybil attack                | High      | Layered: threshold encryption removes attack incentive + operator-identity cap (max 3/operator) + slashing + minimum stake floor |
 | Eclipse attack              | High      | Layered discovery (no DHT) + FALCON peer auth + sentry pattern |
 | DDoS (network-level)        | Medium    | Rate limiting, peer scoring, per-channel size caps, sentry  |
 | Front-running / MEV         | High      | Optional threshold encryption + commit-before-reveal DAG (Ch 9)|
@@ -43,7 +43,7 @@ roots ever achieve finality at the same wave, provided fewer than
 `f = ⌊(n-1)/3⌋ = 42` committee members are Byzantine. At `n = 128`,
 this is `f ≤ 42`, threshold `2f + 1 = 85`.
 
-**Liveness:** the DAG advances and produces wave commits as long as
+**Liveness:** the DAG advances and produces commits as long as
 `85 of 128` committee members are honest and online.
 
 ### Why it holds
@@ -75,7 +75,7 @@ mathematical limit of BFT consensus. Defenses:
    reject the fork outright (§16.3).
 3. **Hard halt on detected divergence.** State root divergence (two
    signed contradictory roots) triggers an automatic chain halt; the
-   network stops producing wave commits until the divergence is resolved
+   network stops producing commits until the divergence is resolved
    (Chapter 7).
 4. **Social consensus.** As with every BFT chain, the final backstop is
    human coordination: if the chain demonstrably goes off the rails, the
@@ -96,7 +96,7 @@ reference point, it cannot distinguish the real chain from the alternative.
 
 ### The defense: weak-subjectivity checkpoints
 
-When a wave commit collects ≥ 85 FALCON state-root signatures, the
+When a commit collects ≥ 85 FALCON state-root signatures, the
 validator writes a `FinalityCheckpoint` to the consensus store:
 
 ```rust
@@ -144,36 +144,78 @@ genesis.
 
 ### The attack
 
-An adversary creates thousands of validator identities to dominate
-consensus — bypassing the `f < n/3` bound by simply *being* the majority.
+An adversary creates many validator identities to dominate consensus —
+bypassing the `f < n/3` bound by simply *being* the majority of the
+active committee.
 
-### The defense
+### The defense: layered, not stake-driven
 
-The two-tier staking model (10M PYDE committee floor, 100K non-committee
-floor), combined with equal voting in the committee, means:
+Pyde's Sybil resistance is intentionally not anchored to stake size. The
+chain's structural MEV resistance removes the primary attack incentive,
+which lets the stake floor sit at a modest 10,000 PYDE (single tier) and
+shifts the security burden onto a stack of qualitative defenses. Five
+layers:
 
-- Each committee identity costs 10M PYDE locked.
-- No stake weighting in voting — holding more PYDE than the floor doesn't
-  give more votes within the committee.
-- Committee selection is uniform random over all eligible validators
-  (filtered by min-stake and operator-identity cap), not stake-weighted
-  proportional sampling.
-- **Operator identity cap:** the same KYC operator cannot hold more than
-  N committee seats (configurable, typically 3-5 at launch). Prevents
-  one operator running 100 "different" validators.
+**1. Threshold encryption removes the attack incentive.**
+The dominant reason adversaries attack BFT consensus on production
+chains is MEV extraction — front-running, sandwich attacks, transaction
+reordering. On Pyde, this attack value is structurally near-zero. Even
+a Byzantine 1/3 cannot:
+- Decrypt encrypted-mempool ciphertexts (requires 85 of 128 shares — see
+  Chapter 8 §8.5);
+- Reorder transactions after the DAG anchor commits the canonical order
+  (Chapter 9 §9.4);
+- Profitably front-run any opt-in-encrypted transaction.
 
-Economic cost of overwhelming consensus:
+This collapses the attack-profit equation that drives Ethereum-scale
+stake floors (32 ETH → ~$80–120K). Pyde does not need to price stake
+against MEV profits because there are no MEV profits to be made.
 
-```
-f + 1 = 43 validators needed for a Byzantine fork
-43 × 10M PYDE = 430M PYDE locked
-Plus: each one is slashable at 100% on equivocation evidence.
-Plus: operator-identity cap prevents 43 from being the same operator.
-```
+**2. Operator-identity cap (max 3 validators per operator).**
+A Byzantine fork needs `f + 1 = 43` of 128 committee slots. Under a
+3-per-operator cap, that translates to **≥ 15 distinct KYC'd operator
+identities** — much harder to manufacture than capital. Identity binding
+is enforced via the stake-account-to-operator mapping; high-stake
+operators face additional KYC verification at registration.
 
-At any reasonable PYDE price, that's a major capital commitment — and the
-returns from a detected Byzantine attack are negative (all 43 are
-slashed, stake burned, 10% goes to the whistleblower).
+**3. Slashing at 100% on safety violations.**
+Equivocation and bad state-root signatures incur full-stake slashing
+plus permanent ban (see Chapter 14 §14.5 / `docs/SLASHING.md`). The 10%
+finder's fee creates an active whistleblower incentive — every honest
+node has a financial reason to surface attacker evidence within the
+21-day freshness window.
+
+**4. Hard-halt detection on state-root divergence.**
+Two contradictory signed state roots trigger an automatic chain halt
+(Chapter 7 §Part 2). Attackers cannot quietly corrupt state — safety
+violations are loud, visible, and immediately interrupt block
+production. The 1-epoch bounded rollback policy contains damage to a
+narrow window.
+
+**5. Minimum-stake credibility deposit.**
+The 10K PYDE floor is a credible-commitment deposit, not the
+load-bearing economic defense. It ensures every validator has *some*
+skin in the game and gives the slashing mechanism something to slash.
+Combined with the operator cap, the lower bound on committed capital
+for a 43-Byzantine attack is ≥ 15 operators × 3 validators × 10K PYDE =
+**450K PYDE locked** plus the legal and reputational exposure of 15
+KYC'd entities. Modest in dollar terms; meaningful in coordination terms.
+
+### The honest framing
+
+The single-number "you'd lose $N million in stake to attack" argument
+that other chains lead with does not apply here. Pyde's claim is
+different and stronger: **the protocol is designed such that there is no
+profitable attack to fund.** Stake economics back this up at the
+margin. Operator identity binding does the heavy lifting on Sybil
+specifically. The threshold-encryption property does the work of
+removing the attack value entirely.
+
+This shifts the trust assumption from "stake is large enough to deter
+attack" to "operator-identity binding + slashing + structural
+MEV-resistance jointly make attack unprofitable and detectable." The
+second is a substantively different argument and worth being explicit
+about.
 
 ### Genesis Sybil resistance
 
@@ -181,7 +223,7 @@ The initial 128-validator set is Foundation-curated at genesis (Phase 10
 of the launch plan, recruited + validated across 3+ regions). This is a
 "trusted launch" assumption — not that the Foundation is trusted forever,
 but that the initial set is diverse and honest. After genesis, committee
-rotation and permissionless stake-based registration do the rest.
+rotation and permissionless stake-based registration take over.
 
 ---
 

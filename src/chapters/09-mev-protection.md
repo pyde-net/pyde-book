@@ -349,7 +349,7 @@ validator gains anything from any of them.
 ### How ordering happens
 
 Under the DAG, ordering is a deterministic function of the committed
-subdag — not a proposer choice. The subdag traversal at each wave commit
+subdag — not a proposer choice. The subdag traversal at each commit
 emits transactions in a canonical order derived from vertex round, member
 id, and batch sequence. No actor — proposer, validator, observer —
 chooses positions.

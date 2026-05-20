@@ -16,7 +16,7 @@ The HotStuff lesson made operational: explicit halt detection → investigation 
 
 ### Soft Stall (Automatic)
 
-- No wave commit for > 5 rounds (~1s expected, so 5s threshold)
+- No commit for > 5 rounds (~1s expected, so 5s threshold)
 - <85 vertices certified for last K rounds
 - Active committee count drops below safety threshold (86)
 
@@ -46,7 +46,7 @@ The HotStuff lesson made operational: explicit halt detection → investigation 
 | Activity | Soft Stall | Hard Halt | Emergency Halt |
 |---|---|---|---|
 | Vertex production | Continues (no quorum) | Stops | Stops |
-| Wave commits | Paused | Paused | Paused |
+| Commits | Paused | Paused | Paused |
 | Tx submission | Accepted, queued | Accepted, queued | Accepted, queued |
 | Decryption ceremonies | Paused | Stopped | Stopped |
 | DKG ceremonies | Continues unless triggered | Stopped | Stopped |
@@ -139,7 +139,7 @@ This is industry standard pattern (Solana de facto, Ethereum has emergency rollb
 ```
 1. All validators agree on rollback target (commit C)
 2. Validators roll back state to C
-3. Wave commits after C are discarded
+3. Commits after C are discarded
 4. Txs in those commits returned to mempool (if still valid)
 5. Slashing applied to validators who produced bad-state-root sigs
 6. Software updates applied if needed
@@ -183,7 +183,7 @@ This is industry standard pattern (Solana de facto, Ethereum has emergency rollb
 
 ### Scenario E: Detected DAG Fork
 
-- Detection: contradictory subdags after wave commit
+- Detection: contradictory subdags after commit
 - Action: hard halt (this should be impossible per protocol)
 - Investigation: deep protocol bug
 - Recovery: hard fork to canonical chain, coordinate community
@@ -218,7 +218,7 @@ Public post-mortem within 7 days
 1. Multisig signals resume (or auto-resume for soft stalls)
 2. Validators verify they're at consistent state
 3. Mempool processes queued txs (validity re-checked against current state)
-4. Wave commits resume normal cadence
+4. Commits resume normal cadence
 5. Slashing evidence from halt period processed
 6. System returns to normal operation
 ```

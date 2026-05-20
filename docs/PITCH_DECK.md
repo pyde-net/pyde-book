@@ -46,7 +46,7 @@ A Layer 1 chain built from scratch with all four properties as defaults:
 | Post-Quantum | Migration path 5+ years out | No plan | No plan | **Default at genesis** |
 | MEV | Auction (PBS) | Extracted by proposers | Some via Mysticeti | **Structurally impossible** |
 | Finality | 12-15s | 400ms | 390ms | **~500ms** |
-| Commodity validator | Possible | No (12+ cores) | No (datacenter) | **Yes (non-committee)** |
+| Commodity validator | Possible | No (12+ cores) | No (datacenter) | **Yes (any validator awaiting committee selection)** |
 | Smart contract language | Solidity | Rust/Anchor | Move | **Otigen** (purpose-built with built-in safety) |
 | Account abstraction | Retrofit (ERC-4337) | None native | Limited | **Native (v2)** |
 | Cross-chain | Bridges (hacked $3B+) | Bridges | Bridges | **Permissionless parachain layer (v2)** |
@@ -89,7 +89,7 @@ Aspirational targets require GPU acceleration or batch-decryption research advan
 
 Pyde's earlier in-house HotStuff consensus suffered persistent wedges, stalls, and view-change cascades at 400ms slot timing. After patching accumulated technical debt without resolving the underlying protocol design problems, the team made a clean break in May 2026:
 
-- **Removed:** consensus, mempool, networking from active workspace (archived as `legacy/`)
+- **Removed:** consensus, mempool, networking from active workspace (archived as `archive/`)
 - **Replaced with:** Mysticeti-style DAG consensus rebuild
 - **Refocused:** execution layer + cryptography first, consensus rebuild on solid foundation
 

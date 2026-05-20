@@ -124,7 +124,7 @@ The HotStuff pre-pivot architecture suffered persistent wedges with no clear hal
 ### Detection
 
 **Soft stall (automatic):**
-- No wave commit > 5 rounds (~5 sec)
+- No commit > 5 rounds (~5 sec)
 - <85 vertices certified
 - Active committee count < 86
 
@@ -145,7 +145,7 @@ The HotStuff pre-pivot architecture suffered persistent wedges with no clear hal
 | Activity | Soft | Hard | Emergency |
 |---|---|---|---|
 | Vertex production | Continues (no quorum) | Stops | Stops |
-| Wave commits | Paused | Paused | Paused |
+| Commits | Paused | Paused | Paused |
 | Tx submission | Queued | Queued | Queued |
 | Decryption ceremonies | Paused | Stopped | Stopped |
 | **Slashing evidence acceptance** | **Continues** | **Continues** | **Continues** |

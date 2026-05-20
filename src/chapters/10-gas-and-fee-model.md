@@ -87,16 +87,16 @@ Properties:
 - **Minimum increase of 1 quanta.** Even at very low fees, a busy block
   bumps the fee at least one quanta.
 
-### Convergence at ~500 ms wave commits
+### Convergence at ~500 ms commits
 
-Mysticeti DAG produces a wave commit every ~500 ms median (Chapter 6).
+Mysticeti DAG produces a commit every ~500 ms median (Chapter 6).
 Each commit is the unit at which the base fee is recomputed (`block` and
-`wave commit` are interchangeable here — Pyde collapses both concepts
-since the DAG commits at wave granularity).
+`commit` are interchangeable here — Pyde collapses both concepts
+since the DAG commits at per-commit granularity).
 
 | Scenario                    | Time to 2× the fee         |
 | --------------------------- | -------------------------- |
-| Sustained 100% full waves    | ~11 commits (~5.5 s)       |
+| Sustained 100% full commits  | ~11 commits (~5.5 s)       |
 | Sustained 4× full (max)      | ~6 commits (~3 s)          |
 | Sustained empty             | half-life ~5 commits (~2.5 s) |
 
@@ -141,14 +141,14 @@ target┤----+                 +---+----  target line
   decrypt, and execute. The per-validator memory ceiling caps how high this
   can safely go on commodity hardware.
 - **Decryption + voting timing.** Threshold decryption shares for a 4× block
-  take longer to combine; the wave-commit timing budget assumes the worst
+  take longer to combine; the commit timing budget assumes the worst
   case fits.
 - **State growth.** Larger blocks drive faster state growth. The 4× ceiling
   bounds worst-case growth by the same factor.
 
 ### Throughput estimates
 
-At 2 waves/sec (~500 ms commit), `GAS_TARGET = 400M`, `GAS_CEILING = 1.6B`:
+At 2 commits/sec (~500 ms commit), `GAS_TARGET = 400M`, `GAS_CEILING = 1.6B`:
 
 | Workload                | Gas/tx  | Theoretical target TPS | Realistic v1 (committee-bound) |
 | ----------------------- | ------- | ----------------------- | ------------------------------ |
@@ -222,7 +222,7 @@ Every fee splits deterministically:
 | Recipient          | Share | Where it goes                                      |
 | ------------------ | ----- | -------------------------------------------------- |
 | **Burn**           | 70%   | Increments the on-chain `TOTAL_BURNED` counter      |
-| **Reward pool**    | 20%   | Pooled across the active committee + non-committee staked validators, distributed each epoch by stake-weighted lazy accrual |
+| **Reward pool**    | 20%   | Pooled across all staked validators (active committee + validators awaiting selection), distributed each epoch by stake × uptime via lazy accrual |
 | **Treasury**       | 10%   | Credited to the treasury account                    |
 
 Note: in the pre-pivot HotStuff design the 20% went directly to the slot
@@ -253,9 +253,10 @@ when inflation is generous, but it makes the security budget brittle: as
 inflation decreases, validator economics become fully dependent on tip
 volume, which Pyde doesn't have.
 
-The 20% reward-pool share compensates the staked validator set (committee
-+ non-committee, per stake × uptime) and ties their compensation to
-network usage in addition to inflation. Under the DAG there is no single
+The 20% reward-pool share compensates the full staked validator set
+(both active-committee and validators awaiting selection, per
+stake × uptime) and ties their compensation to network usage in addition
+to inflation. Under the DAG there is no single
 proposer to credit, so the share is pooled and distributed at epoch end.
 The 10% treasury share funds protocol work via PIP-driven multisig spends
 (Chapter 15).
@@ -527,10 +528,10 @@ non-determinism. Quanta are `u128` (1 PYDE = 10^9 quanta — note this is
 in `u128` (max product ≈ `2^60 * 2^40 = 2^100`, well below `2^128`). The
 overflow check guards against pathological encodings.
 
-### Base fee in the wave commit header
+### Base fee in the commit header
 
-Pyde's wave commit header is the equivalent of Ethereum's block header
-for fee-market purposes — each wave commit carries the base fee for
+Pyde's commit header is the equivalent of Ethereum's block header
+for fee-market purposes — each commit carries the base fee for
 transactions executed in that wave:
 
 ```rust

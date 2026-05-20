@@ -63,7 +63,7 @@ For every transaction's base fee:
     │     • Decryption shares submitted on time
     │     • Anchor selections (uptime-correlated)
     └── 30% flat across full stake pool                (= 6% of total)
-          (includes non-committee validators; baseline yield)
+          (every staked validator earns the base; activity bonus is layered on for those currently on the committee)
 ```
 
 Plus inflation issuance (also flowing into the reward pool) distributed by the same rule.
@@ -72,14 +72,17 @@ Plus inflation issuance (also flowing into the reward pool) distributed by the s
 
 ### Bond Requirements
 
-Two-tier staking:
+Single-tier staking:
 
-- **Committee minimum:** 10,000,000 PYDE (10M) — eligible for the active 128-member committee
-- **Non-committee minimum:** 100,000 PYDE (100K) — earns yield while standing by for selection
-
-- **Maximum validators per operator:** 5 (anti-Sybil cap, enforced on operator identity)
+- **Minimum:** 10,000 PYDE (`MIN_VALIDATOR_STAKE`) — any validator meeting this threshold enters the pool from which the 128-member active committee is uniformly randomly selected each epoch
+- **Maximum validators per operator:** 3 (anti-Sybil cap, enforced on operator identity)
 - **Bonding period:** 1 epoch (~3 hours) before active
 - **Unbonding period:** 30 days (must exceed the 21-day safety evidence freshness window)
+
+There is no separate "committee tier" with a higher floor. Pyde relies on
+threshold encryption + operator-identity cap + slashing for Sybil
+resistance, not on stake-size economics (see Chapter 16 §16.4 for the
+full security argument).
 
 ### Staking Yield Estimate
 
@@ -100,14 +103,19 @@ At high utilization: ~15-20% APY
 
 Specific yields depend on actual network activity. Numbers above are illustrative; actual yields will be observable post-launch.
 
-### Committee vs Non-Committee Earnings
+### Active-Committee vs Awaiting-Selection Earnings
 
-| Role | Earnings Source |
+Every staked validator earns from the same pool; the difference is in
+the activity-weighted bonus while serving on the active committee.
+
+| Status | Earnings Source |
 |---|---|
-| Committee validator | Activity rewards (70% of reward pool) + flat yield share (30% of reward pool, by stake) + inflation share |
-| Non-committee validator | Only flat yield share (30% of reward pool, by stake) + inflation share |
+| Validator on active committee | Base stake × uptime share of reward pool + activity-weighted committee bonus (vertices certified, batches included, anchor selections) + inflation share |
+| Validator awaiting selection | Base stake × uptime share of reward pool + inflation share (no committee bonus until selected) |
 
-Committee validators earn substantially more — incentivizing operational quality.
+Committee participation is per-epoch; over time, every validator
+qualifying for the pool will rotate onto the active committee
+proportionally and accrue activity bonuses then.
 
 ## Slashing Economics
 
@@ -157,7 +165,7 @@ Parachain operators face their own slashing for misbehavior (incorrect responses
 PYDE is intended to be used for transactions, staking, and bond, not held purely as speculative store-of-value. Mechanisms to encourage utility:
 
 1. **Gas burn (70%):** every transaction reduces supply, creating deflationary pressure when network usage is high
-2. **Validator bond locking:** 10M PYDE per committee slot (or 100K per non-committee slot), locked during operation
+2. **Validator bond locking:** 10K PYDE per validator slot, locked during operation
 3. **Treasury spending:** continually deploys PYDE into the ecosystem
 4. **No priority tips:** removes the speculative auction layer that creates token-velocity drag
 

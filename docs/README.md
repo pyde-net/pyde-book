@@ -43,7 +43,7 @@ These documents form the source-of-truth for the protocol design as of the May 2
 Pyde underwent a major architectural pivot:
 - **Removed:** in-house HotStuff BFT consensus (400ms slots, persistent wedges)
 - **Replaced with:** Mysticeti-style DAG consensus (per-round commits, ~390ms median finality)
-- **Workspace:** consensus, mempool, networking moved from active `engine/` to `legacy/`; current focus is execution layer + new consensus rebuild
+- **Workspace:** consensus, mempool, networking moved from active `engine/` to `archive/`; current focus is execution layer + new consensus rebuild
 - **Approach:** design-first → publish for peer review → build slowly → testnet → audit → mainnet
 
 ## Honest Status
@@ -57,7 +57,7 @@ This documentation reflects **designed architecture**, not shipped implementatio
 | State layer (JMT) | 🟡 In place, needs hybrid hashing (Blake3 + Poseidon2) |
 | Consensus (Mysticeti DAG) | 🔴 Not yet implemented (post-pivot rebuild) |
 | Threshold crypto | 🔴 Research-grade (post-quantum threshold is bleeding edge) |
-| Network protocol | 🟡 Existing in legacy, needs libp2p + QUIC migration |
+| Network protocol | 🟡 Existing in archive, needs libp2p + QUIC migration |
 | Performance harness | 🔴 Not yet built |
 
 Mainnet ships when the work above is complete and external audit passes. No public schedule.

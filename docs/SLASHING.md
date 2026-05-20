@@ -63,29 +63,31 @@ Combined with repeat-offense escalation, a coordinated 43-attack can hit the max
 ## Slash Math (Percentages of Offender's Stake)
 
 All percentages apply to the **offender's current stake at the time of
-offense**. Pyde uses two staking tiers:
+offense**. Pyde uses a single staking tier:
 
-- **Committee** validators: minimum 10,000,000 PYDE (10M)
-- **Non-committee** validators: minimum 100,000 PYDE (100K)
+- Validators: minimum `MIN_VALIDATOR_STAKE` = 10,000 PYDE
+- Operator-identity cap: 3 validators per operator (anti-Sybil)
+- Real-world bonds will be higher than the minimum (rational operators
+  stake more to absorb minor liveness penalties without falling below
+  the floor)
 
 ```
-Equivocation (10% × correlation × repeat) — committee tier, 10M PYDE bond:
-  1st instance, alone:        1,000,000 PYDE
-  1st instance, 42 others:    2,000,000 PYDE
-  2nd instance, 42 others:    4,000,000 PYDE   (caps at 50%)
+Equivocation (10% × correlation × repeat) — minimum 10K PYDE bond:
+  1st instance, alone:        1,000 PYDE
+  1st instance, 42 others:    2,000 PYDE     (2× correlation cap)
+  2nd instance, 42 others:    4,000 PYDE
+  Capped at 50%:              5,000 PYDE     (full burn at the bond floor)
 
-Equivocation — non-committee tier, 100K PYDE bond:
-  1st instance, alone:        10,000 PYDE
-  1st instance, 42 others:    20,000 PYDE
-
-Downtime (0.05%/round) — committee tier, 10M PYDE bond:
-  10 rounds missed:           5,000 PYDE
-  100 rounds missed:          50,000 PYDE     (5% — also triggers jail)
-  At 10% epoch cap:           1,000,000 PYDE
+Downtime (0.05%/round) — minimum 10K PYDE bond, when serving on the active committee:
+  10 rounds missed:           5 PYDE
+  100 rounds missed:          50 PYDE        (5% — also triggers jail)
+  At 10% epoch cap:           1,000 PYDE
 ```
 
-Liveness penalties apply only to committee validators (non-committee
-validators have no liveness obligation while standing by for selection).
+Liveness penalties apply only while a validator is on the active
+committee for the epoch. Validators awaiting selection have no per-round
+liveness obligation (they can still be slashed for safety offenses with
+freshness-window evidence).
 
 ## Evidence Submission
 
@@ -133,7 +135,7 @@ When a validator is jailed:
   - Time elapsed ≥ jail period
   - Pays unjail fee (10 PYDE — anti-griefing)
   - Remaining stake ≥ minimum bond for the validator's tier
-    (10M committee / 100K non-committee)
+    (MIN_VALIDATOR_STAKE = 10K PYDE — single tier)
 
 ### Escalating Jail Periods
 
@@ -212,19 +214,28 @@ If chain hard-forks:
 
 ## Sanity Check
 
-Total committee bond: 128 × 10M = **1.28B PYDE** at minimum.
+At the bond floor, total committee bond: 128 × 10K = **1.28M PYDE**.
+In practice operators stake more to absorb minor penalties without
+falling below the floor — realistic total committee bond depends on
+actual operator behavior post-launch.
 
-Max single-event slash (42 offenders × equivocation × 2× correlation, committee tier):
+Max single-event slash at floor (42 offenders × equivocation × 2× correlation):
 ```
-42 × 10M × 10% × 2.0 = 84M PYDE   (= 6.5% of total committee bond)
+42 × 10K × 10% × 2.0 = 84K PYDE   (= 6.5% of total committee bond at floor)
 ```
 
 Max correlated attack across epoch (42 offenders × 5 events × 2× correlation, capped at 50%):
 ```
-42 × 10M × 50% = 210M PYDE   (= 16.4% of total committee bond)
+42 × 10K × 50% = 210K PYDE        (= 16.4% of total committee bond at floor)
 ```
 
-Designed to make coordinated attacks economically catastrophic. Attackers lose more than possible reorg gain.
+These dollar numbers are intentionally not the load-bearing deterrent.
+Pyde's security argument (Chapter 16 §16.4) is that threshold encryption
+removes the *attack-profit motive* entirely — there is no MEV-extraction
+revenue to recoup. Stake serves as a credible-commitment deposit
+against slashable misbehavior plus the input the slashing mechanism
+has to slash. The operator-identity cap, KYC binding, and slashing-with-
+finder's-fee do the heavy lifting on Sybil resistance.
 
 ## Implementation Notes
 

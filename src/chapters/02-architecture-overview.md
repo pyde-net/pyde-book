@@ -157,7 +157,7 @@ Accounts hold:
 7. RPC node validates wire format, forwards to nearest worker
 8. Worker (plaintext) verifies sig, batches, gossips
 9. Primary produces vertex, gossips
-10. Wave commit fires (Mysticeti, ~500ms): anchor selected, subdag walked, canonical order emitted
+10. Commit fires (Mysticeti, ~500ms): anchor selected, subdag walked, canonical order emitted
 11. (Encrypted) threshold decryption ceremony per batch
 12. PVM executes in canonical order
 13. JMT updates, state root signed
@@ -187,7 +187,7 @@ RPC providers (Infura/Alchemy analog) fit Tier 3 — no stake, no slashing risk.
 | Post-Quantum | Migration 5+ years | No plan | No plan | **Default at genesis** |
 | MEV resistance | Auction (PBS) | Proposer extracts | Some via Mysticeti | **Structurally impossible** |
 | Finality | 12-15s | 400ms | 390ms | **~500ms** |
-| Commodity validator | Possible | No (12+ cores) | No (datacenter) | **Yes (non-committee)** |
+| Commodity validator | Possible | No (12+ cores) | No (datacenter) | **Yes (any validator awaiting committee selection)** |
 | Smart contract language | Solidity | Rust/Anchor | Move | **Otigen** (purpose-built) |
 | Account abstraction | Retrofit (ERC-4337) | None native | Limited | **Native (v2)** |
 | Cross-chain | Bridges ($3B+ hacked) | Bridges | Bridges | **Permissionless parachain (v2)** |

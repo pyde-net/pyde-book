@@ -33,7 +33,7 @@ Kademlia DHT (used by IPFS, Filecoin) is for content discovery. Pyde is a chain 
 
 **Why layered > DHT for Pyde:**
 - ✅ Peer identity is on-chain (validator FALCON-bound)
-- ✅ Sybil cost is real (10M PYDE committee min stake, 100K non-committee)
+- ✅ Sybil cost is real (`MIN_VALIDATOR_STAKE` = 10K PYDE + operator-identity cap of 3 per operator)
 - ✅ Far simpler (~1K LOC vs ~10K LOC for DHT)
 - ✅ Faster discovery (single-hop vs multi-hop)
 - ✅ Smaller audit surface
@@ -45,7 +45,7 @@ Comparable approaches: Bitcoin, Cosmos, Solana all use layered (no DHT). Ethereu
 ```
 1. Try hardcoded seeds first (5-10 stable, foundation-operated)
 2. Resolve DNS seeds (~10 more peer addresses)
-3. Query validator registry on-chain (committee + non-committee addresses)
+3. Query validator registry on-chain (all staked validators — active committee + awaiting selection)
 4. Establish connections to N peers (default N=20)
 5. Run PEX to discover more peers
 6. Persist successful peers to disk for next startup

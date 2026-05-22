@@ -1,7 +1,6 @@
 [book]
 authors = ["Pyde Contributors"]
 language = "en"
-multilingual = false
 src = "src"
 title = "The Pyde Book"
 description = "Comprehensive technical reference for the Pyde blockchain protocol"

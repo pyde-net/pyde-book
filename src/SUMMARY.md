@@ -1,15 +1,26 @@
 # Summary
 
+[The Pivot](preface/pivot.md)
 [Introduction](chapters/01-introduction.md)
+[Roadmap](roadmap.md)
+
+---
+
+# Pivot — Historical Design References
+
+- [Overview](pivot/README.md)
+- [01 — The HotStuff Consensus Era](pivot/01-hotstuff-consensus-era.md)
+- [02 — The Otigen Language Era](pivot/02-otigen-language-era.md)
+- [03 — Running the Pivot-Era Benchmarks](pivot/03-running-benchmarks.md)
 
 ---
 
 # Core Protocol
 
 - [Architecture Overview](chapters/02-architecture-overview.md)
-- [Virtual Machine](chapters/03-virtual-machine.md)
+- [Execution Layer (WASM)](chapters/03-virtual-machine.md)
 - [State Model](chapters/04-state-model.md)
-- [Otigen Language](chapters/05-otigen-language.md)
+- [Otigen Toolchain](chapters/05-otigen-toolchain.md)
 - [Consensus (Mysticeti DAG)](chapters/06-consensus.md)
 - [State Sync & Chain Halt](chapters/07-state-sync.md)
 
@@ -36,6 +47,26 @@
 - [Developer Tools](chapters/17-developer-tools.md)
 - [Protocol Upgrades](chapters/18-protocol-upgrades.md)
 - [Launch Strategy](chapters/19-launch-strategy.md)
+
+---
+
+# Companion Specifications
+
+- [Architecture (Design Doc)](companion/DESIGN.md)
+- [Whitepaper](companion/WHITEPAPER.md)
+- [Validator Lifecycle](companion/VALIDATOR_LIFECYCLE.md)
+- [Slashing](companion/SLASHING.md)
+- [State Sync](companion/STATE_SYNC.md)
+- [Chain Halt & Recovery](companion/CHAIN_HALT.md)
+- [Threat Model](companion/THREAT_MODEL.md)
+- [Failure Scenarios](companion/FAILURE_SCENARIOS.md)
+- [Network Protocol](companion/NETWORK_PROTOCOL.md)
+- [Performance Harness](companion/PERFORMANCE_HARNESS.md)
+- [Tokenomics Detail](companion/TOKENOMICS.md)
+
+# External Materials
+
+- [Pitch Deck](companion/PITCH_DECK.md)
 
 ---
 

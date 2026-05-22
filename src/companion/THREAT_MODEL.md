@@ -22,7 +22,7 @@ This is a living document. Update on new threats discovered, protocol changes, a
 ### Out of Scope (User / Operational Responsibility)
 
 - User wallet compromise (private key custody is the user's)
-- Smart contract bugs in user-deployed Otigen contracts (audit + safety features mitigate, but protocol doesn't enforce)
+- Smart contract bugs in user-deployed WASM contracts (audit + safety features mitigate, but protocol doesn't enforce)
 - RPC provider failures (orthogonal infrastructure)
 - Single-node hardware failures (operator responsibility, mitigated by redundancy)
 - Social engineering of multisig holders (organizational responsibility)
@@ -180,8 +180,8 @@ This is a living document. Update on new threats discovered, protocol changes, a
 
 | ID | Threat | Severity | Detection | Mitigation |
 |---|---|---|---|---|
-| T-SW-1 | PVM execution non-determinism bug | Critical | State root divergence | Extensive testing, formal verification, halt detection |
-| T-SW-2 | Otigen compiler bug | High | Contract test failures | Compiler audit, fuzz testing, reference implementation |
+| T-SW-1 | WASM execution non-determinism bug | Critical | State root divergence | Extensive testing, formal verification, halt detection |
+| T-SW-2 | Toolchain binding-generator bug | High | Contract test failures | Per-language generator audits, fuzz testing across all four targets |
 | T-SW-3 | FALCON sig side-channel | Low | Timing analysis | Constant-time implementation |
 | T-SW-4 | Memory corruption (buffer overflow) | High | Rust borrow checker, audits | Use safe Rust, audit unsafe blocks |
 | T-SW-5 | Cryptographic library bug | High | Audits | Use well-audited libraries (RustCrypto) |
@@ -219,7 +219,7 @@ These are risks Pyde cannot fully eliminate:
 
 2. **Quantum compute breaking PQ primitives in <10 years** — not currently feasible to defend; PQ choice is the best available.
 
-3. **Smart contract bugs in user-deployed Otigen contracts** — out of protocol scope. Mitigation: Otigen safety features (reentrancy guards, checked arithmetic) + recommended user audits.
+3. **Smart contract bugs in user-deployed WASM contracts** — out of protocol scope. Mitigation: Pyde safety attributes (reentrancy off by default, checked arithmetic) preserved in the WASM era + recommended user audits.
 
 4. **Single-validator key compromise** — validator loses ≤1 vote of influence. Mitigation: key rotation, HSM, multisig validator (v2 feature).
 

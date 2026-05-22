@@ -14,7 +14,7 @@ Pyde is a Layer 1 blockchain built greenfield to ship four properties as default
 3. **Sub-second finality** — Mysticeti-style DAG consensus, ~500 ms median commit finality, an 85-of-128 FALCON quorum certificate.
 4. **Commodity-hardware decentralization** — full nodes and validators awaiting committee selection run on 8 cores / 16 GB RAM. Validators on the active committee at production throughput require a 500 Mbps – 1 Gbps NIC; every committee seat carries one vote regardless of stake.
 
-The execution layer is a register-based virtual machine (PVM) with a hybrid parallel scheduler that combines static access lists (Solana-style) with optimistic Block-STM speculation (Aptos-style). Smart contracts are written in **Otigen**, a purpose-built language with reentrancy guards, checked arithmetic, and compile-time access-list inference. Cross-chain interactions are served by a permissionless **parachain layer** (post-mainnet) gated by `HardFinalityCert` — a FALCON quorum certificate verifiable on any chain.
+The execution layer is **WebAssembly via wasmtime** (with Cranelift AOT) and a hybrid parallel scheduler that combines static access lists (Solana-style) with optimistic Block-STM speculation (Aptos-style). Smart contracts are authored in Rust, AssemblyScript, Go (TinyGo), or C/C++ — any wasm32-target language — with Pyde safety attributes (reentrancy off by default, checked arithmetic, typed storage, no `tx.origin`, compile-time access-list inference) preserved as language-native attributes and enforced at runtime. The `otigen` developer toolchain handles project scaffolding, build, state binding generation, and deployment. Cross-chain interactions are served by the **parachain framework** (v1) and post-mainnet bridge contracts gated by `HardFinalityCert` — a FALCON quorum certificate verifiable on any chain.
 
 This document presents the current design following a **May 2026 architectural pivot** from an in-house HotStuff variant (whose persistent wedges and stalls at 400 ms slot timing motivated a clean rebuild) to a DAG-based consensus inspired by Narwhal, Bullshark, and Mysticeti. The pivot scoped the chain to its execution and cryptography layers first; the consensus layer is being rebuilt design-first against the new foundation.
 
@@ -54,7 +54,7 @@ The trade-off is signature size: 666 bytes for FALCON-512 versus 64 bytes for Ed
 
 The combination removes the surface MEV extraction needs to exist on. Encryption is opt-in per transaction; simple transfers go plaintext for lower fees, MEV-sensitive operations (DEX swaps, NFT mints, liquidations) opt into encryption.
 
-**Axiom 3 — Throughput requires parallel execution in a single binary.** Consensus and execution share a single process. The execution layer is a register-based VM (PVM) with a hybrid parallel scheduler: static access lists for functions with compile-time-known accesses, Block-STM speculation for dynamic accesses. The choice is monolithic over modular: every cross-layer boundary is a trust boundary and a latency cost; for an L1 whose target is high-throughput low-latency MEV-free execution, coherence is worth more than heterogeneity. Cross-chain interoperability is added back as a separate permissionless parachain layer above the coherent base, not as a structural premise that fragments the chain at genesis.
+**Axiom 3 — Throughput requires parallel execution in a single binary.** Consensus and execution share a single process. The execution layer is a WebAssembly execution (wasmtime + Cranelift AOT) with a hybrid parallel scheduler: static access lists for functions with compile-time-known accesses, Block-STM speculation for dynamic accesses. The choice is monolithic over modular: every cross-layer boundary is a trust boundary and a latency cost; for an L1 whose target is high-throughput low-latency MEV-free execution, coherence is worth more than heterogeneity. Cross-chain interoperability is added back as a separate permissionless parachain layer above the coherent base, not as a structural premise that fragments the chain at genesis.
 
 **Axiom 4 — Decentralization is the protocol's burden, not the user's.** Validators run on commodity hardware. Every committee member has exactly one vote regardless of stake — the validator bond is anti-Sybil cost, not a power multiplier. Cross-chain infrastructure is permissionless: any operator who stakes PYDE and runs a Pyde-published spec joins the parachain operator set, no auctioned slots, no gatekeeping team. The cost of participating in Pyde — running a node, validating, building a parachain — is a function of will and a small fixed bond, not access to data-center capital or auction proceeds.
 
@@ -81,10 +81,10 @@ Pyde is a monolithic Layer 1 chain — consensus, execution, and state in a sing
 ```
 ┌─────────────────────────────────────────────┐
 │ Application Layer                           │
-│ Otigen contracts, dApps, wallets, RPC       │
+│ WASM smart contracts, dApps, wallets, RPC       │
 ├─────────────────────────────────────────────┤
 │ Execution Layer                             │
-│ PVM (register-based VM), hybrid scheduler   │
+│ WebAssembly (wasmtime + Cranelift AOT), hybrid scheduler   │
 │ (static access lists + Block-STM)           │
 ├─────────────────────────────────────────────┤
 │ State Layer                                 │
@@ -219,7 +219,7 @@ When the anchor vertex collects sufficient Mysticeti 3-stage support from later 
 2. The subdag is sorted deterministically: `(round, member_id, list_order)`.
 3. Batches referenced by each vertex are dereferenced.
 4. For encrypted batches, the threshold decryption ceremony runs (pipelined — partial shares are already in flight by commit time).
-5. PVM executes decrypted transactions in canonical order.
+5. wasmtime executes decrypted transactions in canonical order.
 6. State root is computed (Blake3 + Poseidon2 dual), FALCON-signed by ≥ 85 committee members.
 7. Finality is declared once ≥ 85 state-root signatures converge.
 
@@ -255,7 +255,7 @@ Rollback is bounded to one epoch (~ 3 hours); within that window governance can 
 
 ---
 
-## 7. Execution: PVM, Otigen, Hybrid Scheduling
+## 7. Execution: WebAssembly, Hybrid Scheduling
 
 ### 7.1 The Pyde Virtual Machine
 
@@ -271,9 +271,9 @@ A register-based VM with a fixed 32-bit instruction encoding:
 
 Determinism is load-bearing: the same input transactions must produce byte-identical state transitions across all validators (consensus state-root agreement) and inside future ZK validity proofs.
 
-### 7.2 Otigen
+### 7.2 Smart Contract Authoring
 
-Smart contracts are written in **Otigen** (`.oti`), a Rust-like language compiled by `otic` to a JSON artifact (PVM bytecode + ABI):
+Smart contracts are authored in **any wasm32-target language** (Rust, AssemblyScript, Go via TinyGo, C/C++). The `otigen` developer toolchain reads a `otigen.toml`, generates state bindings with pre-computed slot constants, invokes the correct language compiler, and produces a `.wasm` artifact plus JSON ABI:
 
 - 30 keywords; storage maps, structs, enums, variable-length `Vec`, `String`
 - 4-byte function selectors (EVM-compatible dispatch)
@@ -289,7 +289,7 @@ Two parallel-execution philosophies, used together:
 - **Static access lists** (Solana-style): for functions where access is inferable at compile time, the scheduler partitions transactions into parallel groups by their declared access sets. Deterministic, no speculation overhead.
 - **Block-STM speculation** (Aptos-style): for functions with dynamic access patterns, transactions execute optimistically. Read / write sets are tracked at runtime; conflicts trigger re-execution in canonical order.
 
-The Otigen compiler emits both `declared_access_set` (static) and `dynamic_access_regions` (runtime). The runtime scheduler uses the static information for partition planning and falls back to Block-STM for dynamic regions. Pyde controls compiler, runtime, and language — making this hybrid feasible where most chains commit to one approach.
+The Build-time state binding generator emits both `declared_access_set` (static) and `dynamic_access_regions` (runtime). The runtime scheduler uses the static information for partition planning and falls back to Block-STM for dynamic regions. Pyde controls compiler, runtime, and language — making this hybrid feasible where most chains commit to one approach.
 
 Preflight at user submission time (via `pyde_estimateAccess` RPC) returns a runtime-observed access list, which the wallet attaches to the transaction. The scheduler treats access lists as hints, verifying at runtime and falling back to speculation on mismatch — safe by construction.
 
@@ -317,7 +317,7 @@ Primary:
 Commit (~500 ms median):
   13. Anchor selected; subdag walked; canonical order emitted
   14. (Encrypted) threshold-decrypt batches
-  15. PVM executes in canonical order
+  15. wasmtime executes in canonical order
   16. State root computed, signed by ≥ 85 committee members
   17. Finality declared on 85 state-root sigs
 ```
@@ -565,7 +565,7 @@ The hybrid-hashing strategy (Poseidon2 on ZK-bearing paths) keeps zero-knowledge
 
 ### 17.4 Programmable Accounts and Session Keys
 
-Native multisig ships at v1. **Programmable accounts** (sandboxed PVM bytecode policies expressing spend limits, time locks, allow-listed recipients, tiered authorization, recovery flows) and **session keys** (epoch-bounded, scope-limited dApp delegation without per-action wallet popups) ship post-mainnet. The `AuthKeys` enum reserves the `Programmable` variant at genesis so contracts written today survive the upgrade without rewriting.
+Native multisig ships at v1. **Programmable accounts** (sandboxed WASM policy modules expressing spend limits, time locks, allow-listed recipients, tiered authorization, recovery flows) and **session keys** (epoch-bounded, scope-limited dApp delegation without per-action wallet popups) ship post-mainnet. The `AuthKeys` enum reserves the `Programmable` variant at genesis so contracts written today survive the upgrade without rewriting.
 
 ### 17.5 Parachain Layer
 
@@ -579,7 +579,7 @@ This document is the technical specification of the post-pivot design. The engin
 
 1. **Mysticeti DAG implementation.** Adapt the open-source Mysticeti reference for FALCON-bound signatures and Pyde's threshold-decryption integration; rebuild the consensus, mempool, and node crates against the new foundation.
 2. **Performance harness build-out.** Multi-region production-realistic infrastructure; workload generators for the four target tx-mixes; chaos / failure injection; soak schedule. Pre-mainnet test slate is mandatory before any external TPS claim.
-3. **External audit programme.** Multi-track, specialist firms across consensus, PVM, post-quantum cryptography, networking, and the `otic` compiler. Remediate all critical and high findings; re-audit the remediation.
+3. **External audit programme.** Multi-track, specialist firms across consensus, the WASM execution layer integration (host-function ABI, fuel-to-gas mapping, deploy-time validator), post-quantum cryptography, networking, and the `otigen` developer toolchain. Remediate all critical and high findings; re-audit the remediation. The wasmtime runtime itself is a vetted production dependency from the Bytecode Alliance and is not separately audited.
 4. **Incentivized testnet.** Reference dApps (DEX, lending market, NFT marketplace); fully-funded bug bounty at mainnet-tier scale; multi-month soak; remediate community-found issues before launch.
 5. **128-validator genesis.** Recruit operators with documented hardware benchmarks and incentivized-testnet participation. Geo-distribute across 3 + regions. Coordinate validator DKG for the threshold pubkey. Sign the genesis block. Publish the chain hash.
 

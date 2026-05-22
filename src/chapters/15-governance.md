@@ -91,7 +91,7 @@ genuine signal.
 | Fee distribution changes (e.g., 70/20/10 split)  | Yes            |
 | Cryptographic primitive change                  | Yes            |
 | New transaction type                            | Yes            |
-| New PVM opcode                                  | Yes            |
+| New WASM host function                          | Yes            |
 | Treasury spend (any size)                       | Yes (`data_digest` carries hash) |
 | Bootstrap node list update                      | No (config-driven)|
 | Bug-fix release (no protocol change)            | No (changelog) |
@@ -290,8 +290,8 @@ validator upgrade:
 | `MAX_TX_SIZE` (128 KB)         | `crates/tx/src/validation.rs`         |
 | `MAX_CALLDATA` (64 KB)         | `crates/tx/src/validation.rs`         |
 | `MAX_BATCH_SIZE` (4 MB)        | `crates/mempool/src/batch.rs`         |
-| Cryptographic primitives       | `crates/crypto/*` (FALCON, Kyber, Blake3, Poseidon2) |
-| PVM ISA (62 opcodes)           | `crates/pvm/src/isa.rs`               |
+| Cryptographic primitives       | `pyde-crypto` polyrepo (FALCON, Kyber, Blake3, Poseidon2) |
+| WASM host function ABI         | `crates/wasm-exec/src/host_fns.rs` + Host Function ABI spec doc |
 
 Changing any of these requires a code release. Validators choose whether
 to run it.

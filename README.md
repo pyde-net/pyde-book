@@ -12,7 +12,7 @@
 
 The comprehensive technical reference for **Pyde** — a post-quantum
 Layer 1 blockchain with structural MEV protection, sub-second finality
-via Mysticeti DAG consensus, and a smart-contract language (Otigen)
+via Mysticeti DAG consensus, and a WebAssembly execution layer (wasmtime)
 designed for safety-by-default.
 
 > **Honest status.** This book describes the *designed* architecture —
@@ -28,9 +28,9 @@ with full specifications for the parts the chapters summarize.
 |---|---------|----------------|
 | 1 | [Introduction](src/chapters/01-introduction.md) | Vision, May 2026 pivot, honest status |
 | 2 | [Architecture Overview](src/chapters/02-architecture-overview.md) | High-level component map, worker/primary split |
-| 3 | [Virtual Machine](src/chapters/03-virtual-machine.md) | PVM register-based ISA, 62 opcodes, AOT compiler |
+| 3 | [Virtual Machine](src/chapters/03-virtual-machine.md) | wasmtime runtime, host function ABI, Cranelift AOT |
 | 4 | [State Model](src/chapters/04-state-model.md) | JMT (radix-16), hybrid Blake3 + Poseidon2 hashing |
-| 5 | [Otigen Language](src/chapters/05-otigen-language.md) | Smart-contract language, compile-time access lists |
+| 5 | [Otigen Toolchain](src/chapters/05-otigen-toolchain.md) | Developer toolchain: scaffolding, build, deploy, wallet |
 | 6 | [Consensus (Mysticeti DAG)](src/chapters/06-consensus.md) | DAG vertices, anchor selection, commit ceremony |
 | 7 | [State Sync & Chain Halt](src/chapters/07-state-sync.md) | Snapshot sync, halt types, recovery procedures |
 | 8 | [Cryptography](src/chapters/08-cryptography.md) | FALCON-512, Kyber-768, Blake3, Poseidon2, threshold, DKG |
@@ -42,7 +42,7 @@ with full specifications for the parts the chapters summarize.
 | 14 | [Tokenomics](src/chapters/14-tokenomics.md) | PYDE supply, single-tier staking (10K PYDE min), reward pool |
 | 15 | [Governance](src/chapters/15-governance.md) | PIPs + on-chain multisig, voluntary upgrade |
 | 16 | [Security & Threat Model](src/chapters/16-security.md) | Attack surface, BFT proofs, mitigations |
-| 17 | [Developer Tools](src/chapters/17-developer-tools.md) | `otic`, `wright`, JSON-RPC, SDKs |
+| 17 | [Developer Tools](src/chapters/17-developer-tools.md) | `otigen` toolchain, JSON-RPC, SDKs |
 | 18 | [Protocol Upgrades](src/chapters/18-protocol-upgrades.md) | Voluntary validator upgrade, hard/soft fork |
 | 19 | [Launch Strategy](src/chapters/19-launch-strategy.md) | 10-phase mainnet plan, audits, testnet |
 | 20 | [Appendix](src/chapters/20-appendix.md) | Glossary, constants, post-mainnet roadmap |
@@ -93,7 +93,7 @@ it as authoritative specs.
 | Area | State |
 |------|-------|
 | Architecture design | Complete |
-| PVM + Otigen execution | Functional; extensions in flight |
+| WASM execution layer (wasmtime) | Functional; extensions in flight |
 | State (JMT) | In place; hybrid hashing wiring in flight |
 | Mysticeti DAG consensus | Rebuild in flight post-pivot |
 | Threshold cryptography (PQ) | Research-grade — bleeding edge |

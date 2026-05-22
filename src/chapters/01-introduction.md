@@ -9,19 +9,18 @@ Pyde is a Layer 1 blockchain built greenfield to deliver four properties no chai
 3. **Sub-second finality** — Mysticeti-style DAG consensus, ~500ms median finality
 4. **Commodity decentralization** — modest hardware for validators not currently on the active committee; equal voting power within the active committee
 
-The execution layer is a register-based Pyde Virtual Machine (PVM) with a hybrid parallel scheduler combining Solana-style declared access lists with Aptos-style Block-STM speculation. Smart contracts are written in **Otigen**, a purpose-built language with reentrancy guards, checked arithmetic, and compile-time access list inference.
+The execution layer is **WebAssembly via wasmtime**, with Cranelift ahead-of-time compilation and a hybrid parallel scheduler combining Solana-style declared access lists with Aptos-style Block-STM speculation. Smart contracts can be authored in **Rust, AssemblyScript, Go (TinyGo), or C/C++** — whatever language the team already uses — and bundled by the `otigen` developer toolchain.
 
 Cross-chain interactions — calling functions on other chains, querying oracles, off-chain compute — happen through a permissionless **parachain layer** (post-mainnet) with operators who stake PYDE and earn gas fees from contracts that call them. No custodial multisigs, no auctioned slots.
 
-## The May 2026 Pivot
+## The Pivots
 
-Pyde's earlier architecture used an in-house HotStuff variant with 400ms slot timing. Repeated wedges, head-divergence deadlocks, and view-change cascades motivated a clean break:
+Pyde has gone through two clean pivots that materially changed the architecture. Both are documented honestly in the preface ([The Pivot](../preface/pivot.md)) and supported by full historical design records in [`pivot/`](../pivot/README.md).
 
-- **Removed:** the entire consensus, mempool, networking layers from the active workspace
-- **Replaced with:** a Mysticeti-style DAG consensus rebuild starting from a clean foundation
-- **Refocused:** execution layer + cryptography first, consensus on solid ground
+- **Consensus pivot** — from an in-house HotStuff variant (whose 400ms tail-latency wedges proved structural rather than tunable) to Mysticeti-style DAG consensus. The HotStuff-era consensus crates are archived; the Mysticeti-based rebuild is in progress.
+- **Execution pivot** — from a custom virtual machine (`pyde-vm`), a custom AOT compiler (`pyde-aot`), and a custom language (Otigen) to WebAssembly via wasmtime. The Otigen *name* lives on as the developer toolchain (`otigen`). The original Otigen Book is preserved as a historical artifact.
 
-This book reflects the post-pivot architecture. Previous architecture (HotStuff) is archived in `archive/` for reference.
+This book reflects the post-pivot architecture. The work that preceded each pivot is preserved both in code (`archive/`) and in design documentation (`pivot/`).
 
 ## Why a New Layer 1?
 
@@ -39,30 +38,35 @@ Chains optimizing for throughput have ended up requiring datacenter-class valida
 
 ## What's New (Post-Pivot)
 
-- **Mysticeti DAG consensus** replaces HotStuff. No view changes, no single proposer, ~500ms commit latency
+- **Mysticeti DAG consensus** replaces HotStuff. No view changes, no single proposer, sub-second commit latency targeted (implementation in progress)
+- **WebAssembly execution** via wasmtime, with Cranelift AOT. Smart contracts written in Rust, AssemblyScript, Go, or C/C++ — same language ecosystem authors already work in
 - **Worker / Primary split** (Narwhal pattern) for data dissemination separate from consensus
 - **Hybrid execution scheduler** — static access lists for known patterns, Block-STM for dynamic
-- **Hybrid hashing** — Blake3 for high-volume native paths, Poseidon2 for ZK-bearing paths
+- **Dual-hash JMT** — Blake3 + Poseidon2 per node, so both standard light clients and future ZK light clients can verify against the same tree
 - **JMT state tree** (Jellyfish Merkle Tree, radix-16) replaces fixed-depth SMT
+- **PIP-2 clustered slot keys + PIP-3 prefetch + PIP-4 write-back cache** — three-layer state performance stack
 - **Encryption opt-in** per-tx — MEV protection where needed, no overhead where not
+- **`otigen` developer toolchain** — zero-extra-code authoring: write contract logic + `otigen.toml`, the tool handles everything else
 - **Honest performance targets** — 10-30K TPS realistic v1, validated by multi-region performance harness
-- **Phased mainnet plan** — external audit + incentivized testnet before launch (Chapter 19)
+- **Phased mainnet plan** — external audit + incentivized testnet before launch (see Roadmap)
 
 ## Honest Status
 
-This book describes **designed architecture**, not shipped implementation:
+This book describes **designed architecture**, with implementation in various stages:
 
 | Component | Status |
 |---|---|
-| Architecture design | ✅ Complete |
-| PVM + Otigen execution | 🟡 Functional, extensions needed |
-| State (JMT) | 🟡 In place, needs hybrid hashing |
-| Mysticeti DAG consensus | 🔴 Not yet — rebuild post-pivot |
-| Threshold cryptography | 🔴 Research-grade (PQ threshold is bleeding edge) |
-| Network protocol | 🟡 Existing, needs libp2p+QUIC migration |
-| Performance harness | 🔴 Not yet built |
+| Architecture design | Complete |
+| WASM execution layer (wasmtime + Cranelift) | Foundation in place, integration in progress |
+| State layer (JMT, dual-hash, PIP-2 clustering) | Single-hash JMT in place; PIP-2/3/4 + dual-hash in progress |
+| Mysticeti DAG consensus | Rebuild in progress post-pivot |
+| Post-quantum cryptography (`pyde-crypto`) | Functional; threshold-decryption path is research-grade |
+| Network protocol (libp2p + QUIC + Gossipsub) | In place; layered peer discovery (no DHT) in flight |
+| `otigen` developer toolchain (WASM-era) | Specification complete; scaffold in progress |
+| Parachain framework | Designed; implementation deferred to a later phase |
+| Performance harness | Not yet built (mandatory before any TPS claim) |
 
-**Mainnet ships when the work in Chapter 19 is done and the external audit passes** — no public schedule.
+**Mainnet ships when the implementation is complete, audited, and validated by an incentivized testnet** — no public schedule. See the [Roadmap](../roadmap.md) for the sequenced plan.
 
 ## Performance Targets
 
@@ -81,41 +85,43 @@ Validated by multi-region production-realistic harness (mandatory before any ext
 This book is the comprehensive technical reference. Different paths for different audiences:
 
 **For a researcher / cryptographer:**
-1. Chapter 2 (Architecture Overview)
-2. Chapter 6 (Consensus)
-3. Chapter 8 (Cryptography)
-4. Chapter 9 (MEV Protection)
-5. Companion: `docs/WHITEPAPER.md`
+1. [Chapter 2: Architecture Overview](./02-architecture-overview.md)
+2. [Chapter 6: Consensus (Mysticeti DAG)](./06-consensus.md)
+3. [Chapter 8: Cryptography](./08-cryptography.md)
+4. [Chapter 9: MEV Protection](./09-mev-protection.md)
+5. Companion: [Whitepaper](../companion/WHITEPAPER.md)
 
 **For an implementer / contributor:**
-1. Chapter 2 (Architecture)
-2. Chapter 3 (Virtual Machine)
-3. Chapter 4 (State Model)
-4. Chapter 11 (Account Model)
-5. Chapter 12 (Networking)
-6. Companion: `docs/DESIGN.md`
+1. [Chapter 2: Architecture Overview](./02-architecture-overview.md)
+2. [Chapter 3: Execution Layer (WASM)](./03-virtual-machine.md)
+3. [Chapter 4: State Model](./04-state-model.md)
+4. [Chapter 5: Otigen Toolchain](./05-otigen-toolchain.md)
+5. [Chapter 11: Account Model](./11-account-model.md)
+6. [Chapter 12: Networking](./12-networking.md)
+7. Companion: [Architecture (Design Doc)](../companion/DESIGN.md)
+8. Preface: [The Pivot](../preface/pivot.md) for context on architectural choices
 
 **For a validator operator:**
-1. Chapter 6 (Consensus)
-2. Chapter 7 (State Sync & Chain Halt)
-3. Chapter 16 (Security & Threat Model)
-4. Companions: `docs/VALIDATOR_LIFECYCLE.md`, `docs/SLASHING.md`, `docs/CHAIN_HALT.md`
+1. [Chapter 6: Consensus](./06-consensus.md)
+2. [Chapter 7: State Sync & Chain Halt](./07-state-sync.md)
+3. [Chapter 16: Security & Threat Model](./16-security.md)
+4. Companions: [Validator Lifecycle](../companion/VALIDATOR_LIFECYCLE.md), [Slashing](../companion/SLASHING.md), [Chain Halt & Recovery](../companion/CHAIN_HALT.md)
 
 **For an investor / decision-maker:**
 1. This Introduction
-2. Chapter 14 (Tokenomics)
-3. Chapter 19 (Launch Strategy)
-4. Companion: `docs/PITCH_DECK.md`
+2. [Chapter 14: Tokenomics](./14-tokenomics.md)
+3. [Chapter 19: Launch Strategy](./19-launch-strategy.md)
+4. Companion: [Pitch Deck](../companion/PITCH_DECK.md), [Tokenomics Detail](../companion/TOKENOMICS.md)
 
 **For someone doing security review / audit:**
-1. Chapter 16 (Security & Threat Model)
-2. Chapter 6 (Consensus safety arguments)
-3. Chapter 8 (Cryptography)
-4. Companions: `docs/THREAT_MODEL.md`, `docs/FAILURE_SCENARIOS.md`
+1. [Chapter 16: Security & Threat Model](./16-security.md)
+2. [Chapter 6: Consensus (safety arguments)](./06-consensus.md)
+3. [Chapter 8: Cryptography](./08-cryptography.md)
+4. Companions: [Threat Model](../companion/THREAT_MODEL.md), [Failure Scenarios](../companion/FAILURE_SCENARIOS.md), [Network Protocol](../companion/NETWORK_PROTOCOL.md), [Performance Harness](../companion/PERFORMANCE_HARNESS.md)
 
 ## License
 
-Apache-2.0 — see `LICENSE` at the repository root.
+Pyde is licensed under [Apache-2.0](https://www.apache.org/licenses/LICENSE-2.0). The full text lives in `LICENSE` at the root of each Pyde repository. The book content is licensed under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
 
 ## Status
 

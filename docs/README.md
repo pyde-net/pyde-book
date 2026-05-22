@@ -53,7 +53,7 @@ This documentation reflects **designed architecture**, not shipped implementatio
 | Aspect | Status |
 |---|---|
 | Architecture design | ✅ Complete |
-| Execution layer (PVM + Otigen) | 🟡 Functional, needs hybrid execution + access list extensions |
+| Execution layer (WASM via wasmtime) | 🟡 Foundation in place, integration in progress |
 | State layer (JMT) | 🟡 In place, needs hybrid hashing (Blake3 + Poseidon2) |
 | Consensus (Mysticeti DAG) | 🔴 Not yet implemented (post-pivot rebuild) |
 | Threshold crypto | 🔴 Research-grade (post-quantum threshold is bleeding edge) |

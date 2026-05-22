@@ -195,7 +195,7 @@ Pyde uses **two** hash functions, each chosen for a class of paths:
 | Function    | Speed (native) | ZK cost (constraints) | Used for |
 |-------------|----------------|------------------------|----------|
 | **Blake3**  | ~3 GB/s        | ~150k per hash (huge) | JMT internal nodes, batch hashes, vertex hashes, gossip de-dup, RocksDB keys |
-| **Poseidon2** | ~60 MB/s     | ~400 (small)          | State root commitment, address derivation, threshold MAC, VRF output, FALCON sig hashing inside ZK circuits, PVM `Poseidon` opcode |
+| **Poseidon2** | ~60 MB/s     | ~400 (small)          | State root commitment, address derivation, threshold MAC, VRF output, FALCON sig hashing inside ZK circuits, `poseidon2` WASM host function |
 
 ### Blake3
 
@@ -277,14 +277,15 @@ bytes at a time (avoiding values that exceed the Goldilocks modulus).
 2. **Account address derivation** — `Poseidon2(falcon_pubkey)`.
 3. **CREATE / CREATE2 address derivation** — `Poseidon2(deployer || nonce)`
    or `Poseidon2(0xFF || deployer || salt || code_hash)`.
-4. **Storage key derivation in Otigen** — `Poseidon2(contract, slot)` for
-   single fields, doubled for maps.
+4. **Storage key derivation** — `Poseidon2(contract, slot)` for single
+   fields, doubled for maps. Encoded as build-time constants by the
+   `otigen` developer toolchain's state binding generator.
 5. **Transaction hashing** — the canonical tx hash used for replay
    prevention and the wallet's signing target.
 6. **Threshold MAC** — `Poseidon2(0xFF...0xFF || secret || ciphertext)`.
 7. **VRF output** — `Poseidon2(domain || fingerprint || input)`.
 8. **Epoch randomness combination** — `Poseidon2_many(sorted_shares)`.
-9. **PVM `Poseidon` opcode** — exposed to user-space contracts.
+9. **`poseidon2` WASM host function** — exposed to user-space contracts via the host-function ABI.
 
 ---
 
@@ -569,7 +570,7 @@ is a wallet-side concern; the protocol doesn't care.
    JMT internals          state root commit,
    batch hashes           addresses, storage keys,
    vertex hashes          MAC, VRF output, RNG mix
-   gossip dedup           PVM Poseidon opcode
+   gossip dedup           poseidon2 host function
 
    +----------------+
    | AES-256-GCM    |

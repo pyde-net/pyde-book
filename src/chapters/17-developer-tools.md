@@ -1,531 +1,165 @@
 # Chapter 17: Developer Tools
 
-Pyde's developer toolchain is the set of command-line programs, SDKs,
-and RPC endpoints that let people write, test, deploy, and interact with
-contracts. This chapter is the reference.
+Pyde's developer toolchain is the set of command-line programs, SDKs, and RPC endpoints that let people write, test, deploy, and interact with contracts. This chapter is the reference survey — what exists, what it does, where to find it.
 
-What's in scope for mainnet:
+For deep documentation on the primary developer-facing tool (the `otigen` binary), see [Chapter 5: Otigen Toolchain](./05-otigen-toolchain.md). This chapter does not duplicate that material; it summarizes and points outward.
 
-- `otic` — the Otigen compiler.
-- `wright` — the project-level CLI (build, test, deploy, wallet, etc.).
-- `pyde` — the node binary (validator + full node) with JSON-RPC.
-- `pyde-rust-sdk` — Rust client SDK.
-- `pyde-crypto-wasm` — WASM bindings for browser/Node.
+## What's in scope
 
-What's **not** in scope for mainnet (tracked post-launch):
+- **`otigen`** — the developer toolchain binary. Handles project scaffolding, builds in any supported language, state binding generation, deployments, wallet management, REPL access. The single tool most contract developers use day-to-day.
+- **`pyde`** — the node binary (validator + full node) with JSON-RPC, libp2p networking, and the WASM execution layer.
+- **`pyde-rust-sdk`** — the Rust client SDK for talking to a Pyde node programmatically.
+- **`pyde-ts-sdk`** — the TypeScript / JavaScript client SDK.
+- **`pyde-crypto-wasm`** — WASM bindings exposing post-quantum cryptography (FALCON signing, Kyber encryption, Poseidon2/Blake3 hashing) to browser and Node.js environments.
 
-- A TypeScript SDK (the WASM crate is the bridge until a dedicated TS
-  package lands).
-- A dedicated Pyde block explorer frontend (the backend indexer is on the
-  Phase 7 list; the UI is ecosystem work).
-- A proprietary IDE; standard editors + tree-sitter grammar for `.oti` are
-  the intended path.
+## What's **not** in scope at launch (tracked later)
+
+- A dedicated Pyde block explorer frontend (the backend indexer is on the roadmap; the UI is community ecosystem work).
+- A proprietary IDE. Standard editors with the language's standard tooling (rust-analyzer for Rust, the AssemblyScript LSP, gopls for Go, clangd for C/C++) are the intended path. No Pyde-specific IDE.
+- Per-language testing wrappers. Contract authors use their language's native test runner (`cargo test`, `npm test`, `go test`, `clang` + your test framework of choice).
 
 ---
 
-## 17.1 `otic` — The Otigen Compiler
+## 17.1 `otigen` — the developer toolchain
 
-The compiler for `.oti` source files. Produces a JSON artifact with PVM
-bytecode, an ABI, and metadata.
+The Foundry / Hardhat / Cargo-equivalent for Pyde. Replaces the earlier `wright` toolchain that targeted the now-retired Otigen smart-contract language.
 
-### Commands
+`otigen` is **language-agnostic**: the same binary handles projects authored in Rust, AssemblyScript, Go (via TinyGo), or C/C++. Authors declare their language in `otigen.toml`; `otigen` invokes the correct compiler with the correct WASM target and packages the resulting artifact for deployment.
+
+### Subcommand summary
 
 ```
-otic build <file.oti>    Compile to .json artifact (bytecode + ABI)
-otic check <file.oti>    Type check without emitting bytecode
-otic test  <file.oti>    Run #[test] functions on an embedded PVM
-otic abi   <file.oti>    Print only the ABI JSON
-otic lex   <file.oti>    (debug) Dump the token stream
+otigen init <name> --lang <language>   Scaffold a new project from the language template
+otigen build                            Build the WASM module + ABI + bundle artifact
+otigen deploy                           Sign and submit a deploy transaction
+otigen upgrade                          Submit an upgrade proposal
+otigen pause / kill                     Operational lifecycle (where supported)
+otigen inspect <address-or-name>        Read deployed contract state, ABI, version history
+otigen wallet                           Wallet management subcommands
+otigen console                          REPL against a local or remote node
 ```
 
-Most projects call `otic` indirectly through `wright build` / `wright
-test`, which adds project-level conventions (multiple files, dependency
-resolution, `pyde.toml` config).
+There is no `otigen test`. Authors use their language's native test runner.
 
-See Chapter 5 for language reference, ABI structure, and test harness
-details.
+For the full reference — `otigen.toml` schema, per-language workflows, state binding generation, deploy/upgrade flow internals — see [Chapter 5](./05-otigen-toolchain.md).
 
 ---
 
-## 17.2 `wright` — Project CLI
+## 17.2 `pyde` — the node binary
 
-The Foundry-style project CLI. This is the tool most contract developers
-use day-to-day.
+The node binary that any full node or validator runs. Contains:
 
-### Project lifecycle
-
-```
-wright init <name>               Create a new project (src/, test/, pyde.toml, pyde.lock)
-wright build                     Compile all .oti files under src/
-wright test [--filter] [-v|-vv]  Run #[test] functions across test/
-wright fmt                       Auto-format .oti sources
-wright clean                     Remove out/ artifacts
-wright doc                       Generate docs from contract sources
-```
-
-### Deployment and interaction
+- The Mysticeti DAG consensus layer
+- The WASM execution layer (wasmtime + Cranelift AOT)
+- The JMT state layer (with PIP-2 clustering, dual-hash, PIP-3 prefetch, PIP-4 write-back cache)
+- The libp2p + QUIC + Gossipsub network layer
+- A JSON-RPC server for client interaction
+- Validator-mode flags for committee participation, stake management, key rotation
 
 ```
-wright deploy [--network N] [--contract C] [--value V] [--private-key K | --wallet W] [--verify]
-wright script <file.oti[:Contract]> [--network N] [--private-key K | --wallet W]
-wright call   <address> <function()> [--network N]
-wright send   <address> <function()> [--network N] [--value V] [--private-key K | --wallet W]
-wright tx     <hash> [--network N]
+pyde init                  Initialize a new node (creates keystore, config)
+pyde start                 Run the node (validator if configured for committee participation, full node otherwise)
+pyde config show           Print effective config
+pyde keys rotate           Rotate FALCON keypair (validator-only)
+pyde admin <subcommand>    Operational commands (drain, halt, recover)
 ```
 
-`call` runs read-only (no state mutation); `send` builds, signs, and
-broadcasts a real transaction.
-
-### Wallet management
-
-```
-wright wallet create [--name N]
-wright wallet import <pk_hex> <sk_hex> [--name N]
-wright wallet list
-wright wallet balance [--name N] [--network NET]
-wright transfer <to> <amount> [--wallet W] [--network NET]
-```
-
-Wallets live in `~/.pyde/wallets/`, encrypted with AES-256-GCM under a
-user-provided password.
-
-### Package management
-
-```
-wright install [<git-url>] [--rev R] [--name N]
-wright remove <name>
-```
-
-Dependencies are git-based (no central registry at launch). `pyde.lock`
-pins the resolved revisions.
-
-### Dev loop
-
-```
-wright console [--network N] [--private-key K | --wallet W]    REPL
-wright verify <address> [--contract C] [--network N]           Re-deploy and diff
-```
-
-The `console` REPL lets you poke at deployed contracts interactively —
-load ABI, call functions, inspect state.
+A full operational reference for validators is published as a separate document (see Validator Operating Guide, post-public-testnet).
 
 ---
 
-## 17.3 The Node Binary (`pyde`)
+## 17.3 SDKs
 
-The binary that runs validators and full nodes. Covered in Chapter 2
-(architecture) and Chapter 12 (networking); this section is the CLI-level
-reference.
+Two first-class language SDKs at launch, with the WASM crypto bindings as a third-party-friendly bridge.
 
-### Subcommands
+### `pyde-rust-sdk`
 
-```
-pyde run              Run a node (validator or full)
-pyde default-config   Print a default node config TOML
-pyde default-genesis  Print a default devnet genesis TOML
-pyde testnet          Generate a multi-validator testnet directory tree
-pyde faucet           Run a public faucet HTTP server
-```
+Idiomatic Rust client for Pyde nodes. Use cases:
+- Backend services interacting with Pyde from Rust applications.
+- Scripted deployment + interaction (alternative to `otigen`'s deploy/send commands when scripting in Rust).
+- Tools building on top of Pyde (indexers, monitoring, custom validators).
 
-### `pyde run` flags
+Surface area:
+- Transaction construction + signing
+- RPC client (JSON-RPC over HTTP and WebSocket)
+- Streaming subscriptions (new blocks, account changes, event filters)
+- ABI encoding/decoding helpers
+- Wallet integration (load keys from `~/.pyde/wallets/`, hardware wallets via external signer protocol)
 
-```
-pyde run
-   --role <validator|full>      default: full
-   --config <path>              TOML config (else use defaults + CLI overrides)
-   --port <port>                P2P listen port (default 30303)
-   --datadir <path>             data directory (default ~/.pyde)
-   --log-level <info|debug>
-   --log-json
-   --metrics-port <port>        Prometheus endpoint (default 9090)
-   --rpc-port <port>            JSON-RPC port (default 8545)
-   --dev                        use 31337 chain_id with dev_skip_signature=true
-   --bootstrap <multiaddr>      add a bootstrap peer (repeatable)
-```
+### `pyde-ts-sdk`
 
-### `pyde testnet` flags
+TypeScript / JavaScript SDK. Ships at ethers-equivalent maturity from day one (lessons from EVM tooling baked in).
 
-Generates a local multi-node testnet layout.
+Surface area:
+- Same primitives as `pyde-rust-sdk` but idiomatic TS
+- Browser-friendly via tree-shaking + WASM crypto bridge
+- Type-safe ABI generation from `abi.json` artifacts
+- React hooks for common patterns (account, balance, contract calls)
+- Wallet adapter pattern for browser-wallet integration
 
-```
-pyde testnet
-   --validators <N>             default 2
-   --full-nodes <N>             default 0
-   --out <dir>                  target directory
-   --base-port <port>           default 30303
-   --base-rpc-port <port>       default 8545
-   --dev                        auto-use chain_id=31337 + skip sigs
-   --chain-id <id>              default 31337
-   --round-period-ms <ms>       default 150 (DAG round cadence)
-```
+### `pyde-crypto-wasm`
 
-Produces a directory per node with its own config, genesis, and validator
-identity. Run each one with `pyde run --config <per-node.toml>`.
+WASM bindings exposing post-quantum cryptography to JavaScript. Used internally by `pyde-ts-sdk`, also usable directly by any project that needs PQ crypto in a browser or Node.js environment.
 
-### Config file format
-
-Top-level sections of `pyde.toml` (partial list — see
-`pyde default-config` for the full template):
-
-```toml
-[node]
-role = "full"
-chain_id = 31337
-datadir = "~/.pyde"
-dev_mode = false
-
-[network]
-port = 30303
-max_peers = 50
-max_inbound = 30
-max_outbound = 20
-rate_limit_per_ip = 5
-bootstrap_peers = [
-    "/dns4/boot1.pyde.network/udp/30303/quic-v1/p2p/12D3Koo...",
-]
-
-[consensus]
-round_period_ms = 150            # DAG round cadence
-wave_commit_target_ms = 500      # median commit latency target
-gas_target = 400_000_000
-gas_ceiling = 1_600_000_000
-initial_ws_checkpoint_wave = 0
-
-[storage]
-db_path = "state"            # relative to datadir
-cache_size = 65536
-
-[rpc]
-enabled = true
-listen = "127.0.0.1"
-port = 8545
-
-[fast_tx]
-enabled = true
-listen = "0.0.0.0"
-port = 9545
-
-[metrics]
-enabled = true
-port = 9090
-
-[logging]
-level = "info"
-json = false
-```
+Surface area:
+- FALCON-512 keypair generation, sign, verify
+- Kyber-768 encryption / decryption
+- Threshold-encryption shares (where used by client-side encrypted-tx submission)
+- Poseidon2 and Blake3 hashing
 
 ---
 
 ## 17.4 JSON-RPC
 
-The node exposes a `pyde_`-prefixed JSON-RPC API on the configured port
-(default 8545). See `crates/node/src/rpc.rs`.
+The node exposes a JSON-RPC interface over HTTP and WebSocket. Method surface includes:
 
-### State query
+- Standard query methods (account state, balance, nonce, contract code, contract state)
+- Transaction submission (plaintext and threshold-encrypted)
+- Subscription methods (new heads, new blocks, account changes, event filters)
+- Gas / fee estimation
+- Wave + state-root queries (for light clients)
+- Validator-specific methods (committee status, attestations) under an authorized-only namespace
 
-| Method                             | Params                      | Returns                           |
-| ---------------------------------- | --------------------------- | --------------------------------- |
-| `pyde_getBalance`                  | address                     | string balance (quanta)           |
-| `pyde_getTransactionCount`         | address                     | u64 — sender's nonce base         |
-| `pyde_getCode`                     | address                     | hex bytecode                      |
-| `pyde_getStorageAt`                | (address, slot)             | hex value                         |
-| `pyde_chainId`                     | —                           | 0x-prefixed hex chain_id          |
-| `pyde_blockNumber`                 | —                           | 0x-prefixed hex head block number |
-| `pyde_gasPrice`                    | —                           | current base fee (quanta)         |
-| `pyde_stateRoot`                   | —                           | current state root (hex)          |
-| `pyde_syncing`                     | —                           | `{headBlock, epoch, stateRoot}`   |
-| `pyde_getValidators`               | —                           | validators with status + stake    |
-| `pyde_getBlockByNumber`            | block_number                | BlockHeader                       |
-| `pyde_getBlockByHash`              | hash                        | BlockHeader                       |
-| `pyde_getTransactionReceipt`       | tx_hash                     | receipt with logs + fee breakdown |
-| `pyde_getLogs`                     | filter                      | matching logs                     |
-| `pyde_mempoolSize`                 | —                           | pending tx count                  |
-
-### Transaction submission
-
-| Method                                    | Params                      | Returns                           |
-| ----------------------------------------- | --------------------------- | --------------------------------- |
-| `pyde_sendRawTransaction`                 | signed plaintext tx (hex)   | `{"txHash": "0x..."}`             |
-| `pyde_sendRawEncryptedTransaction`        | signed Kyber-encrypted tx   | `{"txHash": "0x..."}`             |
-| `pyde_sendTransaction`                    | unsigned tx obj (dev only)  | tx hash (dev_skip_signature only) |
-| `pyde_call`                               | call obj                    | hex return data (no mutation)      |
-| `pyde_estimateGas`                        | call obj                    | gas estimate                      |
-| `pyde_estimateAccess`                     | call obj                    | `{ gas, access_list }` combined   |
-| `pyde_createAccessList`                   | call obj                    | inferred access list (legacy)     |
-
-`pyde_sendRawTransaction` is what production wallets use. Its handler
-(`crates/node/src/rpc.rs::ingress_validate`) validates:
-
-- `chain_id` match.
-- FALCON signature verification (skipped only for chain_id 31337).
-- Nonce bitmap window.
-- Balance vs `gas_limit * base_fee + value`.
-- Gas bounds (`21_000 <= gas_limit <= GAS_CEILING`).
-- Deadline (if set) > current block number.
-- Access list dedup.
-- Tx size (≤ 128 KB), calldata size (≤ 64 KB).
-
-On failure, returns a JSON-RPC error. On success, **synchronously publishes
-the tx to the gossip channel before returning OK** — no async race where
-the client thinks acceptance but the network never hears.
-
-### WebSocket subscriptions
-
-| Method                     | Streams                         |
-| -------------------------- | ------------------------------- |
-| `pyde_subscribe`           | new block headers               |
-| `pyde_subscribePending`    | pending tx hashes                |
-| `pyde_subscribeLogs`       | event logs matching a filter     |
-
-### Deprecated / dev-only
-
-`pyde_sendTransaction` (unsigned) is accepted only when `chain_id = 31337`
-and `dev_skip_signature = true`. Production networks reject it.
+The full method catalog is published as the JSON-RPC reference (lives alongside the node binary documentation).
 
 ---
 
-## 17.5 `pyde-rust-sdk` — Rust Client SDK
+## 17.5 What changed at the pivots
 
-A Rust crate for writing clients, bots, and integration tests against a
-Pyde node. Lives in `crates/pyde-rust-sdk`.
+For readers coming from the pre-pivot world, the developer tooling has changed substantially:
 
-### Provider
+| Pre-pivot (Otigen-language era) | Post-pivot (current) |
+|-------------------------------|---------------------|
+| `otic` — Otigen compiler | Retired; archived |
+| `wright` — project CLI | Retired; archived. Role taken by the new `otigen` binary |
+| `.oti` source files | Replaced by author's language of choice (`.rs`, `.ts`, `.go`, `.c`) |
+| PVM bytecode artifacts | Replaced by WASM `.wasm` artifacts |
+| Otigen-specific tests | Replaced by author's language's native test runner |
+| `pyde.toml` config | Replaced by `otigen.toml` config with state schema declaration |
 
-```rust
-use pyde_rust_sdk::{Provider, ProviderOptions};
-
-let provider = Provider::new("http://localhost:8545", ProviderOptions::default())?;
-let balance = provider.get_balance(&alice).await?;
-let nonce   = provider.get_transaction_count(&alice).await?;
-let chain   = provider.chain_id().await?;
-```
-
-The provider wraps the `pyde_*` JSON-RPC methods. `get_nonce_and_chain_id`
-fetches both in parallel.
-
-### Wallet
-
-```rust
-use pyde_rust_sdk::Wallet;
-
-let w = Wallet::generate();                               // random FALCON keypair
-let w = Wallet::from_private_key("0x...")?;               // from hex (pk + sk)
-let w = Wallet::from_keystore("./keys/alice.json", password)?;
-```
-
-Wallet files use AES-256-GCM; the keystore format mirrors Foundry's for
-ecosystem compatibility.
-
-### Transaction building
-
-```rust
-let tx = wallet.transfer(&recipient, 1_000_000_000).await?;   // 1 PYDE
-let tx = wallet.send_call(&contract_addr, calldata, 150_000).await?;
-let tx = wallet.send_call_with_value(&contract_addr, calldata, value, 150_000).await?;
-let tx = wallet.deploy(bytecode, 1_000_000).await?;
-```
-
-The SDK auto-fetches nonce + chain_id, runs `pyde_createAccessList` if an
-access list isn't provided, signs with FALCON, and broadcasts. Returns a
-`TransactionResponse` the caller can `.await_receipt()` on.
-
-### Contract ABI
-
-```rust
-use pyde_rust_sdk::{Contract, Interface};
-
-let iface = Interface::from_abi_file("./out/Token.json")?;
-let token = Contract::new(addr, iface, provider.clone());
-
-let total: u256 = token.call("total_supply").await?.try_into()?;
-
-let receipt = token
-    .call_mut("transfer")
-    .arg(&recipient)
-    .arg(&amount)
-    .send(&wallet)
-    .await?;
-
-for log in receipt.logs {
-    if log.topic0() == token.event("Transfer") {
-        let (from, to, amount) = log.decode::<(Address, Address, u256)>()?;
-    }
-}
-```
-
-### Encoding / decoding
-
-Public utilities: `hexlify`, `parse_address`, `format_address`,
-`parse_quanta`, `format_quanta` (quanta ↔ PYDE conversion). Constants:
-`PYDE_DECIMALS = 9`, `ZERO_ADDRESS`.
+The `otigen` *name* survives, repurposed for the developer toolchain. See [The Pivot](../preface/pivot.md) for the full narrative, and [pivot/02-otigen-language-era.md](../pivot/02-otigen-language-era.md) for the design record of the retired language.
 
 ---
 
-## 17.6 `pyde-crypto-wasm` — WASM Bindings
+## 17.6 Where everything lives
 
-A WASM crate that exposes Pyde cryptographic primitives and transaction
-construction to browser and Node environments. Lives in
-`crates/pyde-crypto-wasm`.
-
-### Exported functions
-
-```js
-// Key generation + address derivation
-const { publicKey, secretKey, address } = generateKeypair();
-const addr = deriveAddress(pk_hex);
-
-// Signing + verification
-const sig = signMessage(sk_hex, message_hex);
-const ok  = verifySignature(pk_hex, message_hex, sig_hex);
-
-// Hashing
-const h        = poseidon2Hash(data_hex);
-const selector = computeSelector("transfer");         // FNV-1a -> u32
-
-// Transactions
-const txHash = hashTransaction({
-    from, to, value, data, gasLimit, nonce, chainId, txType, accessList
-});
-const wireBytes = signTransaction(
-    { from, to, value, data, gasLimit, nonce, chainId, txType, accessList },
-    sk_hex
-);
-```
-
-A browser wallet that wants to sign Pyde transactions uses `signMessage`
-(FALCON-512) or `signTransaction` (full tx encoding + sign in one call).
-A JS-based dApp can call `computeSelector` to work out the 4-byte function
-selector at runtime without hard-coding it.
-
-The module is published as a standard wasm-bindgen package; the build
-output is consumed by any tool that can import WASM (bundlers, Node
-require, browser script tags, etc.).
+| Tool | Repo |
+|------|------|
+| `otigen` developer toolchain | `pyde-net/otigen` |
+| `pyde` node binary + engine | `pyde-net/engine` |
+| `pyde-rust-sdk` | `pyde-net/pyde-rust-sdk` |
+| `pyde-ts-sdk` | `pyde-net/pyde-ts-sdk` |
+| `pyde-crypto-wasm` | `pyde-net/crypto-wasm` |
+| Archived `otic` compiler | `pyde-net/otic` (archived) |
+| Archived `wright` toolchain | `pyde-net/wright` (archived) |
+| The Otigen Book (historical) | `pyde-net/otigen-book` (preserved as historical artifact) |
 
 ---
 
-## 17.7 Faucet (`pyde faucet`)
+## 17.7 Reading on
 
-For testnets, the node binary includes a simple faucet HTTP server.
-
-```
-pyde faucet
-   --rpc <url>                    http://localhost:8545
-   --port <port>                  default 8080
-   --amount <PYDE>                default 100
-   --from <address>               source account (must hold balance)
-   --private-key <hex>            signing key for source
-   --cooldown <secs>              per-IP cooldown
-```
-
-POSTs to `/faucet` drop the configured `amount` PYDE to the requested
-address, subject to the cooldown. Meant for testnet onboarding and
-integration tests, not mainnet.
-
----
-
-## 17.8 Testnet Quickstart
-
-A typical "join the testnet as a full node" flow:
-
-```bash
-# Install pyde (pre-compiled binary or from source)
-cargo install --path crates/node    # from repo
-
-# Initialize from defaults
-mkdir mytestnet && cd mytestnet
-pyde default-config > pyde.toml
-
-# Edit pyde.toml: set chain_id, bootstrap_peers for the target testnet
-
-# Start the node
-pyde run --role full --config ./pyde.toml
-
-# In another terminal, query the node
-curl -X POST http://localhost:8545 \
-    -H "Content-Type: application/json" \
-    -d '{"jsonrpc":"2.0","method":"pyde_blockNumber","params":[],"id":1}'
-```
-
-A typical validator flow is the same, plus a validator identity file and
-`--role validator`. The full-node flow is what most operators and
-integrators want.
-
----
-
-## 17.9 Deploying a Contract
-
-End-to-end with `wright`:
-
-```bash
-# Create a project
-wright init mytoken
-cd mytoken
-
-# Write src/Token.oti (see Chapter 5)
-# ...
-
-# Build
-wright build
-
-# Test
-wright test
-
-# Create a wallet
-wright wallet create --name deployer
-
-# Fund via faucet (testnet) or transfer
-wright wallet balance --name deployer --network testnet
-
-# Deploy
-wright deploy \
-    --network testnet \
-    --contract Token \
-    --wallet deployer
-# >>> Deployed at 0xpyde1abc...
-# >>> tx hash 0xdef123...
-
-# Interact
-wright call 0xpyde1abc... "total_supply()" --network testnet
-wright send 0xpyde1abc... "transfer(Address,u256)" \
-    --wallet deployer \
-    --network testnet \
-    --args 0xpyde1xyz... 100
-```
-
-`wright verify <addr>` re-builds the local sources and compares the
-resulting bytecode to the on-chain deployment — the standard contract-
-verification flow.
-
----
-
-## 17.10 Tooling Gaps at Mainnet
-
-Honest about what is not yet shipped:
-
-| Tool / capability                         | Status at mainnet                  |
-| ----------------------------------------- | ---------------------------------- |
-| TypeScript SDK                            | Not shipped; WASM bridge available |
-| Browser-native wallet                     | Ecosystem; WASM exposes primitives |
-| Block explorer frontend                   | Backend in Phase 7; UI is ecosystem|
-| IDE-specific plugins                      | tree-sitter grammar + LSP possible |
-| Debugger (step-through in otic / PVM)     | Not shipped; `otic test` is the test loop |
-| Persistent receipt archive                | Task 058, post-mainnet             |
-
-The core path — write a contract, test it, deploy it, call it, read the
-receipt — works end-to-end at mainnet.
-
----
-
-## Summary
-
-| Tool                  | Purpose                                              |
-| --------------------- | ---------------------------------------------------- |
-| `otic`                | Compile `.oti` → JSON artifact (bytecode + ABI)      |
-| `wright`            | Project-level workflow (build, test, deploy, wallet) |
-| `pyde` binary         | Run validator or full node; JSON-RPC on 8545         |
-| `pyde-rust-sdk`       | Rust client SDK (provider, wallet, contract helpers) |
-| `pyde-crypto-wasm`    | Browser / Node WASM for FALCON, Poseidon2, tx hash   |
-| `pyde faucet`         | Testnet faucet HTTP server                            |
-
-The next chapter covers protocol upgrades — the voluntary validator
-upgrade flow, emergency pause windows, and migration patterns.
+- [Chapter 5: Otigen Toolchain](./05-otigen-toolchain.md) — the deep reference for the `otigen` binary.
+- [Chapter 3: Execution Layer](./03-virtual-machine.md) — the WASM runtime that compiled contracts execute under.
+- [Chapter 11: Account Model](./11-account-model.md) — the name registry the toolchain interacts with.
+- [Chapter 18: Protocol Upgrades](./18-protocol-upgrades.md) — how contract and protocol upgrades flow.
+- [Preface: The Pivot](../preface/pivot.md) — narrative on why the toolchain looks the way it does.

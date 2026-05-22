@@ -12,10 +12,12 @@ and the post-mainnet roadmap.
 | -------------------- | -------------------------------------------------------------------------- |
 | **Pyde**             | The post-quantum L1 blockchain. Name of the protocol, the network, and the binary. |
 | **PYDE**             | The native token. 1 PYDE = 10^9 quanta.                                     |
-| **Otigen**           | Pyde's smart-contract language. Source files use `.oti`. Compiled by `otic`.|
-| **otic**             | The Otigen compiler. Produces a JSON artifact (PVM bytecode + ABI).         |
-| **PVM**              | Pyde Virtual Machine. Register-based, 32-bit fixed encoding, 62 opcodes.    |
-| **AOT**              | Ahead-of-time compiler (Cranelift) that turns PVM bytecode into native code at deploy.|
+| **otigen**           | Pyde's developer toolchain (the binary). Scaffolds projects, builds WASM artifacts, deploys, manages wallets. Name carried forward from the retired Otigen language. |
+| **WASM**             | WebAssembly. Pyde's execution layer; smart contracts and parachains compile to WASM and execute under wasmtime. |
+| **wasmtime**         | The WebAssembly runtime used by Pyde. Bytecode Alliance project, production-vetted at Microsoft / Fastly / Shopify. |
+| **Host Function ABI**| The stable interface contracts use to interact with chain state (sload, sstore, transfer, threshold crypto, hashing, cross_call, etc.). See the Host Function ABI spec. |
+| **Cranelift**        | The code generator used by wasmtime for ahead-of-time WASM-to-native compilation. |
+| **Otigen** (retired) | Was Pyde's domain-specific smart-contract language. Retired in the WASM pivot; see [The Pivot preface](../preface/pivot.md). The Otigen Book is preserved as a historical artifact. |
 | **JMT**              | Jellyfish Merkle Tree. The state commitment structure (radix-16, path-compressed). |
 | **Blake3**           | Fast bitwise hash. Used for JMT internals, batch hashes, vertex hashes, gossip de-dup. |
 | **Poseidon2**        | Algebraic hash over the Goldilocks field. State root commit, addresses, MAC, VRF, ZK-bearing paths. |
@@ -108,21 +110,18 @@ and the post-mainnet roadmap.
 | `WINDOW_SIZE` (nonce bitmap)              | 16         | `account/nonce.rs` |
 | `MAX_RECEIPT_SLOTS`                       | 10,000     | `node/receipt_store.rs` |
 
-## E. PVM Constants
+## E. WASM Execution Constants
 
-| Constant         | Value      | Meaning                              |
-| ---------------- | ---------- | ------------------------------------ |
-| Total memory     | 0x400000 (4 MB) | Per-execution address space     |
-| Page size        | 4 KB       | Allocation granularity               |
-| `PAGE_ALLOC_GAS` | 200        | Gas per first-touch page             |
-| `NULL_PAGE_END`  | 0x1000     | Reads/writes below this trap         |
-| `CODE_START`     | 0x1000     | Bytecode load base                   |
-| `CODE_END`       | 0x10000    | Max code size 60 KB                  |
-| `HEAP_START`     | 0x10000    | Initial heap base                    |
-| `STACK_TOP`      | 0x400000   | Initial stack top (exclusive)        |
-| GP register count| 16 × 64-bit | `r0`–`r15`                           |
-| Wide register count| 8 × 256-bit | `w0`–`w7`                          |
-| Opcode count     | 62 of 64   | All slots assigned, 2 reserved       |
+| Constant                    | Value          | Meaning                                            |
+| --------------------------- | -------------- | -------------------------------------------------- |
+| Initial linear memory       | 1 MB           | Default WASM linear memory per instantiation       |
+| Max linear memory           | 64 MB          | Capped by the engine to bound resource use         |
+| Stack depth limit           | Configurable   | wasmtime-enforced; rejects modules exceeding cap   |
+| `PAGE_ALLOC_GAS`            | 200 fuel/64KB  | Fuel per WASM `memory.grow` page                   |
+| Default fuel per gas unit   | (calibrated)   | Established at node startup from the gas table     |
+| Module cache size           | ~256 modules   | LRU cache of compiled wasmtime Modules             |
+
+Note: PVM-era constants (4 MB address space, 16+8 register file, 62 opcodes) are retired. WASM's instruction set is the WebAssembly Core Specification; the host-function ABI is defined separately in the upcoming Host Function ABI specification (the spec doc is one of the next design-stage deliverables; see the [Roadmap](../roadmap.md)).
 
 ## F. Network / Discovery Constants
 
@@ -192,46 +191,43 @@ fails decode.
 
 ---
 
-## I. PVM Opcode Registry
+## I. WASM Host Function Surface (Summary)
 
-Defined in `crates/pvm/src/isa.rs`. Full table including gas costs is in
-Chapter 3.
+Pyde's execution layer is WebAssembly. The WASM instruction set itself is the WebAssembly Core Specification — defined and maintained externally, not by Pyde. What Pyde defines is the **Host Function ABI**: the chain-side surface that contracts call to interact with state, accounts, crypto, events, and other chain primitives.
 
-### Scalar arithmetic / logic
+The full Host Function ABI specification (signatures, memory layout conventions, gas cost table, versioning rules, parachain-extension allowlist, forbidden imports) is one of the next design-stage deliverables — see the [Roadmap](../roadmap.md) for the planned location at `pyde-book/docs/host-fn-abi-spec.md`. The high-level surface, organized by category:
 
-`Add` 0x01, `Sub` 0x02, `Mul` 0x03, `Div` 0x04, `Mod` 0x05, `And` 0x06,
-`Or` 0x07, `Xor` 0x08, `Addi` 0x0E, `Not` 0x0F, `Shl` 0x14, `Shr` 0x15,
-`Sar` 0x16, `Lt` 0x17, `Gt` 0x33, `Eq` 0x34, `Slt` 0x35, `Sgt` 0x36
+### Storage
+`sload`, `sstore`, `sdelete`
 
-### Wide arithmetic / logic
+### Balances and transfers
+`balance`, `transfer`
 
-`Wadd` 0x09, `Wsub` 0x0A, `Wmul` 0x0B, `Wdiv` 0x0C, `Wmod` 0x0D,
-`Wnot` 0x1F, `Wand` 0x2D, `Wor` 0x2E, `Wxor` 0x2F, `Wshift` 0x3A,
-`Weq` 0x00, `Wlt` 0x3F
+### Execution context
+`caller`, `origin`, `block_height`, `wave_id`, `block_timestamp`, `chain_id`
 
-### Memory
+### Events
+`emit_event`
 
-`Load` 0x10, `Store` 0x11, `Push` 0x12, `Pop` 0x13, `Wload` 0x37,
-`Wstore` 0x3B, `Wmov` 0x3C, `Narrow` 0x3D, `Widen` 0x3E, `Memcpy` 0x39
+### Hashing primitives
+`keccak256`, `blake3`, `poseidon2`
 
-### Control flow
+### Post-quantum cryptography
+`threshold_encrypt`, `threshold_decrypt_share`, `falcon_verify`
 
-`Jmp` 0x18, `Beq` 0x19, `Bne` 0x1A, `Blt` 0x1B, `Bge` 0x1C, `Call` 0x1D,
-`Ret` 0x1E
+### Cross-contract / cross-parachain
+`cross_call`
 
-### Blockchain syscalls
+### Gas accounting
+`consume_gas`
 
-`Sload` 0x20, `Sstore` 0x21, `Sdelete` 0x22, `Caller` 0x23, `Callvalue` 0x24,
-`Blockhash` 0x25, `CallExt` 0x26, `Delegate` 0x27, `Create` 0x28,
-`Selfdestruct` 0x29, `Log` 0x2A, `Revert` 0x2B, `Halt` 0x2C
+### Parachain-extension host functions (parachain-only)
+`send_xparachain_message`, `get_committee_info`, additional governance hooks (full list in the Host Function ABI spec).
 
-### Crypto syscalls
+### Forbidden imports (enforced at deploy)
+Network calls, filesystem access, system clock, non-deterministic entropy, WASM threads, non-deterministic SIMD.
 
-`Poseidon` 0x30, `VerifySig` 0x31, `MerkleVerify` 0x32
-
-### Misc
-
-`Assert` 0x38
+The deploy-time validator rejects any WASM module whose import section references functions outside this allowlist.
 
 ---
 
@@ -307,7 +303,7 @@ priority each is tracked at:
 | Sophisticated peer scoring                                | Medium   | Multi-topic + decay parameters.              |
 | Fancy version-signaling on-chain                          | Low      | Currently out-of-band.                       |
 | ZK validity proofs (STARK proving)                        | Research | Major redesign; restores prover economics.   |
-| Native Ethereum bridge                                    | High     | FALCON-in-EVM verifier + Patricia in Otigen. |
+| Native Ethereum bridge                                    | High     | FALCON-in-EVM verifier + Patricia verifier as a Pyde WASM contract. |
 | Native Bitcoin bridge                                     | Medium   | SPV-style proofs; PoW finality is probabilistic.|
 | Parachain SDK (Rust / Go / C++)                            | Medium   | Sovereign chains sharing Pyde security.      |
 | TypeScript SDK                                            | Medium   | WASM bridge available now; dedicated TS later.|
@@ -339,8 +335,8 @@ root.
 | Networking           | `crates/net/src/{node,channels,auth,peer,ddos,discovery,config}.rs` |
 | Mempool              | `crates/mempool/src/{pool,block_builder,inclusion,encrypted}.rs` |
 | Node binary + RPC    | `crates/node/src/{main,cli,rpc,validator,consensus_store,receipt_store}.rs` |
-| Otigen compiler      | `crates/otic/src/{lexer,parser,resolve,typecheck,safety,lower,optimize,codegen,abi}.rs` |
-| Project dev CLI      | `crates/wright/src/{main,cli}.rs`                           |
+| WASM execution layer | `crates/wasm-exec/src/{lib,host_fns,module_cache,gas_meter,validate}.rs` |
+| `otigen` developer toolchain | `pyde-net/otigen` (separate repo): subcommand framework, otigen.toml schema, language detection, state binding generators (Rust/AS/Go/C), deploy flow, wallet |
 | Rust SDK             | `crates/pyde-rust-sdk/src/{lib,client,wallet,contract,signer,abi,types,ws}.rs` |
 | WASM crypto          | `crates/pyde-crypto-wasm/src/lib.rs`                          |
 
@@ -368,9 +364,9 @@ The key headline figures, with their sources:
 | 128 KB tx / 64 KB calldata caps     | `MAX_TX_SIZE`, `MAX_CALLDATA` in `tx/validation.rs`|
 | 4 MB batch hard cap                 | `MAX_BATCH_SIZE` in `mempool/batch.rs`          |
 | 1 MB witness cap                    | `MAX_WITNESS_SIZE` in `state/witness.rs`       |
-| 62 PVM opcodes                      | enum + gas table in `pvm/isa.rs`               |
-| 16 GP + 8 wide registers            | `Cpu` in `pvm/cpu.rs`                          |
-| 4 MB PVM address space              | `MEM_SIZE` in `pvm/memory.rs`                  |
+| WASM host function ABI v1.0         | `crates/wasm-exec/src/host_fns.rs` + Host Function ABI spec doc |
+| wasmtime + Cranelift AOT            | Pinned wasmtime version in `Cargo.toml`         |
+| Module cache size                   | `MODULE_CACHE_SIZE` in `crates/wasm-exec/src/module_cache.rs` |
 | Committee 128, threshold 85          | `COMMITTEE_SIZE`, `THRESHOLD` in `consensus/quorum.rs`|
 | 85-of-128 threshold for decryption  | `RANDOMNESS_THRESHOLD` (and equivalent for Kyber) |
 

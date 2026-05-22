@@ -81,10 +81,10 @@ is Poseidon2.
 
 ### Poseidon2 (Goldilocks)
 
-Poseidon2 is the algebraic hash used everywhere in Pyde — the JMT, the
-storage-key derivation in Otigen, transaction hashing, the threshold MAC, the
-VRF, and the AOT-compiled `Poseidon` opcode. The parameter set (see Chapter 8
-for full detail):
+Poseidon2 is the algebraic hash used everywhere in Pyde — the JMT, contract
+storage-key derivation, transaction hashing, the threshold MAC, the VRF, and
+the `poseidon2` WASM host function. The parameter set (see Chapter 8 for full
+detail):
 
 | Parameter              | Value                              |
 | ---------------------- | ---------------------------------- |
@@ -107,7 +107,7 @@ The hash is exposed as three primitives:
 
 The `_pair` form is exposed for compatibility but JMT internal nodes use
 Blake3 (`blake3_pair`); Poseidon2's `_hash` form is what storage-key
-derivation, address derivation, and the PVM `Poseidon` opcode use; the
+derivation, address derivation, and the `poseidon2` WASM host function use; the
 `_many` form is what the threshold scheme uses to combine epoch randomness
 shares.
 
@@ -200,10 +200,13 @@ This flat scheme means a single Merkle path can prove any state claim — there
 is no nested account-trie / storage-trie indirection (the classic
 Patricia-trie pattern). One proof, one `Poseidon2`-walk to the root.
 
-### Otigen storage layout
+### Contract storage layout
 
-The Otigen compiler assigns sequential `u32` slot indices to storage fields
-in declaration order. Single-value fields lower to:
+The `otigen` developer toolchain's state binding generator assigns slot
+identifiers to storage fields declared in `otigen.toml`. Each contract
+defines its state schema once and gets language-specific bindings that
+encode the slot derivation as build-time constants. Single-value fields
+lower to:
 
 ```
 key = Poseidon2(contract_address, slot_index)
@@ -392,6 +395,7 @@ be globally agreed.
 | Persistence           | RocksDB with LRU node and value caches                        |
 | Block-app commit cost | ~40× faster commits than the prior fixed-depth SMT design     |
 
-The next chapter covers the language (Otigen) that sits on top of this state
-model — how a contract's `storage { ... }` block becomes the slot indices
-the JMT actually sees.
+The next chapter covers the developer toolchain (`otigen`) that sits on top
+of this state model — how a contract's `[state]` declaration in `otigen.toml`
+becomes the slot identifiers the JMT actually sees, via language-specific
+state binding generators that pre-compute slot prefix constants at build time.

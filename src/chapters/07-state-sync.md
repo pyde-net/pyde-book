@@ -104,7 +104,7 @@ Recent tail sync (8 epochs):          ~30 minutes
 Total:                                ~40 minutes
 ```
 
-See [STATE_SYNC.md](../../docs/STATE_SYNC.md) for complete protocol details.
+See [STATE_SYNC.md](../companion/STATE_SYNC.md) for complete protocol details.
 
 ## Part 2: Chain Halt + Recovery
 
@@ -132,7 +132,7 @@ The HotStuff pre-pivot architecture suffered persistent wedges with no clear hal
 - State root divergence (2+ signed contradictory roots)
 - Equivocation cluster (10+ in single epoch)
 - DKG output mismatch
-- PVM critical invariant violation
+- Execution layer critical invariant violation
 - DAG fork detected (should be impossible)
 
 **Emergency halt (manual):**
@@ -189,11 +189,11 @@ HotStuff broke because there was no clear halt procedure — patches accumulated
 - Pre-rehearsed recovery procedures
 - Drill schedule
 
-See [CHAIN_HALT.md](../../docs/CHAIN_HALT.md) and [FAILURE_SCENARIOS.md](../../docs/FAILURE_SCENARIOS.md) for complete operational specs.
+See [CHAIN_HALT.md](../companion/CHAIN_HALT.md) and [FAILURE_SCENARIOS.md](../companion/FAILURE_SCENARIOS.md) for complete operational specs.
 
 ## References
 
-- Full state sync spec: [STATE_SYNC.md](../../docs/STATE_SYNC.md)
-- Full halt spec: [CHAIN_HALT.md](../../docs/CHAIN_HALT.md)
-- Failure scenarios + drills: [FAILURE_SCENARIOS.md](../../docs/FAILURE_SCENARIOS.md)
-- Validator lifecycle (jail mechanics): [VALIDATOR_LIFECYCLE.md](../../docs/VALIDATOR_LIFECYCLE.md)
+- Full state sync spec: [STATE_SYNC.md](../companion/STATE_SYNC.md)
+- Full halt spec: [CHAIN_HALT.md](../companion/CHAIN_HALT.md)
+- Failure scenarios + drills: [FAILURE_SCENARIOS.md](../companion/FAILURE_SCENARIOS.md)
+- Validator lifecycle (jail mechanics): [VALIDATOR_LIFECYCLE.md](../companion/VALIDATOR_LIFECYCLE.md)

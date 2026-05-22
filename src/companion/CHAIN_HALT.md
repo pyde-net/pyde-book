@@ -27,7 +27,7 @@ The HotStuff lesson made operational: explicit halt detection → investigation 
 - State root divergence detected (2+ signed contradictory roots for same commit)
 - Equivocation cluster (10+ validators in single epoch)
 - DKG output mismatch
-- PVM critical invariant violation
+- Execution layer critical invariant violation
 - DAG fork detected (impossible per protocol, indicates bug)
 
 **Response:** All validators stop producing vertices. All commits halted. Halt event broadcast. Forensic state preserved. Manual intervention required.

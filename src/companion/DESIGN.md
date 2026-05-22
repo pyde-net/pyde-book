@@ -25,10 +25,10 @@ Pyde is a monolithic blockchain (consensus + execution + state in single binary)
 ```
 ┌─────────────────────────────────────────────┐
 │ Application                                 │
-│ Otigen contracts, dApps, wallets, RPC       │
+│ WASM smart contracts, dApps, wallets, RPC       │
 ├─────────────────────────────────────────────┤
 │ Execution                                   │
-│ PVM (register-based VM), Block-STM,         │
+│ WebAssembly (wasmtime + Cranelift AOT), Block-STM,         │
 │ hybrid access-list scheduler                │
 ├─────────────────────────────────────────────┤
 │ State                                       │
@@ -106,7 +106,7 @@ A commit fires when the anchor vertex has sufficient support (Mysticeti 3-stage 
 4. Batches dereferenced from each vertex
 5. Threshold decryption ceremony runs (pipelined — partials pre-broadcast)
 6. ≥85 partials combine per batch → plaintexts revealed
-7. PVM executes in canonical order
+7. wasmtime executes in canonical order
 8. State root computed (Blake3 + Poseidon2 dual)
 9. ≥85 committee FALCON-sign state root (piggybacked on next vertices)
 10. Finality declared
@@ -216,33 +216,32 @@ SK is never assembled. Each member's `s_i` is reusable across many ciphertexts w
 
 ## Execution Layer
 
-### Pyde Virtual Machine (PVM)
+### WASM Execution Layer (wasmtime)
 
-Register-based, custom ISA:
-- 16 × 64-bit general-purpose registers (r0 hardwired to zero)
-- 8 × 256-bit wide registers for cryptographic operations
-- 62 opcodes (arithmetic, memory, control flow, storage, crypto, assertions)
-- Checked arithmetic (trap on overflow)
-- 4 MB address space (null page, code, heap, stack)
-- Memcpy instruction for bulk memory operations
-- AOT JIT compilation via Cranelift
+WebAssembly via wasmtime, with Cranelift ahead-of-time compilation:
+- WebAssembly Core Specification as the instruction set (industry-standard, externally maintained)
+- Deterministic feature subset enforced (NaN canonicalization on; threads, non-deterministic SIMD, reference types, GC, multi-memory, memory64, WASI all disabled)
+- Fuel-based gas metering (wasmtime's built-in mechanism)
+- Per-contract module compilation cache (Cranelift AOT artifacts persisted)
+- Deploy-time validator rejects modules with forbidden imports or non-deterministic features
+- Host-function ABI is the only chain-side surface contracts can reach
 
-**Determinism is load-bearing.** Same input transactions must produce byte-identical state transitions across all validators (consensus safety) and feasible ZK circuits (future validity proofs).
+**Determinism is load-bearing.** Same input transactions must produce byte-identical state transitions across all validators (consensus safety) and feasible ZK circuits (future validity proofs). wasmtime's determinism config + deploy-time validator together provide this guarantee.
 
-### Otigen Language
+### Smart Contract Authoring
 
-Pyde's smart contract language (`.oti` files), compiled by `otic`:
+Contracts are authored in any wasm32-target language (Rust, AssemblyScript, Go via TinyGo, C/C++). The `otigen` developer toolchain handles the lifecycle: project scaffolding (`otigen init`), build with state binding generation (`otigen build`), deploy (`otigen deploy`), upgrade governance, wallet management.
 
-Features:
-- 30 keywords; storage maps, structs, enums, variable-length Vec
-- Function dispatch with 4-byte selectors (EVM-compatible)
-- Reentrancy guards (`#[reentrant]` attribute)
-- Checked arithmetic by default
-- Custom error types and events
-- View / payable / reentrant attributes
-- Compile-time **static access list inference**
+Pyde safety attributes (preserved from Otigen-language era):
+- Reentrancy off by default (opt-out via `reentrant` attribute)
+- Checked arithmetic (wrapping ops require explicit opt-in)
+- Typed storage via `[state]` schema in `otigen.toml`
+- No `tx.origin` (host function ABI exposes only `caller`)
+- View / payable / reentrant / sponsored / constructor attributes
+- Compile-time **static access list inference** (from declared state schema)
+- 4-byte function selectors
 
-Compilation output: `.json` artifact (bytecode + ABI).
+Build output: `.wasm` artifact + JSON ABI + deploy bundle.
 
 ### Hybrid Parallel Scheduler
 
@@ -252,7 +251,7 @@ Combines two parallel-execution paradigms:
 
 **Block-STM (Aptos-style):** for functions with dynamic access patterns, transactions execute optimistically with read/write set tracking; conflicts trigger re-execution in canonical order.
 
-**The hybrid:** Otigen compiler emits both `declared_access_set` (static) and `dynamic_access_regions` (runtime). Runtime scheduler uses static info for partition planning, falls back to Block-STM for dynamic regions.
+**The hybrid:** Build-time state binding generator emits both `declared_access_set` (static) and `dynamic_access_regions` (runtime). Runtime scheduler uses static info for partition planning, falls back to Block-STM for dynamic regions.
 
 Pyde-specific opportunity: controls compiler, runtime, language, and protocol — enabling this hybrid where most chains commit to one approach.
 
@@ -262,7 +261,7 @@ Users request access list + gas estimate via RPC before signing:
 
 ```
 Client → pyde_estimateAccess(tx)
-       → RPC runs PVM preflight (dry-run against current state)
+       → RPC runs a wasmtime preflight (dry-run against current state)
        → Returns: { gas_estimate, access_list }
 Client attaches access_list to tx, signs
 ```
@@ -341,10 +340,10 @@ Significantly safer than contract-based multisig (Gnosis Safe model on Ethereum)
 ### Programmable Accounts (v2)
 
 Reserved enum variant at v1. When v2 ships:
-- Account has signing keys AND attached PVM bytecode policy
+- Account has signing keys AND attached WASM policy module
 - Policy runs on every authorization, can implement: spend limits, time locks, allow-listed recipients, social recovery, tiered authorization, AI agent delegation
 - Same fields as contracts (`code_hash` + `storage_root`)
-- PVM "policy mode" — restricted state access during validation
+- WASM "policy mode" — restricted state access during validation
 
 ### Session Keys (v2)
 
@@ -382,7 +381,7 @@ Primary (every ~150ms):
 
 Commit (per round, ~390ms median):
   15. Anchor selected; subdag walked; canonical order emitted
-  16. PVM executes in canonical order:
+  16. wasmtime executes in canonical order:
        - Nonce window check (state may have changed)
        - Balance check
        - Access list verification (vs runtime)
@@ -400,7 +399,7 @@ Same as above, with:
 - Step 5: pyde_sendRawEncryptedTransaction(encrypted_blob)
 - Worker step 8: cannot verify sig (encrypted) — only verify wire format
 - Commit step 15.5: threshold decryption ceremony — ≥85 partials combine per batch → plaintexts revealed
-- Then PVM step 16 includes first sig verification
+- Then wasmtime step 16 includes first sig verification
 
 ## Encryption & MEV Resistance
 
@@ -470,11 +469,11 @@ No external TPS claim without harness evidence.
 | Light client | Mobile / browser |
 | Full node / RPC | 8c / 16GB / 500GB / 100 Mbps |
 | Non-committee validator | 8c / 16GB / 500GB / 100-250 Mbps |
-| Committee at 30K TPS | 8-16c / 32GB / 1TB SSD / 500 Mbps |
-| Committee at 100K TPS | 16c / 32GB / 2TB SSD / 1 Gbps |
-| Committee at 500K TPS | 32c / 64GB / 4TB SSD / 10 Gbps |
+| Committee at 30K TPS (v1 realistic) | 8-16c / 32GB / 1TB SSD / 500 Mbps |
+| Committee at 100K TPS (v2 stretch) | 16c / 32GB / 2TB SSD / 1 Gbps |
+| Committee at 500K TPS (aspirational, GPU-class) | 32c / 64GB / 4TB SSD / 10 Gbps |
 
-Modest hardware applies to any validator awaiting committee selection at all levels. Active-committee hardware scales with throughput target.
+Modest hardware applies to any validator awaiting committee selection at all levels. Active-committee hardware scales with throughput target. The 500K row is aspirational and tied to GPU-acceleration / batch-decryption research advances per the honest performance targets above.
 
 ## Implementation Status
 
@@ -483,7 +482,7 @@ This documentation reflects **designed architecture**, not shipped implementatio
 | Component | Status |
 |---|---|
 | Architecture design | ✅ Complete |
-| PVM + Otigen | 🟡 Functional, needs extensions (programmable accounts hooks, hybrid scheduler integration) |
+| WASM execution layer (wasmtime + Cranelift AOT) | 🟡 Foundation in place; integration in progress; programmable-accounts hooks + hybrid scheduler integration pending |
 | State layer (JMT) | 🟡 In place, needs hybrid hashing |
 | Consensus (Mysticeti DAG) | 🔴 Not yet — rebuild post-pivot |
 | Threshold cryptography | 🔴 Research-grade (PQ threshold is bleeding-edge) |

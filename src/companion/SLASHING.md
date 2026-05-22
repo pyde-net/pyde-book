@@ -104,7 +104,7 @@ struct Evidence {
 
 // Submission as a regular transaction (paid gas)
 fn submit_evidence(evidence: Evidence) -> Result<()> {
-    // PVM verifies cryptographic proof
+    // Engine verifies cryptographic proof
     // If valid:
     //   - Stake slashed from offender (subject to 24h escrow)
     //   - Distribution applied (burn / treasury / reporter)
@@ -239,7 +239,7 @@ finder's-fee do the heavy lifting on Sybil resistance.
 
 ## Implementation Notes
 
-Slashing is implemented at the PVM level as system transactions:
+Slashing is implemented as system transactions handled by the engine:
 
 ```rust
 // At evidence submission:

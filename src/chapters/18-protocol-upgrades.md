@@ -143,8 +143,8 @@ Per Chapter 15:
 | Gas target / ceiling           | `crates/tx/src/fee.rs`                |
 | Tx / calldata size limits      | `crates/tx/src/validation.rs`         |
 | Max batch size (4 MB)          | `crates/mempool/src/batch.rs`         |
-| Cryptographic primitives       | `crates/crypto/*` (FALCON, Kyber, Blake3, Poseidon2) |
-| PVM ISA (62 opcodes)           | `crates/pvm/src/isa.rs`               |
+| Cryptographic primitives       | `pyde-crypto` polyrepo (FALCON, Kyber, Blake3, Poseidon2) |
+| WASM host function ABI         | `crates/wasm-exec/src/host_fns.rs` + Host Function ABI spec doc |
 
 Changing any of these requires a release + voluntary upgrade.
 
@@ -269,11 +269,11 @@ version (e.g., `0.4.2`).
 | Component                | Version source           |
 | ------------------------ | ------------------------ |
 | Node binary              | `pyde --version`         |
-| `otic` compiler          | `otic --version`         |
+| `otigen` developer toolchain | `otigen --version`   |
 | `pyde-rust-sdk` crate    | `Cargo.toml` `version`   |
 | `pyde-crypto-wasm` pkg   | `package.json`           |
-| Otigen language version  | embedded in the artifact |
-| ABI version              | embedded in the artifact |
+| Host Function ABI version | embedded in the artifact |
+| Contract ABI version     | embedded in the artifact |
 
 The binary embeds the wire-format version (`EVIDENCE_VERSION = 1` for
 slashing evidence, `MULTISIG_VERSION = 0x01` for multisig payloads). If

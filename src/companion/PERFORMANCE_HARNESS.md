@@ -28,7 +28,7 @@ pyde-bench/
 │   └── production_sim.toml  (full 128 validators, 3+ regions)
 ├── workloads/           # Workload generators
 │   ├── transfers.rs         (simple PYDE transfers)
-│   ├── contract_calls.rs    (Otigen contract interactions)
+│   ├── contract_calls.rs    (WASM contract interactions)
 │   ├── encrypted_swaps.rs   (Kyber-encrypted, MEV-sensitive)
 │   ├── nft_mint_burst.rs    (burst pattern simulation)
 │   └── mixed.rs             (realistic distribution)
@@ -78,7 +78,7 @@ trait Workload {
 
 Concrete workloads:
 - **TransferWorkload:** simple A→B transfers; baseline
-- **ContractWorkload:** realistic Otigen interactions
+- **ContractWorkload:** realistic WASM contract interactions
 - **EncryptedSwapWorkload:** ~80% encrypted (worst-case for decryption)
 - **NFTMintBurstWorkload:** 0 → 100K → 0 TPS in 60s
 - **MixedWorkload:** 70% transfers / 15% contracts / 10% encrypted / 5% complex
@@ -101,18 +101,18 @@ Concrete workloads:
 - `tx_in_batch_latency` — submit → in batch
 - `batch_to_vertex_latency` — batch → referenced by vertex
 - `vertex_to_commit_latency` — vertex → commit
-- `commit_to_execution_latency` — commit → PVM executed
+- `commit_to_execution_latency` — commit → wasmtime executed
 - `decryption_ceremony_latency` — start partial → ≥85 received
 
 ### Consensus Metrics
 - `round_advance_rate` — rounds/sec per validator
 - `vertex_certification_rate` — % of vertices that get 85+ certs
-- `wave_commit_success_rate` — % of rounds where commit fires
+- `commit_success_rate` — % of rounds where commit fires
 - `anchor_selection_success_rate` — % of anchors that have valid vertex
 
 ### Resource Utilization (Per Validator)
 - `cpu_usage_pct` — total CPU
-- `cpu_per_subsystem` — consensus / PVM / network / IO
+- `cpu_per_subsystem` — consensus / wasmtime / network / IO
 - `memory_resident_mb` / `memory_heap_mb`
 - `disk_read_iops` / `disk_write_iops` / `disk_used_gb`
 - `network_in_mbps` / `network_out_mbps`
@@ -195,7 +195,7 @@ All must pass with publishable evidence before any TPS claim:
 
 **Publication format:**
 
-> *"Pyde sustained 30,000 TPS over a 4-hour test on a 16-validator multi-region testnet (US-East, EU-West, AP-Southeast), with median finality of 480ms and p99 of 950ms. Workload: 70% transfers, 15% contract calls, 10% encrypted, 5% complex. Test methodology and raw data available at pyde.network/perf/<run-id>."*
+> *"Pyde sustained 30,000 TPS over a 4-hour test on a 16-validator multi-region testnet (US-East, EU-West, AP-Southeast), with median finality of 480ms and p99 of 950ms. Workload: 70% transfers, 15% contract calls, 10% encrypted, 5% complex. Test methodology and raw data available at `pyde.network/perf/{run-id}`."*
 
 Specific numbers, methodology referenced, reproducible. **NOT** "Pyde supports 500K TPS" with no caveats.
 
@@ -221,17 +221,17 @@ pyde.network/perf
 
 ## Build Effort
 
-| Component | Effort (solo dev) |
+| Component | Effort |
 |---|---|
-| Basic harness skeleton + workload generators | 2 weeks |
-| Multi-region deployment automation | 1 week |
-| Metrics collection + Prometheus integration | 1 week |
-| Chaos testing scenarios | 2 weeks |
-| Long-duration soak runners | 1 week |
-| Reporting + dashboard | 1 week |
-| **Total minimum viable harness** | **~8 weeks** |
+| Basic harness skeleton + workload generators | ~2 weeks |
+| Multi-region deployment automation | ~1 week |
+| Metrics collection + Prometheus integration | ~1 week |
+| Chaos testing scenarios | ~2 weeks |
+| Long-duration soak runners | ~1 week |
+| Reporting + dashboard | ~1 week |
+| **Total minimum viable harness** | **~8 weeks of focused engineering** |
 
-Realistic with solo dev + other priorities: 3-4 months.
+In practice, with competing priorities across the rest of the protocol, this sequences across a multi-month window rather than running back-to-back.
 
 ## Cloud Cost
 

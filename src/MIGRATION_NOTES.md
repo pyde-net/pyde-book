@@ -60,9 +60,6 @@ protocol that Sui has been running in production since 2024.
 
 ## What Stayed the Same
 
-- **PVM** — register-based, 32-bit fixed encoding, 62 opcodes. Untouched.
-- **Otigen language** — `.oti` source, `otic` compiler, default-safe
-  semantics. Untouched.
 - **FALCON-512** signatures everywhere. Untouched.
 - **Kyber-768** threshold encryption primitive. Untouched (now opt-in
   per-tx instead of mandatory).
@@ -94,8 +91,8 @@ changed most are:
 
 Chapters that changed less:
 
-- **Chapter 3 (Virtual Machine)** — added hybrid scheduler note.
-- **Chapter 5 (Otigen)** — added compile-time access list inference note.
+- **Chapter 3 (Execution Layer)** — full rewrite for WebAssembly via wasmtime (post-pivot).
+- **Chapter 5 (Otigen Toolchain)** — full rewrite as the developer toolchain (the binary; name carried forward from the retired language).
 - **Chapter 10 (Gas/Fee)** — commit-cadence + honest TPS numbers.
 - **Chapter 11 (Account Model)** — reserved `Programmable` AuthKeys
   variant for v2.
@@ -113,7 +110,7 @@ describes the post-pivot target architecture. Implementation status:
 | Component | Status |
 |-----------|--------|
 | Architecture design | ✅ Complete |
-| PVM + Otigen execution | 🟡 Functional, extensions needed |
+| WASM execution layer (wasmtime + Cranelift AOT) | 🟡 Foundation in place; integration in progress |
 | State (JMT) | 🟡 In place, needs hybrid hashing wired |
 | Mysticeti DAG consensus | 🔴 Not yet — rebuild post-pivot |
 | Threshold cryptography | 🔴 Research-grade (PQ threshold is bleeding edge) |

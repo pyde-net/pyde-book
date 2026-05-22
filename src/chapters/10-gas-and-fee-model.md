@@ -13,34 +13,35 @@ through gas tanks, and the calldata/tx size limits.
 
 ## 10.1 Gas Accounting
 
-The PVM maintains a single gas counter per execution context. Every
-instruction has a fixed gas cost (Chapter 3 lists the full table). When the
-counter exceeds the transaction's `gas_limit`, the VM traps with
-`OutOfGas` and the transaction reverts.
+Pyde uses wasmtime's **fuel** mechanism for gas metering. At node startup, the engine establishes a deterministic mapping from gas units (the chain-level metering unit) to wasmtime fuel units. Every WebAssembly instruction consumes a configurable amount of fuel; host function calls also consume fuel manually, charged by the host based on operation cost (`sstore` is heavier than `add`, for example).
+
+When fuel reaches zero, wasmtime traps the execution with an out-of-fuel error. The transaction reverts; the sender pays gas up to the trap point. Unused fuel translates back to unused gas, refunded to the sender.
 
 ```rust
 struct ExecContext {
     gas_limit:  u64,    // set by the transaction
-    gas_used:   u64,    // accumulated
-    gas_refund: u64,    // refunded at end (e.g., from Sdelete)
+    gas_used:   u64,    // computed from fuel consumed
+    gas_refund: u64,    // refunded at end (e.g., from sdelete host function)
 }
 ```
 
-Refunds (currently only from `Sdelete`) are applied at transaction end and
-capped at half of `gas_used` to prevent gas-griefing patterns.
+Refunds (from explicit storage-slot deallocation via the `sdelete` host function) are applied at transaction end and capped at half of `gas_used` to prevent gas-griefing patterns.
+
+### Why fuel, not opcode counting
+
+Fuel is built into wasmtime's Cranelift backend. Every basic block is instrumented to decrement a fuel counter; when the counter goes negative, execution traps. The instrumentation is efficient enough not to dominate execution time.
+
+Implementing custom opcode-counting on top of wasmtime would be slower and add maintenance burden for no functional gain. The chain-side gas table maps WASM instruction categories and individual host functions to fuel costs; the engine consumes that table at startup and configures wasmtime accordingly.
 
 ### Why a single dimension
 
 Earlier drafts of this book described a two-dimensional gas model
 (`exec_cost + prove_cost`) intended to price both CPU work and ZK proving
-work separately. With STARK proving deferred to post-mainnet, the
+work separately. With ZK proving deferred to post-mainnet, the
 proving-cost dimension does not exist at launch and the two-dimensional
-model collapses into a single number — exactly what's shipped in
-`crates/pvm/src/isa.rs::TOTAL_GAS_TABLE`.
+model collapses into a single number — the chain-level gas total derived from wasmtime fuel consumption.
 
-Should ZK proving land in a future hardfork, the second dimension can be
-re-introduced as a separate counter without changing the wire format
-(transactions already carry only `gas_limit`).
+Should ZK proving land later, the second dimension can be re-introduced as a separate counter without changing the wire format (transactions already carry only `gas_limit`).
 
 ---
 
@@ -343,7 +344,7 @@ To use a gas tank, a transaction sets:
 tx.fee_payer = FeePayer::GasTank
 ```
 
-The PVM looks up the target contract's `gas_tank`, debits the fee from
+The engine looks up the target contract's `gas_tank`, debits the fee from
 there, and credits the receiver as usual. If the gas tank is empty, the tx
 reverts (the sender did not pay).
 
@@ -356,7 +357,7 @@ paymaster contract sits between the user and the target:
 tx.fee_payer = FeePayer::Paymaster(paymaster_address)
 ```
 
-The PVM calls the paymaster's `validate_sponsorship(user, target,
+The engine calls the paymaster's `validate_sponsorship(user, target,
 calldata) -> bool` function (gas-bounded — see below). If it returns true,
 gas is debited from the paymaster's gas tank.
 
@@ -391,51 +392,49 @@ for relays.
 
 ## 10.8 Gas Costs for Common Operations
 
-The full opcode table is in Chapter 3. The headline numbers for the
-operations that dominate real-world gas usage:
+The full WASM-instruction and host-function gas table is published in the Host Function ABI specification. The headline numbers for the operations that dominate real-world gas usage:
 
 ### Storage
 
-| Operation     | PVM opcode | Gas       |
-| ------------- | ---------- | --------- |
-| Storage read  | `Sload`    | 100 (warm)|
-| Storage write | `Sstore`   | 200 (warm)|
-| Storage delete| `Sdelete`  | 200 + refund |
+| Operation     | Host function | Gas       |
+| ------------- | ------------- | --------- |
+| Storage read  | `sload`       | 100 (warm)|
+| Storage write | `sstore`      | 200 (warm)|
+| Storage delete| `sdelete`     | 200 + refund |
 
 ### Crypto
 
-| Operation                  | PVM opcode      | Gas                    |
+| Operation                  | Host function   | Gas                    |
 | -------------------------- | --------------- | ---------------------- |
-| Poseidon2 hash             | `Poseidon`      | 1,000 + 6 per 32B chunk|
-| FALCON-512 verification    | `VerifySig`     | 20,000                 |
-| Merkle path verification   | `MerkleVerify`  | 5,000                  |
+| Poseidon2 hash             | `poseidon2`     | 1,000 + 6 per 32B chunk|
+| Blake3 hash                | `blake3`        | 100 + 1 per 32B chunk  |
+| Keccak256 hash             | `keccak256`     | 200 + 3 per 32B chunk  |
+| FALCON-512 verification    | `falcon_verify` | 20,000                 |
+| Merkle path verification   | host fn         | 5,000                  |
 
 ### Cross-contract
 
-| Operation              | PVM opcode | Gas                |
-| ---------------------- | ---------- | ------------------ |
-| External call          | `CallExt`  | 2,500 + callee work|
-| Delegate call          | `Delegate` | 2,500 + callee work|
-| Contract deployment    | `Create`   | 32,000 + init code  |
-| Self-destruct          | `Selfdestruct`| 5,000           |
+| Operation              | Host function   | Gas                |
+| ---------------------- | --------------- | ------------------ |
+| External call          | `cross_call`    | 2,500 + callee work|
+| Contract deployment    | system tx       | 32,000 + init code  |
 
 ### Events
 
-| Operation     | PVM opcode | Gas              |
-| ------------- | ---------- | ---------------- |
-| Emit event    | `Log`      | 375 + 8 per byte |
+| Operation     | Host function | Gas              |
+| ------------- | ------------- | ---------------- |
+| Emit event    | `emit_event`  | 375 + 8 per byte |
 
-### Memory
+### WASM execution (per-instruction baseline)
 
-| Operation         | Gas             |
-| ----------------- | --------------- |
-| Page allocation   | 200 per 4 KB page (first touch) |
-| Load (8/16/32/64) | 5               |
-| Store             | 5               |
+| Category               | Fuel cost           |
+| ---------------------- | ------------------- |
+| Arithmetic instructions| 1-3 fuel per op    |
+| Memory load/store      | 5 fuel per op       |
+| Control flow           | 1-2 fuel per op     |
+| Memory grow            | 200 fuel per 64KB page (first touch) |
 
-The Otigen compiler emits the most efficient opcode sequence it can; for
-example, a typed `u64` load lowers to a single `Load` rather than a
-`Wload` + `Narrow`.
+The build-time state binding generator (see Chapter 5) emits efficient access patterns; for example, a single map lookup expands to one host-function call rather than multiple. The wasmtime-AOT pass then compiles the resulting WASM to native code for execution.
 
 ---
 
@@ -532,13 +531,13 @@ overflow check guards against pathological encodings.
 
 Pyde's commit header is the equivalent of Ethereum's block header
 for fee-market purposes — each commit carries the base fee for
-transactions executed in that wave:
+transactions executed in that commit:
 
 ```rust
-struct WaveCommitHeader {
+struct CommitHeader {
     // ...
-    base_fee:    u128,     // base fee for txs in THIS wave
-    gas_used:    u64,      // total gas consumed by this wave's txs
+    base_fee:    u128,     // base fee for txs in THIS commit
+    gas_used:    u64,      // total gas consumed by this commit's txs
     gas_target:  u64,      // = GAS_TARGET (always 400M)
     gas_limit:   u64,      // = GAS_CEILING (always 1.6B)
 }

@@ -23,8 +23,8 @@ the post-mainnet hardening list rather than live, the chapter says so.
 | Front-running / MEV         | High      | Optional threshold encryption + commit-before-reveal DAG (Ch 9)|
 | State manipulation          | Critical  | JMT batched Merkle proofs, deterministic replay, 2 state roots (Blake3+Poseidon2) |
 | Quantum attacks              | Critical  | Entire stack is post-quantum from genesis (Ch 8)            |
-| Smart contract exploit       | High      | Otigen default safety (no reentrancy, checked arithmetic)   |
-| VM / AOT exploit              | Critical  | 12 trap kinds, audit-verified bounds checks                 |
+| Smart contract exploit       | High      | Default safety attributes (no reentrancy, checked arithmetic) enforced at runtime via the WASM execution layer |
+| VM / runtime exploit         | Critical  | wasmtime sandbox (production-vetted at Microsoft / Fastly / Shopify), deterministic feature subset enforced, deploy-time import validation |
 | Consensus persistence loss    | Critical  | `WriteOptions::set_sync(true)` + panic-on-persist-failure  |
 | Replay across chains          | High      | Mandatory `chain_id` in every tx hash                       |
 | Treasury drain                | Critical  | Multisig-only spend + `data_digest` audit trail             |
@@ -414,61 +414,75 @@ FALCON.
 
 ## 16.10 Smart Contract Safety
 
-Otigen's default-safe design (Chapter 5):
+The default-safe properties Otigen the language provided are **preserved** in the WASM era. Mechanism changed; guarantees did not. See [Chapter 5 §5.6](./05-otigen-toolchain.md) for the full attribute surface.
 
-- **No reentrancy by default.** Every public function is guarded; opt out
-  with `#[reentrant]`.
-- **Checked arithmetic.** Overflow traps; wrapping is explicit.
-- **Typed storage.** Every slot has a declared type; runtime enforces it.
-- **No `tx.origin`.** The phishing vector simply doesn't exist.
-- **Access-list enforcement.** `Sload`/`Sstore` against undeclared slots
-  traps with `AccessListViolation`.
+- **No reentrancy by default.** Every function is guarded by the WASM execution layer; opt out with the `reentrant` attribute (language-native: `#[pyde::reentrant]` / `@pyde.reentrant` / `//pyde:reentrant` / `PYDE_REENTRANT`).
+- **Checked arithmetic.** Encouraged by per-language SDK helper patterns; wrapping ops require explicit opt-in (e.g., Rust's `wrapping_add` is explicitly named).
+- **Typed storage.** Declared in `otigen.toml` `[state]` schema; the build tool emits type-safe accessors and the runtime enforces slot-hash uniqueness.
+- **No `tx.origin`.** The host function ABI exposes only `caller()` (direct caller). The Solidity-style phishing vector is absent.
+- **Access-list enforcement.** Slot accesses against slots not declared in the contract's state schema fail at the host-function layer.
 
-These defaults eliminate the most common smart-contract exploit classes
-at the language level, not as library choices developers might forget.
+These defaults eliminate the most common smart-contract exploit classes at the toolchain + runtime level, not as library choices developers might forget.
 
-### The otic audit surface
+### The toolchain audit surface
 
-The compiler itself is part of the audit surface. A codegen bug could
-emit bytecode that violates the source semantics. Mitigations:
+The `otigen` developer toolchain — specifically its state binding generators and ABI extractor — is part of the audit surface. A codegen bug in a binding generator could emit accessor code that violates declared semantics. Mitigations:
 
-- **Unit tests per codegen pattern.** The `crates/otic/tests` suite
-  covers every lowering pattern.
-- **Property tests** for core mechanics.
-- **External audit** of the otic compiler before mainnet.
+- **Unit tests per binding-generator output pattern.** Each language target (Rust, AssemblyScript, Go, C/C++) has its own generator with its own test suite covering every accessor shape.
+- **Property tests** for slot-hash determinism across languages — given the same `otigen.toml`, all four generators must produce identical runtime slot_hash values for identical inputs.
+- **External audit** of the `otigen` toolchain before mainnet.
+- **Wasmtime as a trust-minimized dependency.** The execution runtime itself is wasmtime, which inherits years of production fuzzing and Bytecode Alliance audit attention — we do not audit a VM we built ourselves.
 
 ---
 
-## 16.11 VM / AOT Safety
+## 16.11 WASM Execution Layer Safety
 
-PVM trap conditions (`crates/pvm/src/cpu.rs`):
+Pyde's execution layer is **wasmtime** (with Cranelift AOT). The trap surface is wasmtime's, augmented by host-function-specific traps Pyde injects through the ABI.
+
+### WASM-native traps
+
+wasmtime traps when the executing module violates its sandbox or its fuel budget. The canonical trap conditions:
 
 ```
-Overflow, Underflow, DivisionByZero, InvalidOpcode, NarrowOverflow,
-MemoryFault, StackOverflow, StackUnderflow, OutOfGas,
-StaticModeViolation, Reentrancy, AccessListViolation
+OutOfFuel              IntegerOverflow         IntegerDivisionByZero
+MemoryOutOfBounds      StackOverflow           UndefinedElement
+IndirectCallToNull     BadSignature            UnreachableCodeReached
+TableOutOfBounds       Interrupt               (host-function traps)
 ```
 
-Each trap is a *clean* revert: state writes roll back, gas is consumed
-up to the trap point, the transaction fails. There is no undefined
-behavior path.
+Each trap is a *clean* revert: state writes roll back, gas is consumed up to the trap point (computed from fuel actually consumed), the transaction fails. There is no undefined behavior path. wasmtime's sandbox guarantees structural safety: no buffer overflows, no control-flow hijacks, no type confusion.
 
-Post-audit hardening specific to the VM:
+### Pyde-specific traps via host functions
 
-- **Wide register index check.** `read_wide_checked`/`write_wide_checked`
-  trap on indices ≥ 8 instead of silently masking.
-- **Jump/call bounds check.** The interpreter validates
-  `CODE_START <= pc < code_end` on every jump.
-- **AOT host error propagation.** Storage host calls return `1` on fault;
-  the JITed code branches to its trap handler instead of silently
-  succeeding.
-- **Push-error propagation.** `host_push` now returns 1 on underlying
-  store error — a stack push that hit a memory fault now traps cleanly.
+The host functions add another trap layer for Pyde-specific safety properties:
 
-The AOT compiler (Cranelift) is used as a trust-minimized component: Pyde
-does not generate hand-written assembly, the Cranelift version is pinned
-in `Cargo.lock`, and every compiled contract can be re-executed through
-the interpreter for cross-verification.
+| Trap                       | When                                                            |
+| -------------------------- | --------------------------------------------------------------- |
+| `ReentrancyViolation`       | A cross_call re-enters a non-`reentrant` function               |
+| `AccessListViolation`       | A slot access targets a slot outside the declared state schema  |
+| `ViewFunctionStateModify`   | A state-modifying host call inside a `view`-attributed function |
+| `NonPayableValueAttached`   | `tx.value > 0` on a non-`payable` function                      |
+| `ConstructorReentrant`      | An attempt to call a `constructor`-attributed function post-deploy |
+| `GasTankExhausted`          | A `sponsored` function's contract gas tank ran out               |
+| `InsufficientBalance`       | `transfer` host call when sender balance is below amount         |
+| `ForbiddenImport`           | (deploy-time only) module imports a function outside the ABI allowlist |
+
+### Determinism enforcement
+
+wasmtime is configured to reject any module that uses non-deterministic features. The config enforces (at module instantiation and at deploy validation):
+
+- `cranelift_nan_canonicalization(true)` — floating-point NaN bit patterns canonicalized identically across all validators
+- `wasm_threads(false)` — no threading (non-deterministic by definition)
+- `wasm_simd(false)`, `wasm_relaxed_simd(false)` — SIMD disabled until a deterministic-only subset is vetted
+- `wasm_reference_types(false)`, `wasm_gc(false)`, `wasm_function_references(false)` — complexity surface gated until needed
+- `wasm_multi_memory(false)`, `wasm_memory64(false)` — explicit memory layout
+- No WASI imports
+
+A deploy-time validator (`crates/wasm-exec/src/validate.rs`) re-checks the module's import section against the allowlist and rejects anything that would slip past wasmtime's instantiation check.
+
+### Trust-minimization of the runtime
+
+We do not audit wasmtime itself — that work is done continuously by the Bytecode Alliance with years of production fuzzing under adversarial workloads. We pin a tagged wasmtime version per chain release, document the version in the protocol upgrade record, and require validators to upgrade in coordinated forks when we move it. This is a meaningfully smaller audit surface than maintaining a custom VM ourselves would have been (see [The Pivot preface](../preface/pivot.md) for the full reasoning).
 
 ---
 
@@ -588,7 +602,7 @@ Pre-mainnet hardening work tracked in the launch plan (chapter 19):
 | Task   | Status                                                   |
 | ------ | --------------------------------------------------------- |
 | Clippy/fmt/audit/deny in CI | Hardening track; shipping             |
-| `cargo-fuzz` on PVM/tx/consensus/RPC/otic | 72+ h runs           |
+| `cargo-fuzz` on wasm-exec / tx / consensus / RPC / otigen toolchain | 72+ h runs           |
 | Property tests on pipeline + tokenomics | Initial properties shipped; expanding |
 | Witness 1 MB bound validation | Shipped                              |
 | Separate `MAX_CALLDATA` cap | Shipped                                |
@@ -613,10 +627,12 @@ mainnet:
 | Audit scope                                                                       |
 | --------------------------------------------------------------------------------- |
 | Consensus layer (Mysticeti DAG, anchor selection, finality, slashing)             |
-| PVM + execution (ISA, traps, AOT, gas accounting, hybrid scheduler)               |
-| Crypto implementations (FALCON, Kyber, Blake3, Poseidon2, threshold, PSS)         |
+| Execution layer (Pyde's host-function ABI, the `wasm-exec` integration, fuel-to-gas mapping, hybrid scheduler) |
+| Crypto implementations (FALCON, Kyber, Blake3, Poseidon2, threshold, PSS) — in `pyde-crypto` polyrepo |
 | Networking layer (libp2p config, gossipsub, layered discovery, sentry pattern, DDoS) |
-| Otigen compiler                                                                    |
+| `otigen` developer toolchain (binding generators, ABI extraction, deploy flow, wallet) |
+
+Note: wasmtime itself is not separately audited — it is a vetted production dependency from the Bytecode Alliance. The Pyde audit focuses on the integration surface (host functions, fuel mapping, validation gate, module cache) and on the toolchain that emits the WASM modules.
 
 Critical + high findings are remediated before mainnet; audit
 remediations themselves are re-audited. Penetration testing (P2P
@@ -640,10 +656,10 @@ flooding, RPC DoS, eclipse simulations) runs in parallel.
 | Multisig-only treasury drain                 | Shipped                          |
 | `panic = "abort"` on persist failure          | Shipped                          |
 | Set-sync(true) consensus writes              | Shipped                          |
-| 12 VM trap kinds                             | Shipped                          |
-| Audit-driven wide-reg bounds check           | Shipped                          |
-| Audit-driven PVM jump/call bounds check      | Shipped                          |
-| Audit-driven AOT host error propagation      | Shipped                          |
+| WASM sandbox (wasmtime, production-vetted)   | Inherited from wasmtime          |
+| Deterministic-feature-subset enforcement     | Shipped (deploy-time validator)  |
+| Host-function-level safety traps             | Designed; implementation in flight |
+| Reentrancy guard (default-on)                | Designed; runtime in flight      |
 | 1 MB witness size cap                         | Shipped                          |
 | Separate MAX_CALLDATA cap                    | Shipped                          |
 | Signed mempool commitments                   | Post-mainnet                     |
@@ -652,5 +668,4 @@ flooding, RPC DoS, eclipse simulations) runs in parallel.
 | Archive-node receipt store                   | Post-mainnet                     |
 | External audits (5 specialists)              | Pre-mainnet, Phase 8             |
 
-The next chapter covers developer tools: the `wright` CLI, the RPC API,
-the Rust and WASM SDKs, and the testnet quickstart.
+The next chapter covers developer tools: the `otigen` developer toolchain, the `pyde` node binary, the Rust and TypeScript SDKs, the WASM crypto bindings, and the JSON-RPC surface.

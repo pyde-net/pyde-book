@@ -77,7 +77,7 @@ T+30d   Drill that scenario in testnet
 
 ### Scenario 4: State Root Divergence Detected
 
-- **Trigger:** Bug in PVM or non-determinism in execution
+- **Trigger:** Bug in WASM execution layer or non-determinism
 - **Detection:** Auto — 2+ validators sign contradictory state roots for same commit → hard halt
 - **Initial Response:**
   - All validators halt
@@ -96,7 +96,7 @@ T+30d   Drill that scenario in testnet
   - Slash validators who signed wrong roots
 - **Time to Recovery:** 24-72 hours
 - **Slashing:** Bad-state-root-sig (~10%) to validators on wrong fork
-- **Lessons:** PVM determinism testing must improve; add new test cases
+- **Lessons:** WASM execution determinism testing must improve; add new test cases
 - **Drill Frequency:** Quarterly (inject in testnet)
 
 ### Scenario 5: DKG Ceremony Fails Repeatedly
@@ -120,7 +120,7 @@ T+30d   Drill that scenario in testnet
 - **Slashing:** DKG-failure for non-contributors (~5%)
 - **Drill Frequency:** Annual
 
-### Scenario 6: Critical PVM Bug (Off-Chain Disclosure)
+### Scenario 6: Critical Execution Layer Bug (Off-Chain Disclosure)
 
 - **Trigger:** Security researcher reports vulnerability via responsible disclosure
 - **Detection:** Email to `security@pyde.network`

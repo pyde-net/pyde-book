@@ -7,15 +7,15 @@ Pyde is a monolithic Layer 1 — consensus, execution, and state in a single bin
 ```
 ┌─────────────────────────────────────────────┐
 │ Application Layer                           │
-│ Otigen contracts, dApps, wallets, RPC       │
+│ WASM smart contracts, dApps, wallets, RPC   │
 ├─────────────────────────────────────────────┤
 │ Execution Layer                             │
-│ PVM (register-based VM), Block-STM,         │
-│ hybrid access-list scheduler                │
+│ WebAssembly (wasmtime + Cranelift AOT),     │
+│ Block-STM, hybrid access-list scheduler     │
 ├─────────────────────────────────────────────┤
 │ State Layer                                 │
-│ Jellyfish Merkle Tree (JMT), hybrid hashing │
-│ Blake3 native + Poseidon2 for ZK exposure   │
+│ Jellyfish Merkle Tree (JMT), dual-hash      │
+│ Blake3 + Poseidon2 per node, PIP-2 clusters │
 ├─────────────────────────────────────────────┤
 │ Consensus Layer                             │
 │ Mysticeti DAG, anchor selection, finality   │
@@ -47,7 +47,7 @@ This separation decouples high-volume data dissemination from low-volume consens
 │  │              │    │  - Tracks DAG            │ │
 │  │ - Tx ingress │    │  - Signs state roots     │ │
 │  │ - Build      │    │  - Runs DKG ceremonies   │ │
-│  │   batches    │    │  - Executes PVM          │ │
+│  │   batches    │    │  - Executes WASM         │ │
 │  │ - Gossip     │    └──────────────────────────┘ │
 │  │   batches    │                                  │
 │  └──────────────┘                                  │
@@ -78,16 +78,16 @@ When the anchor vertex collects sufficient support from later rounds (Mysticeti 
 
 End-to-end commit latency: **~500ms median**.
 
-## Execution: PVM + Otigen + Hybrid Scheduler
+## Execution: WebAssembly + Hybrid Scheduler
 
 After consensus commits a wave (canonical ordered transactions), the execution layer:
 
 1. **Threshold decryption** for encrypted transactions (≥85 partials combined)
 2. **Hybrid scheduler** partitions decrypted transactions into parallel groups:
-   - **Static access lists** (Solana-style) for functions with compile-time-known accesses
+   - **Static access lists** (Solana-style) for functions with compile-time-known accesses, derived from each contract's declared state schema
    - **Block-STM speculation** (Aptos-style) for functions with dynamic accesses
-3. **PVM executes** in canonical order, applying state diffs in parallel where safe
-4. **State root computed** (Blake3 native + Poseidon2 for ZK)
+3. **wasmtime executes** WASM modules in canonical order, applying state diffs in parallel where safe. Smart contracts compile from Rust, AssemblyScript, Go, or C/C++ to WASM; runtime is wasmtime with Cranelift AOT and fuel-based gas metering.
+4. **State root computed** — dual-hash (Blake3 + Poseidon2) per JMT node
 5. **Committee FALCON-signs state root** (piggybacked on next vertices)
 6. **Finality** when ≥85 state root signatures collected
 
@@ -157,10 +157,10 @@ Accounts hold:
 7. RPC node validates wire format, forwards to nearest worker
 8. Worker (plaintext) verifies sig, batches, gossips
 9. Primary produces vertex, gossips
-10. Commit fires (Mysticeti, ~500ms): anchor selected, subdag walked, canonical order emitted
+10. Commit fires (Mysticeti, sub-second target): anchor selected, subdag walked, canonical order emitted
 11. (Encrypted) threshold decryption ceremony per batch
-12. PVM executes in canonical order
-13. JMT updates, state root signed
+12. wasmtime executes WASM modules in canonical order
+13. JMT updates (dual-hash per node), state root signed
 14. Finality declared (≥85 state root sigs)
 ```
 
@@ -188,15 +188,15 @@ RPC providers (Infura/Alchemy analog) fit Tier 3 — no stake, no slashing risk.
 | MEV resistance | Auction (PBS) | Proposer extracts | Some via Mysticeti | **Structurally impossible** |
 | Finality | 12-15s | 400ms | 390ms | **~500ms** |
 | Commodity validator | Possible | No (12+ cores) | No (datacenter) | **Yes (any validator awaiting committee selection)** |
-| Smart contract language | Solidity | Rust/Anchor | Move | **Otigen** (purpose-built) |
+| Smart contract language | Solidity | Rust/Anchor | Move | **Any wasm32 target** (Rust, AssemblyScript, Go, C/C++) |
 | Account abstraction | Retrofit (ERC-4337) | None native | Limited | **Native (v2)** |
 | Cross-chain | Bridges ($3B+ hacked) | Bridges | Bridges | **Permissionless parachain (v2)** |
 | ZK readiness | Retrofit ongoing | Limited | Limited | **Architecture ready (v2)** |
 
 ## Next Chapters
 
-- Chapter 3: Virtual Machine — PVM ISA, registers, opcodes, AOT compilation
-- Chapter 4: State Model — JMT details, hybrid hashing strategy
+- Chapter 3: Execution Layer — wasmtime runtime, host function ABI, Cranelift AOT, fuel-based gas, determinism boundary
+- Chapter 4: State Model — JMT details, dual-hash strategy, PIP-2 clustering
 - Chapter 5: Otigen Language — syntax, semantics, safety features
 - Chapter 6: Consensus — full Mysticeti DAG specification
 - Chapter 7: State Sync & Chain Halt — operational protocols

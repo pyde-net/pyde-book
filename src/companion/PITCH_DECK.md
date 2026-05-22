@@ -47,7 +47,7 @@ A Layer 1 chain built from scratch with all four properties as defaults:
 | MEV | Auction (PBS) | Extracted by proposers | Some via Mysticeti | **Structurally impossible** |
 | Finality | 12-15s | 400ms | 390ms | **~500ms** |
 | Commodity validator | Possible | No (12+ cores) | No (datacenter) | **Yes (any validator awaiting committee selection)** |
-| Smart contract language | Solidity | Rust/Anchor | Move | **Otigen** (purpose-built with built-in safety) |
+| Smart contract language | Solidity | Rust/Anchor | Move | **Any wasm32-target language** (Rust/AS/Go/C) with Pyde safety attributes preserved |
 | Account abstraction | Retrofit (ERC-4337) | None native | Limited | **Native (v2)** |
 | Cross-chain | Bridges (hacked $3B+) | Bridges | Bridges | **Permissionless parachain layer (v2)** |
 | ZK readiness | Retrofit ongoing | Limited | Limited | **Architecture ready (v2)** |
@@ -55,9 +55,9 @@ A Layer 1 chain built from scratch with all four properties as defaults:
 ## Architecture Highlights
 
 - **Consensus:** Mysticeti DAG with 128-validator committee, FALCON sigs, Kyber threshold encryption integrated at the order boundary
-- **Execution:** Custom Pyde Virtual Machine (PVM) with hybrid Block-STM + access list scheduling
+- **Execution:** WebAssembly via wasmtime, with Cranelift AOT and hybrid Block-STM + access list scheduling
 - **State:** Jellyfish Merkle Tree (JMT) with dual Blake3 + Poseidon2 root commitment
-- **Language:** Otigen (.oti) — Rust-like, reentrancy-safe, checked arithmetic, compile-time access list inference
+- **Language:** Pyde safety attributes (reentrancy off by default, checked arithmetic, typed storage, no tx.origin, compile-time access lists) preserved as language-native attributes across Rust, AssemblyScript, Go, C
 - **Networking:** libp2p + QUIC + Gossipsub
 - **Cross-chain:** Permissionless parachain layer (post-mainnet) — open spec, multiple implementations, on-chain rules + slashing
 
@@ -66,7 +66,7 @@ A Layer 1 chain built from scratch with all four properties as defaults:
 **Design: complete.** 27+ design documents covering every subsystem.
 
 **Implementation: in progress.**
-- Execution layer (PVM, Otigen, JMT): functional, needs extensions
+- Execution layer (WASM via wasmtime, JMT with dual-hash and PIP-2 clustering): functional, needs extensions
 - Cryptography (FALCON, Kyber base): in place; threshold variant in research
 - Consensus (Mysticeti DAG): rebuild post-pivot
 - Network (libp2p migration): planned

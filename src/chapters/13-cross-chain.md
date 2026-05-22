@@ -1,18 +1,15 @@
-# Chapter 13: Cross-Chain
+# Chapter 13: Parachains and Cross-Chain
 
-This chapter is about what crosses Pyde's chain boundary, both at mainnet
-and on the post-mainnet roadmap.
+This chapter covers two distinct (and sometimes conflated) topics:
 
-**v1 settles the surface; v2 ships the implementation.** Pyde's v1 wire
-format includes the `cross_call!` macro, the `HardFinalityCert` primitive,
-and a unified gas model that prices cross-chain calls — the protocol
-surface that parachain operators and bridge contracts will integrate
-against is **stable at genesis**. The parachain layer itself — the
-permissionless network of operators who stake PYDE and serve cross-chain
-calls — ships post-mainnet, once mainnet stability is proven.
+1. **Pyde's parachain framework** — the v1 mechanism for app-specific execution contexts that run as WebAssembly modules with their own state subtrees, their own governance, and their own validator sets opting in from Pyde's main committee.
+2. **Cross-chain bridges to other L1s** — the post-mainnet path to interoperability with Ethereum, Bitcoin, and other chains.
 
-This chapter covers what mainnet does and doesn't do, what the bridge
-threat model looks like, and the parachain layer direction.
+These are different things. A Pyde parachain is an on-chain WASM module with extra privileges (its own state space, cross-parachain messaging, threshold-crypto access). A cross-chain bridge is infrastructure that ferries proofs between Pyde and a foreign chain.
+
+**For parachains: the framework ships at v1** — the on-chain registry, governance, lifecycle, and execution environment are all part of mainnet. Authors write parachain logic in any wasm32-target language (Rust, AssemblyScript, Go, C/C++) and deploy via the `otigen` toolchain. The full design is in [`memory/parachain-v1-design`](https://github.com/pyde-net/.github/blob/main/memory-references.md) and the upcoming PPIPs (Pyde Parachain Improvement Proposals).
+
+**For cross-chain bridges: the surface ships at v1; the implementation ships post-mainnet.** The `cross_call` host function, the `HardFinalityCert` primitive, and the unified gas model are all available at genesis so contracts can be written today against the interface. The actual cross-chain transports (FALCON-in-EVM verifier, light-client contracts, relay infrastructure) ship after mainnet stability is proven.
 
 ---
 
@@ -22,17 +19,19 @@ At mainnet, Pyde does **not** ship:
 
 - A native bridge to any other chain (no Ethereum bridge, no Bitcoin
   bridge, no IBC channel).
-- Cross-chain message passing primitives at the protocol level.
-- Parachain support — there is no `pyde/parachains/1` topic, no slot
-  auctions, no shared-security model.
+- Native cross-chain message passing to foreign L1s at the protocol level
+  (the `cross_call` interface exists; the transports do not).
+- Slot auctions or Polkadot-style shared-security parachains. Pyde's parachain
+  model is different — see §13.5.
 
 What it **does** ship:
 
-- A sovereign L1 with the full execution model (Otigen contracts,
+- A sovereign L1 with the full execution model (WASM contracts via wasmtime,
   encrypted mempool, FALCON-quorum finality, JMT state).
+- The parachain framework (registry, governance, lifecycle, execution environment) — see §13.5 below.
 - Hard-finality certificates suitable for use as cross-chain proof inputs
   by any future bridge contract.
-- An architecture that leaves room for parachains and bridges as
+- An architecture that leaves room for cross-chain bridges as
   post-mainnet extensions.
 
 The reasoning: bridges are the largest historical source of catastrophic
@@ -113,64 +112,113 @@ but not catastrophic.
 
 ---
 
-## 13.4 Cross-Chain Message Stub: `cross_call!`
+## 13.4 The `cross_call` Host Function
 
-The Otigen compiler parses a `cross_call!` macro:
+Cross-context invocation in Pyde is exposed as a WASM host function:
 
-```otigen
-cross_call!(
-    target:   "ethereum",
-    method:   "request_price",
-    args:     (pair, address(self)),
-    callback: "on_price_received",
-);
+```rust
+// From the WASM contract author's perspective (Rust example):
+let result = pyde::cross_call(
+    target_address,                    // contract or parachain address
+    "request_price",                   // function name
+    &args,                             // serialized arguments
+    CallbackSpec {
+        success_method: "on_price_received",
+        error_method:   "on_price_failed",
+        max_callback_gas: 100_000,
+        timeout_waves:   100,
+    },
+)?;
 ```
 
-At mainnet, this lowers to a no-op (or compile error, depending on context)
-because no cross-chain transport exists. The stub is in place so that when
-the parachain SDK or a bridge contract lands, contract code that already
-uses `cross_call!` works without rewriting the language.
+The same primitive serves three call shapes:
 
-Without an active transport, `cross_call!`-using contracts compile and
-deploy, but the macro returns "not yet supported" at runtime.
+1. **Smart contract → smart contract** (same chain, fully working at v1). Synchronous if both contracts are in the same wave; asynchronous via callback if execution spans waves.
+2. **Smart contract → parachain** (working at v1 once parachain framework is live). Asynchronous; the parachain's committee processes the call and submits a callback transaction with the result.
+3. **Smart contract → foreign L1** (interface available at v1; transport ships post-mainnet). Until the cross-chain transport lands, this returns `NotYetSupported` at runtime — but contract code written against `cross_call` to a foreign target compiles and deploys today, ready for when the transport ships.
+
+The host function signature is part of the v1 Host Function ABI specification and is stable at genesis. Contracts written today against the v1 interface continue to work as additional transports come online.
+
+### Callback context preserved
+
+Every `cross_call` carries enough context that the callback can reconstruct what happened:
+
+- `callback_id` (unique per call)
+- `original_caller` (address that initiated the original transaction)
+- `original_fn` (function that issued the cross_call)
+- `original_args_hash` (hash of original args; full args retrievable from the chain log)
+- `issued_at_wave` (when the call was issued)
+- `target` (who was called)
+
+On result (success, error, or timeout), the callback handler receives both the result payload and the context. Full audit trail is always preserved.
 
 ---
 
-## 13.5 Parachain Layer (Post-Mainnet)
+## 13.5 The Parachain Framework (v1)
 
-The parachain direction is **permissionless infrastructure**, not slot
-auctions. Operators implement a Pyde-published specification, stake PYDE,
-follow protocol rules, and earn gas fees from contracts that invoke them
-via the `cross_call!` macro.
+Pyde's parachain framework is **not** a Polkadot-style slot-auction model and is **not** a separate operator network running off-chain. It is an on-chain execution mechanism for app-specific WebAssembly modules with extra capabilities relative to ordinary smart contracts.
 
-The distinction matters:
+The distinction matters because the "parachain" word is overloaded in the L1 ecosystem. In Pyde:
 
-- **Otigen contracts** run inside Pyde's PVM and share Pyde's state, gas,
-  and validators.
-- **Parachain operators** are independent processes (any language, any
-  VM) that stake PYDE on a special parachain contract, listen for
-  `cross_call!` invocations, fulfill them on the target chain, and post
-  results back with proofs. They earn fees in PYDE for each fulfilled
-  call.
+- **Smart contracts** are WASM modules with the standard host-function ABI. They share Pyde's state space, follow Pyde's transaction lifecycle, are scheduled by Pyde's main executor.
+- **Parachains** are WASM modules with an extended host-function allowlist (cross-parachain messaging, threshold-crypto access, governance hooks) and their own state subtree partitioned by `parachain_id[..16]` under PIP-2 clustering. They have their own validator committees (subsets of the main Pyde committee that opt in), their own consensus instance (chosen from a preset menu at deploy time), and their own upgrade governance (equal-power voting among their validators).
 
-**Why permissionless rather than auctioned slots.** Slot auctions
-(Polkadot-style) concentrate parachain rights in deep-pocketed
-operators, creating both political and centralization risk. Pyde's
-parachain layer instead works like RPC providers on Ethereum: anyone can
-stake and run an operator, contracts can pick which operator they trust,
-and the market sets prices.
+### What ships at v1
 
-The parachain SDK aims to provide:
+The full framework: registration, deployment, lifecycle, upgrade governance, state partitioning, cross-parachain messaging, version history retention, and the host-function ABI surface that parachain WASM is built against.
 
-| Component                       | Purpose                                          |
-| ------------------------------- | ------------------------------------------------ |
-| Operator runtime (Rust)         | Reference implementation; listen, fulfill, post  |
-| `cross_call!` semantics         | Async, with HardFinalityCert verification on result |
-| Operator slashing               | Stake at risk for misreporting or non-fulfillment |
-| Operator discovery              | On-chain registry of staked operators + reputation |
-| Multi-chain support             | Ethereum, Bitcoin, Solana, Polkadot adapters     |
+What v1 does **not** include (deferred to v2 or later):
 
-The SDK does not exist yet. It ships post-mainnet, once mainnet stability is established.
+- A maintained per-language SDK (per the [no-SDK approach](https://github.com/pyde-net/.github/blob/main/memory-references.md): authors compile their own WASM in any wasm32-target language using the published Host Function ABI; canonical example projects are provided as starting points, but there is no per-language SDK to maintain).
+- ZK-aggregated signature verification for parachain committees (the path to massively higher throughput; v2/v3 work).
+
+### Parachain deployment
+
+Authors deploy a parachain the same way they deploy a smart contract — via the `otigen` toolchain:
+
+```bash
+otigen init my_parachain --lang rust --type parachain
+# ... author writes parachain logic in src/main.rs ...
+# ... declares state schema, consensus preset, slashing preset in otigen.toml ...
+otigen build
+otigen deploy --network testnet --name "chainlink"
+```
+
+`otigen.toml` for a parachain extends the smart-contract schema with parachain-specific fields:
+
+```toml
+[contract]
+type = "parachain"
+
+[parachain]
+consensus_preset = "simple_bft"      # or "threshold" or "optimistic"
+min_validators   = 7
+quorum_threshold = "2/3"
+
+[slashing]
+preset = "standard"                  # minimal / standard / strict
+
+[hosts]
+allowed = [
+  "storage_read", "storage_write", "emit_event",
+  "send_xparachain_message", "threshold_decrypt",
+  # ... full parachain-extension allowlist
+]
+```
+
+### Parachain governance
+
+Parachain upgrades go through equal-power voting among the parachain's validators (one validator, one vote — NOT stake-weighted). Configurable quorum, configurable threshold, with a default 2/3 supermajority. Owner-only emergency pause and kill are available for operational lifecycle. Governance can claw back squatted names via PPIP if the dispute warrants.
+
+Full upgrade history is retained on-chain forever. Every transaction receipt records `(parachain_id, parachain_version, wasm_hash)` so historical replay can fetch the exact WASM binary that originally executed each tx.
+
+### Cross-parachain messaging
+
+Parachains can call each other via the `send_xparachain_message` host function. Rate-limited, threshold-signed (the calling parachain's committee signs the outgoing message; the receiving parachain's committee verifies it), and routed through Pyde's main consensus as regular transactions. The full mechanism is documented in the upcoming PPIPs.
+
+### Why this model rather than slot auctions
+
+Slot auctions (Polkadot-style) concentrate parachain rights in deep-pocketed operators, creating political and centralization risk. Pyde's parachain model is closer to "deploy a contract that happens to have its own state space and validator committee" — anyone can deploy, costs are predictable (ENS-style name registration + owner deposit), and economic alignment is via stake and slashing rather than auction proceeds.
 
 ---
 
@@ -194,8 +242,8 @@ The work splits into:
    non-trivial (algebraic operations over a 12,289-mod ring) but not
    fundamentally blocked.
 2. **A Pyde-side contract** that verifies Ethereum execution proofs
-   (Merkle Patricia paths). This part is straightforward — Otigen contracts
-   can implement Patricia path verification just as Solidity contracts can.
+   (Merkle Patricia paths). This part is straightforward — WASM contracts
+   on Pyde can implement Patricia path verification just as Solidity contracts can.
 3. **A relay process** that ferries finality certs and execution proofs
    between the two chains. The relay is permissionless — anyone can run it,
    and anyone can verify the outputs.
@@ -210,7 +258,7 @@ No mainnet timeline commitment exists. The bridge is contingent on:
 
 ---
 
-## 13.7 What Otigen Contracts Can Do Today (No Bridge)
+## 13.7 What WASM Contracts Can Do Today (No Bridge)
 
 A few cross-chain-adjacent things are still possible at the application
 layer without any protocol-level bridge:
@@ -239,7 +287,7 @@ a default bridge.
 ### Light-client deployments
 
 If a developer wants to verify Ethereum events on Pyde today, they can
-deploy an Ethereum-light-client Otigen contract that consumes Ethereum
+deploy an Ethereum-light-client WASM contract that consumes Ethereum
 block headers (relayed by an off-chain process) and verifies execution
 proofs against them. The verification work is done by the contract; the
 relay is just data ferrying.
@@ -249,19 +297,15 @@ the verification is on-chain and trustless.
 
 ---
 
-## 13.8 Parachain Native Token Question
+## 13.8 Parachain Economics
 
 A common question: what does PYDE pay for in a parachain world?
 
-The intended answer: parachains pay PYDE for inclusion. A parachain's
-block hash gets anchored in Pyde state; that state write costs Pyde gas;
-the gas is paid in PYDE. The parachain operator either pays directly or
-collects fees in their parachain's native token and converts.
+PYDE is the gas token across the platform. Every parachain operation that touches state, emits events, sends cross-parachain messages, or consumes execution gas is metered in PYDE via wasmtime fuel — exactly the same as smart-contract operations. Authors pay registration fees + owner deposits in PYDE at deploy time. Validators of a parachain earn PYDE rewards via the standard inflation distribution, weighted by their committee membership and uptime.
 
-This means PYDE is the bandwidth token of the parachain ecosystem (Pyde's
-state writes are the bandwidth) without requiring parachain users to hold
-PYDE. The ecosystem-level economics will be designed in detail when the
-parachain SDK is closer to launch.
+Parachain authors can layer their own internal token economies on top (e.g., a DEX parachain might mint LP tokens; a DAO parachain might mint governance tokens) — but those are application-layer concerns, not protocol-level mechanics. The protocol charges PYDE; what the parachain charges its users is its own decision.
+
+This keeps the gas accounting simple: one token, one fuel mechanism, uniform across smart contracts and parachains.
 
 ---
 
@@ -269,12 +313,12 @@ parachain SDK is closer to launch.
 
 | Stage                      | Cross-chain capability                                |
 | -------------------------- | ---------------------------------------------------- |
-| **Mainnet (v1)**           | Surface-only: `cross_call!`, `HardFinalityCert` available |
-| **Stage 1 (post-mainnet)** | Parachain SDK alpha (Rust operator runtime)            |
-| **Stage 2**                | First Ethereum parachain operator (FALCON-verifier on EVM) |
-| **Stage 3**                | Parachain layer live; permissionless operator registry |
-| **Stage 4**                | Multi-chain operators (Ethereum + others)              |
-| **Stage 5**                | Operator slashing on-chain; reputation system mature    |
+| **Mainnet (v1)**           | Parachain framework live (WASM-based); `cross_call` host function available; `HardFinalityCert` format stable |
+| **Post-mainnet — Stage 1** | First production parachains deployed (DEX, oracle, etc.)     |
+| **Post-mainnet — Stage 2** | First Ethereum bridge (FALCON-verifier on EVM + Pyde-side Patricia verifier) |
+| **Post-mainnet — Stage 3** | Multi-chain bridges (additional foreign L1s)                  |
+| **Post-mainnet — Stage 4** | ZK-aggregated FALCON signatures (reduces bridge verification cost dramatically) |
+| **Post-mainnet — Stage 5** | zk-WASM proven execution (where research is heading)         |
 
 These are directional. Each stage is gated on the maturity of the previous
 stage and on credible auditor capacity, not on a calendar.
@@ -287,17 +331,18 @@ stage and on credible auditor capacity, not on a calendar.
 | ------------------------------------- | ----------- | ---------------------- |
 | Sovereign L1                          | Yes         | —                      |
 | Hard-finality certificate (cert format)| Yes        | Used by future bridges |
+| Parachain framework (WASM-based)      | Yes         | Production parachains roll in over time |
+| Cross-parachain messaging             | Yes (with framework) | Optimizations + ZK aggregation |
+| `cross_call` host function (interface)| Yes         | Foreign-chain transports wired post-mainnet |
+| Smart-contract → smart-contract calls | Yes (working) | Performance optimizations |
+| Smart-contract → parachain calls      | Yes (with framework) | — |
+| Smart-contract → foreign L1 calls     | Interface only, returns `NotYetSupported` | Wired when bridges ship |
 | Native bridge to Ethereum             | No          | Yes (FALCON-in-EVM)    |
 | Native bridge to Bitcoin              | No          | Maybe (SPV proofs)     |
-| Parachain SDK                         | No          | Yes (Rust/Go/C++)      |
-| Cross-parachain messaging             | No          | Yes (post-SDK)         |
-| `cross_call!` Otigen macro            | Stub only   | Wired when SDK lands   |
 | Off-chain oracle / multisig mints     | Possible at app layer | Same as today  |
 | Light-client contracts (Ethereum)     | Possible at app layer | Easier with bridge|
 
-Pyde at launch is a sovereign network designed not to need bridges —
-sovereign assets, sovereign users, sovereign apps. The bridge work begins
-once that base is provably stable.
+Pyde at launch is a sovereign network with a working parachain framework, designed not to *depend* on cross-chain bridges. Sovereign assets, sovereign users, sovereign apps, sovereign parachains. Foreign-chain bridge work begins once that base is provably stable.
 
 The next chapter covers the PYDE token: supply, inflation, distribution,
 fee mechanics, and staking economics.

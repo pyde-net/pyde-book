@@ -120,7 +120,7 @@ account record.
 
 ### Contract
 
-Has deployed PVM bytecode (`code_hash != 0`) and optionally a storage trie
+Has deployed WASM bytecode (`code_hash != 0`) and optionally a storage trie
 (`storage_root != 0`). Cannot directly initiate transactions — only
 respond to calls. May have a non-empty `gas_tank` to sponsor user calls
 into it.
@@ -466,7 +466,7 @@ Transaction {
 }
 ```
 
-The PVM executes `init_bytecode` against a fresh context. The init code's
+wasmtime instantiates `init_bytecode` against a fresh context. The init code's
 return value is stored as the contract's runtime bytecode. The deployed
 contract address is `Poseidon2(deployer || nonce)` (see §11.2). The
 `code_hash` is set to `Poseidon2(runtime_bytecode)`.
@@ -489,7 +489,7 @@ The proxy's address never changes; upgrading is a single state write to
 
 ### Storage schema
 
-Otigen's compile-time storage layout (Chapter 5) and the JMT key derivation
+The `otigen` toolchain's build-time storage layout (Chapter 5) and the JMT key derivation
 (Chapter 4) together produce a fully typed storage model. There is no
 "random raw 256-bit slot" — every storage access is keyed against the
 contract address with a discriminator that came from a typed declaration.
@@ -555,7 +555,7 @@ Step 6 — Threshold decryption (rounds R+4 to R+5)
   85+ Kyber shares -> shared_secret -> AES decrypt payload.
 
 Step 7 — Execution (hybrid scheduler)
-  - PVM gas charged from DEX.gas_tank (FeePayer::GasTank).
+  - Gas charged from DEX.gas_tank (FeePayer::GasTank); accounted via wasmtime fuel.
   - Conflict graph built from access list; parallel groups execute.
   - DEX swap logic runs: SLOAD reserves, SLOAD/SSTORE Alice's USDC,
     transfer PYDE to Alice.

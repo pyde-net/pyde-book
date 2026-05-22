@@ -128,7 +128,7 @@ When the anchor vertex collects sufficient support from later rounds (Mysticeti 
      - tertiary key: list order within vertex
 4. For each vertex in sorted order, dereference batch_refs
 5. For each batch, threshold-decrypt (pipelined ceremony — partials already in flight)
-6. PVM executes decrypted batches in canonical order
+6. wasmtime executes decrypted batches in canonical order
 7. State root computed (Blake3 + Poseidon2 dual)
 8. ≥85 committee FALCON-sign state root (piggybacked on next-round vertices)
 9. ≥85 state-root sigs collected → finality declared
@@ -258,7 +258,7 @@ Receivers:
   - Verify FALCON sig (~80μs per share)
   - Once ≥85 valid partials collected:
     - Lagrange interpolation combines partials → reveals plaintext batch
-  - PVM executes decrypted txs in canonical order
+  - wasmtime executes decrypted txs in canonical order
 ```
 
 ### Pipelining
@@ -273,11 +273,11 @@ At 100K encrypted TPS:
 - ~800ms CPU per second total → parallelizable across cores
 - GPU acceleration enables higher throughput
 
-See [WHITEPAPER §11](../../docs/WHITEPAPER.md#11-performance) for honest scaling limits.
+See [WHITEPAPER §11](../companion/WHITEPAPER.md#11-performance) for honest scaling limits.
 
 ## 12. State Root Attestation
 
-After PVM execution, each member computes the state root locally (deterministic from input). Members FALCON-sign the state root with explicit hash inclusion:
+After wasmtime execution, each member computes the state root locally (deterministic from input). Members FALCON-sign the state root with explicit hash inclusion:
 
 ```rust
 struct StateRootSig {
@@ -305,11 +305,11 @@ Three types of halts:
 | Hard halt | Contradictory state roots, equivocation cluster, DAG fork | Protocol-detected automatic |
 | Emergency halt | Off-chain bug report, active exploit | Governance multisig (7-of-12) |
 
-See [CHAIN_HALT.md](../../docs/CHAIN_HALT.md) for full halt + recovery procedures. Rollback is bounded to 1 epoch (~3 hours) — operational flexibility without arbitrary commit reversibility.
+See [CHAIN_HALT.md](../companion/CHAIN_HALT.md) for full halt + recovery procedures. Rollback is bounded to 1 epoch (~3 hours) — operational flexibility without arbitrary commit reversibility.
 
 ## 14. Slashing
 
-Equivocation, bad state-root signatures, invalid vertices, bad decryption shares, DKG failure, share withholding, extended downtime — all slashable. See [SLASHING.md](../../docs/SLASHING.md) for the full catalog.
+Equivocation, bad state-root signatures, invalid vertices, bad decryption shares, DKG failure, share withholding, extended downtime — all slashable. See [SLASHING.md](../companion/SLASHING.md) for the full catalog.
 
 Correlated slashing applies a 2× multiplier when many validators offend simultaneously (punishes coordination, protects isolated failures).
 
@@ -347,12 +347,12 @@ Recommendation: Option A for v1. The work is audit + adaptation for FALCON sigs;
 
 ## References & Cross-References
 
-- Full design: [DESIGN.md §Consensus](../../docs/DESIGN.md#consensus-mysticeti-dag)
-- Threat model (consensus threats): [THREAT_MODEL.md §Consensus Layer](../../docs/THREAT_MODEL.md)
-- Failure scenarios: [FAILURE_SCENARIOS.md](../../docs/FAILURE_SCENARIOS.md)
-- Chain halt: [CHAIN_HALT.md](../../docs/CHAIN_HALT.md)
-- Slashing: [SLASHING.md](../../docs/SLASHING.md)
-- Validator lifecycle: [VALIDATOR_LIFECYCLE.md](../../docs/VALIDATOR_LIFECYCLE.md)
+- Full design: [DESIGN.md §Consensus](../companion/DESIGN.md#consensus-mysticeti-dag)
+- Threat model (consensus threats): [THREAT_MODEL.md §Consensus Layer](../companion/THREAT_MODEL.md)
+- Failure scenarios: [FAILURE_SCENARIOS.md](../companion/FAILURE_SCENARIOS.md)
+- Chain halt: [CHAIN_HALT.md](../companion/CHAIN_HALT.md)
+- Slashing: [SLASHING.md](../companion/SLASHING.md)
+- Validator lifecycle: [VALIDATOR_LIFECYCLE.md](../companion/VALIDATOR_LIFECYCLE.md)
 - Research papers:
   - Mysticeti (Babel et al., 2024) — `https://arxiv.org/abs/2310.14821`
   - Bullshark (Spiegelman et al., 2022)

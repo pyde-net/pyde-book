@@ -12,3 +12,5 @@ build-dir = "book"
 default-theme = "dark"
 preferred-dark-theme = "ayu"
 git-repository-url = "https://github.com/pyde-net/pyde-book"
+additional-css = ["theme/pyde-brand.css"]
+additional-js = ["theme/pyde-footer.js"]

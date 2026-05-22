@@ -126,7 +126,7 @@ Hybrid layered: Blake3 for high-volume native paths (JMT internals), Poseidon2 f
 - **DoS protection:** 4-layer (connection / message / peer-scoring / application)
 - **Committee defense:** sentry node pattern (Cosmos-style)
 
-Committee NIC requirement scales with TPS target: 500 Mbps at 30K TPS, 1 Gbps at 100K, 10 Gbps at 500K.
+Committee NIC requirement at v1's honest throughput target (10-30K plaintext TPS, 0.5-2K encrypted) is **≥500 Mbps**. Higher-throughput regimes are post-mainnet scaling work; the v1 number is what mainnet hardware is sized against.
 
 ## Account Model
 
@@ -158,7 +158,7 @@ Accounts hold:
 8. Worker (plaintext) verifies sig, batches, gossips
 9. Primary produces vertex, gossips
 10. Commit fires (Mysticeti, sub-second target): anchor selected, subdag walked, canonical order emitted
-11. (Encrypted) threshold decryption ceremony per batch
+11. (Encrypted) threshold decryption ceremony per encrypted tx (batches contain a mix of plaintext + encrypted txs)
 12. wasmtime executes WASM modules in canonical order
 13. JMT updates (dual-hash per node), state root signed
 14. Finality declared (≥85 state root sigs)
@@ -197,7 +197,7 @@ RPC providers (Infura/Alchemy analog) fit Tier 3 — no stake, no slashing risk.
 
 - Chapter 3: Execution Layer — wasmtime runtime, host function ABI, Cranelift AOT, fuel-based gas, determinism boundary
 - Chapter 4: State Model — JMT details, dual-hash strategy, PIP-2 clustering
-- Chapter 5: Otigen Language — syntax, semantics, safety features
+- Chapter 5: Otigen Toolchain — the developer-facing binary (build, deploy, wallet, ABI extraction, per-language attribute declaration)
 - Chapter 6: Consensus — full Mysticeti DAG specification
 - Chapter 7: State Sync & Chain Halt — operational protocols
 - Chapter 8: Cryptography — FALCON, Kyber, Poseidon2, DKG, threshold details

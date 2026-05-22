@@ -65,6 +65,84 @@ use Poseidon2. Both roots are computed and signed (Chapter 6).
 
 ---
 
+## 4.1b Two-Table Architecture: `state_cf` + `jmt_cf`
+
+Pyde maintains state in **two RocksDB column families**, each optimized for a different access pattern:
+
+```text
+┌────────────────────────────────────────────────────────────────────────┐
+│  state_cf — flat key-value index for live reads                         │
+│                                                                          │
+│    key   = slot_hash (32 bytes, PIP-2 layout)                           │
+│    value = current slot value (raw bytes)                               │
+│                                                                          │
+│    O(1) point lookup. Updated on every state change.                    │
+│    Used by: live execution path (sload), RPC queries, range scans.       │
+└────────────────────────────────────────────────────────────────────────┘
+
+┌────────────────────────────────────────────────────────────────────────┐
+│  jmt_cf — versioned tree structure for proofs + state root              │
+│                                                                          │
+│    key   = NodeKey(version: u64, NibblePath)                            │
+│    value = JmtNode { children_fingerprints[], value_bytes (if leaf) }    │
+│                                                                          │
+│    O(depth) walk for proofs. Updated at every wave commit.              │
+│    Used by: state-root computation, Merkle proofs for light clients,    │
+│            historical state queries (on archive nodes).                  │
+└────────────────────────────────────────────────────────────────────────┘
+```
+
+**Why two tables instead of one:**
+
+The JMT alone can serve every read, but each read is `O(depth)` — typically 6-8 RocksDB gets to walk from root to leaf. For live execution at thousands of TPS, that's too expensive.
+
+`state_cf` keeps a flat denormalized index of the *current* value for every slot. A single get returns the value. PIP-2's clustered slot_hash layout keeps `state_cf` entries spatially clustered by contract, so range scans and multigets stay cheap.
+
+The JMT structure is still maintained alongside, because it's needed for:
+- **State-root computation**: hash up from leaves to root, deterministically, across all validators
+- **Merkle proofs**: light clients verify `(value, proof) → state_root` without holding full state
+- **Versioned reads**: archive nodes serve historical state by walking older JMT versions
+
+**The read path:**
+
+```text
+fn read_slot(slot_hash) -> Option<Bytes>:
+  1. dashmap.get(slot_hash)                ← PIP-4 in-memory cache (most live reads)
+  2. state_cf.get(slot_hash)                ← ONE disk read (cache miss path)
+  
+  Total: one disk get, sometimes amortized to zero.
+```
+
+The JMT is **not** in the live read path. Reads use `state_cf`. The JMT is reached only for proofs or for state-root computation at commit time.
+
+**The write path (at wave commit):**
+
+```text
+fn commit_wave(dirty_changes: Vec<(SlotHash, Bytes)>):
+  1. For each (slot_hash, new_value) in dirty_changes:
+       jmt.update(slot_hash, new_value, new_version)
+         → JMT recomputes leaf_hash + internal hashes up the affected path
+       state_cf.put(slot_hash, new_value)
+  
+  2. new_state_root = jmt.root_hash(new_version)
+  
+  3. Both writes happen in a single RocksDB WriteBatch (atomic).
+```
+
+The two tables stay in lockstep. They are never out of sync because every write touches both atomically.
+
+**Cost of duplication:** roughly 2× storage for the state itself (the leaves' values appear in both `state_cf` and the JMT's leaf records). This is the trade-off — extra storage in exchange for O(1) live reads while still preserving authenticated proofs.
+
+**Retention split:**
+
+| Node tier | `state_cf` | `jmt_cf` |
+|-----------|-----------|----------|
+| Pruned validator | Current state only | Latest version only (older GC'd) |
+| Archive node | Current state | All historical versions |
+| Light client | None | Just state_root from WaveCommitRecords |
+
+---
+
 ## 4.2 Hybrid Hashing: Blake3 + Poseidon2
 
 Pyde uses two hashes in different layers, chosen for what each is best at:
@@ -320,7 +398,7 @@ post-root. Disagreement is a slashing-grade safety violation.
 
 A new node joining the network does not replay every block from genesis —
 at production TPS, full replay would take longer than the chain has
-existed. Pyde defines three sync modes (full spec: `docs/STATE_SYNC.md`,
+existed. Pyde defines three sync modes (full spec: [companion/STATE_SYNC.md](../companion/STATE_SYNC.md),
 operational summary: Chapter 7):
 
 1. **Snapshot sync (default for new full nodes).** Download a committee-signed

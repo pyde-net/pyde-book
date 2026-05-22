@@ -218,7 +218,7 @@ When the anchor vertex collects sufficient Mysticeti 3-stage support from later 
 1. Anchor's subdag is collected by walking `parent_vertex_refs` transitively.
 2. The subdag is sorted deterministically: `(round, member_id, list_order)`.
 3. Batches referenced by each vertex are dereferenced.
-4. For encrypted batches, the threshold decryption ceremony runs (pipelined — partial shares are already in flight by commit time).
+4. For each encrypted transaction within those batches (encryption is per-tx, not per-batch), the threshold decryption ceremony runs (pipelined — partial shares are already in flight by commit time via the `decryption_shares` field of vertices observed during the prior rounds).
 5. wasmtime executes decrypted transactions in canonical order.
 6. State root is computed (Blake3 + Poseidon2 dual), FALCON-signed by ≥ 85 committee members.
 7. Finality is declared once ≥ 85 state-root signatures converge.
@@ -257,19 +257,18 @@ Rollback is bounded to one epoch (~ 3 hours); within that window governance can 
 
 ## 7. Execution: WebAssembly, Hybrid Scheduling
 
-### 7.1 The Pyde Virtual Machine
+### 7.1 The WASM Execution Environment
 
-A register-based VM with a fixed 32-bit instruction encoding:
+Pyde executes smart contracts under **wasmtime**, the Bytecode Alliance's production WebAssembly runtime (in use at Microsoft, Fastly, Shopify):
 
-- 16 × 64-bit general-purpose registers (`r0` hardwired zero)
-- 8 × 256-bit wide registers for crypto operations
-- 62 of 64 opcode slots assigned (arithmetic, memory, control flow, storage, crypto, assertions)
-- Checked arithmetic — trap on overflow / underflow / division by zero
-- 4 MB address space (null page, code, heap, stack); gas-metered page allocation
-- AOT compilation to native machine code via Cranelift at deploy time; no JIT cache, no runtime recompile
-- Compiled cheap opcodes inline; state / crypto / event opcodes trap to host functions registered with the JIT module
+- WebAssembly Core Specification: linear memory, structured control flow, validated bytecode, no syscalls
+- **Cranelift AOT** compilation inside wasmtime — every module is compiled to native machine code at deploy time and cached; subsequent invocations re-use the compiled artifact, no JIT, no runtime recompile
+- **Fuel-based gas metering** — every WASM instruction decrements a fuel counter at the basic-block level; when fuel hits zero, wasmtime traps and the transaction reverts
+- **Per-instance sandbox** — each transaction runs in its own wasmtime instance with bounded linear memory (default 64 MB cap); the host (validator) decides which host functions are importable
+- **Host Function ABI** for all chain interaction — storage (`sload`/`sstore`/`sdelete`), balance and transfers, crypto (Blake3, Poseidon2, Keccak256, FALCON verify, threshold encrypt/decrypt), events, cross-contract and cross-chain calls
+- The retired Otigen language and custom `pyde-vm` register-based VM are preserved in the historical pivot record only; the active execution layer is wasmtime end-to-end
 
-Determinism is load-bearing: the same input transactions must produce byte-identical state transitions across all validators (consensus state-root agreement) and inside future ZK validity proofs.
+Determinism is load-bearing: the same WASM module with the same inputs and host-fn responses must produce byte-identical state transitions across all 128 committee members (consensus state-root agreement) and inside future ZK validity proofs over execution. Non-deterministic WASM features (threads, SIMD timing, floating-point environment) are disabled at module-validation time.
 
 ### 7.2 Smart Contract Authoring
 
@@ -367,7 +366,7 @@ Encryption is opt-in. Simple transfers go plaintext for lower gas; MEV-sensitive
 - **DoS defense:** four layers — connection (IP / ASN caps), message (rate limits per type), peer scoring (misbehavior accumulates, decays with good behavior), application (gas tank prepayment for encrypted submission).
 - **Committee defense:** sentry-node pattern (Cosmos-style) to insulate committee primaries from direct internet exposure.
 
-Committee NIC scales with TPS target: 500 Mbps at 30 K TPS, 1 Gbps at 100 K, 10 Gbps at 500 K.
+Committee NIC requirement at v1's honest throughput target (10–30 K plaintext TPS, 0.5–2 K encrypted) is **≥500 Mbps**. Higher-throughput regimes (1 Gbps, 10 Gbps) appear in §12.1 below labeled as Stretch / Aspirational, not v1.
 
 ---
 
@@ -421,11 +420,11 @@ These numbers will be revised based on actual harness output and adjusted using 
 | Light client | Mobile / browser |
 | Full node / RPC | 8c / 16 GB / 500 GB NVMe / 100 Mbps |
 | Non-committee validator | 8c / 16 GB / 500 GB / 100 – 250 Mbps |
-| Committee validator (30 K TPS) | 8 – 16c / 32 GB / 1 TB SSD / 500 Mbps |
-| Committee validator (100 K TPS) | 16c / 32 GB / 2 TB SSD / 1 Gbps |
-| Committee validator (500 K TPS) | 32c / 64 GB / 4 TB SSD / 10 Gbps |
+| **Committee validator (v1 realistic, 30 K TPS)** | 8 – 16c / 32 GB / 1 TB SSD / 500 Mbps |
+| Committee validator (Stretch v2, 100 K TPS) | 16c / 32 GB / 2 TB SSD / 1 Gbps |
+| Committee validator (Aspirational, 500 K TPS, GPU-class) | 32c / 64 GB / 4 TB SSD / 10 Gbps |
 
-The commodity-hardware promise applies layered: full nodes and validators awaiting committee selection stay on a developer workstation at every TPS level; active-committee hardware scales with the production throughput target.
+The commodity-hardware promise applies layered: full nodes and validators awaiting committee selection stay on a developer workstation at every TPS level. The first committee row is the v1 hardware Pyde is sized against; the higher rows are post-mainnet scaling targets, not v1 commitments.
 
 ### 12.3 Methodology
 
@@ -565,7 +564,11 @@ The hybrid-hashing strategy (Poseidon2 on ZK-bearing paths) keeps zero-knowledge
 
 ### 17.4 Programmable Accounts and Session Keys
 
-Native multisig ships at v1. **Programmable accounts** (sandboxed WASM policy modules expressing spend limits, time locks, allow-listed recipients, tiered authorization, recovery flows) and **session keys** (epoch-bounded, scope-limited dApp delegation without per-action wallet popups) ship post-mainnet. The `AuthKeys` enum reserves the `Programmable` variant at genesis so contracts written today survive the upgrade without rewriting.
+Native multisig ships at v1. **Programmable accounts** (sandboxed WASM policy modules expressing spend limits, time locks, allow-listed recipients, tiered authorization, recovery flows) and **session keys** (epoch-bounded, scope-limited dApp delegation without per-action wallet popups) ship post-mainnet.
+
+A session key is bounded by four parameters: an allow-list of contracts, an optional allow-list of method selectors, a hard spend cap, and an expiry wave. Each authorization checks the FALCON signature, the liveness flags, the scope, and the cumulative spend — all four must pass. Revocation is a single tx signed by the account's main `auth_keys` and takes effect at the next wave commit. Ethereum is retrofitting the same idea via ERC-4337; Pyde gets it at the protocol layer.
+
+The `AuthKeys` enum reserves the `Programmable` variant (tag `0x03`) at genesis. The account `code_hash` + `storage_root` shape and the multisig signature pipeline are also v1 surfaces that v2 reuses, so contracts written today survive the upgrade without rewriting. The full mechanism is documented in [Chapter 11 *Session keys (v2)*](../chapters/11-account-model.md) and [companion/DESIGN.md](./DESIGN.md).
 
 ### 17.5 Parachain Layer
 

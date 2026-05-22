@@ -85,10 +85,10 @@ The inflation rate decreases on a year-by-year schedule:
 
 ```rust
 pub const INFLATION_BPS: [u16; 4] = [
-    500,   // year 0: 5.0%
-    300,   // year 1: 3.0%
-    200,   // year 2: 2.0%
-    100,   // year 3+: 1.0% (terminal)
+    500,   // year 1: 5.0%
+    300,   // year 2: 3.0%
+    200,   // year 3: 2.0%
+    100,   // year 4+: 1.0% (terminal)
 ];
 ```
 
@@ -338,7 +338,7 @@ the validator's spendable balance and marks them `Exited`.
 
 ### Slashing
 
-Reused from Chapter 6 and `docs/SLASHING.md`. Penalties scale with stake
+Reused from Chapter 6 and [companion/SLASHING.md](../companion/SLASHING.md). Penalties scale with stake
 (percentages of the offender's at-risk stake at the time of offense):
 
 | Offense                          | Penalty (% of stake)   |

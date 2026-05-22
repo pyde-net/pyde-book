@@ -245,7 +245,9 @@ contract layer.
 **The Programmable reservation.** Reserving `0x03` at v1 means contracts
 that today reference `AuthKeys::Programmable` (as a future-proofing hint)
 won't break at the v2 upgrade — the discriminant is allocated. Session
-keys, social recovery, and biometric auth are post-mainnet features.
+keys, social recovery, and biometric auth are post-mainnet features. See
+*Session keys (v2)* below for the design and what v1 reserves to make
+that work.
 
 A `Single` EOA uses one FALCON pubkey for all transactions. A `MultiSig`
 account requires `threshold`-of-`N` signatures to authorize.
@@ -283,6 +285,82 @@ Recovery:  Three guardians together (1+1+1 = 3) authorize a key rotation.
 The base `MultiSig` variant in `AuthKeys` provides equal-weight `t-of-n`.
 Weighted variants live at the contract layer (a deployed multisig contract
 that owns the EOA via key rotation).
+
+### Session keys (v2)
+
+A **session key** is a temporary, scope-limited key the user authorizes a
+dApp (or an agent) to act with on their behalf — for a bounded time,
+against a bounded set of contracts, with a bounded spend cap. The user
+signs once. The dApp signs many times, within the declared scope,
+without ever holding the user's main key.
+
+This is the UX layer most consumer crypto applications have been missing.
+Pyde ships native session-key support at v2 (paired with programmable
+accounts). Ethereum is retrofitting the same idea via ERC-4337; Pyde gets
+it at the protocol layer.
+
+**Use cases:**
+
+- **Gaming.** Sign once at session start; play 200 in-game actions
+  without per-action wallet popups.
+- **AI agents.** Delegate *"trade at most 100 PYDE/day on this DEX until
+  next Friday"* without handing over the master key.
+- **Consumer apps.** Recurring subscriptions, micro-transactions,
+  real-time DeFi positions.
+- **Embedded wallets.** Passkey-style flows where the user's main key
+  never leaves a secure enclave.
+
+**How it works (v2):**
+
+```rust
+struct SessionKey {
+    pubkey:      FalconPubkey,    // the delegated key
+    scope:       SessionScope,     // what it can do
+    expires_at:  WaveId,           // when it stops working
+    revoked:     bool,             // owner-flippable kill switch
+}
+
+struct SessionScope {
+    contracts:    Vec<Address>,    // allow-list of callable contracts
+    methods:      Vec<Selector>,   // optional method allow-list (empty = all)
+    max_spend:    u128,            // hard cap on cumulative PYDE outflow
+    spent_so_far: u128,            // running counter, updated at commit
+}
+```
+
+At authorization time, for any tx submitted under a session key, the
+protocol checks:
+
+1. **Signature.** FALCON-verify against `SessionKey.pubkey`.
+2. **Liveness.** `expires_at > current_wave` and `revoked == false`.
+3. **Scope.** Target contract is in `scope.contracts`; if `scope.methods`
+   is non-empty, the called selector is in it.
+4. **Spend cap.** `spent_so_far + tx.value ≤ max_spend`.
+
+All four must pass. On commit, `spent_so_far` is incremented atomically.
+The account's main `auth_keys` is untouched — session keys are an
+*additional* authorization path, not a replacement.
+
+**Revocation.** A `RevokeSessionKey` tx signed by the account's main
+`auth_keys` flips `revoked = true`. The session is invalid from the next
+wave onward.
+
+**Why v2, not v1.** Session keys are a specific *policy* expressed in the
+`AuthKeys::Programmable` variant. They need the policy engine that
+programmable accounts ship with. Both move together at v2.
+
+**What v1 reserves to make this work:**
+
+| v1 surface | Why it matters for v2 session keys |
+| --- | --- |
+| `AuthKeys::Programmable` enum variant (tag `0x03`) | The authorization model session keys plug into |
+| Account `code_hash` + `storage_root` fields | Programmable accounts use the same shape as contracts |
+| WASM "policy mode" execution flag (reserved) | Session-key checks run in a restricted-state-access mode |
+| Multisig signature pipeline | Same verification path serves session-key + multisig flows |
+
+These reservations cost nothing at v1 (the enum variant is unused, the
+policy-mode flag is reserved-but-not-implemented). v2 ships session keys
+without breaking any account-touching contract written for v1.
 
 ---
 

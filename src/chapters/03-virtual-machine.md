@@ -107,7 +107,7 @@ This section gives the conceptual surface; the spec gives the binary signatures.
 **Storage:**
 - `sload(slot_hash) -> value` — read a 32-byte slot.
 - `sstore(slot_hash, value)` — write a 32-byte slot. Costs increase for new slot allocations.
-- `sdelete(slot_hash)` — explicitly delete a slot (refunds a portion of allocation gas).
+- `sdelete(slot_hash)` — explicitly delete a slot (lower cost than `sstore`; no refund in v1, per Chapter 10).
 
 **Balances and transfers:**
 - `balance(addr) -> u128` — read an account's PYDE balance.
@@ -207,8 +207,68 @@ A transaction declares its gas budget at submission; the engine converts that to
 **Why fuel and not opcode-counting:**
 Fuel is built into wasmtime's Cranelift backend. Every basic block is instrumented to decrement a fuel counter; when the counter goes negative, execution traps with an out-of-fuel error. The instrumentation is efficient enough not to dominate execution time. Implementing custom opcode-counting on top of wasmtime would be slower and add maintenance burden for no functional gain.
 
-**Refunds:**
-Unused fuel translates back to unused gas, which is refunded to the transaction sender (minus base fee, which is always burned per the EIP-1559-style gas model).
+**Charging model — no refunds in v1:**
+The ingress check confirms `balance ≥ gas_limit × base_fee`, but only `gas_used × base_fee` is actually debited at execution time. Unused fuel costs the sender nothing — it is never debited and therefore never refunded. Pyde v1 has no operation-level gas refunds either (no `sstore_refund`, no `sdelete` refund). See [Chapter 10 §10.1](./10-gas-and-fee-model.md) for the full charging pipeline and the EIP-3529 reasoning.
+
+---
+
+## 3.5b Per-Transaction Execution Isolation
+
+Every transaction executes against an **overlay** layered on top of the shared DashMap state cache. The overlay isolates the tx's writes so a revert can throw them away without affecting other txs in the same wave.
+
+```text
+Per-tx state isolation:
+
+  Before tx execution:
+    tx_overlay: HashMap<SlotHash, Vec<u8>> = empty
+
+  During execution:
+    Reads:  
+      1. check tx_overlay  (any writes this tx made)
+      2. check dashmap     (prior committed-in-this-wave writes from other txs)
+      3. check state_cf    (current persistent state on disk)
+    Writes:
+      go into tx_overlay only (not dashmap yet)
+
+  On successful completion:
+    merge tx_overlay into dashmap (marking entries Dirty)
+    generate success receipt
+    drop tx_overlay (memory freed)
+
+  On trap (revert):
+    discard tx_overlay entirely
+    state unchanged in dashmap
+    generate revert receipt with reason
+    sender still pays gas_used × base_fee (see Chapter 10)
+```
+
+**Why no separate undo log:** failed writes never landed in shared state. Dropping the overlay throws them away. Simpler than journaled undo.
+
+**Nested cross-calls:** when tx A calls contract B which calls contract C, each call gets its own overlay layered on top:
+
+```text
+A's overlay
+  ↓
+B's overlay (reads check B's overlay first, then A's, then dashmap, then state_cf)
+  ↓
+C's overlay (reads check C's, then B's, then A's, then dashmap, then state_cf)
+
+Inner call succeeds → merge inner overlay into parent overlay
+Inner call traps    → drop inner overlay; parent continues
+Outer tx traps      → drop outer overlay (including all merged inner state)
+```
+
+This is standard transactional-memory layering. wasmtime's host functions are aware of the active overlay and route reads/writes through it.
+
+### Memory bounds on the overlay
+
+The overlay can grow during a tx, but is bounded by two factors:
+
+1. **Gas budget.** Every write into the overlay charges fuel via `sstore`. A tx with `gas_limit = 10_000_000` can write at most ~50K slots (varying by slot size). Author can't write infinitely without paying.
+
+2. **Linear memory cap.** wasmtime's per-instance linear memory is capped (64MB default, configurable per chain release). Even if gas were infinite, the WASM module can't allocate beyond this cap.
+
+Together: a tx can use up to (gas_limit / sstore_cost) × value_size of overlay memory, but capped by linear memory. We don't impose a separate "tx overlay memory cap" — gas + wasmtime config bound it.
 
 ---
 
@@ -346,6 +406,44 @@ Trap conditions are reported in transaction receipts as structured error codes, 
 
 ---
 
+## 3.9b Native Transactions vs WASM Calls
+
+Not every transaction invokes wasmtime. Pyde has a small set of **native transaction types** that the engine executes directly, without WASM overhead.
+
+### Native tx types (no wasmtime invocation)
+
+```text
+- Transfer        — move PYDE between two accounts; ~21,000 gas; engine handles balance update directly
+- ValidatorRegister — stake-account-binding system tx
+- ValidatorUnbond  — initiate unbonding
+- ValidatorRotateKey — FALCON key rotation
+- ValidatorUnjail   — exit jailed state after grace period
+- Multisig          — treasury / governance multisig spend
+- Slashing          — system-emitted from evidence
+```
+
+These all bypass wasmtime and execute as Rust code in the engine. They're cheaper, faster, and don't carry the per-tx WASM instantiation cost.
+
+### WASM tx types (wasmtime executes)
+
+```text
+- ContractCall    — invoke a function on a deployed WASM contract
+- ContractDeploy  — register new WASM bytes + ABI as a contract
+- ParachainCall   — invoke a function on a deployed parachain WASM (cross-call routing)
+```
+
+These instantiate the target module via wasmtime, call the entry function, execute under the per-tx overlay, and produce a receipt.
+
+### Why split this way
+
+- **Performance.** Simple transfers don't need a sandbox or fuel metering — they're trivially provable state updates.
+- **Gas predictability.** Native transfers have a fixed gas cost (~21K) known in advance; no fuel-counting needed.
+- **Common-case optimization.** Simple value transfers are the most common tx type on any chain. Avoiding WASM overhead per-transfer materially improves end-to-end TPS for high-volume payment workloads.
+
+WASM contracts that need to move value internally still call `pyde_transfer` as a host function, which does the same balance-update logic the native transfer does. Authors don't have to choose; the chain serves both paths.
+
+---
+
 ## 3.10 Contract Lifecycle
 
 ```
@@ -386,7 +484,7 @@ Upgrade path mirrors deploy but routes through governance for parachain contract
 | Validation gate | `engine/crates/wasm-exec/src/validate.rs` |
 | Deploy-tx processing | `engine/crates/tx/src/deploy.rs` |
 | State binding code generators (per language) | `otigen` repo (`otigen/crates/codegen-*`) |
-| Host Function ABI specification | `pyde-book/docs/host-fn-abi-spec.md` (separate authoritative doc — to be written; tracked on the roadmap) |
+| Host Function ABI specification | `pyde-book/src/companion/HOST_FN_ABI_SPEC.md` (separate authoritative doc — to be written; tracked on the roadmap) |
 
 ---
 

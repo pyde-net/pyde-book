@@ -347,10 +347,73 @@ Reserved enum variant at v1. When v2 ships:
 
 ### Session Keys (v2)
 
-Scoped delegation for dApps:
-- User approves specific contract + capped spend + time-bounded duration
-- dApp can act on user's behalf within scope without per-action wallet popup
-- Critical for gaming, AI agents, consumer apps
+Scoped, bounded, revocable delegation. The user authorizes a session key once; the dApp (or agent) signs many transactions on the user's behalf within the declared scope.
+
+**Type:**
+
+```rust
+struct SessionKey {
+    pubkey:      FalconPubkey,
+    scope:       SessionScope,
+    expires_at:  WaveId,
+    revoked:     bool,
+}
+
+struct SessionScope {
+    contracts:    Vec<Address>,
+    methods:      Vec<Selector>,   // optional; empty = all methods on allowed contracts
+    max_spend:    u128,
+    spent_so_far: u128,            // mutable, updated at tx commit
+}
+```
+
+**Registry.** Session keys are stored under the account's programmable-policy state subtree. The slot_hash clusters with the account under PIP-2 so lookups during authorization are local. New keys are added by `RegisterSessionKey` txs signed under the main `auth_keys`; existing keys are revoked by `RevokeSessionKey` txs.
+
+**Authorization-time check (pseudocode):**
+
+```text
+fn authorize_session_tx(tx) -> Result<(), AuthError> {
+    let sk = lookup_session_key(tx.session_key_id)?;
+
+    // 1. Signature
+    verify_falcon(sk.pubkey, tx.hash, tx.session_sig)?;
+
+    // 2. Liveness
+    require(current_wave < sk.expires_at, KeyExpired);
+    require(!sk.revoked, KeyRevoked);
+
+    // 3. Scope
+    require(sk.scope.contracts.contains(&tx.to), OutsideContractScope);
+    if !sk.scope.methods.is_empty() {
+        require(sk.scope.methods.contains(&tx.selector), OutsideMethodScope);
+    }
+
+    // 4. Spend cap
+    let new_spent = sk.scope.spent_so_far + tx.value;
+    require(new_spent <= sk.scope.max_spend, ExceedsSpendCap);
+
+    // On commit:
+    //   sk.scope.spent_so_far = new_spent;
+    Ok(())
+}
+```
+
+**Use cases:**
+
+- **Gaming** — sign once, play many actions.
+- **AI agents** — bounded delegation (e.g., *"trade at most 100 PYDE/day on this DEX until next Friday"*).
+- **Consumer apps** — subscriptions, micro-transactions.
+- **Embedded wallets** — passkey-style flows where the main key never leaves a secure enclave.
+
+**Limits.**
+
+- Maximum 32 active session keys per account (anti-squat).
+- `max_spend` is monotonic — increasing it requires a new key, not a mutation.
+- `expires_at` cannot exceed `current_wave + MAX_SESSION_WAVES` (default: ~30 days at 500ms/wave = ~5.18M waves).
+
+**v1 reservations:** `AuthKeys::Programmable` enum tag `0x03`, account `code_hash` + `storage_root` fields, WASM policy-mode execution flag, multisig signature pipeline. All present at genesis; only the policy engine and session-key registry need to be added at v2.
+
+Threat-model entries for session keys live in [companion/THREAT_MODEL.md](./THREAT_MODEL.md) §Authorization Layer (added v0.2).
 
 ## Transaction Lifecycle
 
@@ -398,7 +461,7 @@ Same as above, with:
 - Step 4.5: After FALCON-sign, Kyber-encrypt signed_tx with epoch PK
 - Step 5: pyde_sendRawEncryptedTransaction(encrypted_blob)
 - Worker step 8: cannot verify sig (encrypted) — only verify wire format
-- Commit step 15.5: threshold decryption ceremony — ≥85 partials combine per batch → plaintexts revealed
+- Commit step 15.5: threshold decryption ceremony — ≥85 partials combine per encrypted tx (batches contain a mix of plaintext + encrypted txs) → plaintexts revealed. Share-combine is batched across the wave for amortised cost.
 - Then wasmtime step 16 includes first sig verification
 
 ## Encryption & MEV Resistance

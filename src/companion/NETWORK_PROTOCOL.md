@@ -120,7 +120,7 @@ Memory safety, DoS resistance, predictability, audit-friendliness all depend on 
 | 8 MB | Mixed | ~200K |
 | 16 MB | Aspirational | ~500K |
 
-**4 MB hard limit** balances modest-hardware committee promise (≥500 Mbps NIC sufficient at 100K TPS) with realistic burst scenarios (NFT mints up to ~2000 encrypted txs in one batch).
+**4 MB hard limit** balances modest-hardware committee promise (≥500 Mbps NIC sufficient for v1's 10-30K plaintext TPS target, with headroom in the batch size for post-mainnet scaling) with realistic burst scenarios (NFT mints up to ~2000 encrypted txs in one batch). The "Max TPS support" column above is a *theoretical ceiling* implied by the batch limit; the v1 *honest target* is much lower (see [honest throughput reset](../chapters/01-introduction.md)).
 
 For batches >4 MB: chunked transfer (BatchAnnouncement → multiple BatchChunk messages of 4 MB each).
 

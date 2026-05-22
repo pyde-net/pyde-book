@@ -1,7 +1,8 @@
 # Summary
 
-[The Pivot](preface/pivot.md)
+[How Pyde Works](preface/how-pyde-works.md)
 [Introduction](chapters/01-introduction.md)
+[The Pivot](preface/pivot.md)
 [Roadmap](roadmap.md)
 
 ---
@@ -62,7 +63,9 @@
 - [Failure Scenarios](companion/FAILURE_SCENARIOS.md)
 - [Network Protocol](companion/NETWORK_PROTOCOL.md)
 - [Performance Harness](companion/PERFORMANCE_HARNESS.md)
+- [Parachain Design](companion/PARACHAIN_DESIGN.md)
 - [Tokenomics Detail](companion/TOKENOMICS.md)
+- [Brand Reference](companion/BRAND.md)
 
 # External Materials
 

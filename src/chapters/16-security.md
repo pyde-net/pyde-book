@@ -9,6 +9,14 @@ healthy.
 The scope of this chapter is the *shipped* mainnet. Where a defense is on
 the post-mainnet hardening list rather than live, the chapter says so.
 
+> **Note.** This chapter is the *narrative* security reference. The
+> canonical catalog — ~50 threats by ID, organized by layer, with
+> mitigation cross-references and acknowledged residual risks — lives in
+> [companion/THREAT_MODEL.md](../companion/THREAT_MODEL.md). External
+> auditors should start with the threat model and use this chapter for
+> context; readers building intuition should start here and dip into the
+> threat model when they want the full catalog.
+
 ---
 
 ## 16.1 Attack Surface
@@ -59,7 +67,7 @@ slashable evidence at `100% of stake`, so the cost is total. ∎
 
 State-root divergence (two contradictory Blake3 state roots both signed
 by 85 members) is detected automatically and triggers a **hard halt**
-(Chapter 7 / `docs/CHAIN_HALT.md`).
+(Chapter 7 / [companion/CHAIN_HALT.md](../companion/CHAIN_HALT.md)).
 
 ### What if more than 1/3 are Byzantine
 
@@ -180,7 +188,7 @@ operators face additional KYC verification at registration.
 
 **3. Slashing at 100% on safety violations.**
 Equivocation and bad state-root signatures incur full-stake slashing
-plus permanent ban (see Chapter 14 §14.5 / `docs/SLASHING.md`). The 10%
+plus permanent ban (see Chapter 14 §14.5 / [companion/SLASHING.md](../companion/SLASHING.md)). The 10%
 finder's fee creates an active whistleblower incentive — every honest
 node has a financial reason to surface attacker evidence within the
 21-day freshness window.

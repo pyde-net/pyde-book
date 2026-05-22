@@ -1,362 +1,441 @@
 # Roadmap
 
-This roadmap is a tree of work, organized by what blocks what. The top of the tree is sequential foundations. Below that, multiple **parallel streams** can run independently as long as their interfaces are stable. The bottom of the tree is convergence: integration, testing, external validation, mainnet.
+This roadmap is a tree of work in **seven massive chunks**, from zero to mainnet. Each chunk is a coherent body of work that can be owned and tracked as a unit. Within each chunk, sub-streams can run in parallel where their interfaces are stable.
 
-There are no calendar dates. Each item ships when its bar is met.
+There are no calendar dates. Each chunk ships when its bar is met.
 
 **Legend:**
-- `[SEQ]` — sequential within its parent (must complete in order shown)
-- `[PAR]` — can run in parallel with siblings under the same parent
+- `[SEQ]` — sequential within its parent (must complete in order)
+- `[PAR]` — can run in parallel with siblings
 - `[FOUNDATION]` — blocks downstream work; do early
-- `→` — explicit cross-stream dependency
+- `→` — explicit dependency
 
 ---
 
-## Phase 0 — Pivot Foundations `[SEQ] [FOUNDATION]`
+## Top-level shape
 
-Mostly done. Remaining cleanup before code work begins.
+```
+MC-1 FOUNDATIONS  ──▶  MC-2 PROTOCOL CORE  ──▶  MC-4 STATE SYNC + SNAPSHOTS  ──┐
+                                              ▼                                  │
+                                       MC-3 APPLICATION TOOLING  ────────────────┼──▶  MC-5 PARACHAIN FRAMEWORK
+                                                                                 │              │
+                                       MC-6 PERFORMANCE + FAILURE HANDLING ─────┼──────────────┤
+                                                                                 ▼              ▼
+                                                              MC-7 VALIDATION + MAINNET LAUNCH
+```
+
+---
+
+## MC-1 — FOUNDATIONS `[SEQ] [FOUNDATION]`
+
+The sequential prerequisites before any code stream can begin in earnest.
+
+### 1.1 Pivot foundations
 
 - [x] Pivot story doc (`preface/pivot.md`)
-- [x] Roadmap (this document)
+- [x] Roadmap (this document — restructured 2026-05-22)
 - [x] Pivot folder (`src/pivot/`) with historical design records
 - [x] Companion specs moved under `src/companion/`
 - [x] All chapters rewritten / swept for WASM era
 - [x] All PIPs reframed; PIP-4 drafted
 - [x] All cross-references updated
-- [x] Org-level READMEs (engine, otic, wright, .github/profile, website) reflect pivot
+- [x] Org-level READMEs reflect pivot
 - [x] mdbook builds cleanly
-- [ ] Whitepaper updates incorporated and ratified (companion doc updated; consumption confirmed)
-- [ ] Pitch deck updated (companion + alliance-application copies)
+- [x] Memory entries locked: WASM pivot, gas-no-refund-v1, ai-wallet-preview-direction
+- [ ] Whitepaper updates reflected across `companion/WHITEPAPER.md` + alliance-application copies
+- [ ] Pitch deck updated
 - [ ] All edits committed and pushed across the 10 repos with pending changes
 
----
+### 1.2 Engine repo restructure
 
-## Phase 1 — Engine Cleanup `[SEQ] [FOUNDATION]`
+Old engine work lives in `archive/`. New engine repo starts fresh post-pivot.
 
-Remove the pre-pivot crates so the new work has a clean foundation.
+- [ ] Confirm `archive/` has the engine's pre-pivot state preserved (it does)
+- [ ] Update all doc references that say `engine/...` (for historical / pre-pivot context) to point at `archive/...`
+- [ ] Mark the old `pyde-net/engine` GitHub repo as archived (read-only) OR rename to `pyde-net/engine-prepivot`
+- [ ] Create fresh `pyde-net/engine` repo + local `/pyde-net/engine/` workspace
+- [ ] Initial commit on new repo: a single README explaining "post-WASM-pivot engine workspace; pre-pivot work in `pyde-net/engine-prepivot` (or archive)"
+- [ ] Cargo workspace skeleton with placeholder crates: `wasm-exec`, `state`, `consensus`, `mempool`, `network`, `accounts`, `tx`, `node`
 
-- [ ] `engine/crates/pvm` — remove from workspace; move source to `archive/`
-- [ ] `engine/crates/aot` — remove from workspace; move source to `archive/`
-- [ ] Remove any crate that depends only on Otigen bytecode semantics
-- [ ] Remove `otic` dependencies from any surviving crate
-- [ ] Update `engine/Cargo.toml` workspace definition
-- [ ] `cargo check` + `cargo build` + `cargo clippy` + `cargo fmt` — resolve fallout
-- [ ] Run surviving test suite; flag tests broken by removals (open issues for fixes)
-- [ ] Archive `pyde-net/otic` repo (read-only, link to pivot doc)
-- [ ] Archive `pyde-net/wright` repo (read-only, link to pivot doc)
+### 1.3 Foundational specifications
 
-**Bar:** engine workspace compiles cleanly with the new crate layout. Pre-pivot benchmark code preserved in `archive` and still runnable from there.
+These specs unblock the most parallel work downstream.
 
----
-
-## Phase 2 — Foundational Specs `[SEQ] [FOUNDATION]`
-
-These specs unblock the most parallel work downstream. Both should land before any stream-level code begins in earnest.
-
-- [ ] **Host Function ABI v1.0 spec** (`pyde-book/src/companion/HOST_FN_ABI_SPEC.md`)
+- [ ] **Host Function ABI v1.0 spec** → `companion/HOST_FN_ABI_SPEC.md`
   - Complete v1 function catalog with signatures
   - Memory layout conventions (pointer + length passing, return value protocol)
   - Gas cost table per function
-  - Versioning rules (backward-compat policy)
-  - Parachain-extension allowlist (separate from smart-contract allowlist)
+  - Versioning rules
+  - Parachain-extension allowlist
   - Forbidden imports list
-  - Examples per language (Rust, AS, Go, C) for each function
-- [ ] **otigen binary design spec** (`pyde-book/src/companion/OTIGEN_BINARY_SPEC.md`)
-  - Subcommand surface in detail
-  - `otigen.toml` schema (all sections, validation rules)
-  - Build verification pipeline (10-step process from chapter 5 §5.5)
+  - Examples per language (Rust, AS, Go, C)
+- [ ] **otigen binary design spec** → `companion/OTIGEN_BINARY_SPEC.md`
+  - Subcommand surface
+  - `otigen.toml` schema (per-function attribute form: `[functions.X] attributes = [...]`)
+  - Build verification pipeline (10-step process)
   - ABI generation algorithm
   - Bundle format
-  - Wallet protocol (ported-forward from wright)
-  - Cross-references to Host Function ABI spec
+  - Wallet protocol (ported from wright)
 
-**Bar:** both specs reviewable and stable enough that downstream streams can target them.
-
----
-
-## Convergent Streams `[PAR]`
-
-Once Phase 2 specs are stable, the following streams run in parallel. Within each stream, tasks have their own internal ordering — but streams don't block each other unless an explicit `→ Stream X` dependency is called out.
-
-### Stream A — WASM Execution Layer
-
-The new heart of the engine.
-
-- [ ] **A1. `wasm-exec` crate scaffold** `[SEQ]`
-  - `engine/crates/wasm-exec` Cargo skeleton
-  - wasmtime dependency pinned to stable version
-  - `WasmExecutor` type owning Engine + Module cache + linker
-  - Deterministic feature-flag config (NaN canonicalization, no threads, no SIMD, no WASI, etc.)
-- [ ] **A2. Host function implementations** `[PAR]` — each function can be implemented independently
-  - `[PAR]` `sload`, `sstore`, `sdelete` → Stream D
-  - `[PAR]` `transfer`, `balance` → Stream G
-  - `[PAR]` `caller`, `origin`, `block_height`, `wave_id`, `block_timestamp`, `chain_id`
-  - `[PAR]` `emit_event`
-  - `[PAR]` `keccak256`, `blake3`, `poseidon2` → Stream E
-  - `[PAR]` `threshold_encrypt`, `threshold_decrypt_share`, `falcon_verify` → Stream E
-  - `[PAR]` `cross_call`
-  - `[PAR]` `consume_gas`
-- [ ] **A3. Module compilation cache** `[SEQ]` — LRU per contract address, serialized-Module persistence
-- [ ] **A4. Fuel-to-gas mapping** `[SEQ]` — read gas table from spec, instrument wasmtime fuel
-- [ ] **A5. Deploy-time validation gate** `[SEQ]` — module structure, import allowlist, feature-flag enforcement
-- [ ] **A6. Integration with tx pipeline** `[SEQ]` — replace old dispatcher, wire `WasmExecutor` into wave processing → Stream G (tx types)
-- [ ] **A7. wasm-exec benchmarks** `[SEQ]` — workload parity with archived PVM benches; capture WASM-era numbers
-
-**Bar:** end-to-end — deploy a Rust WASM contract, call an entry function, observe state changes, verify state_root.
-
-### Stream B — Consensus Layer (Mysticeti DAG)
-
-The post-pivot consensus rebuild.
-
-- [ ] **B1. Vertex + round structure** `[SEQ]`
-  - `Vertex` struct (round, member_id, batch_refs, parent_refs, state_root_sigs, prev_anchor_attestation, decryption_shares, FALCON sig)
-  - Round advancement (peer-attestation triggered; data-driven)
-  - Local DAG view per validator
-- [ ] **B2. Anchor selection** `[SEQ]`
-  - `anchor_member_id = Hash(beacon, round, recent_state_root) mod 128`
-  - VRF beacon derivation (uses Stream E)
-- [ ] **B3. Commit decision + subdag traversal** `[SEQ]`
-  - Mysticeti 3-stage support check
-  - Causal-closure walk to build subdag
-  - Canonical ordering (round, member_id, list order)
-- [ ] **B4. Missing-vertex fetch mechanism** `[PAR]` — async vertex pull by hash
-  - Request/response over the dedicated consensus channel
-  - Retry on timeout
-  - Bounded wait + commit-skip if vertex truly unavailable
-- [ ] **B5. Anchor-skip handling** `[PAR]` — when anchor's vertex absent, mark commit pending and roll forward to next round
-- [ ] **B6. HardFinalityCert generation** `[SEQ]` — committee signs (wave_id, blake3_state_root, poseidon2_state_root)
-- [ ] **B7. Committee management** `[SEQ]` — epoch-bounded membership, uniform-random selection from eligible stakers, VRF rotation
-- [ ] **B8. Equivocation detection + evidence collection** `[PAR]` → Stream H
-
-**Bar:** local devnet (4-7 validators) producing commits with sub-second latency. Adversarial simulation — offline anchors handled gracefully, equivocators detected.
-
-### Stream C — Otigen Developer Toolchain
-
-The verifier + packager binary.
-
-- [ ] **C1. Create `pyde-net/otigen` repo + Rust workspace** `[SEQ]`
-- [ ] **C2. Subcommand framework** `[SEQ]` — clap-based dispatch for init/build/deploy/upgrade/pause/kill/inspect/wallet/console
-- [ ] **C3. `otigen.toml` schema + parser** `[SEQ]` — serde structs with validation
-- [ ] **C4. `otigen build` verification pipeline** `[SEQ]` → Stream A (host fn ABI) + Phase 2 spec
-  - Wasm path resolution
-  - Module structural validation (wasmtime parser)
-  - Import allowlist check
-  - Function-export cross-check
-  - Attribute combination validation
-  - State schema validation
-  - ABI generation
-  - Bundle packaging
-- [ ] **C5. `otigen deploy`** `[PAR after C4]` → Stream G (tx submission)
-- [ ] **C6. `otigen upgrade`, `pause`, `kill`** `[PAR after C5]`
-- [ ] **C7. `otigen inspect`** `[PAR]` → Stream G (RPC client)
-- [ ] **C8. `otigen wallet`** `[PAR]` — port from wright (FALCON keypair, AES-256-GCM keystore, Argon2id KDF)
-- [ ] **C9. `otigen console`** `[PAR]` → Stream G (RPC client)
-- [ ] **C10. Canonical example projects** `[PAR]` (each can be done independently)
-  - `[PAR]` Rust hello-world parachain
-  - `[PAR]` AssemblyScript hello-world parachain
-  - `[PAR]` Go (TinyGo) hello-world parachain
-  - `[PAR]` C/C++ hello-world parachain
-
-**Bar:** an author can `otigen init my_contract --lang rust`, write contract code, run their own `cargo build`, run `otigen build`, run `otigen deploy --network devnet`, and have a working contract on a local devnet.
-
-### Stream D — State Layer
-
-PIP work + dual-hash JMT.
-
-- [ ] **D1. PIP-2 clustered slot keys** `[PAR]` — `engine/crates/state/src/keys.rs` migration
-  - Survey all call sites
-  - Migrate `balance_key`
-  - Migrate account-metadata keys
-  - Migrate storage-slot + map keys
-  - Migrate validator + vesting keys
-  - Add clustering-property tests
-  - Benchmark cluster locality wins
-- [ ] **D2. PIP-3 scheduler-level prefetch** `[SEQ after D1]` — wave-level MultiGet against access lists
-- [ ] **D3. PIP-4 write-back cache** `[SEQ after D2]` — DashMap, warm window, lazy flush + auto-tune, crash recovery
-- [ ] **D4. Dual-hash JMT update** `[PAR with D1]` — every node carries Blake3 + Poseidon2 fingerprints
-  - Update node serialization
-  - Update hash propagation logic
-  - Update state_root computation (both roots)
-  - Update HardFinalityCert to sign both
-- [ ] **D5. JMT state sync protocol** `[PAR]` → Stream F
-  - Snapshot generation (committee signs root cheaply, volunteers chunk daily)
-  - Weak-subjectivity checkpoint emission
-  - New-node sync flow (~40 min target)
-  - Light-client mode
-
-**Bar:** JMT operations correct under all PIPs. State sync end-to-end — a fresh node bootstraps from a weak-subjectivity checkpoint to current head.
-
-### Stream E — Cryptography (mostly in `pyde-crypto` polyrepo)
-
-- [ ] **E1. FALCON-512 batch verification helpers** `[PAR]` — wrap pyde-crypto's existing batch verify for use in commit pipeline
-- [ ] **E2. DKG protocol implementation** `[SEQ]` — Pedersen DKG ceremony each epoch
-- [ ] **E3. Threshold decryption share generation + aggregation** `[SEQ after E2]`
-- [ ] **E4. PSS resharing** `[SEQ after E3]` — proactive secret sharing across epochs
-- [ ] **E5. VRF beacon derivation** `[PAR]` → Stream B
-- [ ] **E6. ZK-aggregated FALCON research prep** `[PAR]` — v2-direction; literature review + prototype, not v1 critical path
-
-**Bar:** threshold encryption end-to-end — encrypted tx submitted, committee combines shares, decryption succeeds, commit executes. PSS rotation across epoch boundary tested.
-
-### Stream F — Network Layer
-
-- [ ] **F1. libp2p + QUIC transport** `[SEQ]` — pinned versions, deterministic config
-- [ ] **F2. Gossipsub topic configuration** `[PAR after F1]` — Pyde-specific topics (tx, vertex, attestation, governance)
-- [ ] **F3. Bootstrap-based peer discovery** `[PAR after F1]` — hardcoded seed nodes + on-chain validator registry; NO DHT
-- [ ] **F4. Sentry node pattern** `[PAR]` — committee members reachable only via sentry proxies
-- [ ] **F5. Peer scoring + DoS mitigations** `[PAR]`
-- [ ] **F6. Vertex-fetch protocol** `[SEQ]` → Stream B (B4 depends on this)
-
-**Bar:** multi-node mesh formation; vertex propagation observed under packet loss + latency injection.
-
-### Stream G — Account + Transaction Model
-
-- [ ] **G1. Address derivation (32-byte, full Poseidon2)** `[SEQ]`
-- [ ] **G2. Name registry as a system contract** `[SEQ after G1]` — ENS-style unique names, tiered fees, renewal, grace period, transfer, governance claw-back
-- [ ] **G3. 16-slot nonce window** `[PAR with G1]`
-- [ ] **G4. Transaction types + signature verification** `[SEQ after G1]`
-- [ ] **G5. Mempool admission rules** `[SEQ after G4]`
-- [ ] **G6. JSON-RPC server** `[PAR after G5]` — surface for SDKs and `otigen` toolchain (used by Stream C5-C9)
-
-**Bar:** transactions can be constructed by an SDK, signed, submitted to RPC, accepted into mempool, gossipped, included in a vertex, committed.
-
-### Stream H — Slashing + Validator Lifecycle
-
-- [ ] **H1. Validator state machine** `[SEQ]` — registered → active → jailed → unbonding → withdrawn
-- [ ] **H2. Validator registration/unbond/withdraw/rotate-key/unjail txs** `[PAR after H1]` → Stream G (tx types)
-- [ ] **H3. Operator-identity binding** `[PAR after H1]` — anti-Sybil mechanism
-- [ ] **H4. Each of the 10 slashing offenses** `[PAR]` — each is its own subtask
-  - `[PAR]` detection logic
-  - `[PAR]` evidence flow
-  - `[PAR]` slash amount + correlation multipliers
-- [ ] **H5. Slashing escrow + grace period** `[SEQ after H4]`
-- [ ] **H6. Reward distribution** `[SEQ]` — pool-based, by stake × uptime
-
-**Bar:** each slashing scenario reproducible in a test; slash + jail mechanics verified end-to-end.
+**MC-1 BAR:** specs are stable; new engine repo exists with workspace skeleton; all doc references migrated; old engine work safely preserved in archive.
 
 ---
 
-## Convergence Phase `[SEQ after streams converge]`
+## MC-2 — PROTOCOL CORE `[PAR within] → MC-1`
 
-Once streams A through H have functional core, integration begins.
+The heart of the chain. Multiple sub-streams running in parallel; converging at integration time.
 
-### Phase 3 — Parachain Framework `[SEQ after A, C, D, G, H]`
+### 2.1 WASM Execution Layer `[SEQ within] → MC-1`
 
-- [ ] **3.1. Parachain account structure** — versions, balance, config, state_root, owner deposit, status
-- [ ] **3.2. Parachain ID derivation from name** — `Poseidon2("pyde-parachain:" || name)`
-- [ ] **3.3. Deploy flow** — owner deposit, WASM validation, registry write
-- [ ] **3.4. Upgrade flow** — proposal, equal-power vote (not stake-weighted), scheduled activation
-- [ ] **3.5. Pause / kill** — operational lifecycle
-- [ ] **3.6. State subtree partitioning** — `parachain_id[..16]` PIP-2 prefix
-- [ ] **3.7. Cross-parachain messaging** — rate-limited, threshold-signed
-- [ ] **3.8. cross_call callback mechanism** — success / error / timeout flows
-- [ ] **3.9. Version manifest in commit records** — replay-correctness
-- [ ] **3.10. Reference parachains** — at minimum a price-feed oracle + a confidential-vote parachain
+- [ ] `wasm-exec` crate scaffold (wasmtime config, WasmExecutor type, linker setup)
+- [ ] Host function implementations (each independent):
+  - [ ] `[PAR]` `sload`, `sstore`, `sdelete` → §2.4 State Layer
+  - [ ] `[PAR]` `transfer`, `balance` → §2.6 Accounts
+  - [ ] `[PAR]` `caller`, `origin`, `block_height`, `wave_id`, `block_timestamp`, `chain_id`
+  - [ ] `[PAR]` `emit_event`
+  - [ ] `[PAR]` `keccak256`, `blake3`, `poseidon2` → §2.5 Crypto
+  - [ ] `[PAR]` `threshold_encrypt`, `threshold_decrypt_share`, `falcon_verify` → §2.5 Crypto
+  - [ ] `[PAR]` `cross_call` (smart contract → smart contract; → parachain; → foreign L1 stub)
+  - [ ] `[PAR]` `consume_gas`
+  - [ ] `[PAR]` `pyde_revert` (structured revert with message)
+- [ ] Module compilation cache (per-contract LRU + serialized-Module persistence)
+- [ ] Fuel-to-gas mapping (calibrated from gas table; no refunds per [[gas-no-refund-v1]])
+- [ ] Deploy-time validation gate (module structure, import allowlist, deterministic-features check)
+- [ ] Per-tx overlay execution model (snapshot-and-rollback at the DashMap layer)
+- [ ] Linear memory cap enforced (64MB per instance, configurable)
+- [ ] Native tx types (transfer, validator-register, system) — NO WASM for simple transfers
+- [ ] wasm-exec benchmarks (workload parity with archived PVM benches)
 
-### Phase 4 — Chain Halt + Failure Handling `[SEQ after Phase 3]`
+### 2.2 Mysticeti Consensus `[SEQ within] → MC-1`
 
-- [ ] **4.1. Halt detection** — soft stall / hard halt / emergency
-- [ ] **4.2. Bounded rollback** — 1 epoch maximum
-- [ ] **4.3. Recovery paths** — committee re-bootstrap, governance-driven restart
-- [ ] **4.4. Drill playbooks** — one per halt scenario
-- [ ] **4.5. Halt-and-recovery simulation tests**
+- [ ] Vertex + round structure (round, member_id, batch_refs, parent_refs, state_root_sigs, prev_anchor_attestation, decryption_shares, FALCON sig)
+- [ ] Round advancement (peer-attestation triggered; data-driven)
+- [ ] Local DAG view per validator (in-memory graph)
+- [ ] Anchor selection (`anchor_member_id = Hash(beacon, round, recent_state_root) mod 128`)
+- [ ] VRF beacon derivation (uses §2.5 Crypto)
+- [ ] Mysticeti 3-stage support check
+- [ ] Subdag traversal (BFS-for-set + canonical sort)
+- [ ] Missing-vertex fetch protocol (async vertex pull by hash; retry with timeout; structural anchor-skip handling)
+- [ ] Anchor-skip handling (when anchor's vertex absent or insufficient support, mark commit pending; next round's anchor absorbs)
+- [ ] Piggybacked decryption shares in vertices (pipeline decryption with consensus)
+- [ ] HardFinalityCert generation (committee FALCON-signs (wave_id, blake3_root, poseidon2_root))
+- [ ] WaveCommitRecord write (synchronous; durability for consensus invariants)
+- [ ] Committee management (epoch-bounded; uniform random from eligible stakers; equal-power voting)
+- [ ] Equivocation detection + evidence collection → §2.7 Slashing
 
-### Phase 5 — Performance Harness `[PAR with Phase 4]`
+### 2.3 State Layer (PIPs + JMT) `[PAR within]`
 
-- [ ] **5.1. Workload generators** — compute / IO / crypto / mixed
-- [ ] **5.2. Multi-region topology framework** — US-East, EU-West, AP-Southeast
-- [ ] **5.3. Chaos scenarios** — validator drops, network partitions, slow disks, equivocating actors
-- [ ] **5.4. Soak-test scheduler** — 1h / 4h / 24h / 7-day
-- [ ] **5.5. Metric collection + reporting** — TPS, p50/p99/p999, memory, CPU breakdown, gas accounting
-- [ ] **5.6. "Claim 1/3 of measured peak" publication discipline**
+- [ ] **PIP-2 clustered slot keys** (engine/crates/state/src/keys.rs migration)
+- [ ] **PIP-3 scheduler-level prefetch** (wave-level MultiGet against access lists)
+- [ ] **PIP-4 write-back cache** (DashMap, warm window, lazy flush + auto-tune, crash recovery)
+- [ ] **Dual-hash JMT** (Blake3 + Poseidon2 per node; both state roots; dual-root signed in HardFinalityCert)
+- [ ] **Two-table architecture**:
+  - [ ] `state_cf` (flat `slot_hash → current_value` for O(1) reads)
+  - [ ] `jmt_cf` (versioned `(version, NibblePath) → JmtNode` for state-root + proofs)
+- [ ] JMT versioning (each wave commit increments version; old versions for archive nodes; GC for pruned)
+- [ ] Snapshot generation (range-proof-based chunks; manifest publishing)
 
-### Phase 6 — Hardening + Internal Verification `[SEQ after 3 + 4 + 5]`
+### 2.4 Cryptography (mostly in `pyde-crypto` polyrepo) `[PAR within]`
 
-- [ ] **6.1. Property-based test suite** — consensus invariants, state invariants
-- [ ] **6.2. Fuzz testing** — wasm-exec, tx parsing, signature verification, network layer, otigen toolchain
-- [ ] **6.3. Formal verification of consensus safety properties** — best-effort, peer-reviewed
-- [ ] **6.4. Coverage measurement + gap closing**
-- [ ] **6.5. Internal threat-model red-teaming**
+- [ ] FALCON-512 batch verification helpers
+- [ ] DKG protocol implementation (Pedersen DKG each epoch)
+- [ ] Threshold decryption share generation + batch aggregation
+- [ ] PSS resharing (proactive secret sharing across epochs)
+- [ ] VRF beacon derivation → §2.2 Consensus
+- [ ] Blake3, Poseidon2 — already functional in pyde-crypto
+- [ ] (v2 prep) ZK-aggregated FALCON research
 
-### Phase 7 — External Validation `[SEQ after Phase 6]`
+### 2.5 Networking Layer `[PAR within]`
 
-- [ ] **7.1. External audit firm engagement**
-- [ ] **7.2. Resolve all critical + high findings**
-- [ ] **7.3. Bug bounty open (testnet tier first, then mainnet tier)**
-- [ ] **7.4. Public testnet launch** — 16+ validators, multi-region
-- [ ] **7.5. External developer onboarding** — first real contracts on testnet
-- [ ] **7.6. Sustained soak under real load** — 24h, 72h, 7-day runs
-- [ ] **7.7. Numbers published with methodology + raw data**
+- [ ] libp2p + QUIC transport (pinned versions, deterministic config)
+- [ ] Gossipsub topic configuration (pyde/vertices/1, pyde/batches/1, pyde/state-root-sigs/1, pyde/evidence/1, pyde/governance/1, pyde/discovery/1)
+- [ ] Bootstrap-based peer discovery (hardcoded seeds + on-chain validator registry; NO DHT)
+- [ ] Peer Exchange protocol
+- [ ] Sentry node pattern (committee members behind sentry proxies)
+- [ ] Peer scoring + multi-layer DoS protections
+- [ ] Vertex-fetch protocol (used by §2.2 missing-vertex handling)
+- [ ] PeerId persistence to local disk
+- [ ] Known-peers cache on disk for fast restart
 
-### Phase 8 — V1 Mainnet Candidate `[SEQ after Phase 7]`
+### 2.6 Account + Transaction Model `[PAR within]`
 
-- [ ] **8.1. Final genesis configuration**
-- [ ] **8.2. Initial validator set committed** — ≥32 validators, geographically distributed
-- [ ] **8.3. Day-one ecosystem partners (≥3-5 parachains/dApps)**
-- [ ] **8.4. Token distribution finalized**
-- [ ] **8.5. Mainnet launch**
+- [ ] Address derivation (32-byte, full Poseidon2(pubkey), no truncation)
+- [ ] Name registry as a system contract (ENS-style unique names; tiered fees; yearly renewal; grace period; transfer; governance claw-back)
+- [ ] 16-slot nonce window per account
+- [ ] Transaction types: Transfer (native), ContractCall (WASM), ContractDeploy (WASM), ValidatorRegister (system), Multisig (system)
+- [ ] FALCON-512 signature verification on every tx
+- [ ] Mempool admission rules (validate sig, balance, nonce, gas bounds, calldata size, chain_id replay protection)
+- [ ] JSON-RPC server (used by SDKs and `otigen` toolchain)
+
+### 2.7 Slashing + Validator Lifecycle `[PAR within] → §2.2 Consensus + §2.6 Tx`
+
+- [ ] Validator state machine (registered → active → jailed → unbonding → withdrawn)
+- [ ] Validator registration/unbond/withdraw/rotate-key/unjail txs
+- [ ] Operator-identity binding (anti-Sybil; max 3 validators per operator)
+- [ ] **Synced-only committee enforcement** (validators must be synced-to-recent-wave to be committee-eligible)
+- [ ] Each of the 10 slashing offenses (detection logic, evidence flow, slash amount, correlation multipliers)
+- [ ] Slashing escrow + grace period
+- [ ] Reward distribution (pool-based, by stake × uptime)
+
+**MC-2 BAR:** local devnet (4-7 validators on a single machine) producing sub-second commits with end-to-end tx flow:
+- Author writes contract, builds locally, deploys via otigen
+- Tx submitted to RPC, batched, gossipped, included in vertex
+- Anchor commits, subdag walks, wasmtime executes
+- State updates, state_root signed, finality cert formed
+- Receipt queryable via RPC
+
+---
+
+## MC-3 — APPLICATION TOOLING `[PAR within] → MC-1 specs`
+
+Everything authors and end users touch.
+
+### 3.1 otigen developer toolchain (`pyde-net/otigen` repo) `[SEQ within]`
+
+- [ ] Create `pyde-net/otigen` repo + Rust workspace
+- [ ] Subcommand framework (clap-based)
+- [ ] `otigen.toml` schema + parser (with per-function `[functions.X] attributes = [...]` form)
+- [ ] `otigen build` verification pipeline:
+  - [ ] Wasm path resolution
+  - [ ] Module structural validation
+  - [ ] Import allowlist check
+  - [ ] Function-export cross-check
+  - [ ] Attribute combination validation
+  - [ ] State schema validation
+  - [ ] ABI generation
+  - [ ] Bundle packaging
+- [ ] `otigen deploy`, `upgrade`, `pause`, `kill`
+- [ ] `otigen inspect`
+- [ ] `otigen wallet` (port from wright: FALCON keypair, AES-256-GCM keystore, Argon2id KDF)
+- [ ] `otigen console` (REPL)
+- [ ] Canonical example projects (`[PAR]` Rust, AssemblyScript, Go (TinyGo), C/C++ hello-worlds)
+
+### 3.2 Client-side wasmtime SDK pattern (Tier 1 wallet preview) `[PAR within] → MC-2 §2.1 + Host Fn ABI`
+
+Built into the SDKs; lets wallets simulate txs locally before signing.
+
+- [ ] Rust SDK: `pyde-rust-sdk` with embedded wasmtime for local simulation
+- [ ] TS SDK: `pyde-ts-sdk` with `wasmtime-js` (or wasmer-js) for browser preview
+- [ ] WASM crypto bindings (`pyde-crypto-wasm`) — FALCON sign, Kyber encrypt, Poseidon2 hash for browser use
+- [ ] Local state fetch (RPC reads + cache; access-list-driven prefetch)
+- [ ] Tier 1 wallet preview features:
+  - [ ] Gas estimation via local execution
+  - [ ] Access list inference (run tx speculatively; record sload/sstore calls)
+  - [ ] View function execution (no on-chain query needed)
+  - [ ] Dry-run with state preview (show "this will spend X, transfer Y, emit Z event")
+- [ ] Wallet adapter pattern for browser wallets (modeled on EVM wallet adapters)
+- [ ] External signer protocol (HSM, hardware wallet, MPC integration extension point)
+
+### 3.3 Tier 2/3 future direction (not v1; tracked)
+
+- [ ] Reputation-list integration for known-malicious contract addresses
+- [ ] Audit-database cross-reference
+- [ ] LLM-augmented contract analysis (Blockaid-style integration when mature)
+- [ ] See [[ai-wallet-preview-direction]] memory for full plan
+
+### 3.4 Block explorer (post-MVP)
+
+- [ ] Indexer that subscribes to chain events
+- [ ] UI for tx lookup, contract inspection, validator metrics
+
+**MC-3 BAR:** an author writes a Rust contract, runs their own `cargo build`, runs `otigen build` to validate + package, runs `otigen deploy`, and sees the contract live. A wallet user signs a tx, sees a complete preview (state changes, gas), submits, and watches it commit.
+
+---
+
+## MC-4 — STATE SYNC + SNAPSHOTS `[SEQ] → MC-2 §2.3 state + §2.2 consensus`
+
+Mechanism for new validators to join without replaying genesis.
+
+- [ ] Snapshot generation (background process on archive nodes + volunteer-served)
+  - Walk JMT at target wave version
+  - Chunk into ~50MB pieces with range proofs
+  - Persist chunks; publish SnapshotManifest
+- [ ] `pyde_getSnapshotManifest` RPC handler
+- [ ] Snapshot chunk serving over libp2p streams (parallel from multiple peers)
+- [ ] Weak-subjectivity checkpoint format (wave_id + dual state_roots + committee threshold sig)
+- [ ] WS checkpoint distribution (Pyde website + multiple official sources)
+- [ ] New-validator sync flow (download manifest, parallel chunk fetch, verify, write, replay chain log from checkpoint to head)
+- [ ] Sync time target (~40 min for fresh sync)
+- [ ] Three-tier node model: archive (full history), pruned (current + retention window), light client (checkpoints only)
+
+**MC-4 BAR:** a fresh validator boots, gets a WS checkpoint, syncs to current head in under 1 hour, joins gossip mesh, becomes committee-eligible at next epoch boundary.
+
+---
+
+## MC-5 — PARACHAIN FRAMEWORK `[SEQ] → MC-2 + MC-3`
+
+App-specific WASM execution contexts with their own governance.
+
+- [ ] Parachain account structure (versions, balance, config, state_root, owner deposit, status)
+- [ ] Parachain ID derivation (`Poseidon2("pyde-parachain:" || name)`)
+- [ ] Deploy flow (owner deposit, WASM validation, registry write)
+- [ ] Upgrade flow (proposal, equal-power voting, scheduled activation)
+- [ ] Pause / kill (operational lifecycle)
+- [ ] State subtree partitioning (`parachain_id[..16]` PIP-2 prefix)
+- [ ] Cross-parachain messaging (rate-limited, threshold-signed)
+- [ ] `cross_call` callback mechanism (success / error / timeout flows)
+- [ ] Version manifest in wave-commit records (replay correctness)
+- [ ] Reference parachains: price-feed oracle + confidential-vote parachain
+
+**MC-5 BAR:** an author deploys a parachain, validators opt in, parachain runs its own consensus + state, smart contracts invoke it via cross_call, callbacks land.
+
+---
+
+## MC-6 — PERFORMANCE + FAILURE HANDLING `[PAR within] → MC-2 + MC-3`
+
+Operational maturity. Can begin once MC-2 is mostly functional.
+
+### 6.1 Performance harness
+
+- [ ] Workload generators (compute / IO / crypto / mixed-realistic)
+- [ ] Multi-region topology framework (US-East, EU-West, AP-Southeast)
+- [ ] Chaos scenarios (validator drops, network partitions, slow disks, equivocating actors)
+- [ ] Soak-test scheduler (1h / 4h / 24h / 7-day)
+- [ ] Metric collection + reporting (TPS, p50/p99/p999, memory, CPU breakdown, gas accounting)
+- [ ] "Claim 1/3 of measured peak" publication discipline
+- [ ] WASM execution layer benchmarks (parity with archived PVM benches; new wasm-era numbers)
+- [ ] Per-host-function micro-benchmarks (calibrate gas cost table against real hardware)
+- [ ] Sequential vs parallel execution scaling tests
+
+### 6.2 Halt + recovery
+
+- [ ] Halt detection (soft stall / hard halt / emergency)
+- [ ] Bounded rollback (1 epoch maximum)
+- [ ] Recovery paths (committee re-bootstrap, governance-driven restart)
+- [ ] Drill playbooks (one per halt scenario)
+- [ ] Halt-and-recovery simulation tests
+
+**MC-6 BAR:** 7-day soak passes without regression. All halt scenarios drilled. Performance harness can produce defensible TPS numbers.
+
+---
+
+## MC-7 — VALIDATION + MAINNET LAUNCH `[SEQ] → MC-1 through MC-6`
+
+The bar for going live.
+
+### 7.1 Hardening + internal verification
+
+- [ ] Property-based test suite (consensus invariants, state invariants)
+- [ ] Fuzz testing (wasm-exec, tx parsing, signature verification, network layer, otigen toolchain)
+- [ ] Formal verification of consensus safety properties (best-effort, peer-reviewed)
+- [ ] Coverage measurement + gap closing
+- [ ] Internal threat-model red-teaming
+
+### 7.2 External audit
+
+- [ ] External audit firm engagement (target: top-tier security firm with PQ-crypto experience)
+- [ ] Audit scope: consensus, WASM execution layer integration, pyde-crypto, networking, otigen toolchain
+- [ ] Resolve all critical + high findings
+- [ ] Re-audit remediation
+
+### 7.3 Public testnet
+
+- [ ] Genesis ceremony for testnet
+- [ ] 16+ validators across regions
+- [ ] External developer onboarding (first real contracts on testnet)
+- [ ] Sustained soak under real load
+- [ ] Numbers published with methodology + raw data
+- [ ] Bug bounty program open (testnet-scope first)
+
+### 7.4 Mainnet candidate
+
+- [ ] Final genesis configuration
+- [ ] Initial validator set committed (≥32 validators, geographically distributed)
+- [ ] Day-one ecosystem partners (≥3-5 parachains/dApps)
+- [ ] Token distribution finalized
+- [ ] Bug bounty scaled to mainnet tier
+- [ ] Mainnet launch
+
+**MC-7 BAR:** mainnet live. All MC-1 through MC-6 work integrated, audited, stress-tested, soak-passed.
 
 ---
 
 ## Beyond V1 `[PAR]` — post-mainnet research/dev directions
 
-Not gating v1; tracked here so the work is visible.
+- ZK-aggregated FALCON signatures (the path to dramatic signature-verification throughput gains)
+- zk-WASM proven execution
+- Cross-chain bridges (Ethereum, Bitcoin, others) with proven-security mechanisms
+- **Programmable accounts + native session keys** — scoped, bounded, revocable dApp delegation. Native at the protocol (vs Ethereum's ERC-4337 retrofit). See Chapter 11 *Session keys (v2)* and `companion/DESIGN.md` for the design + v1 reservations the surfaces depend on.
+- State-expiration policy
+- Tier 2/3 wallet preview (heuristics + LLM analysis) per [[ai-wallet-preview-direction]]
 
-- **ZK-aggregated FALCON signatures** — the path to dramatic signature-verification throughput gains
-- **zk-WASM proven execution** — when upstream provers reach production quality
-- **Cross-chain bridges** — proven-security mechanisms, post-mainnet
-- **Programmable accounts** — sandboxed WASM policies for spend limits, recovery, etc.
-- **Native session keys** — epoch-bounded, scope-limited delegation
-- **State-expiration policy** — for state-bloat management
+### V1 reservations that create room for v2 features
 
----
+V1 ships *interfaces*; v2 ships *implementations*. Discipline: don't reach into v2 while v1 is shipping, but reserve the protocol surfaces v2 needs so contracts written today survive the upgrade unchanged.
 
-## Parallelization map
+| v2 feature | v1 reservation | Cost at v1 |
+| --- | --- | --- |
+| Programmable accounts | `AuthKeys::Programmable` enum tag `0x03` | Enum variant, unused — ~zero |
+| Programmable accounts | Account `code_hash` + `storage_root` (unified with contracts) | Already shipped (account/contract account shape unified) |
+| Session keys | WASM "policy mode" execution flag | Reserved-but-not-implemented — ~zero |
+| Session keys | Multisig signature pipeline | Already shipped (serves multisig + future session-key flows) |
+| ZK light clients | Poseidon2 state root + ZK-friendly primitives | Already shipped (dual-hash JMT, no Blake3 in proof-bearing paths) |
+| Parachains (further depth) | `cross_call` host fn, `HardFinalityCert` primitive, async callback slots | Already shipped (Chapter 13, `companion/PARACHAIN_DESIGN.md`) |
 
-```
-Phase 0 (Pivot Foundations — DONE) ── Phase 1 (Engine Cleanup) ── Phase 2 (Foundational Specs)
-                                                                            │
-                       ┌────────┬────────┬────────┬────────┬────────┬────────┼────────┬────────┐
-                       ▼        ▼        ▼        ▼        ▼        ▼        ▼        ▼
-                     Stream  Stream  Stream  Stream  Stream  Stream  Stream  Stream
-                       A        B        C        D        E        F        G        H
-                     (WASM   (Mysti- (otigen  (State  (Crypto) (Net-  (Acct + (Slash-
-                      exec)   ceti    tool-   layer)            work)  Tx)     ing)
-                              DAG)    chain)
-                       │        │        │        │        │        │        │        │
-                       └────────┴────────┴────────┼────────┴────────┴────────┴────────┘
-                                                  ▼
-                                        Phase 3 (Parachain Framework)
-                                                  │
-                                        Phase 4 (Halt + Recovery)  │  Phase 5 (Performance Harness) [PAR]
-                                                  │
-                                        Phase 6 (Hardening + Verification)
-                                                  │
-                                        Phase 7 (External Validation)
-                                                  │
-                                        Phase 8 (Mainnet Candidate)
-```
-
-Streams A through H can be picked up by parallel sessions / contributors. The interfaces between streams (host function ABI, vertex format, state root format, transaction format) are stable per Phase 2 specs — that's what keeps the streams from blocking each other.
+The discipline: every entry above is something the v1 protocol can ship for ~zero marginal cost, but skipping any one of them would force a hard-fork rewrite when v2 lands. Reserving them now is cheap insurance.
 
 ---
 
-## Stream dependency matrix
+## End-to-end flow: user → execution → user
 
-| Stream | Depends on | Used by | Notes |
-|--------|------------|---------|-------|
-| A — WASM Execution | Phase 2 (Host Fn ABI spec) | C, D (via host fns), G (via tx pipeline) | Heart of execution |
-| B — Consensus | E (VRF + crypto), F (network), G (tx types) | All — provides finality | Heart of ordering |
-| C — Otigen Toolchain | Phase 2 (specs), A (host fn ABI), G (tx submission) | Authors | Verify + package only |
-| D — State Layer | — | A (sload/sstore), B (state roots) | Independent core |
-| E — Cryptography | — | A (crypto host fns), B (FALCON, VRF, threshold) | Mostly in `pyde-crypto` |
-| F — Network | — | B (gossip + fetch), G (tx propagation) | libp2p + QUIC |
-| G — Account + Tx | E (signature schemes) | A (deploy/call), B (mempool input), C (deploy submit) | Foundation for all |
-| H — Slashing | B (equivocation evidence), G (tx types) | Consensus integrity | Last to integrate |
+For context on what all this protocol work enables, here's the full E2E flow once all chunks are landed:
+
+```text
+1. USER: opens wallet, builds tx (function call, args, gas budget)
+2. WALLET: runs local wasmtime preview → shows state changes, gas estimate, events
+3. USER: reviews preview, signs (FALCON-512)
+4. WALLET: optionally encrypts under committee threshold key (Kyber-768)
+5. WALLET → RPC: pyde_sendRawTransaction(signed_tx)
+6. RPC: validates ingress (sig, balance, nonce, gas, chain_id)
+7. RPC → MEMPOOL WORKER: forwards via libp2p
+8. WORKER: adds to pending batch
+9. WORKER: seals batch, gossipps to other workers, collects ≥85 certifications
+10. WORKER → PRIMARY: certified batch_hash available for inclusion
+11. PRIMARY: produces vertex with batch_hash in batch_refs (+ decryption shares if applicable)
+12. VERTEX: gossipped via libp2p/gossipsub on pyde/vertices/1 topic
+13. DAG: grows; each round adds 128 vertices
+14. ANCHOR: deterministically selected via Hash(beacon, round, prev_root) mod 128
+15. SUPPORT: round R+2's 85+ vertices transitively reference anchor → 3-stage support
+16. COMMIT: subdag walk (BFS-for-set + canonical sort)
+17. DECRYPT: batch threshold-decrypt all encrypted txs in subdag (shares already piggybacked)
+18. SCHEDULE: hybrid scheduler (static access + Block-STM) partitions for parallel execution
+19. EXECUTE: wasmtime runs each tx (per-tx overlays for isolation; success → merge, trap → discard)
+20. STATE: changes accumulate in DashMap → JMT update → new state_root
+21. SIGN: committee FALCON-signs (wave_id, blake3_root, poseidon2_root)
+22. PERSIST: WaveCommitRecord synchronously to disk; vertices/batches/receipts lazily
+23. FINALITY: 85+ sigs collected → HardFinalityCert formed
+24. USER ← RPC: pyde_getTransactionReceipt(tx_hash) returns success/revert + state changes + gas used
+25. USER: sees confirmation in wallet UI
+
+Total wall-clock from step 5 (submit) to step 25 (confirmation visible): ~500ms-1s under normal conditions.
+```
+
+Each step maps to specific chunks in the roadmap. The full path traverses MC-2 (consensus, execution, state, crypto, network, accounts, slashing) end-to-end, with MC-3 (otigen, SDKs, wallet) at the boundaries.
+
+---
+
+## Stream dependency matrix (cross-MC view)
+
+| Item | Depends on | Used by |
+|------|------------|---------|
+| MC-1 Foundations | — | Everything |
+| MC-2 §2.1 WASM Exec | MC-1, Host Fn ABI spec | MC-3 (toolchain), MC-5 (parachains) |
+| MC-2 §2.2 Consensus | MC-2 §2.4 (crypto), §2.5 (network), §2.6 (tx) | Everything that needs finality |
+| MC-2 §2.3 State Layer | — | MC-2 §2.1 (sload/sstore), MC-4 (sync) |
+| MC-2 §2.4 Cryptography | — | MC-2 §2.1 (host fns), §2.2 (FALCON/VRF), §2.6 (sigs) |
+| MC-2 §2.5 Network | — | MC-2 §2.2 (gossip), §2.6 (tx propagation) |
+| MC-2 §2.6 Accounts/Tx | MC-2 §2.4 (sigs) | MC-2 §2.1 (deploy/call), §2.2 (mempool), §2.7 (slash txs) |
+| MC-2 §2.7 Slashing | MC-2 §2.2 (evidence), §2.6 (tx types) | Consensus integrity |
+| MC-3 Tooling | MC-1 specs, MC-2 §2.1, §2.6 | Authors, end users |
+| MC-4 State Sync | MC-2 §2.3, §2.2 | New validators |
+| MC-5 Parachains | MC-2, MC-3 | Application authors |
+| MC-6 Perf + Halt | MC-2 mostly functional | Operational readiness |
+| MC-7 Validation + Launch | All preceding | Mainnet |
 
 ---
 
 ## Operating principle
 
-The bias of this roadmap is **honesty over optimism**. No phase ships before its predecessor's bar is met. No item is checked off until the work behind it is actually done. If something turns out to be wrong, it gets honestly rewritten — including this roadmap.
+The bias of this roadmap is **honesty over optimism**. No chunk ships before its bar is met. No item is checked off until the work behind it is actually done. If something turns out to be wrong, it gets honestly rewritten — including this roadmap.
 
 The work is the work. It ships when it is ready.

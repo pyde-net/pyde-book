@@ -22,7 +22,7 @@ The DAG approach removes the fragile parts:
 | Throughput limited by leader bandwidth | Scales with committee size |
 | HotStuff bugs cluster in view-change code | DAG doesn't have view-change code |
 
-The same lab/laptop devnet that hit ~4K TPS under pre-pivot HotStuff is the baseline against which DAG performance will be measured. Honest target: 10K-30K TPS in production-realistic conditions for v1.
+The same lab/laptop devnet that hit ~4K TPS under pre-pivot HotStuff is the baseline against which DAG performance will be measured. Honest target: 10-30K plaintext TPS, 0.5-2K encrypted TPS, in production-realistic conditions for v1.
 
 ## 2. Worker / Primary Split (Narwhal Pattern)
 
@@ -114,6 +114,100 @@ Properties:
 - **Deterministic** — every honest validator computes the same answer
 - **Unpredictable** — depends on state root that wasn't known until recently
 - **No single proposer authority** — anchor doesn't propose, it's just a starting point for the subdag walk
+
+## 5b. Round vs Wave — terminology
+
+The distinction matters because the two terms diverge under skips:
+
+- **Round** = a horizontal layer in the DAG. Every committee member produces exactly one vertex per round. Round numbers **always advance** (~150ms each), never skip.
+- **Wave** = a successful commit. Wave IDs only increment when an anchor commits. Wave IDs are **sparse** when rounds skip.
+
+If round 5's anchor (`Hash(beacon, 5, prev_state_root) mod 128 = validator 88`) is missing:
+- Round 5 still happens. The other 127 validators produce their round-5 vertices.
+- No wave commits for round 5.
+- Round 6 happens; its anchor is a **different** validator (probably).
+- If round 6's anchor succeeds, that wave commits the subdag spanning rounds 5 + 6.
+
+**Chain cannot get stuck on one missing anchor.** Each round picks a new anchor candidate via the formula, so consecutive failures require consecutive bad luck (or multi-validator outage). The protocol only enters hard-halt territory beyond ~20 consecutive failed anchors (per [Chain Halt & Recovery](../companion/CHAIN_HALT.md)).
+
+### Skipped rounds in the chain log
+
+Wave commit records carry both the current `anchor_round` and the `prior_anchor_round`. Skipped rounds are implicit from the gap:
+
+```text
+WaveCommitRecord(wave_id=6, anchor_round=10, prior_anchor_round=Some(9))   → no skips
+WaveCommitRecord(wave_id=7, anchor_round=16, prior_anchor_round=Some(10))  → rounds 11-15 skipped (5 consecutive)
+```
+
+No separate `skipped_rounds[]` table. The gap IS the record.
+
+---
+
+## 5c. Missing-Vertex Handling
+
+When a validator needs a vertex it doesn't have (either the anchor or any vertex in the subdag walk), it fetches the vertex from peers via the dedicated consensus channel.
+
+```text
+Validator's local processing:
+
+  Walking anchor → parent V_a → V_a's parent V_b ...
+  Hits a missing vertex V_x referenced by some V in the subdag.
+
+  Issues fetch request: get_vertex(V_x_hash) to up-to-8 peers in parallel.
+  
+  Outcome 1 (typical, ~99.9% of cases):
+    A peer responds within <500ms with V_x.
+    Validator verifies V_x's FALCON sig, places it in local DAG.
+    Continues subdag walk.
+    Wave commits normally.
+
+  Outcome 2 (rare):
+    No peer responds within the structural timeout (~rounds R+3 materialized).
+    Validator marks this commit as "cannot complete."
+    Wave does NOT commit; same handling as anchor-skip.
+    Vertices stay in DAG; next anchor will retry.
+```
+
+**Critical principle:** validators NEVER assume "the vertex wasn't gossipped" when missing it. They assume "I haven't received it yet" and fetch. Dropping waves on missing vertices would make the chain trivially censurable.
+
+**The fetch protocol** lives in the network layer (Chapter 12 + [companion/NETWORK_PROTOCOL.md](../companion/NETWORK_PROTOCOL.md)) as a libp2p request-response stream, separate from gossipsub. The fetch is fire-and-retry — ask peer A, if no response in 500ms ask peer B, etc.
+
+### Skipped-round recovery walkthrough
+
+5 consecutive skips (rounds 11-15), commit at round 16:
+
+```text
+Round:    10      11      12      13      14      15      16
+Outcome:  WAVE 6  skip    skip    skip    skip    skip    WAVE 7
+                  (vertices still produced;
+                   accumulate in DAG)
+                                                          ↑
+                                                          subdag walk goes back
+                                                          to wave 6's frontier
+
+At round 16's commit (wave 7):
+  Subdag walk from v_r16_anchor:
+    - v_r16_anchor's parents = 85+ round-15 vertices
+    - each round-15 vertex's parents = 85+ round-14 vertices
+    - ...continue back through rounds 14, 13, 12, 11
+    - round-11 vertices' parents = 85+ round-10 vertices ← STOP
+                                    (these were committed in wave 6)
+  
+  Subdag = vertices from rounds 11, 12, 13, 14, 15, 16
+         ≈ 6 × 128 = 768 vertices total
+
+  Execute all txs in canonical order (round ascending → member_id → list_order)
+  Compute state_root after applying all changes
+  Sign HardFinalityCert(wave_id=7, state_root)
+  Wave 7 record: WaveCommitRecord(wave_id=7, anchor_round=16, prior_anchor_round=Some(10))
+```
+
+Properties:
+- **Zero tx loss.** Every vertex produced eventually commits.
+- **Bounded latency cost.** Each skip adds ~150-300ms to confirmation time.
+- **No special "catch up" code.** The standard subdag-walk handles it. The BFS just walks more rounds when there's a wider gap.
+
+---
 
 ## 6. Commit
 
@@ -245,33 +339,43 @@ DKG runs in **background** during the prior epoch's last minutes. New committee 
 
 ## 11. Threshold Decryption Ceremony
 
-After commit fires, for each encrypted batch in the canonical order:
+**Encryption is per-transaction, not per-batch.** A batch can contain any mix of plaintext and encrypted transactions. The threshold-decryption ceremony runs per encrypted transaction.
+
+After commit fires, for each encrypted transaction across the canonical-ordered subdag:
 
 ```
-Each committee member i:
-  - partial_i = ApplyShare(s_i, batch_ciphertext)
-    (single elliptic-curve operation or polynomial multiplication, ~100μs-1ms)
-  - + FALCON sig over (partial_i, batch_hash)
-  - Piggyback on next-round vertex (no separate message)
+Each committee member i (during prior rounds — pipelined):
+  - For each encrypted tx observed in mempool batches:
+      partial_i = ApplyShare(s_i, ciphertext_of_tx)
+      (single elliptic-curve op or polynomial multiplication, ~100μs-1ms)
+      + FALCON sig over (partial_i, tx_hash)
+  - Piggyback the partial(s) on next-round vertex (no separate message channel)
 
-Receivers:
-  - Verify FALCON sig (~80μs per share)
-  - Once ≥85 valid partials collected:
-    - Lagrange interpolation combines partials → reveals plaintext batch
-  - wasmtime executes decrypted txs in canonical order
+At commit time:
+  - Subdag walk identifies all encrypted txs in the wave
+  - Collect their partials from the subdag's vertices (decryption_shares field)
+  - For each encrypted tx:
+      - Verify each partial's FALCON sig (~80μs per share)
+      - Once ≥85 valid partials collected: Lagrange interpolation → plaintext
+  - Batch the combine work: share-application math vectorizes well on SIMD/GPU
+  - wasmtime executes decrypted (plus already-plaintext) txs in canonical order
 ```
 
 ### Pipelining
 
-Partials can be computed **as soon as the batch enters the DAG**, before the commit fires. By commit time, partials are typically 80%+ propagated. Effective post-commit decryption latency: tens of milliseconds.
+Partials are computed **as soon as the encrypted tx enters the mempool DAG**, before the commit fires. By commit time, partials are typically 80%+ propagated through vertex gossip. Effective post-commit decryption latency: tens of milliseconds.
 
-### Scale
+### Scale via batched share-combine
 
-At 100K encrypted TPS:
-- ~100 ceremonies/sec (batch granularity, ~1000 txs per batch)
-- Per-ceremony: 85 partials × ~80μs verify + ~1ms Lagrange = ~8ms CPU work
-- ~800ms CPU per second total → parallelizable across cores
-- GPU acceleration enables higher throughput
+> **Headroom analysis, not a v1 claim.** v1's honest encrypted-TPS target is 0.5-2K. The math below sizes what it would take to push encrypted throughput an order of magnitude further — useful for understanding the scaling lever, *not* a v1 promise.
+
+At a hypothetical 100K encrypted TPS:
+
+- Per-tx ceremony: 85 partials × ~80μs verify + ~1ms Lagrange = ~8ms CPU work
+- 100K txs × 8ms = 800,000 ms of CPU per second total
+- Naive sequential: not feasible. But share-combine vectorizes:
+  - Group partials by ciphertext, combine in parallel across cores
+  - GPU acceleration on the share-combine path is the realistic post-v1 scale lever
 
 See [WHITEPAPER §11](../companion/WHITEPAPER.md#11-performance) for honest scaling limits.
 

@@ -62,6 +62,104 @@ Both computed at snapshot time, both signed by committee.
 | Contract code (~50K contracts × 50KB) | ~2.5 GB | 20 GB |
 | **Total** | **~1-3 GB** | **~50 GB** |
 
+## Chunk Format and Merkle Range Proofs
+
+Each snapshot chunk is a self-contained, independently-verifiable bundle of JMT nodes. A chunk's authenticity is proven by walking its nodes' hashes up to the committee-signed state root, using **fringe siblings** carried in the chunk.
+
+```rust
+struct Chunk {
+    chunk_id: u32,
+    
+    // Contiguous range of jmt_cf entries (internal nodes + leaves) covered by this chunk.
+    nodes: Vec<(NodeKey, NodeContents)>,
+    
+    // The slot_hash → value pairs for leaves in this chunk's range.
+    // (Used to populate state_cf at the new validator.)
+    leaves: Vec<(SlotHash, ValueBytes)>,
+    
+    // Merkle range proof — the sibling hashes along the path from the chunk's
+    // bottom layer up to the global state_root. Needed to verify the chunk
+    // independently of other chunks.
+    fringe_siblings: Vec<(NibblePath, Hash)>,
+}
+```
+
+### Why fringe siblings
+
+The chunk doesn't contain the entire JMT — that would be every other chunk too. It contains some contiguous portion (e.g., "all nodes whose NibblePath starts with `3a`"). To prove that portion is part of the canonical state at the snapshot's version, the chunk must include the sibling hashes along the boundary.
+
+```text
+Conceptual example:
+
+  Suppose the JMT looks like:
+                 ROOT
+                /    \
+              h_3    h_5
+             /  \      \
+           ...  ...    leaf at 0x5b22...
+           
+  A chunk covers leaves under "3a..." prefix. It contains:
+    - All internal nodes under "3a"
+    - All leaves under "3a"
+    - Fringe sibling: h_5 (sibling of h_3 at root level)
+    - Any other siblings along the path from the "3a" subtree to root
+
+  The chunk does NOT include leaves under "5..." prefix; only their hash on the way up.
+```
+
+### Verification per chunk
+
+```text
+For each chunk received:
+
+  1. For each leaf in chunk.leaves:
+       compute leaf_hash = Hash(slot_hash || value || metadata)
+       
+  2. Reconstruct internal-node hashes within the chunk's subtree using its
+     internal-node entries (NodeContents include children's fingerprints).
+     
+  3. Walk up from the chunk's local root using fringe_siblings at each level:
+       current_hash = chunk_local_root_hash
+       for (sibling_path, sibling_hash) in fringe_siblings:
+           combine_hashes(current_hash, sibling_hash, sibling_path)
+           
+  4. Final hash MUST equal trusted state_root (from the committee-signed manifest).
+  
+  5. If yes: chunk is authentic. Write its (NodeKey, NodeContents) pairs into 
+     local jmt_cf, and its (slot_hash, value) pairs into local state_cf.
+  6. If no: discard. Request the chunk from a different peer (the source was malicious
+     or corrupted). The bad peer is penalized via peer scoring.
+```
+
+### Properties
+
+- Each chunk is independently verifiable. Lose one chunk, request from another peer; no cascading failure.
+- The fringe siblings are small (~few hundred bytes per chunk) — they don't materially inflate chunk size.
+- The proof is **non-interactive** — chunk + fringe siblings is enough; no back-and-forth needed.
+- Standard cryptographic primitive — Aptos's JMT uses this; Ethereum's MPT has similar range-proof support. Not novel.
+
+### Snapshot manifest RPC handler
+
+```text
+RPC method: pyde_getSnapshotManifest(wave_id)
+  → Returns SnapshotManifest for that wave's snapshot, or NotAvailable.
+
+Behind the scenes:
+  1. waves_cf.get(wave_id) → WaveCommitRecord → look up jmt version
+  2. snapshots_cf.get(version) → SnapshotManifest if pre-generated, else None
+  3. If None: optionally generate on-demand (expensive; archive only)
+  4. Return manifest
+
+Snapshot generation (background, archive nodes):
+  - Triggered every N waves (e.g., every epoch)
+  - Walk jmt_cf at target version, group nodes into ~50MB chunks with key-range partitions
+  - Compute range proofs (fringe siblings) for each chunk
+  - Store chunks + manifest in snapshots_cf
+  - Manifest published with committee threshold sig
+```
+
+---
+
 ## Verification Flow
 
 ```

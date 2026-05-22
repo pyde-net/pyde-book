@@ -195,7 +195,7 @@ fails decode.
 
 Pyde's execution layer is WebAssembly. The WASM instruction set itself is the WebAssembly Core Specification — defined and maintained externally, not by Pyde. What Pyde defines is the **Host Function ABI**: the chain-side surface that contracts call to interact with state, accounts, crypto, events, and other chain primitives.
 
-The full Host Function ABI specification (signatures, memory layout conventions, gas cost table, versioning rules, parachain-extension allowlist, forbidden imports) is one of the next design-stage deliverables — see the [Roadmap](../roadmap.md) for the planned location at `pyde-book/docs/host-fn-abi-spec.md`. The high-level surface, organized by category:
+The full Host Function ABI specification (signatures, memory layout conventions, gas cost table, versioning rules, parachain-extension allowlist, forbidden imports) is one of the next design-stage deliverables — see the [Roadmap](../roadmap.md) for the planned location at `pyde-book/src/companion/HOST_FN_ABI_SPEC.md`. The high-level surface, organized by category:
 
 ### Storage
 `sload`, `sstore`, `sdelete`
@@ -322,8 +322,6 @@ root.
 
 | Subsystem            | Key files                                                    |
 | -------------------- | ------------------------------------------------------------ |
-| ISA + interpreter    | `crates/pvm/src/isa.rs`, `cpu.rs`, `memory.rs`                |
-| AOT compiler         | `crates/aot/src/lib.rs`, `codegen.rs`, `host.rs`              |
 | Crypto stack         | `crates/crypto/src/{falcon,kyber,poseidon2,threshold,vrf}.rs` |
 | State commitment     | `crates/state/src/jmt_store.rs`, `witness.rs`, `keys.rs`      |
 | Account record       | `crates/account/src/{types,address,nonce}.rs`                 |
@@ -353,7 +351,7 @@ The key headline figures, with their sources:
 | ---------------------------------- | -------------------------------------------- |
 | ~150 ms DAG round period            | `ROUND_PERIOD_MS` in `consensus/round.rs`     |
 | ~500 ms median commit          | `COMMIT_TARGET_MS` in `consensus/commit.rs`|
-| v1 plaintext TPS: 10-30K            | Performance harness measurement, "claim 1/3 of measured peak" rule (`docs/PERFORMANCE_HARNESS.md`) |
+| v1 plaintext TPS: 10-30K            | Performance harness measurement, "claim 1/3 of measured peak" rule ([companion/PERFORMANCE_HARNESS.md](../companion/PERFORMANCE_HARNESS.md)) |
 | v1 encrypted TPS: 0.5-2K             | Same harness; threshold-decryption serial cost |
 | 70 / 20 / 10 fee split              | `FEE_BURN_PCT` etc in `tx/execution.rs`        |
 | 5% → 1% inflation schedule          | `INFLATION_BPS` in `tx/fee.rs`                 |
@@ -403,5 +401,6 @@ single biggest difference between this book and earlier drafts.
 
 The next thing to read isn't a separate file — it's chapter 19
 (Launch Strategy), where the phased work-in-flight to mainnet lives.
-The `docs/` directory at the repo root holds the full technical specs
-(WHITEPAPER, DESIGN, threat model, performance harness).
+The [Companion Specifications](../SUMMARY.md) section of this book holds
+the full technical specs (Whitepaper, Design, Threat Model, Performance
+Harness, Parachain Design, Brand, and more).

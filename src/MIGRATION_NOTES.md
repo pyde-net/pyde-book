@@ -123,9 +123,9 @@ external number leaves this project without harness evidence under the
 
 ## Related Docs
 
-- Full technical design: `docs/DESIGN.md`
-- Whitepaper: `docs/WHITEPAPER.md`
-- Threat model: `docs/THREAT_MODEL.md`
-- Failure scenarios: `docs/FAILURE_SCENARIOS.md`
-- Performance harness spec: `docs/PERFORMANCE_HARNESS.md`
-- Mainnet plan: `MAINNET_PLAN.md` (repo root)
+- Full technical design: [companion/DESIGN.md](companion/DESIGN.md)
+- Whitepaper: [companion/WHITEPAPER.md](companion/WHITEPAPER.md)
+- Threat model: [companion/THREAT_MODEL.md](companion/THREAT_MODEL.md)
+- Failure scenarios: [companion/FAILURE_SCENARIOS.md](companion/FAILURE_SCENARIOS.md)
+- Performance harness spec: [companion/PERFORMANCE_HARNESS.md](companion/PERFORMANCE_HARNESS.md)
+- Mainnet plan: [Launch Strategy](chapters/19-launch-strategy.md)

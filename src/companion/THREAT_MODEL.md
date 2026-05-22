@@ -6,6 +6,8 @@ This is the canonical threat model for Pyde. It catalogs ~50 threats across 7 la
 
 This is a living document. Update on new threats discovered, protocol changes, and quarterly review.
 
+> **Companion to Chapter 16.** [Chapter 16: Security](../chapters/16-security.md) is the narrative defense reference — it walks the same ground in essay form, explains why each defense was chosen, and is intended for readers building intuition. This document is the catalog: every threat carries an ID, severity, detection signal, and mitigation reference. External auditors should treat this document as the entry point; bug reporters should reference threat IDs from this catalog.
+
 ## 1. Scope & Assets
 
 ### In Scope (Protocol Responsibility)
@@ -186,6 +188,19 @@ This is a living document. Update on new threats discovered, protocol changes, a
 | T-SW-4 | Memory corruption (buffer overflow) | High | Rust borrow checker, audits | Use safe Rust, audit unsafe blocks |
 | T-SW-5 | Cryptographic library bug | High | Audits | Use well-audited libraries (RustCrypto) |
 | T-SW-6 | State corruption (disk errors) | Medium | Snapshot verification | JMT root recomputation, peer cross-verification |
+
+### Authorization Layer (v2 — session keys + programmable accounts)
+
+Session keys ship at v2. The threats below are catalogued now so the v2 implementation lands against a known surface. Until v2, the `AuthKeys::Programmable` variant is reserved-but-disabled — these threats are inactive at v1.
+
+| ID | Threat | Severity | Detection | Mitigation |
+|---|---|---|---|---|
+| T-AUTH-1 | Session-key theft (compromised dApp leaks key) | Medium | User notification; on-chain anomaly (unusual spend pattern within scope) | Limited blast radius via scope (contracts + methods + spend cap + expiry); user can revoke instantly with a single signed tx; main `auth_keys` untouched |
+| T-AUTH-2 | Revoked-key replay (attacker submits tx signed by previously-revoked session key) | Low | Authorization-time `revoked` check | Revocation is on-chain state; tx rejected at validation with `KeyRevoked` |
+| T-AUTH-3 | Scope expansion via mutable storage manipulation | High | Policy WASM audit | Policy WASM runs in restricted-state mode; cannot modify own `scope` without main-key signature on a `RegisterSessionKey`/`UpdateScope` tx |
+| T-AUTH-4 | Session-key squatting (creating many keys to flood storage) | Low | Per-account session-key count | Hard limit (32 active session keys per account); spent storage refunded on revocation |
+| T-AUTH-5 | `spent_so_far` overflow attack | Low | u128 arithmetic checks at authorization | Saturating addition + `max_spend ≤ u128::MAX / 2` registration check |
+| T-AUTH-6 | Expired-key acceptance (clock skew at wave boundary) | Low | Authorization-time `expires_at` check | Wave is the authoritative clock; no off-chain time source enters the check |
 
 ### Social Layer
 

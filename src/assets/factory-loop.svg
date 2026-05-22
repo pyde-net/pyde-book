@@ -1,0 +1,541 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 360" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="pydeFactoryTitle pydeFactoryDesc">
+  <title id="pydeFactoryTitle">The Pyde factory cycle</title>
+  <desc id="pydeFactoryDesc">An animated diagram of the Pyde transaction lifecycle. The cycle runs every six seconds. A user submits transactions which fall through a chute onto the mempool conveyor. Some transactions are encrypted, shown as gold padlocks attached to their droplets. Batches form and feed the consensus DAG, which stacks vertices into four floors. An anchor is selected and the wave commits in a bright flash that shakes the factory. The flash also shatters the locks on encrypted transactions, representing threshold decryption. Two robotic arms reach in and stamp executed transactions as state pillars. Smoke rises from the chimney as the cache evicts old data. A receipt droplet exits through the right door back to the user. A small rotation indicator in the corner signifies the eternal nature of the loop.</desc>
+
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"  stop-color="#0d1117" stop-opacity="0.0"/>
+      <stop offset="100%" stop-color="#0d1117" stop-opacity="0.1"/>
+    </linearGradient>
+
+    <linearGradient id="droplet" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"  stop-color="#9ec1e0"/>
+      <stop offset="100%" stop-color="#5a7a99"/>
+    </linearGradient>
+
+    <linearGradient id="batch" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"  stop-color="#6a8caf"/>
+      <stop offset="100%" stop-color="#3a5a72"/>
+    </linearGradient>
+
+    <linearGradient id="dagFloor" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"  stop-color="#8aaecf"/>
+      <stop offset="100%" stop-color="#456c8a"/>
+    </linearGradient>
+
+    <radialGradient id="bang" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0%"   stop-color="#ffefc0" stop-opacity="1"/>
+      <stop offset="35%"  stop-color="#ffaa44" stop-opacity="0.95"/>
+      <stop offset="75%"  stop-color="#ff7a22" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#ff7a22" stop-opacity="0"/>
+    </radialGradient>
+
+    <linearGradient id="pillar" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"  stop-color="#9bd1a8"/>
+      <stop offset="100%" stop-color="#3a7a4e"/>
+    </linearGradient>
+
+    <linearGradient id="smoke" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"  stop-color="#cfd4d9" stop-opacity="0.0"/>
+      <stop offset="50%" stop-color="#cfd4d9" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#cfd4d9" stop-opacity="0.0"/>
+    </linearGradient>
+
+    <linearGradient id="lock" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"  stop-color="#ffd87a"/>
+      <stop offset="100%" stop-color="#c8941c"/>
+    </linearGradient>
+
+    <linearGradient id="steel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"  stop-color="#a8b5c0"/>
+      <stop offset="100%" stop-color="#5a6878"/>
+    </linearGradient>
+
+    <style><![CDATA[
+      /* --------------------------------------------------------------
+         Cycle: 6 seconds. Sub-animations phased via animation-delay.
+         Bang fires at 58% (3.48s in). Pillars stamp at 65% (3.9s in).
+         Receipt exits at 80% (4.8s in).
+         -------------------------------------------------------------- */
+
+      .factory-shake {
+        transform-origin: 360px 220px;
+        animation: shake 6s ease-in-out infinite;
+      }
+
+      @keyframes shake {
+        0%, 56%, 64%, 100% { transform: translate(0, 0); }
+        57%   { transform: translate(-7px, 3px); }
+        58.5% { transform: translate(7px, -4px); }
+        60%   { transform: translate(-5px, 2px); }
+        61.5% { transform: translate(4px, -2px); }
+        63%   { transform: translate(-2px, 1px); }
+      }
+
+      /* Droplets: fall from chute, land on conveyor, travel right into batch */
+      .droplet {
+        opacity: 0;
+        transform-box: fill-box;
+        transform-origin: center;
+        animation: dropletFlow 6s linear infinite;
+      }
+      .droplet.d1 { animation-delay: 0s;    }
+      .droplet.d2 { animation-delay: -0.8s; }
+      .droplet.d3 { animation-delay: -1.6s; }
+      .droplet.d4 { animation-delay: -2.4s; }
+      .droplet.d5 { animation-delay: -3.2s; }
+      .droplet.d6 { animation-delay: -4.0s; }
+      .droplet.d7 { animation-delay: -4.8s; }
+
+      @keyframes dropletFlow {
+        0%   { transform: translate(0, -150px); opacity: 0; }
+        4%   { opacity: 1; }
+        20%  { transform: translate(0, 0); opacity: 1; }
+        45%  { transform: translate(160px, 0); opacity: 1; }
+        48%, 100% { transform: translate(160px, 0); opacity: 0; }
+      }
+
+      /* Encrypted-tx locks: travel with selected droplets, fade with them */
+      .conveyor-lock {
+        opacity: 0;
+        transform-box: fill-box;
+        transform-origin: center;
+        animation: conveyorLockFlow 6s linear infinite;
+      }
+      .conveyor-lock.cl1 { animation-delay: -1.6s; }
+      .conveyor-lock.cl2 { animation-delay: -3.2s; }
+
+      @keyframes conveyorLockFlow {
+        0%   { transform: translate(0, -150px); opacity: 0; }
+        4%   { opacity: 1; }
+        20%  { transform: translate(0, 0); opacity: 1; }
+        45%  { transform: translate(160px, 0); opacity: 1; }
+        48%, 100% { transform: translate(160px, 0); opacity: 0; }
+      }
+
+      /* Locks on DAG vertices that contain encrypted txs.
+         These appear when the DAG builds, then SHATTER at the bang. */
+      .dag-lock {
+        transform-box: fill-box;
+        transform-origin: center;
+        opacity: 0;
+        animation: dagLockShatter 6s ease-out infinite;
+      }
+      .dag-lock.dl1 { animation-delay: 0s; }
+      .dag-lock.dl2 { animation-delay: 0s; }
+
+      @keyframes dagLockShatter {
+        0%, 28%   { opacity: 0; transform: scale(0.8); }
+        35%       { opacity: 1; transform: scale(1); }
+        55%       { opacity: 1; transform: scale(1); }
+        58%       { opacity: 1; transform: scale(1.8); }
+        60%, 100% { opacity: 0; transform: scale(2.8); }
+      }
+
+      /* Batch box pulses when it fills */
+      .batch-box {
+        transform-box: fill-box;
+        transform-origin: center;
+        animation: batchPulse 6s ease-in-out infinite;
+      }
+      @keyframes batchPulse {
+        0%, 35%, 55%, 100% { transform: scale(1); opacity: 0.85; }
+        45% { transform: scale(1.12); opacity: 1; }
+      }
+
+      /* DAG floors stack bottom→top */
+      .dag-floor {
+        transform-box: fill-box;
+        transform-origin: center bottom;
+        animation: dagRise 6s ease-out infinite;
+        opacity: 0;
+      }
+      .dag-floor.f1 { animation-delay: 0.4s; }
+      .dag-floor.f2 { animation-delay: 0.9s; }
+      .dag-floor.f3 { animation-delay: 1.4s; }
+      .dag-floor.f4 { animation-delay: 1.9s; }
+
+      @keyframes dagRise {
+        0%   { transform: scaleY(0) translateY(20px); opacity: 0; }
+        10%  { transform: scaleY(1) translateY(0); opacity: 1; }
+        55%  { opacity: 1; }
+        60%, 100% { opacity: 0; }
+      }
+
+      .dag-edge {
+        opacity: 0;
+        animation: edgeFade 6s ease-in infinite;
+      }
+      .dag-edge.e1 { animation-delay: 1.0s; }
+      .dag-edge.e2 { animation-delay: 1.5s; }
+      .dag-edge.e3 { animation-delay: 2.0s; }
+
+      @keyframes edgeFade {
+        0%, 5% { opacity: 0; }
+        15%    { opacity: 0.55; }
+        55%    { opacity: 0.55; }
+        60%, 100% { opacity: 0; }
+      }
+
+      /* Anchor pulses right before the bang */
+      .anchor {
+        opacity: 0;
+        transform-box: fill-box;
+        transform-origin: center;
+        animation: anchorBlink 6s ease-in-out infinite;
+      }
+      @keyframes anchorBlink {
+        0%, 48%, 60%, 100% { opacity: 0; transform: scale(0.9); }
+        55% { opacity: 1; transform: scale(1.2); }
+      }
+
+      /* The big bang */
+      .bang {
+        opacity: 0;
+        transform-box: fill-box;
+        transform-origin: center;
+        animation: bangFlash 6s ease-out infinite;
+      }
+      @keyframes bangFlash {
+        0%, 55%, 73%, 100% { opacity: 0; transform: scale(0.3); }
+        58% { opacity: 1; transform: scale(1.0); }
+        65% { opacity: 0.4; transform: scale(1.6); }
+      }
+
+      /* Execution arms swing during execution phase (right after bang) */
+      .exec-arm.a1 { transform-origin: 460px 80px; animation: armSwingA 6s ease-in-out infinite; }
+      .exec-arm.a2 { transform-origin: 510px 80px; animation: armSwingB 6s ease-in-out infinite; }
+
+      @keyframes armSwingA {
+        0%, 54%   { transform: rotate(-30deg); }
+        59%       { transform: rotate(15deg); }
+        63%       { transform: rotate(-15deg); }
+        67%       { transform: rotate(20deg); }
+        72%, 100% { transform: rotate(-30deg); }
+      }
+
+      @keyframes armSwingB {
+        0%, 54%   { transform: rotate(30deg); }
+        59%       { transform: rotate(-15deg); }
+        63%       { transform: rotate(15deg); }
+        67%       { transform: rotate(-20deg); }
+        72%, 100% { transform: rotate(30deg); }
+      }
+
+      /* Pillars stamp in right after the bang */
+      .pillar {
+        transform-box: fill-box;
+        transform-origin: center bottom;
+        animation: pillarStamp 6s ease-out infinite;
+      }
+      .pillar.p1 { animation-delay: 0.05s; }
+      .pillar.p2 { animation-delay: 0.15s; }
+      .pillar.p3 { animation-delay: 0.25s; }
+      .pillar.p4 { animation-delay: 0.35s; }
+
+      @keyframes pillarStamp {
+        0%, 60%, 100% { transform: scaleY(0); opacity: 0; }
+        65% { transform: scaleY(1.1); opacity: 1; }
+        70%, 95% { transform: scaleY(1); opacity: 1; }
+        98% { transform: scaleY(1); opacity: 0; }
+      }
+
+      /* Smoke wisps rise from chimney after the bang */
+      .smoke-wisp {
+        opacity: 0;
+        transform-box: fill-box;
+        transform-origin: center;
+        animation: smokeRise 6s ease-out infinite;
+      }
+      .smoke-wisp.w1 { animation-delay: 0s; }
+      .smoke-wisp.w2 { animation-delay: 0.35s; }
+      .smoke-wisp.w3 { animation-delay: 0.7s; }
+
+      @keyframes smokeRise {
+        0%, 60%   { opacity: 0; transform: translate(0, 0) scale(0.6); }
+        65%       { opacity: 0.6; }
+        85%       { opacity: 0.3; transform: translate(-3px, -40px) scale(1.4); }
+        95%, 100% { opacity: 0; transform: translate(0, -65px) scale(1.8); }
+      }
+
+      /* Receipt droplet exits through the right door */
+      .receipt {
+        opacity: 0;
+        transform-box: fill-box;
+        transform-origin: center;
+        animation: receiptOut 6s ease-in infinite;
+      }
+      @keyframes receiptOut {
+        0%, 72% { opacity: 0; transform: translate(0, 0); }
+        78%     { opacity: 1; transform: translate(20px, 0); }
+        93%     { opacity: 1; transform: translate(95px, 0); }
+        100%    { opacity: 0; transform: translate(115px, 0); }
+      }
+
+      /* Continuous-rotation indicator (outside the shake) */
+      .loop-arc {
+        transform-origin: 670px 30px;
+        animation: loopRotate 6s linear infinite;
+      }
+      @keyframes loopRotate {
+        0%   { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+
+      .label {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-size: 11px;
+        font-weight: 500;
+        fill: #9aa5b1;
+        text-anchor: middle;
+      }
+      .label-small {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-size: 9px;
+        font-weight: 400;
+        fill: #7a8590;
+        text-anchor: middle;
+      }
+      .label-tiny {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-size: 8px;
+        font-weight: 400;
+        fill: #6a7585;
+        text-anchor: middle;
+      }
+    ]]></style>
+  </defs>
+
+  <!-- ================= BACKGROUND ================= -->
+  <rect width="720" height="360" fill="url(#bg)"/>
+
+  <!-- ================= OUTSIDE-THE-FACTORY ELEMENTS (no shake) ================= -->
+
+  <!-- Stage 0: user / wallet icon (left, outside left wall) -->
+  <g transform="translate(8, 175)">
+    <rect x="0" y="0" width="14" height="22" rx="3" fill="none" stroke="#6a7a8a" stroke-width="1.4"/>
+    <circle cx="7" cy="18" r="1.2" fill="#6a7a8a"/>
+    <line x1="3" y1="5" x2="11" y2="5" stroke="#6a7a8a" stroke-width="1"/>
+  </g>
+  <text class="label-small" x="15" y="170">user</text>
+  <!-- arrow into the building -->
+  <line x1="24" y1="186" x2="42" y2="186" stroke="#6a7a8a" stroke-width="1.2" stroke-dasharray="2,2"/>
+  <polygon points="42,184 46,186 42,188" fill="#6a7a8a"/>
+
+  <!-- Continuous-rotation indicator (top right, outside) -->
+  <g>
+    <circle class="loop-arc" cx="670" cy="30" r="11" fill="none" stroke="#7090b0" stroke-width="1.5" stroke-dasharray="22,5" opacity="0.75"/>
+    <text class="label-small" x="670" y="55" style="fill:#7090b0">∞ cycle</text>
+  </g>
+
+  <!-- ================= INSIDE THE FACTORY (shakes at the bang) ================= -->
+  <g class="factory-shake">
+
+    <!-- factory floor baseline -->
+    <line x1="30" y1="275" x2="690" y2="275" stroke="#3a4a5a" stroke-width="2"/>
+
+    <!-- ============ STAGE 1: LOADING DOCK CHUTE (above + through roof) ============ -->
+    <!-- chute pipe (above roof) -->
+    <rect x="73" y="20" width="14" height="40" rx="2" fill="#3a4a5a"/>
+    <!-- chute flange at roof level -->
+    <rect x="65" y="55" width="30" height="6" rx="1" fill="#5a6878"/>
+
+    <!-- Droplets falling through chute onto conveyor at y=180 -->
+    <g transform="translate(80, 180)">
+      <ellipse class="droplet d1" cx="0" cy="0" rx="7" ry="9" fill="url(#droplet)"/>
+      <ellipse class="droplet d2" cx="0" cy="0" rx="7" ry="9" fill="url(#droplet)"/>
+      <ellipse class="droplet d3" cx="0" cy="0" rx="7" ry="9" fill="url(#droplet)"/>
+      <ellipse class="droplet d4" cx="0" cy="0" rx="7" ry="9" fill="url(#droplet)"/>
+      <ellipse class="droplet d5" cx="0" cy="0" rx="7" ry="9" fill="url(#droplet)"/>
+      <ellipse class="droplet d6" cx="0" cy="0" rx="7" ry="9" fill="url(#droplet)"/>
+      <ellipse class="droplet d7" cx="0" cy="0" rx="7" ry="9" fill="url(#droplet)"/>
+    </g>
+
+    <!-- Encrypted-tx locks travelling on top of droplets d3 and d5 -->
+    <g transform="translate(80, 180)">
+      <g class="conveyor-lock cl1">
+        <rect x="-3.5" y="-2" width="7" height="6" rx="1" fill="url(#lock)"/>
+        <path d="M-2.5,-2 L-2.5,-5 Q-2.5,-7 0,-7 Q2.5,-7 2.5,-5 L2.5,-2" fill="none" stroke="#a07014" stroke-width="0.9"/>
+      </g>
+      <g class="conveyor-lock cl2">
+        <rect x="-3.5" y="-2" width="7" height="6" rx="1" fill="url(#lock)"/>
+        <path d="M-2.5,-2 L-2.5,-5 Q-2.5,-7 0,-7 Q2.5,-7 2.5,-5 L2.5,-2" fill="none" stroke="#a07014" stroke-width="0.9"/>
+      </g>
+    </g>
+
+    <!-- ============ STAGE 2: MEMPOOL CONVEYOR BELT ============ -->
+    <rect x="50" y="192" width="225" height="12" rx="3" fill="#3a4a5a"/>
+    <!-- conveyor rollers (visible texture) -->
+    <g fill="#5a6878">
+      <circle cx="58"  cy="198" r="3"/>
+      <circle cx="96"  cy="198" r="3"/>
+      <circle cx="134" cy="198" r="3"/>
+      <circle cx="172" cy="198" r="3"/>
+      <circle cx="210" cy="198" r="3"/>
+      <circle cx="248" cy="198" r="3"/>
+    </g>
+
+    <!-- ============ STAGE 3a: BATCH BOX (end of conveyor) ============ -->
+    <g transform="translate(245, 170)">
+      <rect class="batch-box" x="-22" y="-13" width="44" height="26" rx="3" fill="url(#batch)"/>
+    </g>
+
+    <!-- ============ STAGE 3b: DAG VERTICES (4 floors × 5) ============ -->
+    <g transform="translate(305, 250)">
+      <rect class="dag-floor f1" x="0"  y="0" width="14" height="14" rx="2" fill="url(#dagFloor)"/>
+      <rect class="dag-floor f1" x="22" y="0" width="14" height="14" rx="2" fill="url(#dagFloor)"/>
+      <rect class="dag-floor f1" x="44" y="0" width="14" height="14" rx="2" fill="url(#dagFloor)"/>
+      <rect class="dag-floor f1" x="66" y="0" width="14" height="14" rx="2" fill="url(#dagFloor)"/>
+      <rect class="dag-floor f1" x="88" y="0" width="14" height="14" rx="2" fill="url(#dagFloor)"/>
+    </g>
+    <g transform="translate(305, 228)">
+      <rect class="dag-floor f2" x="0"  y="0" width="14" height="14" rx="2" fill="url(#dagFloor)"/>
+      <rect class="dag-floor f2" x="22" y="0" width="14" height="14" rx="2" fill="url(#dagFloor)"/>
+      <rect class="dag-floor f2" x="44" y="0" width="14" height="14" rx="2" fill="url(#dagFloor)"/>
+      <rect class="dag-floor f2" x="66" y="0" width="14" height="14" rx="2" fill="url(#dagFloor)"/>
+      <rect class="dag-floor f2" x="88" y="0" width="14" height="14" rx="2" fill="url(#dagFloor)"/>
+    </g>
+    <g transform="translate(305, 206)">
+      <rect class="dag-floor f3" x="0"  y="0" width="14" height="14" rx="2" fill="url(#dagFloor)"/>
+      <rect class="dag-floor f3" x="22" y="0" width="14" height="14" rx="2" fill="url(#dagFloor)"/>
+      <rect class="dag-floor f3" x="44" y="0" width="14" height="14" rx="2" fill="url(#dagFloor)"/>
+      <rect class="dag-floor f3" x="66" y="0" width="14" height="14" rx="2" fill="url(#dagFloor)"/>
+      <rect class="dag-floor f3" x="88" y="0" width="14" height="14" rx="2" fill="url(#dagFloor)"/>
+    </g>
+    <g transform="translate(305, 184)">
+      <rect class="dag-floor f4" x="0"  y="0" width="14" height="14" rx="2" fill="url(#dagFloor)"/>
+      <rect class="dag-floor f4" x="22" y="0" width="14" height="14" rx="2" fill="url(#dagFloor)"/>
+      <rect class="dag-floor f4" x="44" y="0" width="14" height="14" rx="2" fill="url(#dagFloor)"/>
+      <rect class="dag-floor f4" x="66" y="0" width="14" height="14" rx="2" fill="url(#dagFloor)"/>
+      <rect class="dag-floor f4" x="88" y="0" width="14" height="14" rx="2" fill="url(#dagFloor)"/>
+    </g>
+
+    <!-- DAG inter-floor edges -->
+    <g stroke="#5a7a99" stroke-width="0.6" stroke-opacity="0.7" fill="none">
+      <line class="dag-edge e1" x1="312" y1="264" x2="334" y2="242"/>
+      <line class="dag-edge e1" x1="334" y1="264" x2="356" y2="242"/>
+      <line class="dag-edge e1" x1="356" y1="264" x2="378" y2="242"/>
+      <line class="dag-edge e1" x1="378" y1="264" x2="400" y2="242"/>
+
+      <line class="dag-edge e2" x1="312" y1="242" x2="334" y2="220"/>
+      <line class="dag-edge e2" x1="356" y1="242" x2="378" y2="220"/>
+      <line class="dag-edge e2" x1="400" y1="242" x2="378" y2="220"/>
+
+      <line class="dag-edge e3" x1="334" y1="220" x2="356" y2="198"/>
+      <line class="dag-edge e3" x1="378" y1="220" x2="356" y2="198"/>
+      <line class="dag-edge e3" x1="400" y1="220" x2="378" y2="198"/>
+    </g>
+
+    <!-- Locks on DAG-resident encrypted txs — shattered by the bang -->
+    <g class="dag-lock dl1" transform="translate(363, 205)">
+      <rect x="-3.5" y="-2" width="7" height="6" rx="1" fill="url(#lock)"/>
+      <path d="M-2.5,-2 L-2.5,-5 Q-2.5,-7 0,-7 Q2.5,-7 2.5,-5 L2.5,-2" fill="none" stroke="#a07014" stroke-width="0.9"/>
+    </g>
+    <g class="dag-lock dl2" transform="translate(341, 227)">
+      <rect x="-3.5" y="-2" width="7" height="6" rx="1" fill="url(#lock)"/>
+      <path d="M-2.5,-2 L-2.5,-5 Q-2.5,-7 0,-7 Q2.5,-7 2.5,-5 L2.5,-2" fill="none" stroke="#a07014" stroke-width="0.9"/>
+    </g>
+
+    <!-- ============ STAGE 4: ANCHOR HIGHLIGHT (mid vertex of top floor) ============ -->
+    <circle class="anchor" cx="363" cy="191" r="14" fill="none" stroke="#ffaa44" stroke-width="2.2"/>
+
+    <!-- ============ STAGE 5: WAVE COMMIT BANG ============ -->
+    <circle class="bang" cx="363" cy="160" r="50" fill="url(#bang)"/>
+
+    <!-- ============ STAGES 6+7: EXECUTION ARMS ============ -->
+    <!-- Arm A: hangs from (460,80), swings during execution phase -->
+    <g class="exec-arm a1">
+      <circle cx="460" cy="80" r="5" fill="url(#steel)"/>
+      <rect x="458" y="80" width="4" height="58" fill="url(#steel)"/>
+      <circle cx="460" cy="138" r="3" fill="url(#steel)"/>
+      <rect x="458" y="138" width="4" height="38" fill="url(#steel)"/>
+      <path d="M455,176 L455,184 M465,176 L465,184" stroke="url(#steel)" stroke-width="2" fill="none"/>
+    </g>
+    <!-- Arm B: hangs from (510,80), swings opposite (Block-STM parallel arms) -->
+    <g class="exec-arm a2">
+      <circle cx="510" cy="80" r="5" fill="url(#steel)"/>
+      <rect x="508" y="80" width="4" height="58" fill="url(#steel)"/>
+      <circle cx="510" cy="138" r="3" fill="url(#steel)"/>
+      <rect x="508" y="138" width="4" height="38" fill="url(#steel)"/>
+      <path d="M505,176 L505,184 M515,176 L515,184" stroke="url(#steel)" stroke-width="2" fill="none"/>
+    </g>
+    <!-- arm shoulder mount rail at top -->
+    <rect x="448" y="76" width="74" height="4" rx="1" fill="#3a4a5a"/>
+
+    <!-- ============ STAGE 8: STATE PILLARS ============ -->
+    <g transform="translate(458, 210)">
+      <rect class="pillar p1" x="0"  y="0"   width="14" height="65" rx="2" fill="url(#pillar)"/>
+      <rect class="pillar p2" x="20" y="-20" width="14" height="85" rx="2" fill="url(#pillar)"/>
+      <rect class="pillar p3" x="40" y="-10" width="14" height="75" rx="2" fill="url(#pillar)"/>
+      <rect class="pillar p4" x="60" y="-25" width="14" height="90" rx="2" fill="url(#pillar)"/>
+    </g>
+
+    <!-- ============ STAGE 9: CHIMNEY (pokes through roof) + SMOKE ============ -->
+    <!-- chimney rectangle, from above-roof down to just inside building -->
+    <rect x="557" y="20" width="20" height="50" rx="2" fill="#3a4a5a"/>
+    <rect x="554" y="20" width="26" height="6"  rx="1" fill="#5a6878"/>
+    <!-- smoke wisps emerge from chimney top (y=20) -->
+    <g transform="translate(567, 20)">
+      <ellipse class="smoke-wisp w1" cx="0" cy="-4" rx="11" ry="8" fill="url(#smoke)"/>
+      <ellipse class="smoke-wisp w2" cx="-2" cy="-4" rx="11" ry="8" fill="url(#smoke)"/>
+      <ellipse class="smoke-wisp w3" cx="2" cy="-4" rx="11" ry="8" fill="url(#smoke)"/>
+    </g>
+
+    <!-- ============ STAGE 10: RECEIPT EXIT (through right door) ============ -->
+    <g transform="translate(605, 207)">
+      <ellipse class="receipt" cx="0" cy="0" rx="7" ry="9" fill="url(#droplet)"/>
+    </g>
+
+    <!-- ============ FACTORY BUILDING OUTLINE ============ -->
+    <g fill="none" stroke="#3a4a5a" stroke-width="1.4">
+      <!-- roof, with breaks for chute and chimney -->
+      <line x1="30" y1="60" x2="65" y2="60"/>
+      <line x1="95" y1="60" x2="554" y2="60"/>
+      <line x1="580" y1="60" x2="690" y2="60"/>
+      <!-- left wall -->
+      <line x1="30" y1="60" x2="30" y2="275"/>
+      <!-- right wall (with door gap y=192-225) -->
+      <line x1="690" y1="60" x2="690" y2="192"/>
+      <line x1="690" y1="225" x2="690" y2="275"/>
+    </g>
+
+  </g>
+
+  <!-- ================= LABELS (no shake) ================= -->
+  <g>
+    <text class="label" x="80"  y="14">tx ingress</text>
+    <text class="label" x="360" y="14">DAG</text>
+    <text class="label-small" x="155" y="222">mempool</text>
+    <text class="label-small" x="245" y="153">batch</text>
+    <text class="label-small" x="485" y="72">exec arms</text>
+    <text class="label-small" x="498" y="200">state root</text>
+    <text class="label-small" x="567" y="90">eviction</text>
+    <text class="label-small" x="645" y="220">receipt</text>
+
+    <!-- exit arrow (outside the building) -->
+    <line x1="700" y1="207" x2="715" y2="207" stroke="#6a7a8a" stroke-width="1.2" stroke-dasharray="2,2"/>
+
+    <!-- stage labels along the bottom -->
+    <g class="label-tiny" style="opacity:0.75">
+      <text x="80"  y="310">ingress</text>
+      <text x="160" y="310">mempool</text>
+      <text x="245" y="310">batch</text>
+      <text x="360" y="310">DAG · anchor</text>
+      <text x="445" y="310">exec</text>
+      <text x="498" y="310">state</text>
+      <text x="605" y="310">receipt</text>
+    </g>
+
+    <!-- subtle stage-number markers -->
+    <g class="label-tiny" style="fill:#5a6878; opacity:0.55">
+      <text x="80"  y="324">1·2</text>
+      <text x="245" y="324">3a</text>
+      <text x="360" y="324">3b·4·5</text>
+      <text x="445" y="324">6·7</text>
+      <text x="498" y="324">8</text>
+      <text x="567" y="324">9</text>
+      <text x="605" y="324">10</text>
+    </g>
+  </g>
+</svg>

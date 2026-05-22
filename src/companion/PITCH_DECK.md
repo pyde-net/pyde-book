@@ -108,9 +108,12 @@ Looking for:
 
 ## Contact
 
-- Repository: [in development]
-- Documents: `/docs/` in this repository
-- Foundation: [coming soon]
+- Website: [pyde.network](https://pyde.network)
+- Repository: [github.com/pyde-net](https://github.com/pyde-net)
+- X: [@pydenet](https://x.com/pydenet)
+- Telegram: [t.me/pydenet](https://t.me/pydenet)
+- Email: [info@pyde.network](mailto:info@pyde.network)
+- Documents: see the [Companion Specifications](../SUMMARY.md) section of The Pyde Book (Whitepaper, Threat Model, Performance Harness, Parachain Design, Brand, and more)
 
 ---
 

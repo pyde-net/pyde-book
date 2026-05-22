@@ -15,17 +15,50 @@ through gas tanks, and the calldata/tx size limits.
 
 Pyde uses wasmtime's **fuel** mechanism for gas metering. At node startup, the engine establishes a deterministic mapping from gas units (the chain-level metering unit) to wasmtime fuel units. Every WebAssembly instruction consumes a configurable amount of fuel; host function calls also consume fuel manually, charged by the host based on operation cost (`sstore` is heavier than `add`, for example).
 
-When fuel reaches zero, wasmtime traps the execution with an out-of-fuel error. The transaction reverts; the sender pays gas up to the trap point. Unused fuel translates back to unused gas, refunded to the sender.
+When fuel reaches zero, wasmtime traps the execution with an out-of-fuel error. The transaction reverts; the sender pays gas for all the work done up to the trap point. There is no refund.
 
 ```rust
 struct ExecContext {
-    gas_limit:  u64,    // set by the transaction
-    gas_used:   u64,    // computed from fuel consumed
-    gas_refund: u64,    // refunded at end (e.g., from sdelete host function)
+    gas_limit: u64,    // set by the transaction
+    gas_used:  u64,    // computed from fuel consumed during execution
 }
 ```
 
-Refunds (from explicit storage-slot deallocation via the `sdelete` host function) are applied at transaction end and capped at half of `gas_used` to prevent gas-griefing patterns.
+### Charging model: validate up front, deduct after execution
+
+```text
+Step 1 — Ingress validation (at RPC):
+  Check sender.balance ≥ gas_limit × base_fee + value_attached.
+  If insufficient: REJECT before mempool admission.
+
+Step 2 — Mempool admission + propagation:
+  No balance changes. Tx flows through workers, batches, vertices.
+
+Step 3 — Execution (at wave commit):
+  Re-check balance (sender may have spent in prior txs of this wave).
+  Execute via wasmtime, tracking consumed_fuel.
+  On completion (success OR trap):
+    gas_used   = fuel_to_gas(consumed_fuel)
+    charge     = gas_used × base_fee
+    sender.balance -= charge + (value_attached if execution succeeded)
+    
+Step 4 — Fee distribution (always 70/20/10):
+    burn        += charge × 0.70
+    reward_pool += charge × 0.20
+    treasury    += charge × 0.10
+```
+
+### No gas refunds in v1
+
+Pyde v1 ships with **zero gas refunds**. `gas_used` is what the user pays, always. The `sdelete` host function is a regular metered operation; it has a lower gas cost than `sstore` (clearing a slot is less work than writing), but there is no refund applied on top.
+
+The reasoning:
+
+1. **Ethereum had to roll back gas refunds via EIP-3529** after gas-token attacks (CHI, GST2) abused refunds to manipulate gas markets at scale. The refund mechanism turned out to be an attack surface, not a feature.
+
+2. **Pyde handles state cleanup at the engine layer** via PIP-4's write-back cache + state pruning policy, not via user incentives. Storage doesn't accumulate unbounded regardless of whether users explicitly delete. The financial incentive is unnecessary.
+
+3. **Simpler accounting.** No refund-capping rules, no two-step charge-then-refund logic, no edge cases. Receipts carry one number — `gas_used` — and that's the charge.
 
 ### Why fuel, not opcode counting
 
@@ -165,7 +198,7 @@ NICs and more cores; see Chapter 19 for the launch-strategy capacity
 table.
 
 Real numbers depend on workload composition. The performance harness
-(docs/PERFORMANCE_HARNESS.md) is the only valid source of TPS claims —
+([companion/PERFORMANCE_HARNESS.md](../companion/PERFORMANCE_HARNESS.md)) is the only valid source of TPS claims —
 under the **"claim 1/3 of measured peak"** rule, the headline number is
 never the theoretical max.
 
@@ -400,7 +433,7 @@ The full WASM-instruction and host-function gas table is published in the Host F
 | ------------- | ------------- | --------- |
 | Storage read  | `sload`       | 100 (warm)|
 | Storage write | `sstore`      | 200 (warm)|
-| Storage delete| `sdelete`     | 200 + refund |
+| Storage delete| `sdelete`     | 150 (no refund; cheaper than `sstore`) |
 
 ### Crypto
 

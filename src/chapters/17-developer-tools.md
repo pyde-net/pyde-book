@@ -124,6 +124,85 @@ The full method catalog is published as the JSON-RPC reference (lives alongside 
 
 ---
 
+## 17.4b Client-Side wasmtime + Wallet Preview Tiers
+
+Pyde's TS and Rust SDKs embed wasmtime directly, so wallets can **simulate transactions locally** before signing. This unlocks honest pre-sign safety information without server-side round trips.
+
+### Tier 1 — Deterministic local preview (v1 mainnet)
+
+The default. Wallets ship with:
+
+- **Gas estimation** — run the tx against current state locally; count consumed fuel; show user the expected gas cost
+- **Access list inference** — speculatively execute; record every sload/sstore call's slot_hash; attach the inferred access list to the tx so the chain's parallel scheduler can use it
+- **View function execution** — `view`-attributed functions execute locally, fetching state via RPC for any cache misses; no tx submitted, no gas
+- **Dry-run preview** — show the user "this tx will spend X PYDE, transfer Y tokens to address Z, emit Transfer event, leave your balance at W"
+- **Known-pattern decoding** — recognize standard ABI patterns (transfer, approve, etc.) and surface them in plain language
+
+The user clicks Sign only after seeing exactly what the tx does in this moment.
+
+```text
+Wallet UX flow (Tier 1):
+
+  User constructs tx in wallet
+    ↓
+  Wallet fetches contract WASM + relevant state via RPC
+    ↓
+  Wallet runs wasmtime locally with the tx
+    ↓
+  Wallet displays preview:
+    "Calling Token.transfer(to=0xabc..., amount=100 PYDE)
+     This tx will:
+       - Send 100 PYDE from you (0xYOU) to 0xabc...
+       - Your balance after: 900 PYDE
+       - Emit event: Transfer(from=0xYOU, to=0xabc..., amount=100)
+       - Cost: ~25,000 gas (~0.001 PYDE)
+     [Sign] [Cancel]"
+    ↓
+  User signs (FALCON-512) → tx submitted
+```
+
+### Tier 2 — Reputation + heuristics (v2 direction)
+
+Layers on top of Tier 1. Doesn't require AI — just curated data + pattern matching:
+
+- Flag contracts on known-malicious lists (Blockaid, Pyde-community-maintained registries)
+- Flag "approve unfamiliar contract for max amount" patterns
+- Cross-reference with audit databases (was this contract audited? by whom?)
+- Surface community reputation scores
+
+### Tier 3 — LLM-augmented analysis (v3+ direction)
+
+LLM reads contract WASM (or decompiled source) to summarize behavior, identify common risk patterns:
+
+- approve+drain combos
+- hidden auth modifiers
+- timelocked backdoors
+- liquidity-rug constructions
+
+Rates confidence: "looks like a standard DEX trade" vs "matches wallet-drainer pattern X." Surfaces a graded warning to the user.
+
+By the time Pyde mainnet matures, third-party services (Blockaid, Pocket Universe, etc.) will likely offer this as an API. Pyde wallets can integrate.
+
+### Honest v1 framing
+
+The marketing claim Pyde v1 can make:
+
+> *Pyde wallets show you the immediate effects of every transaction before you sign — including exact state changes, events emitted, and gas cost. You see what your authorization does in this moment. Deeper analysis (downstream authorization implications, contract backdoors, signed-message replays) requires reading the contract code or using third-party safety tools.*
+
+Honest, defensible, materially better than EVM wallet UX without overpromising.
+
+### What Tier 1 cannot detect
+
+Worth being explicit about:
+
+- **Approval-then-drain patterns.** The approval looks innocuous (just a state write). The drain happens in a future tx that the malicious contract submits using that approval.
+- **Time-locked backdoors.** Contract logic that activates after N waves.
+- **Signed-message replay.** Signing arbitrary EIP-712-style messages off-chain that can be replayed.
+
+These are application-layer risks. Tier 2/3 (when shipped) address them. v1 documents them honestly so users know to use third-party tools for those classes of analysis.
+
+---
+
 ## 17.5 What changed at the pivots
 
 For readers coming from the pre-pivot world, the developer tooling has changed substantially:

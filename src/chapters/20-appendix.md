@@ -64,7 +64,7 @@ and the post-mainnet roadmap.
 | Constant                           | Value                          | Where                              |
 | ---------------------------------- | ------------------------------ | ---------------------------------- |
 | `ROUND_PERIOD_MS`                  | 150 (DAG round cadence)         | `consensus/round.rs`                |
-| `WAVE_COMMIT_TARGET_MS`            | 500 (median commit)        | `consensus/wave.rs`                 |
+| `COMMIT_TARGET_MS`                 | 500 (median commit)        | `consensus/commit.rs`               |
 | `EPOCH_LENGTH`                     | ~3 hours of waves               | `consensus/epoch.rs`                |
 | `COMMITTEE_SIZE` (mainnet)         | 128                             | `consensus/committee.rs`            |
 | `THRESHOLD` (2f+1)                 | 85                              | `consensus/quorum.rs`               |
@@ -352,7 +352,7 @@ The key headline figures, with their sources:
 | Claim                              | Source                                       |
 | ---------------------------------- | -------------------------------------------- |
 | ~150 ms DAG round period            | `ROUND_PERIOD_MS` in `consensus/round.rs`     |
-| ~500 ms median commit          | `WAVE_COMMIT_TARGET_MS` in `consensus/wave.rs`|
+| ~500 ms median commit          | `COMMIT_TARGET_MS` in `consensus/commit.rs`|
 | v1 plaintext TPS: 10-30K            | Performance harness measurement, "claim 1/3 of measured peak" rule (`docs/PERFORMANCE_HARNESS.md`) |
 | v1 encrypted TPS: 0.5-2K             | Same harness; threshold-decryption serial cost |
 | 70 / 20 / 10 fee split              | `FEE_BURN_PCT` etc in `tx/execution.rs`        |

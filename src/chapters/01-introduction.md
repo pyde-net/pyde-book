@@ -42,8 +42,7 @@ Chains optimizing for throughput have ended up requiring datacenter-class valida
 - **WebAssembly execution** via wasmtime, with Cranelift AOT. Smart contracts written in Rust, AssemblyScript, Go, or C/C++ — same language ecosystem authors already work in
 - **Worker / Primary split** (Narwhal pattern) for data dissemination separate from consensus
 - **Hybrid execution scheduler** — static access lists for known patterns, Block-STM for dynamic
-- **Dual-hash JMT** — Blake3 + Poseidon2 per node, so both standard light clients and future ZK light clients can verify against the same tree
-- **JMT state tree** (Jellyfish Merkle Tree, radix-16) replaces fixed-depth SMT
+- **JMT state tree** (Jellyfish Merkle Tree, radix-16) replaces fixed-depth SMT — with dual Blake3 + Poseidon2 roots so standard light clients and future ZK light clients verify against the same tree
 - **PIP-2 clustered slot keys + PIP-3 prefetch + PIP-4 write-back cache** — three-layer state performance stack
 - **Encryption opt-in** per-tx — MEV protection where needed, no overhead where not
 - **`otigen` developer toolchain** — zero-extra-code authoring: write contract logic + `otigen.toml`, the tool handles everything else
@@ -57,7 +56,7 @@ This book describes **designed architecture**, with implementation in various st
 | Component | Status |
 |---|---|
 | Architecture design | Complete |
-| WASM execution layer (wasmtime + Cranelift) | Foundation in place, integration in progress |
+| WASM execution layer (wasmtime + Cranelift) | Design locked 2026-05-21; wasmtime integration next |
 | State layer (JMT, dual-hash, PIP-2 clustering) | Single-hash JMT in place; PIP-2/3/4 + dual-hash in progress |
 | Mysticeti DAG consensus | Rebuild in progress post-pivot |
 | Post-quantum cryptography (`pyde-crypto`) | Functional; threshold-decryption path is research-grade |

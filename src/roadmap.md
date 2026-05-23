@@ -205,6 +205,7 @@ Implements Chapter 6, `SLASHING.md`, `VALIDATOR_LIFECYCLE.md`, `STATE_SYNC.md`, 
 - [x] Local DAG view per validator (`VertexStore`: hash + round + slot indexes, equivocation-aware, `parking_lot::RwLock` guarded) — PR [#1](https://github.com/pyde-net/engine/pull/1)
 - [x] Canonical `vertex_hash = Blake3(borsh(vertex_sans_falcon_sig))` centralised — PR [#1](https://github.com/pyde-net/engine/pull/1)
 - [x] Equivocation flagging on insert (`InsertOutcome::Equivocation { prior_at_slot }`; full slashing flow lives in γ.4)
+- [x] Vertex production pipeline (`VertexBuilder` + `Signer` trait + `select_parents` helper that skips equivocating slots; returns `(VertexHash, Vertex)` so callers get the dedup key free) — PR [#2](https://github.com/pyde-net/engine/pull/2)
 - [ ] Round advancement (peer-attestation triggered; data-driven, NOT clock-driven)
 - [ ] Anchor selection: `anchor_member_id = Hash(beacon, round, recent_state_root) mod 128`
 - [ ] VRF beacon derivation (uses pyde-crypto)

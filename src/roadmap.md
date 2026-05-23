@@ -273,7 +273,7 @@ Implements Chapter 6, `SLASHING.md`, `VALIDATOR_LIFECYCLE.md`, `STATE_SYNC.md`, 
 - [x] WaveCommitRecord assembly (`assemble_wave_commit_record`: canonical anchor_hash, u32 tx_count overflow check, WaveCommitInputs cross-stream boundary) — PR [#7](https://github.com/pyde-net/engine/pull/7)
 - [ ] Committee management (epoch-bounded; uniform random from eligible stakers)
 - [ ] Equivocation detection + evidence collection → γ.4 Slashing
-- [ ] Implement `ConsensusEngine` trait (from `interfaces`)
+- [x] Implement `ConsensusEngine` trait via `Driver` (composed runtime: `VertexStore` + `RoundTracker` + `PendingParents` + finality history; Arc-shared, fine-grained locks, wave-monotonicity guard, object-safe trait impl) — PR [#11](https://github.com/pyde-net/engine/pull/11)
 
 #### γ.2 `net` crate `[PAR within γ]`
 - [ ] libp2p + QUIC transport (pinned versions)

@@ -169,7 +169,7 @@ Every item below clears before α ships. Documented separately from the feature 
 **Spec + documentation**
 
 - [ ] Toolchain threat model document at `companion/TOOLCHAIN_THREAT_MODEL.md`: attack surfaces (malicious `otigen.toml`, malicious WASM at build time, RPC MITM, keystore tampering), mitigations, residual risks
-- [⏳] Performance numbers committed in `README.md`, Chapter 5 (otigen-toolchain), Chapter 17 (developer tools); baselines on a documented reference machine + how to reproduce — README done in pyde-net/otigen#6; book chapters landing in current PR
+- [x] Performance numbers committed in `README.md`, Chapter 5 (otigen-toolchain), Chapter 17 (developer tools); baselines on a documented reference machine + how to reproduce ✅ (README in pyde-net/otigen#6; Chapters 5 §5.11 + 17 §17.1 in this PR)
 - [ ] Architecture chapter (`chapters/05-otigen-toolchain.md`) cross-links every public function in the implementation to the spec section it satisfies
 - [ ] No new `unsafe` blocks anywhere in the workspace (verified by grep + CI)
 - [ ] No `unwrap()` / `expect()` on untrusted-input paths (verified manually + by lint where possible)

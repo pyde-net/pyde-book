@@ -137,10 +137,10 @@ Every item below clears before α ships. Documented separately from the feature 
 
 **Testing infrastructure**
 
-- [ ] Criterion benchmarks for every hot path with baselines committed to `benches/baseline/*.json`:
-  - `otigen-toml`: TOML parse + cross-cutting validation
-  - `otigen-abi`: `ContractAbi` build, Borsh encode/decode round-trip, `pyde.abi` custom-section inject + extract
-  - `otigen-cli`: full `otigen build` pipeline end-to-end
+- [x] Criterion benchmarks for every hot path with baselines committed to `benches/baseline/*.json`:
+  - `otigen-toml`: TOML parse + cross-cutting validation ✅ (pyde-net/otigen#6)
+  - `otigen-abi`: `ContractAbi` build, Borsh encode/decode round-trip, `pyde.abi` custom-section inject + extract, validators, full pipeline ✅ (pyde-net/otigen#6)
+  - `otigen-cli`: full `otigen build` pipeline end-to-end — measured via the otigen-abi full_pipeline bench (parse→validate→build→encode→inject = 14.5 µs on the reference machine); the wall-clock `otigen build` invocation is dominated by file I/O, not validator work
 - [ ] `cargo-fuzz` targets with 24h+ cumulative run before α release:
   - `otigen-toml` parser (malformed input, deep nesting, huge fields)
   - `otigen-abi` WASM validator (malformed binaries, edge cases in section structure)
@@ -169,7 +169,7 @@ Every item below clears before α ships. Documented separately from the feature 
 **Spec + documentation**
 
 - [ ] Toolchain threat model document at `companion/TOOLCHAIN_THREAT_MODEL.md`: attack surfaces (malicious `otigen.toml`, malicious WASM at build time, RPC MITM, keystore tampering), mitigations, residual risks
-- [ ] Performance numbers committed in `README.md`, Chapter 5 (otigen-toolchain), Chapter 17 (developer tools); baselines on a documented reference machine + how to reproduce
+- [⏳] Performance numbers committed in `README.md`, Chapter 5 (otigen-toolchain), Chapter 17 (developer tools); baselines on a documented reference machine + how to reproduce — README done in pyde-net/otigen#6; book chapters landing in current PR
 - [ ] Architecture chapter (`chapters/05-otigen-toolchain.md`) cross-links every public function in the implementation to the spec section it satisfies
 - [ ] No new `unsafe` blocks anywhere in the workspace (verified by grep + CI)
 - [ ] No `unwrap()` / `expect()` on untrusted-input paths (verified manually + by lint where possible)

@@ -100,7 +100,7 @@ This config produces deterministic execution suitable for consensus: every valid
 
 ## 3.3 The Host Function ABI
 
-Smart contracts cannot directly access state, signatures, or anything outside their sandbox. They reach the chain through **host functions** — Rust functions registered with wasmtime's linker that contracts call by name. The full set of host functions is the **Host Function ABI**, versioned and documented separately in the upcoming Host Function ABI specification (the spec doc is one of the next design-stage deliverables; see the [Roadmap](../roadmap.md)).
+Smart contracts cannot directly access state, signatures, or anything outside their sandbox. They reach the chain through **host functions** — Rust functions registered with wasmtime's linker that contracts call by name. The full set of host functions is the **Host Function ABI**, versioned and documented in the canonical [Host Function ABI v1.0 Specification](../companion/HOST_FN_ABI_SPEC.md).
 
 This section gives the conceptual surface; the spec gives the binary signatures.
 
@@ -120,20 +120,25 @@ This section gives the conceptual surface; the spec gives the binary signatures.
 - `chain_id() -> u64`.
 
 **Events:**
-- `emit_event(topic, data)` — append to the transaction's event log. Topics are queryable; data is opaque bytes.
+- `emit_event(topic, data)` — append a 32-byte topic + opaque bytes payload to the transaction's event log. Each event is buffered in the current overlay (per-tx, per-cross-call); reverted (sub-)calls' events are discarded. At wave commit, all surviving events are committed via `events_root` (Merkle tree) + `events_bloom` in the wave commit record. Recommended encoding for `data` is Borsh; topics are typically `Blake3(canonical_event_signature)`. Full storage / indexing / subscription mechanics: see [Host Function ABI Spec §15](../companion/HOST_FN_ABI_SPEC.md).
 
 **Hashing primitives:**
-- `keccak256(input) -> hash32` — for compatibility with cross-chain interfaces.
-- `blake3(input) -> hash32` — fast general-purpose hashing.
-- `poseidon2(input) -> hash32` — ZK-friendly hashing (used in state commitments).
+- `hash_keccak256(input) -> hash32` — for compatibility with cross-chain interfaces.
+- `hash_blake3(input) -> hash32` — fast general-purpose hashing.
+- `hash_poseidon2(input) -> hash32` — ZK-friendly hashing (used in state commitments).
 
 **Post-quantum cryptography:**
-- `threshold_encrypt(plaintext, committee_pubkey) -> ciphertext` — encrypt a payload under the current committee's threshold key.
-- `threshold_decrypt_share(ciphertext) -> share` — produce a decryption share (validator-only, gated).
+- `threshold_encrypt(plaintext) -> ciphertext` — encrypt a payload under the current committee's threshold key. Available to parachains only.
+- `threshold_decrypt(ciphertext) -> plaintext` — combine pre-collected committee shares to decrypt. Available to parachains only.
 - `falcon_verify(pubkey, message, signature) -> bool` — verify a FALCON-512 signature.
 
-**Cross-contract / cross-parachain:**
-- `cross_call(target_addr, function_id, args, callback_spec, max_gas)` — invoke another contract or parachain.
+**Cross-contract calls:**
+- `cross_call(target, fn_name, calldata, value, gas_limit, ...)` — synchronous call into another contract. Sub-call runs in a nested overlay; merges on success, discards on trap.
+- `cross_call_static(target, fn_name, calldata, gas_limit, ...)` — view-only sub-call. **Free** for the caller (only the 50-gas dispatch base charged); bounded by a per-call `VIEW_FUEL_CAP` (default 10M fuel ≈ 3ms commodity).
+- `delegate_call(target, fn_name, calldata, gas_limit, ...)` — execute target's code in the caller's storage context. `self_address()` and `caller()` preserve outer-call identity. For proxy / upgradeable patterns.
+
+**Randomness:**
+- `beacon_get() -> hash32` — current wave's committee-derived VRF beacon (XOR of all members' beacon shares). Deterministic across validators, publicly readable.
 
 **Gas:**
 - `consume_gas(amount)` — explicit metering for operations the runtime cannot price automatically (used by binding generators for collection-traversal patterns).
@@ -214,33 +219,42 @@ The ingress check confirms `balance ≥ gas_limit × base_fee`, but only `gas_us
 
 ## 3.5b Per-Transaction Execution Isolation
 
-Every transaction executes against an **overlay** layered on top of the shared DashMap state cache. The overlay isolates the tx's writes so a revert can throw them away without affecting other txs in the same wave.
+Every transaction executes against an **overlay** layered on top of the shared DashMap state cache. The overlay isolates the tx's writes *and* its emitted events so a revert can throw them away without affecting other txs in the same wave.
 
 ```text
-Per-tx state isolation:
+Per-tx isolation:
 
   Before tx execution:
-    tx_overlay: HashMap<SlotHash, Vec<u8>> = empty
+    tx_overlay: {
+      state_writes: HashMap<SlotHash, Vec<u8>>,
+      events:       Vec<EventRecord>,
+    } = empty
 
   During execution:
-    Reads:  
-      1. check tx_overlay  (any writes this tx made)
-      2. check dashmap     (prior committed-in-this-wave writes from other txs)
-      3. check state_cf    (current persistent state on disk)
-    Writes:
-      go into tx_overlay only (not dashmap yet)
+    Reads (state):
+      1. check tx_overlay.state_writes  (any writes this tx made)
+      2. check dashmap                   (prior committed-in-this-wave writes from other txs)
+      3. check state_cf                  (current persistent state on disk)
+    Writes (state):
+      go into tx_overlay.state_writes only (not dashmap yet)
+    emit_event:
+      append to tx_overlay.events only
 
   On successful completion:
-    merge tx_overlay into dashmap (marking entries Dirty)
+    merge tx_overlay.state_writes into dashmap (marking entries Dirty)
+    append tx_overlay.events to the wave's canonical events list
     generate success receipt
     drop tx_overlay (memory freed)
 
   On trap (revert):
-    discard tx_overlay entirely
+    discard tx_overlay entirely — state AND events
     state unchanged in dashmap
+    no events emitted to the wave's list
     generate revert receipt with reason
     sender still pays gas_used × base_fee (see Chapter 10)
 ```
+
+Events follow the same merge/discard discipline as state writes. A reverted (sub-)call's events are discarded along with its state writes — the chain never sees events from a path that didn't commit. The wave's final events list (committed via `events_root` + `events_bloom`; see [Host Function ABI Spec §15](../companion/HOST_FN_ABI_SPEC.md)) is the topmost overlay's events buffer at wave commit time.
 
 **Why no separate undo log:** failed writes never landed in shared state. Dropping the overlay throws them away. Simpler than journaled undo.
 
@@ -486,7 +500,7 @@ The WASM execution layer is implemented post-pivot in a fresh `engine` workspace
 | Validation gate | `wasm-exec/src/validate.rs` |
 | Deploy-tx processing | `tx/src/deploy.rs` |
 | State binding code generators (per language) | `otigen` repo (`otigen/crates/codegen-*`) |
-| Host Function ABI specification | [`companion/HOST_FN_ABI_SPEC.md`](../companion/) — to be written; tracked on the roadmap |
+| Host Function ABI specification | [`companion/HOST_FN_ABI_SPEC.md`](../companion/HOST_FN_ABI_SPEC.md) |
 
 ---
 

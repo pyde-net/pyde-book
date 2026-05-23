@@ -113,12 +113,18 @@ Surface area:
 
 The node exposes a JSON-RPC interface over HTTP and WebSocket. Method surface includes:
 
-- Standard query methods (account state, balance, nonce, contract code, contract state)
-- Transaction submission (plaintext and threshold-encrypted)
-- Subscription methods (new heads, new blocks, account changes, event filters)
-- Gas / fee estimation
-- Wave + state-root queries (for light clients)
-- Validator-specific methods (committee status, attestations) under an authorized-only namespace
+- Standard query methods — `pyde_getAccount`, `pyde_getBalance`, `pyde_getNonce`, `pyde_getContractCode`, `pyde_getContractState`, `pyde_resolveName`
+- Transaction submission — `pyde_sendRawTransaction`, `pyde_sendRawEncryptedTransaction`, `pyde_estimateAccess`
+- View-function calls — `pyde_call(contract, fn, calldata)` — **free**, off-chain execution against current state; no tx, no gas, no consensus. Mirrors EVM's `eth_call`. Bounded by RPC-layer rate limits + per-call instruction cap.
+- Subscription methods (WebSocket) — `pyde_subscribe`:
+  - `newHeads` — wave commits as they finalize
+  - `accountChanges` — state changes to a specific account
+  - `logs` — events matching an AND+OR filter (topic OR-list + optional contract); at-least-once delivery; each event carries `(wave_id, tx_index, event_index)` cursor for dedup; `pyde_resubscribe({from: cursor})` resumes after disconnect. Full mechanics: [Host Function ABI Spec §15.5](../companion/HOST_FN_ABI_SPEC.md).
+- Historical event queries — `pyde_getLogs({from_wave, to_wave, topics, contract, cursor, limit})` — 5,000-wave cap per request, cursor pagination, ascending wave order. Per-wave bloom filter prefilters; three RocksDB indexes resolve exact matches. Full spec: [Host Function ABI Spec §15.4](../companion/HOST_FN_ABI_SPEC.md).
+- Snapshot queries — `pyde_getSnapshotManifest(wave_id)` (light-client state sync)
+- Gas / fee estimation — `pyde_estimateGas`, `pyde_getBaseFee`
+- Wave + state-root queries (for light clients) — `pyde_getWave`, `pyde_getHardFinalityCert`
+- Validator-specific methods — committee status, attestations, under an authorized-only namespace
 
 The full method catalog is published as the JSON-RPC reference (lives alongside the node binary documentation).
 

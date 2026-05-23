@@ -36,7 +36,7 @@ Each language has a mature test framework. The toolchain does not wrap them. Rus
 
 ### Attributes and ABI declared in otigen.toml, enforced at runtime
 
-Function attributes (`view`, `payable`, `reentrant`, `sponsored`, `constructor`) and state schema are declared in `otigen.toml`. `otigen build` reads them into the generated `abi.json`. At deploy, the ABI commits on-chain alongside the WASM bytes. At runtime, the WASM execution layer reads the ABI metadata before invoking a function and applies the appropriate guards (reentrancy block, view-mode state-write rejection, payable-mode value check, sponsored gas-tank debit). The WASM module itself does not carry attribute markers — the engine enforces them at the call boundary based on what the deployed ABI says.
+Function attributes (`view`, `payable`, `reentrant`, `sponsored`, `constructor`, `fallback`, `receive`, `entry`) and state schema are declared in `otigen.toml`. `otigen build` reads them, builds a `ContractAbi` struct, Borsh-encodes it, and **injects it as a WASM custom section named `pyde.abi`** directly into the .wasm artifact the language compiler produced. There is no separate `abi.json` file at deploy time — the ABI travels with the code as one binary. At runtime, the WASM execution layer extracts the `pyde.abi` section once, caches the parsed ABI alongside the compiled Module, and applies attribute-driven guards before every call (reentrancy block, view-mode state-write rejection, payable-mode value check, sponsored gas-tank debit, etc.). The WASM module itself does not carry attribute markers — the engine enforces them at the call boundary based on the parsed ABI. Full mechanics: [Host Function ABI Spec §3.5–§3.7](../companion/HOST_FN_ABI_SPEC.md).
 
 ---
 
@@ -319,12 +319,16 @@ If you write nothing, you are protected.
 
 | Attribute     | Effect                                                                                          |
 | ------------- | ----------------------------------------------------------------------------------------------- |
-| `view`        | Read-only function. Runtime rejects any state-modifying host call inside it.                    |
+| `view`        | Read-only function. Runtime rejects any state-modifying host call inside it. View calls are FREE (no gas) — see [HOST_FN_ABI_SPEC §7.8](../companion/HOST_FN_ABI_SPEC.md). |
 | `payable`     | Function accepts PYDE attached to the call. Non-`payable` functions reject any attached amount. |
 | `reentrant`   | **Opts INTO** allowing reentrancy. Default for every function is reentrancy-blocked.            |
 | `constructor` | Initialization-only. Callable exactly once, at deploy time.                                     |
 | `sponsored`   | Gas charged to the contract's `gas_tank` rather than the caller's balance. Enables gasless UX.  |
-| `gasless`     | Alias for `sponsored` with a hardcoded gas-tank lookup (compatibility with older naming).       |
+| `fallback`    | Invoked when the call's function selector matches no declared function. At most one per contract. |
+| `receive`     | Invoked on bare PYDE transfers (no selector, value > 0). At most one per contract. **Must also be `payable`**. |
+| `entry`       | Marks the function as callable from outside the contract (top-level tx or cross_call). Required for any function not marked with another dispatch attribute (`constructor`/`fallback`/`receive`). Internal helpers omit `entry` and are not exposed in the public selector table. |
+
+For attribute compatibility rules (which combinations are rejected at build + deploy), see [HOST_FN_ABI_SPEC §3.5.1](../companion/HOST_FN_ABI_SPEC.md).
 
 ### How attributes are declared
 

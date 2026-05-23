@@ -198,9 +198,14 @@ At round 16's commit (wave 7):
 
   Execute all txs in canonical order (round ascending → member_id → list_order)
   Compute state_root after applying all changes
-  Sign HardFinalityCert(wave_id=7, state_root)
-  Wave 7 record: WaveCommitRecord(wave_id=7, anchor_round=16, prior_anchor_round=Some(10))
+  Compute events_root (Blake3 Merkle tree over canonical-ordered events) + events_bloom
+  Sign HardFinalityCert(wave_id=7, state_root, events_root, events_bloom)
+  Wave 7 record: WaveCommitRecord(wave_id=7, anchor_round=16, prior_anchor_round=Some(10),
+                                  state_root=..., events_root=..., events_bloom=...,
+                                  events_count=..., tx_count=..., gas_used=...)
 ```
+
+The wave commit record carries both state and events summaries; both are threshold-signed in the `HardFinalityCert` so light clients verify event inclusion identically to state. Full structure + indexing mechanics: [Host Function ABI Spec §15.2](../companion/HOST_FN_ABI_SPEC.md).
 
 Properties:
 - **Zero tx loss.** Every vertex produced eventually commits.

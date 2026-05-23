@@ -143,6 +143,47 @@ The two tables stay in lockstep. They are never out of sync because every write 
 
 ---
 
+## 4.1c Events Storage: `events_cf` + Indexes
+
+State is not the only thing the chain stores. Events emitted via `pyde::emit_event` (see [Chapter 3 §3.3](./03-virtual-machine.md) and [Host Function ABI Spec §15](../companion/HOST_FN_ABI_SPEC.md)) live in three additional column families parallel to `state_cf` + `jmt_cf`:
+
+```text
+events_cf (primary, ordered by wave)
+  key:   wave_id (8 BE) || tx_index (4 BE) || event_index (4 BE)
+  value: borsh_encode(EventRecord)
+
+events_by_topic_cf (index)
+  key:   topic (32) || wave_id (8 BE) || tx_index (4 BE) || event_index (4 BE)
+  value: ()                    -- empty; key carries lookup info
+
+events_by_contract_cf (index)
+  key:   contract_addr (32) || wave_id (8 BE) || tx_index (4 BE) || event_index (4 BE)
+  value: ()
+```
+
+**Atomicity:** at every wave commit, the engine writes one RocksDB `WriteBatch` containing updates to `state_cf` + `jmt_cf` + `events_cf` + `events_by_topic_cf` + `events_by_contract_cf` + the wave commit record. Either all five land or none does.
+
+**On-chain commitment:** each wave commit record carries two summaries of the wave's events:
+- `events_root` (Blake3) — binary Merkle tree over canonical-ordered events, suitable for inclusion proofs.
+- `events_bloom` (256-byte, 2048-bit, 3-hash) — probabilistic summary for cheap "any event matching X in this wave?" checks.
+
+Both are threshold-signed as part of the wave's `HardFinalityCert`, so light clients verify event inclusion identically to how they verify state.
+
+**Retention:**
+
+| Node tier | `events_cf` + indexes |
+|-----------|------------------------|
+| Archive node | All events, forever |
+| Pruned validator | Last 90 days |
+| Committee validator | Last 30 days |
+| Light client | None (verifies inclusion proofs against signed `events_root`) |
+
+Pruning is in lockstep across all three event column families.
+
+For query semantics (`pyde_getLogs`), subscriptions (`pyde_subscribe`), and the Borsh-recommended event encoding, see [Host Function ABI Spec §14–§15](../companion/HOST_FN_ABI_SPEC.md).
+
+---
+
 ## 4.2 Hybrid Hashing: Blake3 + Poseidon2
 
 Pyde uses two hashes in different layers, chosen for what each is best at:

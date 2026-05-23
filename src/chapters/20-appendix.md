@@ -119,9 +119,11 @@ and the post-mainnet roadmap.
 | Stack depth limit           | Configurable   | wasmtime-enforced; rejects modules exceeding cap   |
 | `PAGE_ALLOC_GAS`            | 200 fuel/64KB  | Fuel per WASM `memory.grow` page                   |
 | Default fuel per gas unit   | (calibrated)   | Established at node startup from the gas table     |
-| Module cache size           | ~256 modules   | LRU cache of compiled wasmtime Modules             |
+| `MODULE_CACHE_MAX_BYTES`    | 1 GB (default) | LRU + size-cap + TTL on compiled Module + parsed ABI; per-node tunable. See [HOST_FN_ABI_SPEC §3.6](../companion/HOST_FN_ABI_SPEC.md) |
+| `MODULE_CACHE_TTL_WAVES`    | 8 epochs (~1 day) | Cache entries unused longer than this are evicted |
+| `VIEW_FUEL_CAP`             | 10,000,000     | Per-call wasmtime fuel cap for `cross_call_static` views (≈ 3 ms commodity). View calls are free; this bounds wall-clock. |
 
-Note: PVM-era constants (4 MB address space, 16+8 register file, 62 opcodes) are retired. WASM's instruction set is the WebAssembly Core Specification; the host-function ABI is defined separately in the upcoming Host Function ABI specification (the spec doc is one of the next design-stage deliverables; see the [Roadmap](../roadmap.md)).
+Note: PVM-era constants (4 MB address space, 16+8 register file, 62 opcodes) are retired. WASM's instruction set is the WebAssembly Core Specification; the host-function ABI is defined in [companion/HOST_FN_ABI_SPEC.md](../companion/HOST_FN_ABI_SPEC.md).
 
 ## F. Network / Discovery Constants
 
@@ -195,7 +197,7 @@ fails decode.
 
 Pyde's execution layer is WebAssembly. The WASM instruction set itself is the WebAssembly Core Specification — defined and maintained externally, not by Pyde. What Pyde defines is the **Host Function ABI**: the chain-side surface that contracts call to interact with state, accounts, crypto, events, and other chain primitives.
 
-The full Host Function ABI specification (signatures, memory layout conventions, gas cost table, versioning rules, parachain-extension allowlist, forbidden imports) is one of the next design-stage deliverables — see the [Roadmap](../roadmap.md) for the planned location at `pyde-book/src/companion/HOST_FN_ABI_SPEC.md`. The high-level surface, organized by category:
+The full Host Function ABI specification (signatures, memory layout conventions, gas cost table, versioning rules, parachain-extension allowlist, forbidden imports) lives at [companion/HOST_FN_ABI_SPEC.md](../companion/HOST_FN_ABI_SPEC.md). The high-level surface, organized by category:
 
 ### Storage
 `sload`, `sstore`, `sdelete`
@@ -255,12 +257,18 @@ Full reference in Chapter 17. The methods, prefixed `pyde_`:
 | `pyde_sendRawTransaction`       | tx hash                                |
 | `pyde_sendTransaction`          | (dev only) tx hash                     |
 | `pyde_sendEncryptedTransaction` | tx hash                                |
-| `pyde_call`                     | hex return data                        |
+| `pyde_call`                     | view-function return data (FREE off-chain) |
 | `pyde_estimateGas`              | gas estimate                           |
 | `pyde_createAccessList`         | inferred access list                   |
+| `pyde_getHardFinalityCert`      | committee-signed cert for a wave (incl. state_root + events_root + events_bloom) |
+| `pyde_getSnapshotManifest`      | snapshot manifest for state sync       |
+| `pyde_resolveName`              | name → address registry lookup         |
 
-WebSocket subscriptions: `pyde_subscribe` (block headers),
-`pyde_subscribePending` (pending tx hashes), `pyde_subscribeLogs` (events).
+WebSocket subscriptions (via `pyde_subscribe({method, ...})`): `newHeads`
+(wave commits), `accountChanges`, `logs` (events with AND+OR topic / contract
+filter; at-least-once delivery with cursor for dedup). `pyde_resubscribe({from: cursor})`
+resumes a `logs` stream after disconnect. Full mechanics:
+[HOST_FN_ABI_SPEC §15.5](../companion/HOST_FN_ABI_SPEC.md).
 
 ---
 
@@ -369,7 +377,7 @@ The key headline figures, with their sources:
 | 128 KB tx / 64 KB calldata caps     | `MAX_TX_SIZE`, `MAX_CALLDATA` in `tx/validation.rs`|
 | 4 MB batch hard cap                 | `MAX_BATCH_SIZE` in `mempool/batch.rs`          |
 | 1 MB witness cap                    | `MAX_WITNESS_SIZE` in `state/witness.rs`       |
-| WASM host function ABI v1.0         | `wasm-exec/src/host_fns.rs` (post-pivot) + [Host Function ABI spec doc](../companion/) |
+| WASM host function ABI v1.0         | `wasm-exec/src/host_fns.rs` (post-pivot) + [companion/HOST_FN_ABI_SPEC.md](../companion/HOST_FN_ABI_SPEC.md) |
 | wasmtime + Cranelift AOT            | Pinned wasmtime version in `Cargo.toml`         |
 | Module cache size                   | `MODULE_CACHE_SIZE` in `wasm-exec/src/module_cache.rs` (post-pivot) |
 | Committee 128, threshold 85          | `COMMITTEE_SIZE`, `THRESHOLD` in `consensus/quorum.rs`|

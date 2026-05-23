@@ -51,7 +51,7 @@ The sequential prerequisites before any code stream can begin in earnest.
 Old engine work lives in `archive/`. New engine repo starts fresh post-pivot.
 
 - [ ] Confirm `archive/` has the engine's pre-pivot state preserved (it does)
-- [ ] Update all doc references that say `engine/...` (for historical / pre-pivot context) to point at `archive/...`
+- [x] ~~Update all doc references that say `engine/...` (for historical / pre-pivot context) to point at `archive/...`~~ (DONE)
 - [ ] Mark the old `pyde-net/engine` GitHub repo as archived (read-only) OR rename to `pyde-net/engine-prepivot`
 - [ ] Create fresh `pyde-net/engine` repo + local `/pyde-net/engine/` workspace
 - [ ] Initial commit on new repo: a single README explaining "post-WASM-pivot engine workspace; pre-pivot work in `pyde-net/engine-prepivot` (or archive)"
@@ -125,7 +125,7 @@ The heart of the chain. Multiple sub-streams running in parallel; converging at 
 
 ### 2.3 State Layer (PIPs + JMT) `[PAR within]`
 
-- [ ] **PIP-2 clustered slot keys** (engine/crates/state/src/keys.rs migration)
+- [ ] **PIP-2 clustered slot keys** (`archive/crates/state/src/keys.rs` is the pre-pivot reference; clustering re-implemented in the fresh post-pivot engine)
 - [ ] **PIP-3 scheduler-level prefetch** (wave-level MultiGet against access lists)
 - [ ] **PIP-4 write-back cache** (DashMap, warm window, lazy flush + auto-tune, crash recovery)
 - [ ] **Dual-hash JMT** (Blake3 + Poseidon2 per node; both state roots; dual-root signed in HardFinalityCert)

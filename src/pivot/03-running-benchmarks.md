@@ -146,11 +146,11 @@ Those benchmarks live with the performance harness, not in the engine bench file
 |-----------|--------|
 | `interpreter_bench` | `archive/crates/pvm/benches/interpreter_bench.rs` |
 | `aot_bench` | `archive/crates/aot/benches/aot_bench.rs` |
-| (future) WASM-equivalent benches | `engine/crates/wasm-exec/benches/` (to be added) |
+| (future) WASM-equivalent benches | `wasm-exec/benches/` in the fresh post-pivot engine repo (to be added) |
 | (future) host-function micro-benches | same crate |
 | (future) full-chain harness | separate repo (planned) |
 
-The benchmark files live in the `archive` repository under `archive/crates/pvm/benches/` and `archive/crates/aot/benches/` — preserved with git history intact, runnable indefinitely. When the WASM execution layer ships, equivalent benchmarks will be added under `engine/crates/wasm-exec/benches/` so the same workload shapes can be measured on the WASM stack for comparison.
+The benchmark files live in the `archive` repository under `archive/crates/pvm/benches/` and `archive/crates/aot/benches/` — preserved with git history intact, runnable indefinitely. When the WASM execution layer ships in the freshly-cut post-pivot engine repo, equivalent benchmarks will be added under `wasm-exec/benches/` so the same workload shapes can be measured on the WASM stack for comparison.
 
 ## Reading on
 

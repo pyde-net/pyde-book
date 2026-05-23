@@ -317,8 +317,15 @@ Each item moves on PIP merit, audit capacity, and ecosystem demand.
 
 ## M. Key References in the Codebase
 
-For readers diving into the source. All paths relative to the workspace
-root.
+For readers diving into the source. The pre-pivot crates listed below
+(crypto, state, account, slashing, tx, consensus, networking, mempool,
+node) live in the [`pyde-net/archive`](https://github.com/pyde-net/archive)
+repository, preserved with full git history. The post-pivot WASM
+execution layer crate (`wasm-exec`) is to be implemented in a
+freshly-cut workspace when the WASM-era engine repo is bootstrapped —
+the row below is forward-looking. Paths are relative to whichever
+workspace the file ends up in (archive workspace for pre-pivot rows,
+the future post-pivot workspace for `wasm-exec`).
 
 | Subsystem            | Key files                                                    |
 | -------------------- | ------------------------------------------------------------ |
@@ -333,7 +340,7 @@ root.
 | Networking           | `crates/net/src/{node,channels,auth,peer,ddos,discovery,config}.rs` |
 | Mempool              | `crates/mempool/src/{pool,block_builder,inclusion,encrypted}.rs` |
 | Node binary + RPC    | `crates/node/src/{main,cli,rpc,validator,consensus_store,receipt_store}.rs` |
-| WASM execution layer | `crates/wasm-exec/src/{lib,host_fns,module_cache,gas_meter,validate}.rs` |
+| WASM execution layer (to be implemented) | `wasm-exec/src/{lib,host_fns,module_cache,gas_meter,validate}.rs` (post-pivot) |
 | `otigen` developer toolchain | `pyde-net/otigen` (separate repo): subcommand framework, otigen.toml schema, language detection, state binding generators (Rust/AS/Go/C), deploy flow, wallet |
 | Rust SDK             | `crates/pyde-rust-sdk/src/{lib,client,wallet,contract,signer,abi,types,ws}.rs` |
 | WASM crypto          | `crates/pyde-crypto-wasm/src/lib.rs`                          |
@@ -362,9 +369,9 @@ The key headline figures, with their sources:
 | 128 KB tx / 64 KB calldata caps     | `MAX_TX_SIZE`, `MAX_CALLDATA` in `tx/validation.rs`|
 | 4 MB batch hard cap                 | `MAX_BATCH_SIZE` in `mempool/batch.rs`          |
 | 1 MB witness cap                    | `MAX_WITNESS_SIZE` in `state/witness.rs`       |
-| WASM host function ABI v1.0         | `crates/wasm-exec/src/host_fns.rs` + Host Function ABI spec doc |
+| WASM host function ABI v1.0         | `wasm-exec/src/host_fns.rs` (post-pivot) + [Host Function ABI spec doc](../companion/) |
 | wasmtime + Cranelift AOT            | Pinned wasmtime version in `Cargo.toml`         |
-| Module cache size                   | `MODULE_CACHE_SIZE` in `crates/wasm-exec/src/module_cache.rs` |
+| Module cache size                   | `MODULE_CACHE_SIZE` in `wasm-exec/src/module_cache.rs` (post-pivot) |
 | Committee 128, threshold 85          | `COMMITTEE_SIZE`, `THRESHOLD` in `consensus/quorum.rs`|
 | 85-of-128 threshold for decryption  | `RANDOMNESS_THRESHOLD` (and equivalent for Kyber) |
 

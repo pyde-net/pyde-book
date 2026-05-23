@@ -2,17 +2,17 @@
 
 <img src="../assets/logo.png" alt="The Pyde mark" class="pyde-logo-hero" />
 
-*A guided tour for the impatient. Read this first to build intuition; then the technical chapters will land.*
+_A guided tour for the impatient. Read this first to build intuition; then the technical chapters will land._
 
 ---
 
-## What's in a name
+## What's in the name
 
-**Pyde** (pronounced *pied*, rhymes with **tide**). The name carries two senses at once, and both are intentional.
+**Pyde** (pronounced _pied_, rhymes with **tide**). The name carries two senses at once, and both are intentional.
 
 The older sense is **tide**. A tide is an inescapable, continuous current — it does not ask permission, it does not stop for the night, it does not wait for any single drop to arrive before moving the next. Pyde the network was designed to feel like that. The throughput of a blockchain is rarely about how fast one transaction can land; it is about whether the assembly line ever empties. Pyde's assembly line does not empty. The protocol commits in **waves** — not poetic waves, literal ones, the way water commits to shore — and the rest state of the system is motion. The factory metaphor that runs through this book is the tide made mechanical.
 
-The surface sense is **pied** — a casual, phonetic spelling. The name was picked to sit quietly: short, easy to say, easy to type in a hurry, distinctive enough to search for. *pyde.network*, *@pydenet*, *t.me/pydenet* — the rhythm matters when you will type it ten thousand times. It was picked knowing it would mostly be written lowercase, in DMs, by people whose hands are tired.
+The surface sense is **pied** — a casual, phonetic spelling. The name was picked to sit quietly: short, easy to say, easy to type in a hurry, distinctive enough to search for. _pyde.network_, _@pydenet_, _t.me/pydenet_ — the rhythm matters when you will type it ten thousand times. It was picked knowing it would mostly be written lowercase, in DMs, by people whose hands are tired.
 
 There is no third sense. No hidden Greek letter, no acronym backing it out, no "Programmable Yield Decentralization Engine" trying to sneak in through the back door. The name is just the name.
 
@@ -22,7 +22,7 @@ The mark is based on **atomic structure** — a nucleus and its orbital.
 
 The **vertical form is the core.** Dense, gravitational, everything pulls toward it. Pyde's architecture is monolithic: consensus and execution unified in one gravitational center.
 
-The **circle to its right is in orbit.** Independent, in motion, but bound to the core by an invisible force. External chains, bridges, and light clients orbit Pyde freely — *verified*, not *trusted*.
+The **circle to its right is in orbit.** Independent, in motion, but bound to the core by an invisible force. External chains, bridges, and light clients orbit Pyde freely — _verified_, not _trusted_.
 
 The two are separate on purpose. Related but sovereign. The same way a Pyde finality certificate can prove itself anywhere without depending on the chain it came from.
 
@@ -54,7 +54,7 @@ One core. Many orbits. Bound by physics, not by trust.
 
 Most blockchain explanations start with cryptography and end with consensus, leaving the reader holding a bag of acronyms. We are going to do this differently.
 
-Pyde is a **factory**. Goods (transactions) arrive at the loading dock from outside. They are sorted, lifted onto a continuously-moving assembly line, and arranged by a series of robotic arms working in parallel. Every few hundred milliseconds, a controlled detonation locks in a batch as final — the *bang* you feel when the factory floor shakes is a wave commit. After the bang, the audit ledger is stamped, smoke rises from the chimney (eviction, pruning), a receipt is sent out the front door, and the line keeps moving without ever stopping.
+Pyde is a **factory**. Goods (transactions) arrive at the loading dock from outside. They are sorted, lifted onto a continuously-moving assembly line, and arranged by a series of robotic arms working in parallel. Every few hundred milliseconds, a controlled detonation locks in a batch as final — the _bang_ you feel when the factory floor shakes is a wave commit. After the bang, the audit ledger is stamped, smoke rises from the chimney (eviction, pruning), a receipt is sent out the front door, and the line keeps moving without ever stopping.
 
 The continuous rotation is the throughput. Pyde is not a fast database; it is a deep pipeline.
 
@@ -71,7 +71,7 @@ The full cycle, end-to-end, from a user's keypress to a receipt landing back in 
 
 ### Stage 0 — Workshop floor (the user)
 
-A user opens a wallet and asks it to send 100 PYDE to `alice.pyde`. The wallet quietly does five things before showing a "Sign" button: it resolves the recipient name via JSON-RPC, fetches the sender's account state, fetches any relevant contract bytecode, runs the transaction *locally* inside a wasmtime sandbox embedded in the wallet itself (Tier 1 client-side preview, see [Chapter 17 §17.4b](../chapters/17-developer-tools.md)), and shows the user a preview: *"This tx will send 100 PYDE, cost ~21,000 gas, leave your balance at 900 PYDE."* Only then does the user sign with their FALCON-512 key, and only then does the tx leave their machine.
+A user opens a wallet and asks it to send 100 PYDE to `alice.pyde`. The wallet quietly does five things before showing a "Sign" button: it resolves the recipient name via JSON-RPC, fetches the sender's account state, fetches any relevant contract bytecode, runs the transaction _locally_ inside a wasmtime sandbox embedded in the wallet itself (Tier 1 client-side preview, see [Chapter 17 §17.4b](../chapters/17-developer-tools.md)), and shows the user a preview: _"This tx will send 100 PYDE, cost ~21,000 gas, leave your balance at 900 PYDE."_ Only then does the user sign with their FALCON-512 key, and only then does the tx leave their machine.
 
 If the user opted for confidentiality, the wallet also encrypts the payload with the current epoch's threshold pubkey before signing — the recipient and amount become opaque ciphertext that no validator can read until the wave commits.
 
@@ -87,7 +87,7 @@ Every node — and especially every committee validator — runs a validation pi
 
 Inside each of the 128 committee members for this epoch, two things happen continuously. First, every hundred milliseconds or so, the member packs the highest-fee transactions into a **Batch** (~50-200 txs, ~4 MB cap) and broadcasts it on the `/pyde/batches/1.0.0` topic. Second, every round (~150-500 ms, structurally paced — see below), the member emits a **Vertex** that references ≥85 parent vertices from the previous round, references whichever batches it wants to include, carries piggybacked decryption shares for any encrypted transactions in the subdag, contributes a VRF beacon share, attests to the previous anchor, and is signed by the member's epoch key. Vertices broadcast on `/pyde/dag/1.0.0` and form the next floor of the DAG.
 
-The round advances when the member has *seen ≥85 vertices from the current round*, not when its own timer fires. This is the structural-pacing trick that makes Mysticeti elegant: the floor speed is the median peer speed, not the slowest peer's speed. A single laggard cannot stall the line.
+The round advances when the member has _seen ≥85 vertices from the current round_, not when its own timer fires. This is the structural-pacing trick that makes Mysticeti elegant: the floor speed is the median peer speed, not the slowest peer's speed. A single laggard cannot stall the line.
 
 ### Stage 4 — The foreman picks the lead (anchor selection)
 
@@ -109,7 +109,7 @@ What the bang does, in three lines:
 2. **Canonical sort** — order the subdag by (round, author_id, batch_list_order). Every honest member produces the same order.
 3. **Dedupe + flatten** — same transaction may appear in multiple batches across multiple members; keep the first appearance. The result is the wave's `ordered_list`, a fully deterministic transaction sequence.
 
-That sequence is *what gets executed*. Before the bang the DAG is ambiguous; after the bang it is fixed. See [Chapter 6 §5b–5c](../chapters/06-consensus.md) for round-vs-wave terminology, missing-vertex handling, and the 5-skip recovery walkthrough.
+That sequence is _what gets executed_. Before the bang the DAG is ambiguous; after the bang it is fixed. See [Chapter 6 §5b–5c](../chapters/06-consensus.md) for round-vs-wave terminology, missing-vertex handling, and the 5-skip recovery walkthrough.
 
 ### Stage 6 — Unboxing the sealed crates (threshold decryption)
 
@@ -125,7 +125,7 @@ For each transaction, the dispatch looks at the type. Native transactions (Trans
 
 ### Stage 8 — Inventory audit (state root computation)
 
-After execution, the wave overlay holds every write *and* every emitted event. Now the audit stamp goes on. Each `(slot_hash, value)` write lands in two places: the **state_cf** flat table (live state, O(1) reads later) and the **jmt_cf** versioned tree (proofs and state root). JMT internal nodes touched by this wave are recomputed with dual hashes — Blake3 for fast native verification, Poseidon2 for future ZK light clients (see [Chapter 4 §4.1b](../chapters/04-state-model.md)). Events land in three more column families — **events_cf** (primary, ordered by wave) plus **events_by_topic_cf** and **events_by_contract_cf** (indexes for fast filtering) — and the wave commit record carries an `events_root` (Blake3 Merkle tree over canonical-ordered events) plus a 256-byte `events_bloom` so light clients can verify event inclusion identically to how they verify state. The new state root, the events root + bloom, the wave commit record, the receipts, and the tx-to-wave mapping all land in a single atomic RocksDB WriteBatch. Either the entire wave commits or none of it does. There is no such thing as a half-committed wave.
+After execution, the wave overlay holds every write _and_ every emitted event. Now the audit stamp goes on. Each `(slot_hash, value)` write lands in two places: the **state_cf** flat table (live state, O(1) reads later) and the **jmt_cf** versioned tree (proofs and state root). JMT internal nodes touched by this wave are recomputed with dual hashes — Blake3 for fast native verification, Poseidon2 for future ZK light clients (see [Chapter 4 §4.1b](../chapters/04-state-model.md)). Events land in three more column families — **events_cf** (primary, ordered by wave) plus **events_by_topic_cf** and **events_by_contract_cf** (indexes for fast filtering) — and the wave commit record carries an `events_root` (Blake3 Merkle tree over canonical-ordered events) plus a 256-byte `events_bloom` so light clients can verify event inclusion identically to how they verify state. The new state root, the events root + bloom, the wave commit record, the receipts, and the tx-to-wave mapping all land in a single atomic RocksDB WriteBatch. Either the entire wave commits or none of it does. There is no such thing as a half-committed wave.
 
 ### Stage 9 — Smoke from the chimney (eviction and pruning) 💨
 
@@ -143,12 +143,12 @@ The wallet has been holding a WebSocket subscription on the transaction hash sin
   "status": "success",
   "wave_id": 1234567,
   "gas_used": 21000,
-  "events": [{"topic": "Transfer", "to": "0xabc...", "amount": "100"}],
+  "events": [{ "topic": "Transfer", "to": "0xabc...", "amount": "100" }],
   "state_root": "0x..."
 }
 ```
 
-The wallet updates the user's view: *"Transferred 100 PYDE to alice.pyde. Confirmed."* For light clients (mobile wallets, browser dApps), the same wave commits as a 200-byte header signed by the committee threshold — the light client verifies the threshold signature against the committee pubkeys it already trusts and has now verified the entire wave's integrity without downloading a single transaction. See [Chapter 17 §17.3](../chapters/17-developer-tools.md) for the SDK surface and [Companion: State Sync](../companion/STATE_SYNC.md) for the light-client model.
+The wallet updates the user's view: _"Transferred 100 PYDE to alice.pyde. Confirmed."_ For light clients (mobile wallets, browser dApps), the same wave commits as a 200-byte header signed by the committee threshold — the light client verifies the threshold signature against the committee pubkeys it already trusts and has now verified the entire wave's integrity without downloading a single transaction. See [Chapter 17 §17.3](../chapters/17-developer-tools.md) for the SDK surface and [Companion: State Sync](../companion/STATE_SYNC.md) for the light-client model.
 
 ### Stage 11 — The eternal rotation 🔁
 

@@ -41,7 +41,13 @@ otigen console                          REPL against a local or remote node
 
 There is no `otigen test`. Authors use their language's native test runner.
 
-For the full reference — `otigen.toml` schema, per-language workflows, state binding generation, deploy/upgrade flow internals — see [Chapter 5](./05-otigen-toolchain.md).
+### Performance — what to expect from `otigen build`
+
+The whole `otigen build` validation + packaging pipeline runs in **single-digit microseconds of CPU work** for a typical contract (parse `otigen.toml`, validate every cross-cutting rule, walk the compiled `.wasm` for imports + exports + deterministic-feature compliance, build the canonical `ContractAbi`, Borsh-encode, inject the `pyde.abi` custom section). Wall-clock invocations are dominated by file I/O — reading the `.wasm` + writing the four bundle files — which lands in the 1–5 ms range on commodity hardware. Validator work is essentially free against that.
+
+The full in-memory pipeline measures **~14.5 µs** on an Apple M-series reference machine. Per-step numbers (Blake3 selector derivation, Borsh encode, custom-section injection, WASM-feature validation) are in [Chapter 5 §5.11](./05-otigen-toolchain.md#511-performance) with a reproduction recipe via `cargo bench`. Baselines are committed under `crates/<crate>/benches/baseline/` in the `pyde-net/otigen` repo; future regressions surface on every PR that runs `cargo bench --baseline=v1`.
+
+For the full reference — `otigen.toml` schema, per-language workflows, state binding generation, deploy/upgrade flow internals, performance numbers — see [Chapter 5](./05-otigen-toolchain.md).
 
 ---
 

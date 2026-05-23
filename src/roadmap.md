@@ -261,7 +261,7 @@ Implements Chapter 6, `SLASHING.md`, `VALIDATOR_LIFECYCLE.md`, `STATE_SYNC.md`, 
 - [x] Equivocation flagging on insert (`InsertOutcome::Equivocation { prior_at_slot }`; full slashing flow lives in γ.4)
 - [x] Vertex production pipeline (`VertexBuilder` + `Signer` trait + `select_parents` helper that skips equivocating slots; returns `(VertexHash, Vertex)` so callers get the dedup key free) — PR [#2](https://github.com/pyde-net/engine/pull/2)
 - [x] Vertex validation pipeline (`validate_vertex` + `Verifier` trait + `ValidationConfig`; cheapest-first checks: range → batch-dedup → parent quorum → parent-round homogeneity → FALCON sig; `MissingParent` returns hash so caller can fetch and retry) — PR [#3](https://github.com/pyde-net/engine/pull/3)
-- [ ] Round advancement (peer-attestation triggered; data-driven, NOT clock-driven)
+- [x] Round advancement (`RoundTracker`: monotonic counter, distinct-`member_id` quorum check, `try_advance` / `try_advance_to_max` for state-sync catch-up, equivocator-resistant via distinct-producer counting) — PR [#9](https://github.com/pyde-net/engine/pull/9)
 - [x] Anchor selection: `select_anchor(beacon, round, lookback_state_root, committee_size)` — Blake3 over `beacon || round.le || state_root.blake3`, mod committee. Dual-hash aware (only Blake3 leg mixes in; Poseidon2 reserved for SNARK paths). Uniform at 128 = 2^7 (no rejection sampling needed). — PR [#4](https://github.com/pyde-net/engine/pull/4)
 - [ ] VRF beacon derivation (uses pyde-crypto)
 - [x] Mysticeti 3-stage support check (`check_anchor_support`: supporters at R+1 + certifiers at R+2; Committed / Pending / Skipped — Skipped prevents stall on bad proposer) — PR [#5](https://github.com/pyde-net/engine/pull/5)

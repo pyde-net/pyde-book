@@ -108,7 +108,7 @@ The core protocol implementation. Three streams run in parallel: α (toolchain),
 
 Implements [`OTIGEN_BINARY_SPEC.md`](companion/OTIGEN_BINARY_SPEC.md).
 
-- [ ] `pyde-net/otigen` repo + Rust workspace
+- [x] `pyde-net/otigen` repo + Rust workspace
 - [ ] `otigen-toml`: config parser + schema validation (spec §4)
 - [ ] `otigen-abi`: `ContractAbi` construction + Borsh encoding + custom-section injection via `wasm-encoder` (spec §6)
 - [ ] `otigen-cli`: subcommand framework via `clap` (spec §3)

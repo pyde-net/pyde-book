@@ -315,9 +315,24 @@ Implements Chapter 6, `SLASHING.md`, `VALIDATOR_LIFECYCLE.md`, `STATE_SYNC.md`, 
 
 Merge `execution-side` and `consensus-side` branches to `main`. Bring up a local devnet.
 
+### MC-2 spike ✅ shipped (precedes full MC-2)
+
+A **single-validator** devnet running the real consensus driver end-to-end with stubbed crypto / network / persistence. The "Pyde transfers value, today" demonstration — real Mysticeti 3-stage commit, real BFS subdag walk, real `WaveCommitRecord` assembly, real `HardFinalityCert` collection, for a real transfer transaction.
+
+- [x] `DevnetState` — `StateMutator` impl with real transfer + fee + nonce-window logic — PR [#15](https://github.com/pyde-net/engine/pull/15)
+- [x] `DevnetExecutor` — pure pre-flight `Executor` impl — PR [#16](https://github.com/pyde-net/engine/pull/16)
+- [x] `Devnet` composer + `Wallet` — full single-validator commit loop — PR [#17](https://github.com/pyde-net/engine/pull/17)
+- [x] `run_smoke` scenario + 8 integration tests — PR [#18](https://github.com/pyde-net/engine/pull/18)
+- [x] `pyde-node devnet --smoke` CLI subcommand — PR [#19](https://github.com/pyde-net/engine/pull/19)
+- [x] README "Try the demo" + bench baseline link — PR [#20](https://github.com/pyde-net/engine/pull/20)
+
+Reproduce: `cargo run --bin pyde -- devnet --smoke`. Full bench baseline: [`crates/consensus/benches/baseline.md`](https://github.com/pyde-net/engine/blob/main/crates/consensus/benches/baseline.md).
+
+### Full MC-2 (ahead — needs real β + real γ libs wired)
+
 - [ ] Final merges of β and γ to `main` (γ owns this)
-- [ ] Local devnet config (4-7 validators on a single machine)
-- [ ] End-to-end test flow:
+- [ ] Local devnet config (4-7 validators on a single machine, real libp2p networking)
+- [ ] End-to-end test flow with real crypto + real persistence + real WASM:
   - Author writes contract (with α's otigen)
   - `otigen deploy` against the devnet
   - Tx submitted, validated by mempool (β), included in vertex (γ)

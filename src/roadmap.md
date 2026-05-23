@@ -120,7 +120,7 @@ Implements [`OTIGEN_BINARY_SPEC.md`](companion/OTIGEN_BINARY_SPEC.md).
 - [x] `otigen-toml`: config parser + schema validation (spec §4)
 - [x] `otigen-abi`: `ContractAbi` construction + Borsh encoding + custom-section injection via `wasm-encoder` (spec §6)
 - [ ] `otigen-cli`: subcommand framework via `clap` (spec §3)
-- [ ] `otigen build`: full validation pipeline (spec §3.2 step-by-step)
+- [x] `otigen build`: full validation pipeline (spec §3.2 step-by-step)
 - [ ] `otigen-wallet`: keystore (Argon2id + AES-256-GCM), FALCON-512 signing (spec §7)
 - [ ] `otigen-rpc`: JSON-RPC client (spec §8)
 - [ ] `otigen deploy` / `upgrade` / `pause` / `unpause` / `kill` / `inspect`

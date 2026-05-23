@@ -616,18 +616,44 @@ Gas: 8 base + 1 per byte copied.
 #### `emit_event`
 
 ```text
-pyde::emit_event(topic_ptr: i32, topic_len: i32, data_ptr: i32, data_len: i32) -> i32
+pyde::emit_event(
+    topics_ptr: i32,        — pointer to (topics_count × 32) bytes of topic data
+    topics_count: i32,      — number of topics; must be 1 ≤ topics_count ≤ 4
+    data_ptr: i32,
+    data_len: i32,
+) -> i32
 
-topic_ptr, topic_len  — variable-length topic bytes (typically a 32-byte hash of the event name)
-data_ptr,  data_len   — variable-length event payload
+topics_ptr     — pointer to topics_count consecutive 32-byte topic values
+topics_count   — 1 to 4 inclusive; topic[0] is conventionally Blake3(signature)
+data_ptr, len  — variable-length non-indexed event payload
 
-Returns: 0 on success, ERR_FORBIDDEN if called from a view function.
+Returns: 0 on success,
+         ERR_FORBIDDEN if called from a view function,
+         ERR_INVALID_INPUT if topics_count < 1 or topics_count > 4,
+         ERR_INVALID_INPUT if data_len > MAX_EVENT_DATA_SIZE.
 
-Gas: 100 base + 8 per (topic_len + data_len) byte.
+Gas: 100 base + 50 × topics_count + 8 per data byte.
+     (Each topic adds 32 bytes of state-commitment cost; 50 gas per topic
+      covers the bloom-set + per-topic index write.)
 
-Semantics: appends an event record to the current transaction's event log. Events
-are queryable from RPC via topic filters, included in the wave's events_cf, and
-emitted to JSON-RPC subscribers in real time.
+Semantics:
+  Appends an event record to the current overlay's events buffer. Topic
+  semantics follow the §14.1 convention:
+  - topic[0] = Blake3(canonical_event_signature). Identifies the event type;
+    this is what subscribers and indexers match on as the primary filter.
+  - topic[1..topics_count] = indexed field values, in declaration order.
+    Each indexed field's value occupies one 32-byte topic slot. Authors
+    declare which fields are indexed in otigen.toml (§14.1).
+
+  At wave commit (§15), the events buffer flushes atomically with state:
+  - One row to events_cf (primary, keyed by (wave_id, tx_index, event_index))
+  - topics_count rows to events_by_topic_cf (one per topic value)
+  - One row to events_by_contract_cf (keyed by contract_addr)
+  - Every topic + the contract_addr is added to the wave's events_bloom
+  - The event participates in the wave's events_root Merkle tree
+
+  Events from a reverted (sub-)call are discarded along with the overlay;
+  the chain never sees events from a path that did not commit.
 ```
 
 ### 7.6 Hashing primitives
@@ -964,17 +990,24 @@ Gas: 5 base.
 
 ```text
 pyde::parachain_emit_event(
-    topic_ptr: i32, topic_len: i32,
-    data_ptr: i32, data_len: i32
+    topics_ptr: i32,
+    topics_count: i32,    — 1 to 4 inclusive; topic[0] = Blake3(signature)
+    data_ptr: i32,
+    data_len: i32,
 ) -> i32
 
-Returns: 0 on success, ERR_FORBIDDEN if view fn.
+Returns: 0 on success,
+         ERR_FORBIDDEN if view fn,
+         ERR_INVALID_INPUT if topics_count out of range or data oversized.
 
-Gas: 100 base + 8 per byte.
+Gas: 100 base + 50 × topics_count + 8 per data byte.
 
-Notes: distinct from the core emit_event because parachain events are filed under
-the parachain's own event-stream namespace; subscribers can listen for events from
-a specific parachain without filtering everything else out.
+Semantics: identical to the core emit_event (§7.5) including multi-topic
+support and the indexed-field convention. The event is filed under the
+parachain's own event-stream namespace (the contract_addr field of the
+EventRecord carries the parachain_id) so subscribers can filter for a
+specific parachain's events. Same storage layout and indexing as core
+events (§15.3).
 ```
 
 ### 8.4 Cross-parachain messaging
@@ -1107,7 +1140,7 @@ Authoritative gas costs for every host function. This table is the source of tru
 | `tx_gas_remaining` | 2 | — | |
 | `calldata_size` | 2 | — | |
 | `calldata_copy` | 8 | 1 / byte | |
-| `emit_event` | 100 | 8 / byte (topic + data) | |
+| `emit_event` | 100 | + 50 / topic + 8 / data byte | 1 to 4 topics; topic[0] conventionally signature hash |
 | `hash_blake3` | 15 | 3 / word (8 bytes) | |
 | `hash_poseidon2` | 100 | 30 / word | ZK-friendly, expensive |
 | `hash_keccak256` | 30 | 6 / word | EVM-compat |
@@ -1124,7 +1157,7 @@ Authoritative gas costs for every host function. This table is the source of tru
 | `parachain_storage_delete` | 250 | — | Parachain only |
 | `parachain_id` | 5 | — | Parachain only |
 | `parachain_version` | 5 | — | Parachain only |
-| `parachain_emit_event` | 100 | 8 / byte | Parachain only |
+| `parachain_emit_event` | 100 | + 50 / topic + 8 / data byte | Parachain only; same multi-topic surface as core emit_event |
 | `send_xparachain_message` | 10,000 | 8 / byte | Parachain only |
 | `threshold_encrypt` | 80,000 | 100 / byte | Parachain only |
 | `threshold_decrypt` | 100,000 | 50 / byte | Parachain only |
@@ -1490,17 +1523,51 @@ This is cheaper (no overlay push/merge) and safer (no reentrancy risk — view f
 
 ## 14. Event encoding convention
 
-The `emit_event` host function takes opaque bytes — the chain doesn't care what's in them. For wallets, indexers, and SDKs to decode events consistently, Pyde defines a canonical convention.
+Each event carries **1 to 4 topics** (each 32 bytes) plus an **opaque data payload**. The chain stores both verbatim. For wallets, indexers, and SDKs to decode events consistently, Pyde defines a canonical convention for both.
 
-### 14.1 Topic
+### 14.1 Topics
 
-The **topic** is the 32-byte Blake3 hash of a canonical event signature string:
+Topics are how events are indexed and filtered on-chain. Each event has 1 to 4 topics. By convention:
 
+- **`topic[0]`** is *always* `Blake3(canonical_event_signature)`. This is the event-type identifier — what subscribers and indexers match on as the primary filter.
+- **`topic[1..topics_count]`** are indexed-field values, in author-declared order.
+
+Authors mark fields as indexed in `otigen.toml`:
+
+```toml
+[events.Transfer]
+signature = "Transfer(address,address,uint128)"
+fields = [
+    { name = "from",   type = "address",  indexed = true },
+    { name = "to",     type = "address",  indexed = true },
+    { name = "amount", type = "uint128" },   # not indexed → goes in data
+]
 ```
-topic = Blake3("EventName(type1,type2,...)")
-```
 
-Type names mirror Solidity's for familiarity:
+Up to **3 fields can be `indexed`** (giving a total of 4 topics — signature plus 3 — matching EVM's LOG4 limit).
+
+#### Topic value encoding
+
+How each indexed-field value becomes a 32-byte topic:
+
+| Field type | Encoding rule |
+|---|---|
+| `address` ([u8; 32]) | Stored as-is (already 32 bytes) |
+| `uint64`, `int64` | Left-padded to 32 bytes (zeros in MSB) |
+| `uint128`, `int128` | Left-padded to 32 bytes |
+| `bool` | Left-padded to 32 bytes (`0x00...00` or `0x00...01`) |
+| `[u8; N]` where N ≤ 32 | Left-padded to 32 bytes |
+| `string` | `Blake3(utf8_bytes)` |
+| `bytes` (`Vec<u8>`) | `Blake3(bytes)` |
+| `T[]` (`Vec<T>`) | `Blake3(borsh_encode(value))` |
+| `struct { ... }` | `Blake3(borsh_encode(value))` |
+| `enum { ... }` | `Blake3(borsh_encode(value))` |
+
+Rule: **fixed-size ≤32 bytes get stored as-is (padded); variable-size or >32 bytes get hashed**. Matches EVM's `indexed` semantics.
+
+#### Canonical signature string
+
+The signature string drives `topic[0]`. Type names mirror Solidity's for familiarity:
 
 | Pyde type | Signature token |
 |---|---|
@@ -1508,19 +1575,25 @@ Type names mirror Solidity's for familiarity:
 | `u64` | `uint64` |
 | `u128` | `uint128` |
 | `i64` | `int64` |
+| `bool` | `bool` |
 | `String` (UTF-8) | `string` |
+| `Vec<u8>` | `bytes` |
 | `Vec<T>` | `T[]` |
+| `[T; N]` | `T[N]` |
 | `enum X { ... }` | `enum` |
-| Raw bytes | `bytes` |
+| Custom struct | `tuple` (with field types in parens; rare) |
 
-Example:
+Examples:
+
 ```
 "Transfer(address,address,uint128)"
 "Approval(address,address,uint128,uint64)"
 "OrderFilled(address,string,uint128,uint64[],enum)"
 ```
 
-The signature string is **not stored on chain** — only its Blake3 hash. Indexers and SDKs maintain a registry of signatures they care about and hash them locally to match against event topics.
+The signature string is **not stored on chain** — only `Blake3(signature)` is, as `topic[0]`. Indexers and SDKs maintain a registry of signatures they care about and hash them locally to match against event topics. The `pyde.abi` custom section of the deployed contract carries the full signature for any explorer that wants to render the event with field names.
+
+### 14.2 Data
 
 ### 14.2 Data
 
@@ -1540,61 +1613,94 @@ Borsh chosen as the recommended default over alternatives:
 
 Borsh is supported in: Rust (`borsh` crate), TypeScript (`@dao-xyz/borsh-ts`, `borsh-js`), AssemblyScript (community `as-borsh`), Go (`github.com/near/borsh-go`), C (community), Python (`borsh-construct`). Pyde's recommendation tracks this ecosystem; if a language gains a high-quality Borsh implementation, contracts in that language get first-class event support without Pyde shipping bindings.
 
-### 14.3 Example: Rust emitter
+### 14.3 Example: Rust emitter (with indexed fields)
+
+The author declares the event in `otigen.toml` (per §14.1). The SDK generates a typed emit helper. The author's code stays clean:
 
 ```rust
-use borsh::BorshSerialize;
+use pyde_contract::events;
 
-#[derive(BorshSerialize)]
-struct TransferEvent {
-    from: [u8; 32],
-    to: [u8; 32],
-    amount: u128,
-}
-
-fn emit_transfer(from: [u8; 32], to: [u8; 32], amount: u128) {
-    // 1. Build the data payload
-    let evt = TransferEvent { from, to, amount };
-    let data = borsh::to_vec(&evt).unwrap();
-
-    // 2. Build the topic
-    let sig = b"Transfer(address,address,uint128)";
-    let mut topic = [0u8; 32];
-    unsafe {
-        hash_blake3(sig.as_ptr() as u32, sig.len() as u32, topic.as_mut_ptr() as u32);
-    }
-
-    // 3. Emit
-    unsafe {
-        emit_event(
-            topic.as_ptr() as u32, 32,
-            data.as_ptr() as u32, data.len() as u32,
-        )
-    };
-}
+// Inside a contract function:
+events::Transfer {
+    from:   caller_address,
+    to:     recipient,
+    amount: 100u128,
+}.emit();
 ```
 
-### 14.4 Example: TypeScript decoder (in pyde-ts-sdk)
+Behind the scenes, the SDK helper (generated from `otigen.toml`) builds the call:
+
+```rust
+// Generated by SDK from otigen.toml — author doesn't write this
+impl Transfer {
+    pub fn emit(self) -> i32 {
+        // 1. Build topics
+        let mut topics = [0u8; 4 * 32];
+
+        // topic[0] = Blake3(signature) — precomputed constant
+        topics[0..32].copy_from_slice(&TRANSFER_SIGNATURE_HASH);
+
+        // topic[1] = padded(from) — address is already 32 bytes
+        topics[32..64].copy_from_slice(&self.from);
+
+        // topic[2] = padded(to)
+        topics[64..96].copy_from_slice(&self.to);
+
+        // No topic[3] — we only have 2 indexed fields.
+
+        // 2. Borsh-encode non-indexed fields (just amount)
+        let data = borsh::to_vec(&self.amount).unwrap();
+
+        // 3. Call the host function
+        unsafe {
+            emit_event(
+                topics.as_ptr() as u32, 3,                      // topics_count = 3
+                data.as_ptr() as u32, data.len() as u32,
+            )
+        }
+    }
+}
+
+// Precomputed at otigen build time:
+const TRANSFER_SIGNATURE_HASH: [u8; 32] = blake3_const(b"Transfer(address,address,uint128)");
+```
+
+For events without indexed fields, the SDK emits with `topics_count = 1` (just the signature hash) and Borsh-encodes all fields into data.
+
+### 14.4 Example: TypeScript decoder (in pyde-ts-sdk, with indexed fields)
 
 ```typescript
 import { deserialize } from "@dao-xyz/borsh-ts";
 import { blake3 } from "@noble/hashes/blake3";
 
-class TransferEvent {
-  from: Uint8Array;  // 32 bytes
-  to: Uint8Array;    // 32 bytes
+// Borsh schema only needs the NON-indexed fields:
+class TransferEventData {
   amount: bigint;    // u128
 }
 
 const transferTopic = blake3("Transfer(address,address,uint128)");
 
 for await (const event of subscription) {
-  if (uint8ArrayEqual(event.topic, transferTopic)) {
-    const decoded = deserialize(event.data, TransferEvent);
-    console.log(`Transfer from ${hex(decoded.from)} to ${hex(decoded.to)} amount ${decoded.amount}`);
-  }
+  // Match by signature hash at topic[0]
+  if (!uint8ArrayEqual(event.topics[0], transferTopic)) continue;
+
+  // Indexed fields come from topics[1..]:
+  const from = event.topics[1];   // 32-byte address (no padding for addresses)
+  const to   = event.topics[2];
+
+  // Non-indexed fields come from Borsh-decoded data:
+  const { amount } = deserialize(event.data, TransferEventData);
+
+  console.log(`Transfer from ${hex(from)} to ${hex(to)} amount ${amount}`);
 }
 ```
+
+A wallet or explorer that doesn't statically know the event type can still decode it dynamically:
+
+1. Fetch the contract's `.wasm` via `pyde_getContractCode(addr)`
+2. Parse the `pyde.abi` custom section to find the event matching `topics[0]`
+3. The ABI declares which fields are indexed (→ pair them with `topics[1..]`) and which are not (→ Borsh-decode them from `data`)
+4. Render the typed event with field names and values
 
 ### 14.5 Authors are free to use a different encoding
 
@@ -1671,7 +1777,8 @@ A 256-byte (2048-bit) bloom filter over the wave's events. Used for cheap "did a
 
 ```text
 For each event in the wave:
-    insert(bloom, event.topic)                  // 32-byte topic hash
+    for each topic in event.topics:             // 1 to 4 topics per event
+        insert(bloom, topic)
     insert(bloom, event.contract_addr)          // 32-byte contract address
 
 insert(bloom, item):
@@ -1708,7 +1815,7 @@ events_cf  (primary store)
       tx_index:       u32,
       event_index:    u32,
       contract_addr:  [u8; 32],
-      topic:          [u8; 32],
+      topics:         Vec<[u8; 32]>,   // 1 to 4 topics; topic[0] = signature hash
       data:           Vec<u8>,
   }
 
@@ -1717,7 +1824,8 @@ events_by_topic_cf  (index)
   key:   topic (32) || wave_id (8 BE) || tx_index (4 BE) || event_index (4 BE)
   value: ()   // empty — the key contains all the lookup info
 
-  Prefix scan with topic_X → all events with that topic, in wave order.
+  Prefix scan with topic_X → all events whose ANY topic equals X, in wave order.
+  An event with N topics writes N rows to this CF (one per topic value).
 
 
 events_by_contract_cf  (index)
@@ -1729,7 +1837,7 @@ events_by_contract_cf  (index)
 
 **Atomicity:** on every wave commit, the engine writes one RocksDB `WriteBatch` containing all three CFs' updates plus the wave commit record. Atomic: either all three indexes update together or none does.
 
-**Write cost per event:** ~3 RocksDB puts (one primary, two indexes). At sustained ~2,000 events/wave this is ~6,000 puts/wave, which RocksDB handles in single-digit ms with the existing PIP-4 write-back cache architecture (Chapter 4).
+**Write cost per event:** `1 + topics_count + 1` RocksDB puts — one primary, one per topic, one contract index. At sustained ~2,000 events/wave with an average of ~2 topics each, that's ~8,000 puts/wave, which RocksDB handles in single-digit ms with the existing PIP-4 write-back cache architecture (Chapter 4).
 
 ### 15.4 Historical query
 
@@ -1737,12 +1845,14 @@ JSON-RPC method `pyde_getLogs(filter)`:
 
 ```rust
 struct GetLogsRequest {
-    from_wave:  u64,                   // inclusive
-    to_wave:    u64,                   // inclusive; capped: to_wave - from_wave ≤ 5,000
-    topics:     Vec<[u8; 32]>,         // OR-list; empty = match any topic; max 32 entries
-    contract:   Option<[u8; 32]>,      // None = any contract
-    cursor:     Option<EventCursor>,   // continuation from prior page; None = start fresh
-    limit:      u32,                   // max events to return; default 100, max 1,000
+    from_wave:  u64,                       // inclusive
+    to_wave:    u64,                       // inclusive; capped: to_wave - from_wave ≤ 5,000
+    topics:     [Option<Vec<[u8;32]>>; 4], // positional filter; index i matches event.topics[i].
+                                           //   Some(list) at position i: event's i-th topic must be IN the list
+                                           //   None at position i: any value at that position (or absent)
+    contract:   Option<[u8; 32]>,          // None = any contract
+    cursor:     Option<EventCursor>,       // continuation from prior page; None = start fresh
+    limit:      u32,                       // max events to return; default 100, max 1,000
 }
 
 struct EventCursor {
@@ -1753,19 +1863,52 @@ struct EventCursor {
 
 struct GetLogsResponse {
     events:       Vec<EventRecord>,
-    next_cursor:  Option<EventCursor>,    // None = exhausted; Some = call again with this cursor
+    next_cursor:  Option<EventCursor>,     // None = exhausted; Some = call again with this cursor
 }
+```
+
+**Filter semantics (positional, EVM-style):**
+
+```
+match(event, filter) =
+    (filter.contract == None OR event.contract_addr == filter.contract) AND
+    (filter.from_wave == None OR event.wave_id >= filter.from_wave) AND
+    for each position i in 0..4:
+        if filter.topics[i] == None: skip (any value matches)
+        else if event.topics.len() <= i: NOT a match (event missing this position)
+        else: event.topics[i] must be IN filter.topics[i] (OR-list within a position)
+```
+
+Examples:
+
+```
+# "All Transfer events":
+filter.topics = [Some([Blake3("Transfer(address,address,uint128)")]), None, None, None]
+
+# "All Transfer events FROM address 0xAB...CD":
+filter.topics = [
+    Some([Blake3("Transfer(...)")]),
+    Some([padded(0xAB...CD)]),
+    None,
+    None,
+]
+
+# "Either Transfer OR Approval from contract X":
+filter.topics = [
+    Some([Blake3("Transfer(...)"), Blake3("Approval(...)")]),
+    None, None, None,
+]
+filter.contract = Some(contract_X)
 ```
 
 **Query plan:**
 
-1. Validate the request: `to_wave - from_wave ≤ 5,000`; `topics.len() ≤ 32`; `limit ≤ 1,000`.
-2. **Wave-level bloom prefilter:** for each wave in `[from_wave, to_wave]`, load the wave's commit record, test the `events_bloom` against the filter (any topic OR any contract). Drop waves with no match.
-3. **Per-wave exact lookup:** for surviving waves, choose the cheapest index based on filter:
-   - `topics.len() == 1 && contract.is_some()`: scan `events_by_topic_cf` prefix `topic_0 || wave_id`, then filter results by contract_addr at read time.
-   - `topics.len() == 1 && contract.is_none()`: scan `events_by_topic_cf` prefix `topic_0 || wave_id`.
-   - `topics.is_empty() && contract.is_some()`: scan `events_by_contract_cf` prefix `contract || wave_id`.
-   - `topics.len() > 1`: iterate per topic, merge results (sorted union), filter by contract if specified.
+1. **Validate** the request: `to_wave - from_wave ≤ 5,000`; per-position list size ≤ 8; `limit ≤ 1,000`.
+2. **Wave-level bloom prefilter:** for each wave in `[from_wave, to_wave]`, load the wave's commit record and test the `events_bloom` against every concrete value in the filter (any positional topic OR the contract). Drop waves with no bloom hit.
+3. **Per-wave exact lookup:** for surviving waves, pick the most selective filter element to drive the scan:
+   - If a specific position has a single topic value: scan `events_by_topic_cf` for that value, then post-filter results against the remaining positional constraints + contract.
+   - If no topic but contract is set: scan `events_by_contract_cf` prefix `contract || wave_id`, then post-filter against topic positions.
+   - If multiple values at one position: scan each, merge sorted union.
 4. **Stream results** in canonical order until `limit` is reached, building `next_cursor` to point to the next event past the limit.
 5. **Return** the page + cursor.
 
@@ -1779,9 +1922,9 @@ JSON-RPC method `pyde_subscribe({method: "logs", filter})` over WebSocket:
 
 ```rust
 struct LogSubscription {
-    topics:    Vec<[u8; 32]>,         // OR-list; empty = match any; max 32
-    contract:  Option<[u8; 32]>,      // None = any
-    from:      Option<EventCursor>,   // for resume-on-reconnect; None = live from now
+    topics:    [Option<Vec<[u8;32]>>; 4],  // positional filter (same shape as pyde_getLogs)
+    contract:  Option<[u8; 32]>,
+    from:      Option<EventCursor>,        // for resume-on-reconnect; None = live from now
 }
 ```
 
@@ -1804,18 +1947,9 @@ struct LogEventNotification {
 - **Canonical order.** Events arrive in `(wave_id, tx_index, event_index)` order. Subscribers can dedupe by cursor since each event carries its position.
 - **At-least-once.** If the WebSocket disconnects mid-push, the subscriber must reconnect and use `from` cursor to resume from a known-processed position. The engine does *not* track which events a specific subscriber acknowledged; subscribers reconcile via cursor.
 
-**Filter syntax (AND + OR):**
+**Filter syntax (positional, EVM-style):** identical to `pyde_getLogs` (§15.4). Per-position topic constraints are AND'd; within each position, multiple values are OR'd; the contract filter is AND'd on top.
 
-```
-match(event, filter) =
-    (filter.topics.is_empty() OR event.topic IN filter.topics)
-    AND
-    (filter.contract.is_none() OR event.contract_addr == filter.contract.unwrap())
-    AND
-    (filter.from.is_none() OR event.position >= filter.from.unwrap())
-```
-
-The two filter slots (topic, contract) are AND'd. Within `topics`, multiple entries are OR'd. This covers ~95% of real subscriber needs (e.g., "all Transfer events from this token contract", "all events of this kind from any contract"). More expressive filtering (per-position indexed topics, address lists, regex) is a v2 minor bump.
+This covers EVM-equivalent filtering ("Transfer events from address X to anyone", "Approval OR Transfer events on token Y", etc.) and gives indexers parity with what they're used to.
 
 ### 15.6 Retention
 
@@ -1852,23 +1986,38 @@ Reference flow for the engine implementation (pseudocode):
 // During tx execution
 fn host_emit_event(
     mut caller: Caller<'_, HostState>,
-    topic_ptr: i32, topic_len: i32,
-    data_ptr: i32, data_len: i32,
+    topics_ptr: i32,
+    topics_count: i32,
+    data_ptr: i32,
+    data_len: i32,
 ) -> i32 {
-    // 1. Gas + view-mode + size checks
-    if caller.consume_fuel(EMIT_EVENT_BASE_GAS + (topic_len + data_len) * 8).is_err() {
+    // 1. Validate + gas
+    if topics_count < 1 || topics_count > 4 {
+        return ERR_INVALID_INPUT;
+    }
+    if data_len > MAX_EVENT_DATA_SIZE {
+        return ERR_INVALID_INPUT;
+    }
+    let gas = EMIT_EVENT_BASE_GAS
+            + 50 * topics_count as u64
+            + 8 * data_len as u64;
+    if caller.consume_fuel(gas).is_err() {
         return ERR_OUT_OF_GAS;
     }
     if caller.data().view_mode {
         return ERR_FORBIDDEN;
     }
-    if topic_len != 32 { return ERR_INVALID_INPUT; }
-    if data_len > MAX_EVENT_DATA_SIZE { return ERR_INVALID_INPUT; }
 
-    // 2. Read topic + data from WASM memory
+    // 2. Read topics + data from WASM memory
     let memory = /* get exported memory */;
-    let mut topic = [0u8; 32];
-    memory.read(&caller, topic_ptr as usize, &mut topic)?;
+    let total_topic_bytes = (topics_count as usize) * 32;
+    let mut topics_buf = vec![0u8; total_topic_bytes];
+    memory.read(&caller, topics_ptr as usize, &mut topics_buf)?;
+    let topics: Vec<[u8; 32]> = topics_buf
+        .chunks_exact(32)
+        .map(|c| { let mut t = [0u8; 32]; t.copy_from_slice(c); t })
+        .collect();
+
     let mut data = vec![0u8; data_len as usize];
     memory.read(&caller, data_ptr as usize, &mut data)?;
 
@@ -1878,7 +2027,7 @@ fn host_emit_event(
         tx_index: caller.data().tx_index,
         event_index: caller.data().overlay_top().events.len() as u32,
         contract_addr: caller.data().self_address,
-        topic,
+        topics,
         data,
     };
     caller.data_mut().overlay_top_mut().events.push(event);
@@ -1890,15 +2039,17 @@ fn finalize_wave_events(wave: &mut WaveCommit) {
     let all_events = wave.collect_committed_events();   // walks committed overlays
     wave.events_count = all_events.len() as u32;
 
-    // Build bloom
+    // Build bloom — every topic + contract_addr of every event
     let mut bloom = [0u8; 256];
     for e in &all_events {
-        bloom_insert(&mut bloom, &e.topic);
+        for topic in &e.topics {
+            bloom_insert(&mut bloom, topic);
+        }
         bloom_insert(&mut bloom, &e.contract_addr);
     }
     wave.events_bloom = bloom;
 
-    // Build Merkle root
+    // Build Merkle root over canonical-ordered events
     let leaves: Vec<Blake3Hash> = all_events.iter()
         .map(|e| blake3_hash(&borsh::to_vec(e).unwrap()))
         .collect();
@@ -1910,15 +2061,18 @@ fn finalize_wave_events(wave: &mut WaveCommit) {
         let primary_key = (e.wave_id, e.tx_index, e.event_index).encode_be();
         batch.put_cf(events_cf, primary_key, borsh::to_vec(&e).unwrap());
 
-        let topic_key = (e.topic, e.wave_id, e.tx_index, e.event_index).encode_be();
-        batch.put_cf(events_by_topic_cf, topic_key, &[]);
+        // One row per topic in events_by_topic_cf
+        for topic in &e.topics {
+            let topic_key = (topic, e.wave_id, e.tx_index, e.event_index).encode_be();
+            batch.put_cf(events_by_topic_cf, topic_key, &[]);
+        }
 
         let contract_key = (e.contract_addr, e.wave_id, e.tx_index, e.event_index).encode_be();
         batch.put_cf(events_by_contract_cf, contract_key, &[]);
     }
     db.write(batch).expect("atomic events write");
 
-    // Notify subscribers
+    // Notify subscribers (positional filter match per §15.5)
     for (sub_id, sub) in subscription_registry.iter() {
         for e in &wave.events {
             if matches(e, &sub.filter) {
@@ -1931,10 +2085,12 @@ fn finalize_wave_events(wave: &mut WaveCommit) {
 
 ### 15.10 Open items deferred to v2
 
-- **Topic position indexing (EVM-style indexed topics).** v1 has a single 32-byte topic. EVM supports up to 4 indexed topics per event (`LOG1`-`LOG4`) for positional filtering. v1 events expressing this pattern do it by encoding the secondary "indexed" values into the topic itself (e.g., `topic = Blake3("Transfer" || from_addr || to_addr)`). A v2 minor bump could add `emit_event_multi(topic_count, topic_ptr, topic_len_each, data_ptr, data_len)` for native multi-topic support if real-world filtering demands it.
 - **Address-list filters.** v1 supports one contract per subscription. v2 could allow `contracts: Vec<Address>` (OR-list of contracts).
 - **Descending wave queries.** v1 returns events ascending only. v2 could add `direction: Ascending | Descending`.
 - **events_root_poseidon2.** ZK-friendly parallel root for the events tree, mirroring the dual-hash state-root pattern. v2 work; not on v1 critical path.
+- **Indexed wildcards / set matching on contract.** v1 contract filter is a single optional address. v2 could allow set membership and contract-name pattern matching.
+
+Note: multi-topic native (up to 4 topics per event with EVM-style indexed-field marking) **ships at v1** — see §14.1 for the encoding and §15.3-§15.5 for storage / query / subscription.
 
 ---
 

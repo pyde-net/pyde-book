@@ -65,6 +65,7 @@
 - [Performance Harness](companion/PERFORMANCE_HARNESS.md)
 - [Parachain Design](companion/PARACHAIN_DESIGN.md)
 - [Host Function ABI v1.0](companion/HOST_FN_ABI_SPEC.md)
+- [Otigen Binary Spec v1.0](companion/OTIGEN_BINARY_SPEC.md)
 - [Tokenomics Detail](companion/TOKENOMICS.md)
 - [Brand Reference](companion/BRAND.md)
 

@@ -123,10 +123,10 @@ Implements [`OTIGEN_BINARY_SPEC.md`](companion/OTIGEN_BINARY_SPEC.md).
 - [x] `otigen-abi`: `ContractAbi` construction + Borsh encoding + custom-section injection via `wasm-encoder` (spec §6)
 - [x] `otigen-cli`: subcommand framework via `clap` (spec §3)
 - [x] `otigen build`: full validation pipeline (spec §3.2 step-by-step)
-- [ ] `otigen-wallet`: keystore (Argon2id + AES-256-GCM), FALCON-512 signing (spec §7) — port from archived `wright` repo per `wright-wallet-port` memory entry
+- [x] `otigen-wallet`: keystore (Argon2id + AES-256-GCM, single-file multi-account per spec §7.1), FALCON-512 signing, secret-key zeroisation on drop — ported from archived `wright` repo
+- [x] `otigen wallet new` / `import` / `list` / `show` / `delete` / `password` — single-file `~/.pyde/keystore.json` (override via `--keystore`), confirmation prompt before destructive ops, NDJSON event stream under `--json`
 - [ ] `otigen-rpc`: JSON-RPC client (spec §8)
 - [ ] `otigen deploy` / `upgrade` / `pause` / `unpause` / `kill` / `inspect`
-- [ ] `otigen wallet new` / `list` / `rotate` / `import` / `export` / `password`
 - [ ] `otigen console` REPL (spec §3.8)
 - [ ] `otigen verify` (spec §3.9)
 - [ ] Canonical example contracts: Rust ✅, AssemblyScript, Go (TinyGo), C/C++ hello-worlds — Rust shipped + exercised by `tests/hello_rust_e2e.rs`; other languages pending

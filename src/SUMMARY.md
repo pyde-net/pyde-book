@@ -1,6 +1,9 @@
 # Summary
 
 [How Pyde Works](preface/how-pyde-works.md)
+[Get Started](preface/get-started.md)
+[Get Started — for Developers](preface/get-started-for-developers.md)
+[Get Started — for Users](preface/get-started-for-users.md)
 [Introduction](chapters/01-introduction.md)
 [The Pivot](preface/pivot.md)
 [Roadmap](roadmap.md)

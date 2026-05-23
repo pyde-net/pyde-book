@@ -593,7 +593,7 @@ Decryption: `key = Argon2id(password, salt, kdf_params)`; `secret_key = AES-256-
 2. Prompt the user for a password.
 3. Derive `key = Argon2id(password, random_16_byte_salt, kdf_params)`.
 4. Encrypt the secret key: `ciphertext = AES-256-GCM-Encrypt(secret_key, key, random_12_byte_nonce)`.
-5. Compute the address: `addr = Blake3(pubkey)[..32]` (matches [Chapter 11](../chapters/11-account-model.md) account derivation).
+5. Compute the address: `addr = Poseidon2(falcon_public_key_bytes)` (full 32 bytes, no truncation). Matches [Chapter 11 §11.2](../chapters/11-account-model.md) and the [`address-naming-collision`](https://github.com/pyde-net/pyde-book/blob/main/companion/IMPLEMENTATION_PLAN.md) locked-in derivation — every EOA on Pyde is `Poseidon2(falcon_public_key_bytes)`. The input is the raw 897-byte FALCON-512 public key; the output is the full 32-byte Poseidon2 hash.
 6. Append the entry to the keystore.
 
 ### 7.3 Signing pipeline

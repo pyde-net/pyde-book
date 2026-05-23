@@ -116,22 +116,74 @@ The core protocol implementation. Three streams run in parallel: α (toolchain),
 
 Implements [`OTIGEN_BINARY_SPEC.md`](companion/OTIGEN_BINARY_SPEC.md).
 
+#### α.feat — Feature surface (spec §3 + §9 + supporting crates)
+
 - [x] `pyde-net/otigen` repo + Rust workspace
 - [x] `otigen-toml`: config parser + schema validation (spec §4)
 - [x] `otigen-abi`: `ContractAbi` construction + Borsh encoding + custom-section injection via `wasm-encoder` (spec §6)
 - [x] `otigen-cli`: subcommand framework via `clap` (spec §3)
 - [x] `otigen build`: full validation pipeline (spec §3.2 step-by-step)
-- [ ] `otigen-wallet`: keystore (Argon2id + AES-256-GCM), FALCON-512 signing (spec §7)
+- [ ] `otigen-wallet`: keystore (Argon2id + AES-256-GCM), FALCON-512 signing (spec §7) — port from archived `wright` repo per `wright-wallet-port` memory entry
 - [ ] `otigen-rpc`: JSON-RPC client (spec §8)
 - [ ] `otigen deploy` / `upgrade` / `pause` / `unpause` / `kill` / `inspect`
 - [ ] `otigen wallet new` / `list` / `rotate` / `import` / `export` / `password`
 - [ ] `otigen console` REPL (spec §3.8)
 - [ ] `otigen verify` (spec §3.9)
-- [ ] Canonical example contracts: Rust ✅, AssemblyScript, Go (TinyGo), C/C++ hello-worlds (Rust shipped + exercised by `tests/hello_rust_e2e.rs`; other languages pending)
+- [ ] Canonical example contracts: Rust ✅, AssemblyScript, Go (TinyGo), C/C++ hello-worlds — Rust shipped + exercised by `tests/hello_rust_e2e.rs`; other languages pending
 
-**α BAR:** an author runs `otigen init my_token --lang rust`, edits the source + `otigen.toml`, runs `cargo build --target wasm32-unknown-unknown --release`, runs `otigen build`, and ends with a valid `./artifacts/my_token.bundle/`. Once devnet is up (MC-2): `otigen deploy` succeeds against it.
+#### α.qual — Quality bar (production-readiness gate)
 
-**α BAR status (end-to-end runnable as of pyde-net/otigen#5):** ✅ pre-devnet portion — the `init → cargo build → otigen build → bundle` flow is now exercised by a real-toolchain integration test against `examples/hello-rust/`. `otigen deploy` against a devnet is the remaining piece, blocked on MC-2 integration.
+Every item below clears before α ships. Documented separately from the feature surface so the gate is unambiguous.
+
+**Testing infrastructure**
+
+- [ ] Criterion benchmarks for every hot path with baselines committed to `benches/baseline/*.json`:
+  - `otigen-toml`: TOML parse + cross-cutting validation
+  - `otigen-abi`: `ContractAbi` build, Borsh encode/decode round-trip, `pyde.abi` custom-section inject + extract
+  - `otigen-cli`: full `otigen build` pipeline end-to-end
+- [ ] `cargo-fuzz` targets with 24h+ cumulative run before α release:
+  - `otigen-toml` parser (malformed input, deep nesting, huge fields)
+  - `otigen-abi` WASM validator (malformed binaries, edge cases in section structure)
+  - `otigen-abi` custom-section injection (extreme WASM module shapes)
+- [ ] Property-test coverage audit: ≥15 proptest groups across `otigen-toml` and `otigen-abi` (currently ~5)
+- [ ] Adversarial corpus: 30+ hand-rolled `otigen.toml` files under `tests/corpus/` each verified to pass / fail with the expected diagnostic
+- [ ] Reproducibility test: two clean builds of the canonical hello-rust example produce byte-identical `contract.wasm` and `abi.json` (modulo `manifest.build_timestamp`)
+
+**CI + supply chain**
+
+- [ ] Multi-platform CI matrix: `ubuntu-latest` x86_64 + aarch64, `macos-latest` arm64, `windows-latest` x86_64 — build / test / clippy / fmt on every PR
+- [ ] `cargo-audit` (RustSec advisories) gate on every PR
+- [ ] `cargo-deny` (license policy + version policy + duplicate-version checks) gate on every PR
+- [ ] `cargo-machete` (unused dep detection) on every PR
+- [ ] MSRV check: workspace `rust-version = "1.75"` enforced in CI on a 1.75 toolchain
+- [ ] cargo-about generated 3rd-party attribution report shipped with every binary release
+- [ ] Signed binary releases via GitHub Actions: Linux x86_64/aarch64 + macOS arm64 + Windows x86_64 tarballs, sha256sums, sigstore signatures, attached to GitHub Releases
+
+**UX completeness**
+
+- [ ] `--json` NDJSON output wired across every subcommand per OTIGEN_BINARY_SPEC §10.2 (today only the global flag is parsed; per-event JSON output not yet emitted)
+- [ ] `--verbose` / `-vv` actually emits the documented log levels (today the flag is captured but most commands print fixed output)
+- [ ] Signal handling: `Ctrl-C` mid-build cleans up partial bundle artifacts
+- [ ] `otigen --version` includes git-sha + build profile
+
+**Spec + documentation**
+
+- [ ] Toolchain threat model document at `companion/TOOLCHAIN_THREAT_MODEL.md`: attack surfaces (malicious `otigen.toml`, malicious WASM at build time, RPC MITM, keystore tampering), mitigations, residual risks
+- [ ] Performance numbers committed in `README.md`, Chapter 5 (otigen-toolchain), Chapter 17 (developer tools); baselines on a documented reference machine + how to reproduce
+- [ ] Architecture chapter (`chapters/05-otigen-toolchain.md`) cross-links every public function in the implementation to the spec section it satisfies
+- [ ] No new `unsafe` blocks anywhere in the workspace (verified by grep + CI)
+- [ ] No `unwrap()` / `expect()` on untrusted-input paths (verified manually + by lint where possible)
+
+#### α.live — Live tests (blocked on MC-2 devnet)
+
+- [ ] `otigen deploy` against a running devnet — end-to-end transaction submission + receipt fetch
+- [ ] `otigen inspect` against a deployed contract on the devnet
+- [ ] `otigen verify` reproducibility round-trip via the devnet's `pyde_getContractCode` RPC
+- [ ] Multi-validator stress: deploy + call from 7 distinct keystore identities concurrently
+
+**α BAR (production-ready):** every checkbox in `α.feat`, `α.qual`, and `α.live` ticked; CI green on every platform; fuzz targets have run ≥24h cumulative with no surviving crashes; two independent builds of the canonical hello-rust produce byte-identical artifacts; performance baselines committed and tracked on every PR.
+
+**α BAR (pre-devnet, demonstrable today as of pyde-net/otigen#5):** ✅ — the `init → cargo build → otigen build → bundle` flow is exercised end-to-end by `tests/hello_rust_e2e.rs` against the real Rust toolchain. The full BAR adds the `α.qual` quality gate plus the `α.live` devnet items.
 
 ### MC-1 Stream β — Engine Execution `[PAR within] → MC-0` — `pyde-net/engine` branch `execution-side`
 

@@ -127,9 +127,11 @@ Implements [`OTIGEN_BINARY_SPEC.md`](companion/OTIGEN_BINARY_SPEC.md).
 - [ ] `otigen wallet new` / `list` / `rotate` / `import` / `export` / `password`
 - [ ] `otigen console` REPL (spec §3.8)
 - [ ] `otigen verify` (spec §3.9)
-- [ ] Canonical example contracts: Rust, AssemblyScript, Go (TinyGo), C/C++ hello-worlds
+- [ ] Canonical example contracts: Rust ✅, AssemblyScript, Go (TinyGo), C/C++ hello-worlds (Rust shipped + exercised by `tests/hello_rust_e2e.rs`; other languages pending)
 
 **α BAR:** an author runs `otigen init my_token --lang rust`, edits the source + `otigen.toml`, runs `cargo build --target wasm32-unknown-unknown --release`, runs `otigen build`, and ends with a valid `./artifacts/my_token.bundle/`. Once devnet is up (MC-2): `otigen deploy` succeeds against it.
+
+**α BAR status (end-to-end runnable as of pyde-net/otigen#5):** ✅ pre-devnet portion — the `init → cargo build → otigen build → bundle` flow is now exercised by a real-toolchain integration test against `examples/hello-rust/`. `otigen deploy` against a devnet is the remaining piece, blocked on MC-2 integration.
 
 ### MC-1 Stream β — Engine Execution `[PAR within] → MC-0` — `pyde-net/engine` branch `execution-side`
 

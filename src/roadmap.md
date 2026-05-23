@@ -266,7 +266,7 @@ Implements Chapter 6, `SLASHING.md`, `VALIDATOR_LIFECYCLE.md`, `STATE_SYNC.md`, 
 - [ ] VRF beacon derivation (uses pyde-crypto)
 - [x] Mysticeti 3-stage support check (`check_anchor_support`: supporters at R+1 + certifiers at R+2; Committed / Pending / Skipped — Skipped prevents stall on bad proposer) — PR [#5](https://github.com/pyde-net/engine/pull/5)
 - [x] BFS subdag walk + canonical sort (`walk_subdag`: BFS over parent_vertex_refs, skips already-committed, canonical (round, member_id, hash) order — wire-load-bearing) — PR [#7](https://github.com/pyde-net/engine/pull/7)
-- [ ] Missing-vertex fetch protocol (async pull by hash + retry with timeout)
+- [x] Missing-vertex bookkeeping (`PendingParents` queue: bounded, idempotent-duplicate, cascade-unblock, exposes `missing_parents()` for the network fetch loop). Network-fetch dispatch wired at node-binary level (MC-2). — PR [#10](https://github.com/pyde-net/engine/pull/10)
 - [ ] Anchor-skip handling
 - [ ] Piggybacked decryption shares (pipeline decryption with consensus)
 - [x] HardFinalityCert generation (`FinalityCertCollector`: cached pre-image, duplicate-before-verify, deterministic member_id-sorted finalize, FinalityError taxonomy) — PR [#8](https://github.com/pyde-net/engine/pull/8)

@@ -264,13 +264,13 @@ Implements Chapter 6, `SLASHING.md`, `VALIDATOR_LIFECYCLE.md`, `STATE_SYNC.md`, 
 - [ ] Round advancement (peer-attestation triggered; data-driven, NOT clock-driven)
 - [x] Anchor selection: `select_anchor(beacon, round, lookback_state_root, committee_size)` — Blake3 over `beacon || round.le || state_root.blake3`, mod committee. Dual-hash aware (only Blake3 leg mixes in; Poseidon2 reserved for SNARK paths). Uniform at 128 = 2^7 (no rejection sampling needed). — PR [#4](https://github.com/pyde-net/engine/pull/4)
 - [ ] VRF beacon derivation (uses pyde-crypto)
-- [ ] Mysticeti 3-stage support check
-- [ ] BFS subdag walk + canonical sort
+- [x] Mysticeti 3-stage support check (`check_anchor_support`: supporters at R+1 + certifiers at R+2; Committed / Pending / Skipped — Skipped prevents stall on bad proposer) — PR [#5](https://github.com/pyde-net/engine/pull/5)
+- [x] BFS subdag walk + canonical sort (`walk_subdag`: BFS over parent_vertex_refs, skips already-committed, canonical (round, member_id, hash) order — wire-load-bearing) — PR [#7](https://github.com/pyde-net/engine/pull/7)
 - [ ] Missing-vertex fetch protocol (async pull by hash + retry with timeout)
 - [ ] Anchor-skip handling
 - [ ] Piggybacked decryption shares (pipeline decryption with consensus)
-- [ ] HardFinalityCert generation (committee threshold-signs state_root + events_root + events_bloom)
-- [ ] WaveCommitRecord write (synchronous; durability for consensus invariants)
+- [x] HardFinalityCert generation (`FinalityCertCollector`: cached pre-image, duplicate-before-verify, deterministic member_id-sorted finalize, FinalityError taxonomy) — PR [#8](https://github.com/pyde-net/engine/pull/8)
+- [x] WaveCommitRecord assembly (`assemble_wave_commit_record`: canonical anchor_hash, u32 tx_count overflow check, WaveCommitInputs cross-stream boundary) — PR [#7](https://github.com/pyde-net/engine/pull/7)
 - [ ] Committee management (epoch-bounded; uniform random from eligible stakers)
 - [ ] Equivocation detection + evidence collection → γ.4 Slashing
 - [ ] Implement `ConsensusEngine` trait (from `interfaces`)

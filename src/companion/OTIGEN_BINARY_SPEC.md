@@ -273,14 +273,14 @@ The canonical config file. Lives at the project root.
 
 ```toml
 [contract]
-name        = "my_token"          # required; lowercase + hyphens
+name        = "my-token"          # required; lowercase + hyphens (ENS-style; see §4.2)
 version     = "1.0.0"             # required; semver
 description = "Example token"     # optional
 type        = "contract"          # "contract" (default) or "parachain"
 
 [contract.lang]
 language = "rust"                 # required; rust | as | go | c
-output   = "target/wasm32-unknown-unknown/release/my_token.wasm"  # required
+output   = "target/wasm32-unknown-unknown/release/my_token.wasm"  # required; Rust crate name uses snake_case (cargo convention), so the .wasm filename uses underscores even though the Pyde contract name uses hyphens
 
 [contract.lang.toolchain]
 rust_channel   = "stable"         # for rust
@@ -690,7 +690,7 @@ All owner-only. Submitted as simple txs (`PauseContractTx`, `UnpauseContractTx`,
 ```json
 {
   "version": 1,
-  "name": "my_token",
+  "name": "my-token",
   "contract_type": "contract",
   "build_timestamp": "2026-05-23T16:42:00Z",
   "otigen_version": "1.0.0",

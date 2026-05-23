@@ -493,15 +493,18 @@ The mechanism by which `otigen build` integrates ABI metadata into the WASM arti
 
 ### 6.1 What gets embedded
 
-A `ContractAbi` struct, Borsh-encoded:
+A `ContractAbi` struct, Borsh-encoded.
+
+The **canonical shape is defined in [`HOST_FN_ABI_SPEC.md` §3.7](./HOST_FN_ABI_SPEC.md)** — every byte the chain side reads at deploy time. The struct is deliberately lean: only what the chain's dispatch wrapper needs at runtime (per-function name + selector + attribute bitfield + access list, plus the schema hash + dispatch indices).
+
+For reference, repeated here:
 
 ```rust
 struct ContractAbi {
-    pyde_abi_version:  u32,           // semver-packed; matches the engine's supported ABI version
+    pyde_abi_version:  u32,           // monotonic; matches engine's supported ABI version
     contract_type:     ContractType,  // Contract | Parachain
     functions:         Vec<FunctionAbi>,
-    events:            Vec<EventAbi>,
-    state_schema_hash: [u8; 32],
+    state_schema_hash: [u8; 32],      // Blake3 of canonical state-schema bytes
     constructor_index: Option<u32>,
     fallback_index:    Option<u32>,
     receive_index:     Option<u32>,
@@ -509,26 +512,19 @@ struct ContractAbi {
 
 struct FunctionAbi {
     name:        String,
-    selector:    [u8; 4],
-    attributes:  u32,        // bitfield (see HOST_FN_ABI_SPEC §3.5)
-    access_list: Vec<AccessListEntry>,
-    inputs:      Vec<TypeToken>,
-    outputs:     Vec<TypeToken>,
-}
-
-struct EventAbi {
-    name:        String,
-    signature:   String,       // canonical signature string
-    topic_hash:  [u8; 32],     // = Blake3(signature)
-    fields:      Vec<EventField>,
-}
-
-struct EventField {
-    name:    String,
-    ty:      TypeToken,
-    indexed: bool,
+    selector:    [u8; 4],             // = Blake3(name)[..4]
+    attributes:  u32,                 // bitfield (see HOST_FN_ABI_SPEC §3.5)
+    access_list: Vec<String>,         // declared state-slot access patterns
 }
 ```
+
+The lean shape is intentional. Two design decisions follow from it:
+
+- **Events are not embedded in `pyde.abi`.** Event metadata (signature, indexed fields, topic-hash derivation) is a runtime convention: contracts call `host_emit_event(topics, data)` and the chain stores topics + data verbatim. Wallets and indexers reconstruct event semantics from the event signature alone (the canonical encoding of which is documented in [HOST_FN_ABI_SPEC §14.1](./HOST_FN_ABI_SPEC.md)). The bundle's `otigen.toml` (shipped alongside `contract.wasm` per §9) carries the `[events.X]` declarations for tooling that wants the full picture.
+
+- **Function `inputs` / `outputs` are not embedded either.** The chain dispatches by selector — it does not need typed parameter or return-value metadata to invoke a function. Wallets that want to construct calldata from typed arguments read the bundle's `otigen.toml` (or its richer `abi.json` mirror, per §9.3) which retains the `[functions.X]` `inputs` / `outputs` lists.
+
+If the implementation and this document disagree on the byte shape, [`HOST_FN_ABI_SPEC.md` §3.7](./HOST_FN_ABI_SPEC.md) is authoritative.
 
 ### 6.2 Injection mechanism
 

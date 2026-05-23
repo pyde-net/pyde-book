@@ -41,62 +41,70 @@ Old MC-1 through MC-7 numbering (pre-2026-05-23) collapses into this shape: old 
 
 ---
 
-## MC-0 — INTERFACE FOUNDATION `[SEQ]` — main session
+## MC-0 — INTERFACE FOUNDATION `[SEQ]` — main session ✅ shipped
 
 The sequential prerequisite to parallelism. Without MC-0 complete, streams β and γ clash on shared types and interface drift. ~1 day of focused work; the main session owns it.
 
+Tagged `phase-0-foundation` on `main` at `pyde-net/engine`. 92 unit/integration tests pass; `cargo clippy --workspace --all-targets -- -D warnings` clean; `cargo fmt --all -- --check` clean.
+
 ### 0.1 Engine repo creation
 
-- [ ] Create `pyde-net/engine` repo on GitHub (fresh; post-pivot)
-- [ ] Clone locally at `/pyde-net/engine/`
-- [ ] Initial commit: README + LICENSE (Apache-2.0) + `.gitignore`
+- [x] Create `pyde-net/engine` repo on GitHub (fresh; post-pivot)
+- [x] Clone locally at `/pyde-net/engine/`
+- [x] Initial commit: README + LICENSE (Apache-2.0) + `.gitignore` + `SECURITY.md` + `rust-toolchain.toml`
 
 ### 0.2 Workspace skeleton
 
-- [ ] `Cargo.toml` workspace with every crate stubbed:
+- [x] `Cargo.toml` workspace with every crate stubbed:
   - `types`, `interfaces`
   - `account`, `state`, `tx`, `wasm-exec`, `mempool` (β-owned)
   - `consensus`, `net`, `dkg`, `slashing`, `node` (γ-owned)
-- [ ] Each crate stub: `Cargo.toml` + `src/lib.rs` with a placeholder function so the workspace compiles
+- [x] Each crate stub: `Cargo.toml` + `src/lib.rs` with a placeholder function so the workspace compiles (node also has `src/main.rs` for the `pyde` binary)
 
 ### 0.3 `types` crate (frozen at end of MC-0)
 
-- [ ] `Address` ([u8; 32])
-- [ ] `SlotHash`, `Value` (state primitives)
-- [ ] `Balance` (u128), `Nonce` (u64)
-- [ ] `Tx` enum + per-variant payload types
-- [ ] `TxHash`, `Receipt`
-- [ ] `StateRoot` (dual: Blake3 + Poseidon2)
-- [ ] `EventRecord` (with `topics: Vec<[u8; 32]>` for multi-topic v1)
-- [ ] `WaveId` (u64), `Round` (u64)
-- [ ] `VertexHash`, `Vertex`
-- [ ] `WaveCommitRecord` (with events_root + events_bloom + events_count)
-- [ ] `HardFinalityCert`
-- [ ] `FalconPubkey`, `FalconSignature`
-- [ ] Error codes from `HOST_FN_ABI_SPEC §4`
+- [x] `Address` ([u8; 32]) — full Poseidon2, no truncation
+- [x] `SlotHash`, `Value` (state primitives)
+- [x] `Balance` (u128), `Nonce` (u64), `NonceWindow` (16-slot bitmap)
+- [x] `Tx` flat envelope + `TxType` discriminant (Ch 11 §11.6 wire format; tag 2 reserved-as-vacant)
+- [x] `TxHash`, `Receipt`, `ReceiptStatus`, `FeePayer`, `AccessEntry`, `AccessType`
+- [x] `StateRoot` (dual: Blake3 + Poseidon2)
+- [x] `EventRecord` (with `wave_id` / `tx_index` / `event_index` primary key + `Vec<Topic>` for multi-topic v1) + `EventCursor` for `pyde_getLogs` pagination
+- [x] `WaveId` (u64), `Round` (u64), `CommitId` (= WaveId)
+- [x] `VertexHash`, `BatchHash`, `BatchRef`, `Vertex` (with `member_id` + `batch_refs` + `decryption_shares` per Ch 6 §3) + `Batch` (network gossip type)
+- [x] `WaveCommitRecord` (with `anchor_round` / `prior_anchor_round` / `events_root` / `events_bloom` / `events_count` / `tx_count` / `gas_used: u128`)
+- [x] `HardFinalityCert` with 85-of-128 quorum check
+- [x] `FalconPubkey` (897 B fixed), `FalconSignature` (variable, ≤690 B cap)
+- [x] `EventsBloom` — spec-aligned algorithm: 256 B / 3 hashes / `blake3(item)[..8/8..16/16..24]` mod 2048 (consumer-side blake3 — leaf-dep invariant preserved)
+- [x] `ContractAbi` per HOST_FN_ABI_SPEC §3.7: `pyde_abi_version: u32`, `contract_type`, `state_schema_hash`, `constructor_index` / `fallback_index` / `receive_index` + `EventAbi` extension for §14.1 event signatures
+- [x] `FunctionAttrs` (u32 bitfield: VIEW / PAYABLE / REENTRANT / SPONSORED / CONSTRUCTOR / FALLBACK / RECEIVE / ENTRY)
+- [x] Error codes from `HOST_FN_ABI_SPEC §4` — `ERR_*` consts + typed `ErrorCode` enum (i32 wire format; round-trips via `as_i32` / `from_i32`)
+- [x] `AuthKeys` (None / Single / MultiSig / Programmable-reserved at tag `0x03`) with `MAX_MULTISIG_SIGNERS = 16` and structural validation
+- [x] 81 unit + property tests including wire-tag verification and field-order pin tests
 
 ### 0.4 `interfaces` crate (frozen at end of MC-0)
 
-- [ ] `trait StateView` — read-only state access
-- [ ] `trait StateMutator` — atomic wave-level mutation
-- [ ] `trait Executor` — invoke a tx
-- [ ] `trait MempoolView` — what consensus reads from mempool
-- [ ] `trait NetworkView` — gossipsub send/recv abstraction
-- [ ] `trait ConsensusEngine` — the consensus loop the node binary drives
-- [ ] `mod mock` — mock implementations of every trait for isolated testing
+- [x] `trait StateView` — async; balance / nonce_window / slot / code_hash / code / account_type / auth_keys / state_root
+- [x] `trait StateMutator: StateView` — async; `commit_wave(wave_id, txs)` → `WaveCommitRecord`, `rollback_wave`, `snapshot` → `SnapshotHandle`
+- [x] `trait Executor` — async; `execute_tx(state, tx, gas_limit)` + `view_call(state, target, data)`
+- [x] `trait MempoolView` — async; insert / drain_for_batch / contains / fetch_by_hash / pending_count
+- [x] `trait NetworkView` — async; publish_vertex / publish_batch / fetch_vertex / fetch_batch (libp2p gossip surface)
+- [x] `trait ConsensusEngine` — async; current_round / current_wave / get_finality_cert (read-only observation surface)
+- [x] `InterfaceError` — boundary error enum with retryability classification
+- [x] `mod mock` — `MockState` / `MockExecutor` / `MockMempool` / `MockNetwork` / `MockConsensus`, 11 tests each exercising at least one trait method per impl
 
 ### 0.5 CI + branching
 
-- [ ] `.github/workflows/ci.yml` running cargo build, test, clippy, fmt on every PR
-- [ ] Create long-lived branches: `execution-side` (β), `consensus-side` (γ)
-- [ ] Tag the MC-0 checkpoint: `phase-0-foundation`
+- [x] `.github/workflows/ci.yml` running fmt + clippy (-D warnings) + test + doc on every PR with target/registry caching
+- [x] Long-lived branches created: `execution-side` (β), `consensus-side` (γ)
+- [x] Tag `phase-0-foundation` on `main`
 
 ### 0.6 IMPLEMENTATION_PLAN cross-link
 
-- [ ] Verify `pyde-book/src/companion/IMPLEMENTATION_PLAN.md` is up to date
-- [ ] Cross-link from this roadmap (above)
+- [x] `pyde-book/src/companion/IMPLEMENTATION_PLAN.md` already current
+- [x] Cross-linked from this roadmap
 
-**MC-0 BAR:** engine repo exists with all crate stubs compiling; `types` + `interfaces` crates fully written and tested; CI green; branching protocol established; `IMPLEMENTATION_PLAN.md` committed.
+**MC-0 BAR:** ✅ engine repo exists with all 12 crate stubs compiling; `types` + `interfaces` crates fully written and tested (92 tests, all green); CI green; branching protocol established; `IMPLEMENTATION_PLAN.md` committed.
 
 ---
 
@@ -109,7 +117,7 @@ The core protocol implementation. Three streams run in parallel: α (toolchain),
 Implements [`OTIGEN_BINARY_SPEC.md`](companion/OTIGEN_BINARY_SPEC.md).
 
 - [x] `pyde-net/otigen` repo + Rust workspace
-- [ ] `otigen-toml`: config parser + schema validation (spec §4)
+- [x] `otigen-toml`: config parser + schema validation (spec §4)
 - [ ] `otigen-abi`: `ContractAbi` construction + Borsh encoding + custom-section injection via `wasm-encoder` (spec §6)
 - [ ] `otigen-cli`: subcommand framework via `clap` (spec §3)
 - [ ] `otigen build`: full validation pipeline (spec §3.2 step-by-step)

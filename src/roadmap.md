@@ -118,7 +118,7 @@ Implements [`OTIGEN_BINARY_SPEC.md`](companion/OTIGEN_BINARY_SPEC.md).
 
 - [x] `pyde-net/otigen` repo + Rust workspace
 - [x] `otigen-toml`: config parser + schema validation (spec §4)
-- [ ] `otigen-abi`: `ContractAbi` construction + Borsh encoding + custom-section injection via `wasm-encoder` (spec §6)
+- [x] `otigen-abi`: `ContractAbi` construction + Borsh encoding + custom-section injection via `wasm-encoder` (spec §6)
 - [ ] `otigen-cli`: subcommand framework via `clap` (spec §3)
 - [ ] `otigen build`: full validation pipeline (spec §3.2 step-by-step)
 - [ ] `otigen-wallet`: keystore (Argon2id + AES-256-GCM), FALCON-512 signing (spec §7)
@@ -201,8 +201,10 @@ Implements Chapter 6, `SLASHING.md`, `VALIDATOR_LIFECYCLE.md`, `STATE_SYNC.md`, 
 **Crates owned:** `consensus`, `net`, `dkg`, `slashing`, `node`.
 
 #### γ.1 `consensus` crate `[SEQ within γ]` — foundational
-- [ ] `Vertex` structure (round, member_id, parent_refs, batch_refs, state_root_sigs, prev_anchor_attestation, decryption_shares, sig)
-- [ ] Local DAG view per validator (in-memory graph + lookup)
+- [x] `Vertex` structure (round, member_id, parent_refs, batch_refs, state_root_sigs, prev_anchor_attestation, decryption_shares, sig) — landed in `types` crate at MC-0
+- [x] Local DAG view per validator (`VertexStore`: hash + round + slot indexes, equivocation-aware, `parking_lot::RwLock` guarded) — PR [#1](https://github.com/pyde-net/engine/pull/1)
+- [x] Canonical `vertex_hash = Blake3(borsh(vertex_sans_falcon_sig))` centralised — PR [#1](https://github.com/pyde-net/engine/pull/1)
+- [x] Equivocation flagging on insert (`InsertOutcome::Equivocation { prior_at_slot }`; full slashing flow lives in γ.4)
 - [ ] Round advancement (peer-attestation triggered; data-driven, NOT clock-driven)
 - [ ] Anchor selection: `anchor_member_id = Hash(beacon, round, recent_state_root) mod 128`
 - [ ] VRF beacon derivation (uses pyde-crypto)

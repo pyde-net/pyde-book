@@ -54,14 +54,14 @@
 
     <style><![CDATA[
       /* --------------------------------------------------------------
-         Cycle: 6 seconds. Sub-animations phased via animation-delay.
+         Cycle: 3 seconds. Sub-animations phased via animation-delay.
          Bang fires at 58% (3.48s in). Pillars stamp at 65% (3.9s in).
          Receipt exits at 80% (4.8s in).
          -------------------------------------------------------------- */
 
       .factory-shake {
         transform-origin: 360px 220px;
-        animation: shake 6s ease-in-out infinite;
+        animation: shake 3s ease-in-out infinite;
       }
 
       @keyframes shake {
@@ -78,15 +78,15 @@
         opacity: 0;
         transform-box: fill-box;
         transform-origin: center;
-        animation: dropletFlow 6s linear infinite;
+        animation: dropletFlow 3s linear infinite;
       }
       .droplet.d1 { animation-delay: 0s;    }
-      .droplet.d2 { animation-delay: -0.8s; }
-      .droplet.d3 { animation-delay: -1.6s; }
-      .droplet.d4 { animation-delay: -2.4s; }
-      .droplet.d5 { animation-delay: -3.2s; }
-      .droplet.d6 { animation-delay: -4.0s; }
-      .droplet.d7 { animation-delay: -4.8s; }
+      .droplet.d2 { animation-delay: -0.4s; }
+      .droplet.d3 { animation-delay: -0.8s; }
+      .droplet.d4 { animation-delay: -1.2s; }
+      .droplet.d5 { animation-delay: -1.6s; }
+      .droplet.d6 { animation-delay: -2s; }
+      .droplet.d7 { animation-delay: -2.4s; }
 
       @keyframes dropletFlow {
         0%   { transform: translate(0, -150px); opacity: 0; }
@@ -101,10 +101,10 @@
         opacity: 0;
         transform-box: fill-box;
         transform-origin: center;
-        animation: conveyorLockFlow 6s linear infinite;
+        animation: conveyorLockFlow 3s linear infinite;
       }
-      .conveyor-lock.cl1 { animation-delay: -1.6s; }
-      .conveyor-lock.cl2 { animation-delay: -3.2s; }
+      .conveyor-lock.cl1 { animation-delay: -0.8s; }
+      .conveyor-lock.cl2 { animation-delay: -1.6s; }
 
       @keyframes conveyorLockFlow {
         0%   { transform: translate(0, -150px); opacity: 0; }
@@ -120,7 +120,7 @@
         transform-box: fill-box;
         transform-origin: center;
         opacity: 0;
-        animation: dagLockShatter 6s ease-out infinite;
+        animation: dagLockShatter 3s ease-out infinite;
       }
       .dag-lock.dl1 { animation-delay: 0s; }
       .dag-lock.dl2 { animation-delay: 0s; }
@@ -137,7 +137,7 @@
       .batch-box {
         transform-box: fill-box;
         transform-origin: center;
-        animation: batchPulse 6s ease-in-out infinite;
+        animation: batchPulse 3s ease-in-out infinite;
       }
       @keyframes batchPulse {
         0%, 35%, 55%, 100% { transform: scale(1); opacity: 0.85; }
@@ -148,13 +148,13 @@
       .dag-floor {
         transform-box: fill-box;
         transform-origin: center bottom;
-        animation: dagRise 6s ease-out infinite;
+        animation: dagRise 3s ease-out infinite;
         opacity: 0;
       }
-      .dag-floor.f1 { animation-delay: 0.4s; }
-      .dag-floor.f2 { animation-delay: 0.9s; }
-      .dag-floor.f3 { animation-delay: 1.4s; }
-      .dag-floor.f4 { animation-delay: 1.9s; }
+      .dag-floor.f1 { animation-delay: 0.2s; }
+      .dag-floor.f2 { animation-delay: 0.45s; }
+      .dag-floor.f3 { animation-delay: 0.7s; }
+      .dag-floor.f4 { animation-delay: 0.95s; }
 
       @keyframes dagRise {
         0%   { transform: scaleY(0) translateY(20px); opacity: 0; }
@@ -165,11 +165,11 @@
 
       .dag-edge {
         opacity: 0;
-        animation: edgeFade 6s ease-in infinite;
+        animation: edgeFade 3s ease-in infinite;
       }
-      .dag-edge.e1 { animation-delay: 1.0s; }
-      .dag-edge.e2 { animation-delay: 1.5s; }
-      .dag-edge.e3 { animation-delay: 2.0s; }
+      .dag-edge.e1 { animation-delay: 0.5s; }
+      .dag-edge.e2 { animation-delay: 0.75s; }
+      .dag-edge.e3 { animation-delay: 1s; }
 
       @keyframes edgeFade {
         0%, 5% { opacity: 0; }
@@ -183,7 +183,7 @@
         opacity: 0;
         transform-box: fill-box;
         transform-origin: center;
-        animation: anchorBlink 6s ease-in-out infinite;
+        animation: anchorBlink 3s ease-in-out infinite;
       }
       @keyframes anchorBlink {
         0%, 48%, 60%, 100% { opacity: 0; transform: scale(0.9); }
@@ -195,7 +195,7 @@
         opacity: 0;
         transform-box: fill-box;
         transform-origin: center;
-        animation: bangFlash 6s ease-out infinite;
+        animation: bangFlash 3s ease-out infinite;
       }
       @keyframes bangFlash {
         0%, 55%, 73%, 100% { opacity: 0; transform: scale(0.3); }
@@ -204,8 +204,8 @@
       }
 
       /* Execution arms swing during execution phase (right after bang) */
-      .exec-arm.a1 { transform-origin: 460px 80px; animation: armSwingA 6s ease-in-out infinite; }
-      .exec-arm.a2 { transform-origin: 510px 80px; animation: armSwingB 6s ease-in-out infinite; }
+      .exec-arm.a1 { transform-origin: 460px 80px; animation: armSwingA 3s ease-in-out infinite; }
+      .exec-arm.a2 { transform-origin: 510px 80px; animation: armSwingB 3s ease-in-out infinite; }
 
       @keyframes armSwingA {
         0%, 54%   { transform: rotate(-30deg); }
@@ -227,12 +227,12 @@
       .pillar {
         transform-box: fill-box;
         transform-origin: center bottom;
-        animation: pillarStamp 6s ease-out infinite;
+        animation: pillarStamp 3s ease-out infinite;
       }
-      .pillar.p1 { animation-delay: 0.05s; }
-      .pillar.p2 { animation-delay: 0.15s; }
-      .pillar.p3 { animation-delay: 0.25s; }
-      .pillar.p4 { animation-delay: 0.35s; }
+      .pillar.p1 { animation-delay: 0.025s; }
+      .pillar.p2 { animation-delay: 0.075s; }
+      .pillar.p3 { animation-delay: 0.125s; }
+      .pillar.p4 { animation-delay: 0.175s; }
 
       @keyframes pillarStamp {
         0%, 60%, 100% { transform: scaleY(0); opacity: 0; }
@@ -246,11 +246,11 @@
         opacity: 0;
         transform-box: fill-box;
         transform-origin: center;
-        animation: smokeRise 6s ease-out infinite;
+        animation: smokeRise 3s ease-out infinite;
       }
       .smoke-wisp.w1 { animation-delay: 0s; }
-      .smoke-wisp.w2 { animation-delay: 0.35s; }
-      .smoke-wisp.w3 { animation-delay: 0.7s; }
+      .smoke-wisp.w2 { animation-delay: 0.175s; }
+      .smoke-wisp.w3 { animation-delay: 0.35s; }
 
       @keyframes smokeRise {
         0%, 60%   { opacity: 0; transform: translate(0, 0) scale(0.6); }
@@ -264,7 +264,7 @@
         opacity: 0;
         transform-box: fill-box;
         transform-origin: center;
-        animation: receiptOut 6s ease-in infinite;
+        animation: receiptOut 3s ease-in infinite;
       }
       @keyframes receiptOut {
         0%, 72% { opacity: 0; transform: translate(0, 0); }
@@ -276,7 +276,7 @@
       /* Continuous-rotation indicator (outside the shake) */
       .loop-arc {
         transform-origin: 670px 30px;
-        animation: loopRotate 6s linear infinite;
+        animation: loopRotate 3s linear infinite;
       }
       @keyframes loopRotate {
         0%   { transform: rotate(0deg); }

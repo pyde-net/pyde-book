@@ -71,24 +71,31 @@ Guidance, not pixel rules. To recreate, eyeball against `assets/logo.png`.
 
 ## 4. Colour
 
-The Pyde palette is intentionally restrained. The mark itself is **always grayscale**.
+The Pyde palette is black and white, with shades. Nothing more.
+
+Restrained, calm, subtle — the visual posture matches the technical posture. The brand is meant to feel like a physical law: present, quiet, not asking for attention. Color noise doesn't belong here. The protocol is the product, not the palette.
 
 | Token | Hex | Role |
 |---|---|---|
-| `--pyde-ink` | `#0d1117` | Primary dark — backgrounds, dark-theme surfaces, default body text in dark mode. |
+| `--pyde-ink` | `#0d1117` | Primary dark — backgrounds, dark-theme surfaces, default body text in light mode. |
+| `--pyde-shadow` | `#2a2f36` | Dark elevated — elevated surfaces on dark backgrounds, code-block fills. |
+| `--pyde-mist` | `#7a8590` | Mid-gray — muted labels, captions, dividers. |
+| `--pyde-veil` | `#e1e4ea` | Light elevated — soft surfaces on light backgrounds, subtle dividers. |
 | `--pyde-paper` | `#f7f8fa` | Primary light — backgrounds in light mode, default body text in dark mode. |
-| `--pyde-mist` | `#7a8590` | Secondary — muted labels, captions, dividers. |
-| `--pyde-droplet` | `#5a7a99` | Accent (cool) — the droplet colour from the factory animation; reserve for the diagram aesthetic. |
-| `--pyde-ember` | `#ffaa44` | Accent (warm) — wave-commit emphasis only; use sparingly. |
-| `--pyde-pillar` | `#3a7a4e` | Accent (success) — state-commit emphasis; use sparingly. |
-| `--pyde-lock` | `#c8941c` | Accent (security) — threshold-encryption / safety affordances. |
+
+These five grayscale tokens carry the entire brand. No accent palette. Color is not part of the brand.
 
 **Mark colouring rules:**
-- The mark is grayscale. **Do not** apply any of the accent colours (`--pyde-droplet`, `--pyde-ember`, etc.) to the mark itself.
+- The mark is grayscale. The canonical rendering is the gradient version in `assets/logo.png`.
 - A solid-black or solid-white version of the mark is acceptable for monochrome contexts (engraving, single-colour print, dark-on-light printing).
-- The grayscale gradient version (the default in `assets/logo.png`) is the canonical rendering for digital use.
+- Never recolor the mark. Not for theming, not for events, not for partnerships, not for special occasions.
 
-**What the accent colours are for:** illustrations, diagrams, the factory animation, marketing graphics, UI affordances. Not the mark.
+**Why grayscale only:**
+
+- The brand should feel like a physical law: present, calm, derived not designed.
+- The mark is grayscale (a nucleus and its orbital, see §2). The palette mirrors that posture.
+- A restrained palette stands out in a sea of colorful chains. Discipline reads as confidence.
+- Color is reserved for one purpose only: the existing factory illustration (see §6), which predates this discipline and serves as a didactic diagram, not as brand surface.
 
 ---
 
@@ -113,15 +120,17 @@ When the brand needs a "voice" beyond system fonts (a presentation cover, a mark
 
 ## 6. The factory illustration system
 
-The factory metaphor (see [How Pyde Works](../preface/how-pyde-works.md)) is part of the brand. The animated SVG at `src/assets/factory-loop.svg` defines the palette, line weight, and motion language for any future illustration.
+The factory metaphor (see [How Pyde Works](../preface/how-pyde-works.md)) is a teaching illustration, not a brand surface. The animated SVG at `src/assets/factory-loop.svg` predates the grayscale-only discipline (§4) and retains its original color cues — droplets for transactions, an amber flash for wave commit, a green pillar for state, a gold lock for threshold encryption — as didactic shortcuts that help readers visualize Pyde mechanics at a glance.
+
+These colors live in the animation only. They are not brand tokens. New illustrations default to the §4 grayscale palette; if differentiation beyond gray is needed, prefer pattern, opacity, line weight, or texture over color.
 
 When making a new illustration:
-- Use the palette tokens from §4.
+- Use the §4 grayscale tokens.
 - Lines are `1.4px` for structural elements, `0.6px` for fine detail.
 - Corners are slightly rounded (`rx="2"` is the default).
-- Animations loop on a 6-second cycle (matching the factory loop's tempo).
+- Animations loop on a 3-second cycle (matching the factory loop's tempo).
 
-Diagrams that explain Pyde mechanics should reuse the factory's visual vocabulary: droplets for transactions, boxes for vertices, pillars for state, smoke for eviction, an amber flash for wave commit.
+Diagrams that explain Pyde mechanics may reuse the factory's visual vocabulary in grayscale: droplets for transactions, boxes for vertices, pillars for state, smoke for eviction, a flash for wave commit.
 
 ---
 

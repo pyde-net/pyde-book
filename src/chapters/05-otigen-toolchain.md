@@ -606,7 +606,36 @@ The toolchain wraps deployment-specific concerns. Everything else stays in the l
 
 ---
 
-## 5.11 Reading on
+## 5.11 Performance
+
+The whole toolchain side of the pipeline — parse `otigen.toml`, validate every cross-cutting rule, walk the compiled `.wasm` for imports + exports + deterministic-feature compliance, build the canonical `ContractAbi`, Borsh-encode it, inject the `pyde.abi` custom section — measures in **single-digit microseconds end-to-end**. Validation work is essentially free against the file-system overhead of reading the `.wasm` and writing the four bundle files; a typical `otigen build` invocation is dominated by I/O (~1–5 ms in practice), not by validator CPU.
+
+Reference numbers on an Apple M-series dev machine (arm64, macOS 15), measured by the criterion benches committed under `crates/<crate>/benches/baseline/*.json` in the `pyde-net/otigen` repo. Reproduce with `cargo bench -p otigen-toml --bench parse_validate` and `cargo bench -p otigen-abi --bench abi_pipeline`.
+
+| Operation | Median |
+|---|---:|
+| `selector_of` (Blake3 prefix, function-name → 4-byte selector) | **50 ns** |
+| `Attributes::from_attributes` (3-attribute set) | **1 ns** |
+| `from_project_config` (build canonical `ContractAbi` from parsed TOML) | **449 ns** |
+| Borsh encode `ContractAbi` (3-function contract) | **39 ns** |
+| Borsh decode `ContractAbi` | **156 ns** |
+| `pyde.abi` custom-section inject (3-fn realistic WASM) | **494 ns** |
+| `pyde.abi` custom-section extract | **154 ns** |
+| WASM import validator (3 imports against the host-fn allowlist) | **196 ns** |
+| WASM export validator (cross-reference vs `ContractAbi`) | **343 ns** |
+| WASM deterministic-feature validator (full function-body opcode pass) | **2.3 µs** |
+| `otigen.toml` parse (canonical spec example, ~50 lines) | **23 µs** |
+| `otigen.toml` cross-cutting validation pass | **278 ns** |
+| `otigen.toml` parse + validate (stress: 100 functions + 50 events + 30 state fields) | **488 µs** |
+| **Full in-memory toolchain pipeline** (parse → validate → build → encode → inject) | **14.5 µs** |
+
+These numbers are tracked from commit `pyde-net/otigen#6` forward. Future regressions surface on PRs that run `cargo bench --baseline=v1`.
+
+The benches are intentionally tight scope — they measure the toolchain-side work, not the chain-side deploy validator (which redoes every check at deploy time per `HOST_FN_ABI_SPEC.md` §3.7 layer 3) and not the wasmtime AOT compilation step (which happens on the chain at first invocation of a deployed contract, not at `otigen build` time).
+
+---
+
+## 5.12 Reading on
 
 - [Chapter 3: Execution Layer](./03-virtual-machine.md) — the runtime that contracts compile into.
 - [Chapter 4: State Model](./04-state-model.md) — what `sload` and `sstore` see.

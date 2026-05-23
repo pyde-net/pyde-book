@@ -1,7 +1,7 @@
 # Pyde: A Post-Quantum, MEV-Resistant Layer 1 with DAG Consensus
 
 **Version 0.2 — May 2026**
-Zarah Systems · Apache-2.0
+Pyde Network · Apache-2.0
 
 ---
 

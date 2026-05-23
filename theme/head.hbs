@@ -1,4 +1,20 @@
-<!-- Favicons / web app icons / platform meta -->
+{{!--
+  Per-page <head> injection. mdBook concatenates this on top of every
+  rendered page, so anything here lands on every chapter, companion
+  spec, and the roadmap.
+
+  mdBook handlebars variables available:
+  - `book_title`     — value of `title` in book.toml
+  - `description`    — value of `description` in book.toml
+  - `chapter_title`  — heading of the current page (or book_title at the
+                       root index)
+  - `path_to_root`   — relative `../../`-style path back to the book root,
+                       useful for asset references
+  - `path`           — current page's path relative to the book root,
+                       with `.html` extension
+--}}
+
+{{!-- ── Favicons / web app icons / platform meta ───────────────────── --}}
 <link rel="icon" type="image/png" sizes="16x16" href="{{ path_to_root }}assets/favicon-16x16.png">
 <link rel="icon" type="image/png" sizes="32x32" href="{{ path_to_root }}assets/favicon-32x32.png">
 <link rel="icon" type="image/png" sizes="48x48" href="{{ path_to_root }}assets/favicon-48x48.png">
@@ -10,3 +26,74 @@
 <meta name="msapplication-TileColor" content="#0d1117">
 <meta name="theme-color" content="#f7f8fa" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0d1117" media="(prefers-color-scheme: dark)">
+
+{{!-- ── SEO core ────────────────────────────────────────────────────── --}}
+<meta name="description" content="Comprehensive technical reference for the Pyde blockchain protocol — post-quantum cryptography (FALCON-512, Kyber-768, Poseidon2 + Blake3), Mysticeti DAG consensus, WebAssembly execution via wasmtime, and structural MEV protection.">
+<meta name="keywords" content="Pyde, blockchain, Layer 1, L1, post-quantum, FALCON-512, Kyber-768, Poseidon2, Blake3, MEV, MEV-resistant, encrypted mempool, Mysticeti, DAG consensus, wasmtime, WebAssembly, otigen, lattice cryptography, threshold encryption, parachains, decentralization">
+<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+<meta name="author" content="Pyde Network">
+<link rel="canonical" href="https://book.pyde.network/{{ path }}">
+
+{{!-- Apple PWA hints — book is installable on iOS home screen. --}}
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Pyde Book">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="format-detection" content="telephone=no, address=no, email=no">
+
+{{!-- ── Open Graph ─────────────────────────────────────────────────── --}}
+<meta property="og:site_name" content="The Pyde Book">
+<meta property="og:type" content="article">
+<meta property="og:title" content="{{#if chapter_title}}{{ chapter_title }} — The Pyde Book{{else}}The Pyde Book{{/if}}">
+<meta property="og:description" content="Comprehensive technical reference for the Pyde blockchain protocol.">
+<meta property="og:url" content="https://book.pyde.network/{{ path }}">
+<meta property="og:image" content="https://book.pyde.network/assets/android-chrome-512x512.png">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="512">
+<meta property="og:image:height" content="512">
+<meta property="og:image:alt" content="Pyde — a post-quantum, MEV-resistant Layer 1 blockchain">
+<meta property="og:locale" content="en_US">
+
+{{!-- ── Twitter / X Card ───────────────────────────────────────────── --}}
+<meta name="twitter:card" content="summary">
+<meta name="twitter:site" content="@pydenet">
+<meta name="twitter:creator" content="@pydenet">
+<meta name="twitter:title" content="{{#if chapter_title}}{{ chapter_title }} — The Pyde Book{{else}}The Pyde Book{{/if}}">
+<meta name="twitter:description" content="Comprehensive technical reference for the Pyde blockchain protocol.">
+<meta name="twitter:image" content="https://book.pyde.network/assets/android-chrome-512x512.png">
+<meta name="twitter:image:alt" content="Pyde — a post-quantum, MEV-resistant Layer 1 blockchain">
+
+{{!--
+  ── JSON-LD ──────────────────────────────────────────────────────────
+  TechArticle for each page (Google's preferred type for technical
+  reference content). The publisher block points back at the main
+  pyde.network presence so the book + marketing site are tied together
+  as one entity in search engines' graphs.
+--}}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "headline": "{{#if chapter_title}}{{ chapter_title }}{{else}}The Pyde Book{{/if}}",
+  "description": "Comprehensive technical reference for the Pyde blockchain protocol.",
+  "url": "https://book.pyde.network/{{ path }}",
+  "image": "https://book.pyde.network/assets/android-chrome-512x512.png",
+  "inLanguage": "en",
+  "isPartOf": {
+    "@type": "Book",
+    "name": "The Pyde Book",
+    "url": "https://book.pyde.network/"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Pyde",
+    "url": "https://pyde.network",
+    "logo": "https://book.pyde.network/assets/android-chrome-512x512.png",
+    "sameAs": [
+      "https://github.com/pyde-net",
+      "https://x.com/pydenet",
+      "https://t.me/pydenet"
+    ]
+  },
+  "license": "https://creativecommons.org/licenses/by-sa/4.0/"
+}
+</script>

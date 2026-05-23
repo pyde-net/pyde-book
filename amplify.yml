@@ -1,0 +1,26 @@
+# AWS Amplify Hosting build spec.
+#
+# Amplify clones this repo on every push to a watched branch, runs the
+# phases below, and serves whatever lands in `artifacts.baseDirectory`
+# from its global CDN. The runner is Amazon-Linux based, so we drop the
+# pre-compiled mdBook x86_64 binary into a writable directory on PATH
+# and call it from the build phase.
+#
+# Pin the mdBook version here — bumping it is a deliberate change, not
+# a transient surprise.
+
+version: 1
+frontend:
+  phases:
+    preBuild:
+      commands:
+        - export MDBOOK_VERSION="0.4.40"
+        - curl -fsSL "https://github.com/rust-lang/mdBook/releases/download/v${MDBOOK_VERSION}/mdbook-v${MDBOOK_VERSION}-x86_64-unknown-linux-gnu.tar.gz" | tar -xz -C /tmp
+        - /tmp/mdbook --version
+    build:
+      commands:
+        - /tmp/mdbook build
+  artifacts:
+    baseDirectory: book
+    files:
+      - '**/*'

@@ -205,7 +205,7 @@ Implements [`HOST_FN_ABI_SPEC.md`](companion/HOST_FN_ABI_SPEC.md) (chain side), 
 - [x] PIP-3 wave-level state prefetch (state-side). `prefetch_slots(store, &[SlotHash])` issues one `multi_get_cf` against `state_cf`; dedup + 10K-slot budget cap; per-key errors warn-logged and swallowed. Validation bench at `crates/state/benches/prefetch.rs`. PIP graduated Draft → Accepted in [pyde-net/pips#2](https://github.com/pyde-net/pips/pull/2). The tx-pipeline wire-up that calls this primitive before wave dispatch is deferred to β.3. — PR [#41](https://github.com/pyde-net/engine/pull/41)
 - [ ] PIP-4 write-back cache (DashMap + warm window + lazy flush). PIP graduated Draft → Accepted in [pyde-net/pips#3](https://github.com/pyde-net/pips/pull/3) with the "JMT writes are lazy too" resolution baked in (cache spans `state_cf` + `jmt_cf` via parallel `JmtPendingQueue`). Staged across 5 PRs.
   - [x] **PR-5a** primitives — `CacheStore`, `CacheEntry`, `EntryState` machine, `JmtPendingQueue` — landed in PR [#44](https://github.com/pyde-net/engine/pull/44)
-  - [ ] **PR-5b** read-path integration (`StateStore::read_slot` consults cache first)
+  - [x] **PR-5b** read-path integration — `StateStore::read_slot` now does cache → `state_cf` → None with cache-fill on disk hit (no fill on miss); gains `wave_id: WaveId` parameter for `last_read_at_wave` tracking. Landed in PR [#46](https://github.com/pyde-net/engine/pull/46)
   - [ ] **PR-5c** write-path integration (`StateCommitter::commit` writes cache + enqueues `TreeUpdateBatch`)
   - [ ] **PR-5d** background flush task (three-signal policy + auto-tune + atomic cross-CF drain)
   - [ ] **PR-5e** crash recovery (chain-log replay + `kill -9` mid-wave integration test)

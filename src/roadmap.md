@@ -296,7 +296,7 @@ Implements Chapter 6, `SLASHING.md`, `VALIDATOR_LIFECYCLE.md`, `STATE_SYNC.md`, 
 - [ ] Layered peer discovery: hardcoded seeds → DNS → on-chain validator registry → PEX → cache (NO DHT)
 - [ ] Sentry node pattern (committee primaries behind sentry proxies)
 - [ ] Peer scoring + multi-layer DDoS protections
-- [ ] Vertex-fetch protocol (used by γ.1 missing-vertex handling)
+- [x] Vertex-fetch protocol: libp2p request-response with CBOR codec on `/pyde/vertex-fetch/1`. `VertexProvider` trait (sync getter from local store) services inbound requests; `Network::request_vertex` issues outbound + tracks in-flight hashes so `VertexFetchResponse` events echo the hash. `VertexFetchFailed` event for retry logic. — PR [#45](https://github.com/pyde-net/engine/pull/45)
 - [ ] PeerId persistence + known-peers cache for fast restart
 - [ ] Implement `NetworkView` trait (from `interfaces`)
 

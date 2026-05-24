@@ -302,9 +302,10 @@ Implements Chapter 6, `SLASHING.md`, `VALIDATOR_LIFECYCLE.md`, `STATE_SYNC.md`, 
 - [x] Implement `NetworkView` trait (from `interfaces`): channel-based `NetworkRunner` (owns the swarm) + clone-able `NetworkHandle` (sends commands, implements `NetworkView` for &self async-trait shape) + `NetworkEventStream` (raw event observation). Fetch-waiter coalescing (parallel `fetch_vertex(same_hash)` calls share one peer request), 10s fetch timeout, peer-selection-from-connected (round-robin + scoring later). — PR [#49](https://github.com/pyde-net/engine/pull/49)
 
 #### γ.3 `dkg` crate `[PAR within γ]`
-- [ ] Pedersen DKG protocol implementation (per epoch)
+- [x] Type surface + `DkgProtocol` trait + `MockDkg`: `ShareKey` (secret) / `SharePubkey` (public) / `ThresholdKey` (committee-wide) / `DecryptionShareValue` / `Threshold(u32)`. Trait: `partial_decrypt`, `verify_partial`, `combine`. MockDkg gives `Blake3`-based deterministic mock for integration tests + bring-up before pyde-crypto is engine-CI accessible. — PR [#51](https://github.com/pyde-net/engine/pull/51)
+- [ ] Production `DkgProtocol` impl wrapping pyde-crypto (blocked on pyde-crypto access for engine CI)
+- [ ] Pedersen DKG ceremony orchestration (per-epoch key gen)
 - [ ] PSS resharing (proactive secret sharing across epochs)
-- [ ] May import from `pyde-crypto` if helpers land there first
 
 #### γ.4 `slashing` crate `[PAR within γ] → γ.1`
 - [x] Validator state machine types (Registered / Active / Jailed / Unbonding / Withdrawn) with entry-epoch tagging; `occupies_operator_slot` predicate — PR [#28](https://github.com/pyde-net/engine/pull/28)

@@ -303,7 +303,9 @@ Implements Chapter 6, `SLASHING.md`, `VALIDATOR_LIFECYCLE.md`, `STATE_SYNC.md`, 
 - [x] `Slasher` state machine: per-(epoch, accused, offense_type) repeat counters, per-(epoch, class) correlation counting excluding self, jail extends never shortens, strict `>` expiration — PR [#23](https://github.com/pyde-net/engine/pull/23)
 - [x] Slashing escrow (24h dispute window): bonded → slashed_frozen → slashed_finalized with governance void/reduce hooks during the window, idempotent maturation — PR [#24](https://github.com/pyde-net/engine/pull/24)
 - [x] New-validator grace period (50% reduction in first epoch; sum invariant preserved) — PR [#24](https://github.com/pyde-net/engine/pull/24)
-- [ ] BadAnchorAttestation / BadStateRootSignature / BadDecryptionShare / InvalidVertexStructure evidence verification (the four Safety offenses beyond Equivocation)
+- [x] InvalidVertexStructure evidence verification: `StructuralViolation` enum (`duplicate-batch-refs`, `insufficient-parent-quorum`) with stable kebab-case codes; producer's FALCON sig + envelope match + reason cross-check — PR [#25](https://github.com/pyde-net/engine/pull/25)
+- [ ] BadStateRootSignature / BadAnchorAttestation evidence verification (the remaining two non-DKG Safety offenses)
+- [ ] BadDecryptionShare evidence verification (gated on γ.3 DKG)
 - [ ] Consensus integration: wire `InsertOutcome::Equivocation` → auto-build Evidence
 - [ ] Persistence: Slasher + Escrow to RocksDB (lands at MC-2 alongside state-crate integration)
 - [ ] Reward distribution (pool-based, stake × uptime)

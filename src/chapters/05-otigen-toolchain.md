@@ -676,5 +676,5 @@ The benches are intentionally tight scope — they measure the toolchain-side wo
 - [Chapter 4: State Model](./04-state-model.md) — what `sload` and `sstore` see.
 - [Chapter 11: Account Model](./11-account-model.md) — the ENS-style name registry that the toolchain registers against.
 - [Chapter 13: Cross-Chain (Parachains)](./13-cross-chain.md) — parachain-specific deploy and upgrade flows.
-- Host Function ABI spec — the binary contract between WASM modules and the engine.
-- The Otigen binary design spec — the engineering detail for the toolchain itself (lives in the engine docs).
+- [`HOST_FN_ABI_SPEC.md`](../companion/HOST_FN_ABI_SPEC.md) — the locked binary contract between WASM modules and the engine; every imported function the toolchain accepts is in its allowlist.
+- [`OTIGEN_BINARY_SPEC.md`](../companion/OTIGEN_BINARY_SPEC.md) — the canonical specification for this binary. Every subcommand, flag, `otigen.toml` schema rule, bundle format, exit code, and validation pass is defined there. If the implementation and the spec disagree, the spec is right and the code is a bug.

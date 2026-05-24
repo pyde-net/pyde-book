@@ -206,7 +206,7 @@ Implements [`HOST_FN_ABI_SPEC.md`](companion/HOST_FN_ABI_SPEC.md) (chain side), 
 - [ ] PIP-4 write-back cache (DashMap + warm window + lazy flush). PIP graduated Draft → Accepted in [pyde-net/pips#3](https://github.com/pyde-net/pips/pull/3) with the "JMT writes are lazy too" resolution baked in (cache spans `state_cf` + `jmt_cf` via parallel `JmtPendingQueue`). Staged across 5 PRs.
   - [x] **PR-5a** primitives — `CacheStore`, `CacheEntry`, `EntryState` machine, `JmtPendingQueue` — landed in PR [#44](https://github.com/pyde-net/engine/pull/44)
   - [x] **PR-5b** read-path integration — `StateStore::read_slot` now does cache → `state_cf` → None with cache-fill on disk hit (no fill on miss); gains `wave_id: WaveId` parameter for `last_read_at_wave` tracking. Landed in PR [#46](https://github.com/pyde-net/engine/pull/46)
-  - [ ] **PR-5c** write-path integration (`StateCommitter::commit` writes cache + enqueues `TreeUpdateBatch`)
+  - [x] **PR-5c** write-path integration — `StateCommitter::commit` now writes slot values to `CacheStore` (Dirty / tombstone) + enqueues the wave's `TreeUpdateBatch` on `JmtPendingQueue`. No RocksDB writes per wave. New `CacheAwareJmtReader` lets `put_value_set` see preceding unflushed waves' tree state. `CacheEntry.value` becomes `Option<SmallVec>` to distinguish tombstones from empty values. Landed in PR [#48](https://github.com/pyde-net/engine/pull/48)
   - [ ] **PR-5d** background flush task (three-signal policy + auto-tune + atomic cross-CF drain)
   - [ ] **PR-5e** crash recovery (chain-log replay + `kill -9` mid-wave integration test)
 - [ ] events_cf + events_by_topic_cf + events_by_contract_cf (per `HOST_FN_ABI_SPEC §15.3`)

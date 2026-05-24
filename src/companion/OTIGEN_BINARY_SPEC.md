@@ -45,13 +45,14 @@ This spec does **not** define:
 - A *deploy client*: it signs, submits, and tracks lifecycle transactions against a Pyde network.
 - A *wallet*: it manages FALCON-512 keypairs in an encrypted keystore.
 - A *REPL*: it offers an interactive shell for querying state, calling contracts, and debugging.
+- A *contract-behaviour test runner*: `otigen test` executes WASM in a wasmtime sandbox against a TOML-driven test spec, with mock implementations of every host function (see [OTIGEN_TEST_SPEC](./OTIGEN_TEST_SPEC.md)).
 
 **Is NOT:**
 
 - A *language compiler*. `otigen` does not parse Rust / AssemblyScript / Go / C. It calls the language's own compiler.
 - A *language-specific SDK*. There are no first-party Rust, TypeScript, AssemblyScript, etc. bindings shipped by `otigen`. Author writes `extern` declarations against the [Host Function ABI](./HOST_FN_ABI_SPEC.md) themselves; canonical example projects show the idiom.
 - An *IDE*. Authors use their language's standard IDE tooling (rust-analyzer, AssemblyScript LSP, gopls, clangd). `otigen` is invoked from the command line or from a project's `npm run` / `cargo run` script.
-- A *test runner*. Authors use their language's native test command (`cargo test`, `npm test`, `go test`).
+- A *language-native unit-test runner*. `cargo test` / `npm test` / `go test` are still the right choice for pure helpers (math, parsing, formatting). `otigen test` complements them at the behaviour-and-state-changes layer, not the function-internals layer.
 
 ---
 
@@ -263,6 +264,46 @@ otigen verify <name-or-address> [--bundle <path>]
 Compares the local bundle's WASM bytes against the chain's stored bytes. Useful for confirming reproducible builds: if two builders run `otigen build` from the same source and toolchain versions, they should produce byte-identical bundles.
 
 Exit codes: `0` on match, `1` on mismatch (with a diff summary).
+
+### 3.10 `otigen test`
+
+Run contract behaviour tests declared in TOML against the built `.wasm`.
+
+```
+otigen test [--filter <pattern>] [--bundle <path>] [--no-color] [--show-output]
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--filter <pattern>` | none | Run only tests whose name contains the pattern (substring). Multiple `--filter` flags OR together. |
+| `--bundle <path>` | `./artifacts/<name>.bundle/` | Bundle whose `contract.wasm` is executed. |
+| `--no-color` | off | Disable terminal colour escapes (CI logs). |
+| `--show-output` | off | Print captured stdout / stderr per test (for mock-host debugging). |
+
+Discovery order:
+1. `tests/*.test.toml` (canonical)
+2. `tests/*.toml`
+3. `./contract.test.toml` (single-file projects)
+
+Each file's `[[tests]]` array contributes to the total count. Tests run sequentially; each starts from a fresh `TestEnv` (no state leaks between cases). A wasmtime engine is created once per file.
+
+Per-test pipeline:
+
+1. Apply `[cheats]` (and per-test `[tests.cheats]` overrides).
+2. Resolve account names → 32-byte Blake3 addresses; resolve storage field names → Poseidon2 slot hashes per the contract's `[state]` schema + PIP-2.
+3. Pre-populate storage from `[tests.setup].storage`.
+4. For each `[[tests.calls]]` entry: parse args, invoke the WASM export, capture the return value + emitted events + revert reason. Check per-call `expect`.
+5. After the call sequence, check `[tests.expect]` (final-state assertions).
+6. Emit pass / fail.
+
+Mock host fns (v1):
+
+- Implemented: `sload`, `sstore`, `sdelete`, `caller`, `value`, `now`, `current_wave`, `chain_id`, `gas_remaining`, `emit_event`, `revert`, `balance_of`, `transfer_native`, `poseidon2`, `blake3`
+- Trap with `UnsupportedHostFn`: every other `pyde::*` import (DKG, parachain-only, cross-contract). v2 expands.
+
+Exit codes: `0` all-pass; `1` any failure; `2` resource failure (test file unreadable, bundle missing); `4` schema error (malformed TOML, reference to undeclared `[state]` field).
+
+The full TOML schema, name resolution rules, cheatcode catalogue, mock host-function behaviour, and limitations are documented in [`OTIGEN_TEST_SPEC.md`](./OTIGEN_TEST_SPEC.md). That spec is authoritative.
 
 ---
 
@@ -739,6 +780,17 @@ should produce byte-identical `contract.wasm` and `manifest.json` (modulo `build
 {"event": "build_success", "duration_ms": 248}
 ```
 
+`otigen test --json` adds the test-suite stream:
+
+```jsonl
+{"event":"test_suite_start","file":"tests/contract.test.toml","total":3}
+{"event":"test_start","name":"transfer_moves_balance"}
+{"event":"test_pass","name":"transfer_moves_balance","duration_ms":1.2}
+{"event":"test_start","name":"transfer_reverts_on_overspend"}
+{"event":"test_fail","name":"transfer_reverts_on_overspend","reason":"expected revert containing \"InsufficientBalance\", got: return value 0"}
+{"event":"test_suite_done","passed":1,"failed":1,"skipped":0}
+```
+
 CI / scripting consumers parse this stream. Human readers see a friendlier format by default (omit `--json`).
 
 ### 10.3 Exit codes
@@ -805,6 +857,7 @@ When `otigen` introduces a *required* new key, that's a MAJOR bump; `otigen migr
 - [Chapter 5 — Otigen Toolchain](../chapters/05-otigen-toolchain.md) — narrative overview
 - [Chapter 17 — Developer Tools](../chapters/17-developer-tools.md) — what tools authors use day-to-day
 - [HOST_FN_ABI_SPEC.md](./HOST_FN_ABI_SPEC.md) — the chain-facing ABI this toolchain builds against
+- [OTIGEN_TEST_SPEC.md](./OTIGEN_TEST_SPEC.md) — contract behaviour test framework (Foundry-grade TOML)
 - [PARACHAIN_DESIGN.md](./PARACHAIN_DESIGN.md) — parachain-specific concerns (no-SDK rationale, governance, etc.)
 - [Chapter 11 — Account Model](../chapters/11-account-model.md) — address derivation, tx wire format
 - [`wasm-encoder` crate](https://docs.rs/wasm-encoder/) — the WASM section-writer `otigen` uses

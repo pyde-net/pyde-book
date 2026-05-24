@@ -220,13 +220,16 @@ Each threat ID prefixed `T-` (toolchain). Numbered for cross-reference. Severity
 
 **Severity:** M (if it did, malicious WASM could run code on the build machine)
 
-**Description:** A future refactor accidentally introduces a wasmtime instantiation step into `otigen build` (e.g., for "preflight gas estimation"). Now the malicious WASM runs in-process.
+**Description:** A future refactor accidentally introduces a wasmtime instantiation step into `otigen build` (e.g., for "preflight gas estimation"). Now the malicious WASM runs in-process during a build operation the author thinks is metadata-only.
 
 **Mitigations:**
-- The toolchain **does not link wasmtime**. `Cargo.toml` of `otigen-abi` only depends on `wasmparser` (read-only inspection) and `wasm-encoder` (write-only emission), never `wasmtime` (executor).
-- Architecture-level invariant documented in `OTIGEN_BINARY_SPEC.md` §2 ("Is NOT a language compiler" / "Is NOT a test runner").
+- **`otigen build` does not link or instantiate wasmtime.** `Cargo.toml` of `otigen-cli` (the dispatch crate) and `otigen-abi` (the build-pipeline crate) only depend on `wasmparser` (read-only inspection) and `wasm-encoder` (write-only emission). The wasmtime dependency lives exclusively in `otigen-test` and is invoked only by the `otigen test` subcommand, which the author opts into per invocation.
+- **`otigen test` runs WASM in a sandboxed wasmtime `Engine`** with mock host functions (no filesystem access, no network access, no `wasi:*` imports). Even malicious WASM under `otigen test` cannot escape the sandbox to the build machine.
+- **Architecture-level invariant** documented in [`OTIGEN_BINARY_SPEC.md`](./OTIGEN_BINARY_SPEC.md) §2: `otigen` is NOT a language compiler. The contract-behaviour test runner (`otigen test`) is the only execution surface and is opt-in per invocation.
 
-**Residual risk:** Future PR adds wasmtime. CI should grep the workspace lockfile for `wasmtime` and reject the PR. Adding that as a future enhancement.
+**Residual risk:**
+- Future PR adds wasmtime to `otigen-cli` or `otigen-abi` (i.e., the build path, not just `otigen-test`). CI should grep the build-path crates' `Cargo.toml` for `wasmtime` and reject the PR. Adding that as a future enhancement.
+- A malicious dependency of `otigen-test` (e.g., a compromised wasmtime release) executes during `otigen test`. Mitigated by `cargo-audit` + `cargo-deny` gates (α.qual) and the fact that wasmtime is a Bytecode Alliance project with its own audit pipeline; not a Pyde-specific risk.
 
 ---
 
@@ -267,7 +270,7 @@ Each threat ID prefixed `T-` (toolchain). Numbered for cross-reference. Severity
 | T-07 phished password | ⏳ signed binary releases (α.qual.release) |
 | T-08 malicious cargo dep | ⏳ cargo-audit + cargo-deny in CI (α.qual.ci) |
 | T-09 dependency confusion | ✅ documentation only |
-| T-10 build executes WASM | ✅ architectural invariant: no wasmtime in toolchain deps |
+| T-10 build executes WASM | ✅ architectural invariant: `otigen build` does not link wasmtime; the wasmtime dep lives only in `otigen-test` and runs WASM in a sandboxed Engine with mock host fns (no `wasi:*`, no fs/net imports) |
 | T-11 path traversal via `--out` | ✅ standard CLI flag, no surprise |
 | T-12 replay attack | ✅ chain-side nonce; no toolchain action needed |
 

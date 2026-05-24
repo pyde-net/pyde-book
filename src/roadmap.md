@@ -284,7 +284,7 @@ Implements Chapter 6, `SLASHING.md`, `VALIDATOR_LIFECYCLE.md`, `STATE_SYNC.md`, 
 - [x] Implement `ConsensusEngine` trait via `Driver` (composed runtime: `VertexStore` + `RoundTracker` + `PendingParents` + finality history; Arc-shared, fine-grained locks, wave-monotonicity guard, object-safe trait impl) — PR [#11](https://github.com/pyde-net/engine/pull/11)
 
 #### γ.2 `net` crate `[PAR within γ]`
-- [ ] libp2p + QUIC transport (pinned versions)
+- [x] libp2p + QUIC transport scaffold (libp2p 0.56, TCP+Noise+Yamux fallback + QUIC; `Keypair` newtype with secret-omitting Debug; `Network` host wrapper with `start_listening` + `dial`; dep scoped to the net crate so β/α don't pay the build cost). Behaviour replaced from `dummy` to real protocols in next γ.2 PRs. — PR [#40](https://github.com/pyde-net/engine/pull/40)
 - [x] Gossipsub topic constants (`topics::ALL` — vertices, batches, decryption-shares, state-root-sigs, mempool, state-sync, evidence, governance, all `/v1` versioned per NETWORK_PROTOCOL.md), `PeerId` newtype, `NetError` taxonomy. Sets the wire-stable surface ahead of the libp2p transport PR. — PR [#39](https://github.com/pyde-net/engine/pull/39)
 - [ ] Layered peer discovery: hardcoded seeds → DNS → on-chain validator registry → PEX → cache (NO DHT)
 - [ ] Sentry node pattern (committee primaries behind sentry proxies)

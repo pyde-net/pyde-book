@@ -304,7 +304,8 @@ Implements Chapter 6, `SLASHING.md`, `VALIDATOR_LIFECYCLE.md`, `STATE_SYNC.md`, 
 - [x] Slashing escrow (24h dispute window): bonded → slashed_frozen → slashed_finalized with governance void/reduce hooks during the window, idempotent maturation — PR [#24](https://github.com/pyde-net/engine/pull/24)
 - [x] New-validator grace period (50% reduction in first epoch; sum invariant preserved) — PR [#24](https://github.com/pyde-net/engine/pull/24)
 - [x] InvalidVertexStructure evidence verification: `StructuralViolation` enum (`duplicate-batch-refs`, `insufficient-parent-quorum`) with stable kebab-case codes; producer's FALCON sig + envelope match + reason cross-check — PR [#25](https://github.com/pyde-net/engine/pull/25)
-- [ ] BadStateRootSignature / BadAnchorAttestation evidence verification (the remaining two non-DKG Safety offenses)
+- [x] BadStateRootSignature evidence verification: `consensus::state_root_sig_pre_image` (canonical FALCON pre-image per Ch 6 §12); two contradictory roots, both sigs verify under accused's pubkey — PR [#26](https://github.com/pyde-net/engine/pull/26)
+- [ ] BadAnchorAttestation evidence verification (the last non-DKG Safety offense)
 - [ ] BadDecryptionShare evidence verification (gated on γ.3 DKG)
 - [ ] Consensus integration: wire `InsertOutcome::Equivocation` → auto-build Evidence
 - [ ] Persistence: Slasher + Escrow to RocksDB (lands at MC-2 alongside state-crate integration)

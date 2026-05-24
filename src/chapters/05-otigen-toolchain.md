@@ -234,26 +234,45 @@ Authors keep their full language toolchain (build errors, IDE integration, depen
 
 ## 5.5 Build Verification + Packaging
 
-`otigen build` is purely a validator + packager. It runs in roughly this order:
+`otigen build` is purely a validator + packager. It runs in this order:
 
 ```
-1. Load otigen.toml; reject if required sections are missing.
-2. Resolve [build].wasm_path; reject if the file doesn't exist.
-3. Parse the .wasm file; reject if the binary is malformed.
-4. Walk the WASM import table; reject any import outside the Host Function ABI allowlist.
-5. Walk the WASM export table; cross-check every [functions.X] has a matching export named X.
-6. Validate attribute combinations per function (no view+payable, no constructor outside [functions], etc.).
-7. Validate state schema: discriminator uniqueness, type validity, map-key types declared.
-8. Generate artifacts/<contract_name>.abi.json from [state] + [functions].
-9. Package artifacts/<contract_name>.bundle:
-     - .wasm bytes
-     - abi.json
-     - otigen.toml snapshot
-     - manifest with sha256 hashes
-10. Print "ready to deploy" with the bundle path and contract name.
+1. Load otigen.toml; validate schema (§5.3) + attribute combinations per
+   HOST_FN_ABI_SPEC §3.5.1.
+2. Locate the .wasm at the path declared in [contract.lang.output];
+   reject (exit 2) if the file doesn't exist.
+3. Parse the .wasm via wasmparser; reject if the binary is malformed.
+4. Walk the WASM import table; reject any import whose module is not
+   "pyde" or whose function name is not on the HOST_FN_ABI_SPEC
+   allowlist (and, for non-parachain contract types, reject any
+   parachain-only host functions).
+5. Walk the WASM export table; cross-check every [functions.X] has a
+   matching export named X, and reject any export that isn't declared.
+6. Validate the WASM feature set is in the deterministic subset
+   (no threads, no SIMD, no reference types, etc.).
+7. Run the static call-graph view check: for each `view`-attributed
+   function, walk its transitive call graph. Reject if any reachable
+   function imports a state-mutating host call (sstore, sdelete,
+   transfer, emit_event, parachain_storage_write, etc.).
+8. Build the ContractAbi from [functions.*] + [events.*] + [state]
+   (computing 4-byte selectors as blake3(fn_name)[..4], topic
+   signature hashes, state schema hash).
+9. Borsh-encode the ContractAbi.
+10. Inject the encoded ABI into the .wasm as a custom section named
+    `pyde.abi`, using the `wasm-encoder` crate. The code section is
+    untouched; reproducible builds still verify byte-identical.
+11. Write the bundle to <out>/<contract_name>.bundle/:
+      - contract.wasm        (.wasm with pyde.abi custom section)
+      - otigen.toml          (verbatim copy of the source config)
+      - abi.json             (human-readable ABI mirror)
+      - manifest.json        (blake3 hashes, build timestamp, otigen
+                              version, language toolchain pins,
+                              target chain_id)
+12. Print "✓ built <name> → <bundle_path>" with the wasm + abi sizes
+    and blake3 prefixes (16 hex chars) per artifact.
 ```
 
-If any step fails, `otigen build` exits non-zero with a structured error message identifying what's missing or wrong. No partial bundles are written.
+Exit codes: `0` on success, `1` on validation failure (with a structured error listing every violation), `2` if the `.wasm` was not found at the expected path. No partial bundles are ever written — the bundle dir is created last, after every validation has passed.
 
 ### How authors do state access (without otigen-generated code)
 
@@ -438,161 +457,150 @@ The safety floor that Otigen provided is preserved end-to-end. The mechanism is 
 otigen deploy --network testnet
 ```
 
-What happens:
+What happens, per spec §3.3:
 
-1. `otigen` reads `otigen.toml`, validates the contract is built (`artifacts/<name>.bundle` exists and is current).
-2. `otigen` checks the name registry on-chain: is `mytoken` available? If taken, fail with a clear error.
-3. `otigen` opens the wallet keystore, prompts for password if encrypted, signs the deploy transaction.
-4. The deploy transaction includes:
-   - Contract name (`mytoken`)
-   - Registration fee payment (tiered by name length)
-   - Owner deposit (forfeit on misbehavior)
-   - WASM bytes
-   - ABI JSON
-   - Initial state values (if any from constructor)
-5. `otigen` submits the transaction to the node.
-6. `otigen` polls for inclusion, reports the contract address once committed.
-7. Done.
+1. `otigen` resolves the bundle dir (default `./artifacts/<name>.bundle/` from `otigen.toml`'s `[contract.name]`, override via `--bundle <path>`).
+2. `otigen` loads the bundle (manifest.json + otigen.toml + contract.wasm) and re-validates WASM + ABI consistency — defense in depth even though the bundle came from `otigen build`.
+3. `otigen` resolves the network from `--network` or `[network.default.name]` and the signer wallet from `--from` or `[wallet.default_account]`. Prompts for the wallet password (no echo).
+4. `otigen` fetches the sender's nonce via `pyde_getNonce`.
+5. `otigen` builds the canonical `Tx`:
+   ```
+   Tx {
+     from:       sender (32-byte Poseidon2(falcon_pubkey)),
+     to:         Address::ZERO,
+     value:      0,
+     data:       borsh(DeployData { name, wasm_bytes, contract_type, init_calldata }),
+     gas_limit:  from [deploy.gas_limit] (default 10_000_000),
+     nonce:      fetched above,
+     signature:  filled in next step,
+     fee_payer:  Sender,
+     access_list: [],
+     deadline:   None,
+     chain_id:   from [network.<name>.chain_id],
+     tx_type:    Deploy (0x01),
+   }
+   ```
+6. `otigen` computes the canonical Poseidon2 tx hash (Ch 11 §"Transaction hash") and FALCON-signs it. The signature is NOT included in the hashed payload.
+7. `--dry-run` mode: print tx hash + wire size and exit 0 without submitting.
+8. Otherwise: Borsh-encode the full Tx and submit via `pyde_sendRawTransaction`. Print the server-returned tx hash.
+9. Unless `--no-wait`, poll `pyde_getTransactionReceipt` (60 s timeout, 1 s interval) until included. Report success / reverted / out-of-gas.
+
+Exit codes: `0` on inclusion + success, `1` on validation failure, `2` on RPC / network / inclusion-timeout, `3` on revert, `4` on wallet failure.
 
 ### Upgrade
 
 ```bash
-otigen upgrade --network testnet
+otigen upgrade <target> --bundle <new-bundle-dir>     # contract path
 ```
 
-What happens (smart contract path):
+What happens (contract path):
 
-1. `otigen` builds the new version (same as `otigen build`).
-2. `otigen` submits an upgrade transaction signed by the owner key.
-3. The chain applies the upgrade after a grace period (configurable in `otigen.toml`; default 100 waves) to give users time to verify.
-4. After grace period: new WASM takes effect, version field increments. The full version history is retained on-chain (see Chapter 13 for parachain upgrade details).
+1. `otigen` resolves `<target>` — `0x`-prefixed address or registered name (auto-resolved via `pyde_resolveName`).
+2. `otigen` reads the new wasm from `--wasm <file>` or `<bundle>/contract.wasm`.
+3. Same signing pipeline as deploy, but the wire shape is `Tx { tx_type: Standard, to: <target>, data: borsh(LifecyclePayload::Upgrade { new_wasm }) }`. The chain decodes the payload, re-runs ABI validation against the new bytes, stores the new code, and bumps `current_version`.
 
-For parachain upgrades, the upgrade flow routes through equal-power validator voting instead of owner-only authorization.
+For parachain upgrades, the chain requires equal-power validator-quorum certs collected separately per [PARACHAIN_DESIGN §6.2](../companion/PARACHAIN_DESIGN.md). The CLI flow for parachain governance (`--parachain` / `--finalize <proposal-id>`) is deferred to the parachain rollout post-mainnet.
 
 ---
 
 ## 5.8 Wallet Management
 
-The wallet is built into the `otigen` binary directly — no separate wallet daemon, no external dependency, no extra install step. The implementation is ported forward from the wright toolchain that this binary replaces; the wallet protocol, the keystore format, the file layout, and the subcommand surface are all preserved unchanged.
-
-### Why ported from wright
-
-The wright wallet implementation was already production-quality: FALCON-512 keypair generation, AES-256-GCM keystore encryption, Argon2id key derivation from a user passphrase, in-memory key unlock with explicit re-lock. None of that needed to change with the WASM pivot — the wallet's job is to manage FALCON keys and sign transactions, both of which are unchanged across pivots.
-
-So we copy it forward, preserving the format compatibility so wright-era wallet files (`~/.pyde/wallets/*.json`) can still be loaded by `otigen wallet` commands.
+The wallet is built into the `otigen` binary directly — no separate wallet daemon, no external dependency, no extra install step. The cryptographic primitives (FALCON-512 keypair generation, AES-256-GCM keystore encryption, Argon2id key derivation, in-memory key unlock with zeroize-on-drop) carry forward from the archived `wright` toolchain; the on-disk format was redesigned for the WASM era to match spec §7.1.
 
 ### Subcommand surface
 
 ```bash
-otigen wallet create --name alice
-    # Generate a new FALCON-512 keypair. Prompts for an encryption passphrase.
-    # Writes ~/.pyde/wallets/alice.json (encrypted keystore).
+otigen wallet new <name>
+    # Generate a new FALCON-512 keypair. Prompts for a password (twice).
+    # Adds the encrypted keypair to ~/.pyde/keystore.json under <name>.
 
-otigen wallet import --name bob --from-file ./bob.key
-    # Import an existing keypair (e.g., from a hardware backup).
-
-otigen wallet import --name carol --pk-hex 0x... --sk-hex 0x...
-    # Import from raw hex (e.g., from another tool's export).
+otigen wallet import <name>
+    # Add an existing keypair. Both halves of the FALCON keypair are read
+    # interactively — FALCON does not allow recovering the public key from
+    # the secret key alone, so the user must paste both (public hex first,
+    # then secret key via a no-echo prompt).
 
 otigen wallet list
-    # Show all wallets in ~/.pyde/wallets/, with addresses and last-used timestamps.
+    # List every account in the keystore (name + address).
 
-otigen wallet export-pubkey alice
-    # Print the FALCON public key (safe to share; not the signing key).
+otigen wallet show <name>
+    # Print the account's address + public key. No password needed —
+    # public material is stored unencrypted.
 
-otigen wallet balance --name alice --network testnet
-    # Query the live balance for this wallet's address.
+otigen wallet delete <name> [--yes]
+    # Remove an account from the keystore. Requires retyping the name
+    # to confirm unless --yes is passed.
 
-otigen wallet remove --name old_wallet
-    # Delete a wallet keystore (with confirmation prompt).
+otigen wallet password <name>
+    # Rotate the account's encryption password. Decrypts with the old
+    # password, generates a fresh salt + nonce, re-encrypts. The keypair
+    # itself is unchanged.
 ```
+
+Override the default keystore location via the global `--keystore <path>` flag (e.g. `otigen --keystore ./test-keys.json wallet list`).
 
 ### Keystore format
 
-A wallet is a single JSON file at `~/.pyde/wallets/<name>.json`:
+Per spec §7.1, a single JSON file at `~/.pyde/keystore.json` holds every account. Schema:
 
 ```json
 {
-  "name": "alice",
   "version": 1,
-  "address": "0xa1b2c3d4e5f6...",
-  "falcon_pubkey": "0x...",
-  "encrypted_secret_key": {
-    "ciphertext": "0x...",         // AES-256-GCM ciphertext of the FALCON private key
-    "nonce": "0x...",              // AES-GCM nonce
-    "kdf": "argon2id",
-    "kdf_params": {
-      "salt": "0x...",
-      "memory_cost": 65536,
-      "time_cost": 3,
-      "parallelism": 4
-    }
-  },
-  "created_at": "...",
-  "last_used_at": "..."
+  "accounts": {
+    "deployer": {
+      "address":    "0x" + 64 hex chars,
+      "pubkey":     "0x" + hex of FALCON-512 public key (897 bytes → 1794 chars),
+      "ciphertext": "0x" + hex of AES-256-GCM ciphertext of the FALCON secret key,
+      "salt":       "0x" + 32 hex chars (16-byte Argon2id salt),
+      "nonce":      "0x" + 24 hex chars (12-byte AES-GCM nonce),
+      "kdf": {
+        "name":        "argon2id",
+        "memory_kb":   65536,    // 64 MiB
+        "iterations":  3,
+        "parallelism": 4
+      }
+    },
+    "deployer-staging": { ... },
+    "alice":            { ... }
+  }
 }
 ```
 
-The encrypted private key is decrypted in-memory only when the wallet is unlocked for signing. The plaintext key never touches disk and is zeroized when the wallet locks (explicit `otigen wallet lock` or process exit).
+KDF parameters are embedded per-entry so a future tightening of the pinned values still decrypts old entries.
+
+Unix file permissions are set to `0700` on `~/.pyde/` and `0600` on the keystore file. The plaintext secret key is decrypted in memory only when needed for signing and wiped on drop via `zeroize::Zeroizing`. The `Wallet` struct's `Debug` impl is hand-rolled to redact the secret key bytes so accidental `unwrap_err()` on a `Result<Wallet, _>` cannot dump key material into a panic message.
 
 ### Signing flow
 
-When `otigen deploy`, `otigen upgrade`, or any other subcommand that submits a transaction is invoked with `--wallet <name>`:
+When `otigen deploy`, `otigen upgrade`, `otigen pause`, `otigen unpause`, or `otigen kill` is invoked:
 
-1. Read the encrypted keystore from `~/.pyde/wallets/<name>.json`.
-2. Prompt for the passphrase (unless `--unlock-with-env PYDE_PASSPHRASE` is set, for CI use).
-3. Derive the AES key from the passphrase via Argon2id.
-4. Decrypt the FALCON private key in memory.
-5. Construct the transaction, hash it, FALCON-sign with the private key.
-6. Submit the signed transaction to the network.
-7. Zeroize the in-memory private key.
+1. Resolve the wallet name from `--from <name>` or `[wallet.default_account]`.
+2. Resolve the keystore path from `--keystore <path>` or the default (`~/.pyde/keystore.json`).
+3. Prompt for the password via `rpassword` (no TTY echo).
+4. Derive the AES-256 key from the password + per-account salt via Argon2id.
+5. Decrypt the FALCON-512 secret key into a `zeroize::Zeroizing` wrapper.
+6. Construct the canonical `Tx`, compute the Poseidon2 tx hash, FALCON-sign the digest.
+7. Submit the signed `Tx` via `pyde_sendRawTransaction`. Zeroize the secret-key buffer on scope exit.
 
-### External signer protocol
+AES-GCM decryption failures all surface as the same `Error::DecryptionFailed` variant, regardless of cause (wrong password, tampered ciphertext, corrupt nonce). This avoids a timing oracle that would distinguish "you typed the wrong password" from "someone modified your keystore."
 
-For production deployment workflows requiring hardware signing or multi-party key custody, the toolchain supports an **external signer protocol** (modeled after ethers.js's external signer interface). Instead of `otigen` reading the keystore directly, it sends the transaction hash to an external process over a defined IPC protocol; that process returns a FALCON signature.
+### Deferred surface
 
-```bash
-otigen deploy --network mainnet --external-signer "http://localhost:8765/sign"
-```
+Three advanced wallet operations from spec §3.7 are deferred to a later pass:
 
-This allows integration with:
-- Hardware wallets (when FALCON-aware hardware wallets become available).
-- HSM-backed signing services.
-- Multi-party computation (MPC) signing.
-- Air-gapped signing setups.
+- `rotate <name>` — submits a chain-side `KeyRotationTx` so an existing account can move to a fresh FALCON keypair without changing its address. Distinct from `password` (which only re-encrypts the local keystore entry).
+- `export <name>` — emit an encrypted backup blob for migration / cold storage.
+- `sign <name> <hex-message>` — sign arbitrary bytes for advanced workflows (off-chain attestations, etc.).
 
-Native hardware wallet support and HSM integrations are planned post-mainnet; the external signer protocol is the v1 extension point.
-
-### Compatibility note
-
-Wallets created with the old wright toolchain (`~/.pyde/wallets/*.json` written by `wright wallet create`) are bit-compatible with `otigen wallet`. You do not need to re-create wallets after upgrading the toolchain. The `otigen` binary reads, signs with, and writes the same file format.
+Hardware-wallet bridges and HSM-backed signing (spec §7.4) are post-mainnet; no FALCON-aware hardware wallets exist yet.
 
 ---
 
 ## 5.9 The Console
 
-```bash
-otigen console --network testnet
-```
+`otigen console` is reserved by spec §3.8 as an interactive REPL against a Pyde node — useful for exploration and ad-hoc debugging.
 
-A REPL against a Pyde node, useful for exploration and debugging:
-
-```
-otigen> wallet alice
-Loaded wallet 'alice'. Address: 0xa1b2c3d4e5f6...
-
-otigen> balance 0xa1b2c3d4e5f6
-1,000,000 PYDE
-
-otigen> call mytoken total_supply
-{ "result": 1000000000 }
-
-otigen> send mytoken transfer 0xdeadbeef... 500
-Submitted tx 0x9a3f...
-Confirmed in wave 18345.
-```
-
-The console is convenient but not authoritative — for production scripts and CI, use `otigen` non-interactively or via the SDKs.
+Status: **deferred post-v1.** Every read / write surface the REPL would expose is already scriptable via the other subcommands today (`inspect`, `verify`, `deploy`, the wallet commands), and `otigen-rpc::Client` is a small enough crate to embed directly in a one-off Rust script when something more dynamic is needed. The REPL becomes valuable once contracts are actually deployed and authors want a fast loop to poke at them — that benefit accrues post-launch.
 
 ---
 

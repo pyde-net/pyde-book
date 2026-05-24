@@ -217,7 +217,7 @@ Implements [`HOST_FN_ABI_SPEC.md`](companion/HOST_FN_ABI_SPEC.md) (chain side), 
 
 #### β.2 `account` crate `[PAR within β]`
 - [x] On-disk `Account` record per Ch 11 §11.1 — `address`, `nonce_window`, `balance`, `code_hash` (Poseidon2), `storage_root` (Blake3, kept zero in v1 per §11.11's single-global-JMT resolution), `account_type`, `auth_keys`, `gas_tank`, `key_nonce`. Constructors for EOA / Contract / System; `is_eoa` / `is_contract` / `is_system` / `has_code` accessors. Borsh layout pinned by a 144-byte all-zero-EOA test plus a bitmap-offset pin. The actual encoding adds 2 bytes vs the §11.1 summary text (which elides `NonceWindow.bitmap` but §11.4 requires it for replay protection) — flagged in the module docs for a spec-text touch-up. Landed in PR [#64](https://github.com/pyde-net/engine/pull/64)
-- [ ] 32-byte address derivation (`Poseidon2(falcon_pubkey)`)
+- [x] 32-byte address derivation (`Poseidon2(falcon_pubkey)`) — `eoa_address`, `create_address` (deployer ‖ nonce_le, 40 B), `create2_address` (`0xFF` ‖ deployer ‖ salt ‖ code_hash, 97 B), `system_address` (`Poseidon2(name_bytes)`). Distinct input lengths + `0xFF` prefix on CREATE2 give structural cross-path collision resistance; Poseidon2's 128-bit Goldilocks collision resistance handles random inputs. 14 unit tests cover determinism + per-field sensitivity + cross-path distinctness. Landed in PR [#65](https://github.com/pyde-net/engine/pull/65)
 - [ ] `AuthKeys` enum with `Single`, `MultiSig`, `Programmable` (Programmable v2-reserved)
 - [ ] 16-slot nonce window
 - [ ] Name registry as a system contract (ENS-style, unique names)

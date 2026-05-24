@@ -311,7 +311,7 @@ Implements Chapter 6, `SLASHING.md`, `VALIDATOR_LIFECYCLE.md`, `STATE_SYNC.md`, 
 - [x] BadStateRootSignature evidence verification: `consensus::state_root_sig_pre_image` (canonical FALCON pre-image per Ch 6 §12); two contradictory roots, both sigs verify under accused's pubkey — PR [#26](https://github.com/pyde-net/engine/pull/26)
 - [x] BadAnchorAttestation evidence verification (self-contained `honest_majority: Vec<Vertex>` payload; 85+ distinct-member witnesses must agree on a different prior anchor; ~290 KiB per evidence under 4 MiB gossipsub cap) — PR [#27](https://github.com/pyde-net/engine/pull/27)
 - [ ] BadDecryptionShare evidence verification (gated on γ.3 DKG)
-- [ ] Consensus integration: wire `InsertOutcome::Equivocation` → auto-build Evidence
+- [x] Evidence-to-escrow pipeline: `process_evidence(evidence, stake, verifier, slasher, escrow) → ProcessOutcome` — verify → slash → escrow in one call, plus convenience builders for the three verified Safety payloads + `preview_slash` for RPC dry-runs. Resolution of `InsertOutcome::Equivocation` → Vertex stays in node binary (γ.5) — slashing doesn't observe consensus state directly. — PR [#32](https://github.com/pyde-net/engine/pull/32)
 - [ ] Persistence: Slasher + Escrow to RocksDB (lands at MC-2 alongside state-crate integration)
 - [x] Reward distribution math: `distribute_rewards(pool, entries)` pure function (pool × stake × uptime, sum-invariant bit-exact, u128-overflow-safe fallback, 6-decimal `UPTIME_PRECISION`) — PR [#31](https://github.com/pyde-net/engine/pull/31)
 - [ ] Reward distribution wiring: `UptimeTracker` from consensus attestation events + `RewardPool` epoch-accumulator (depends on γ.1 attestation surface)

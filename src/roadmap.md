@@ -129,8 +129,8 @@ Implements [`OTIGEN_BINARY_SPEC.md`](companion/OTIGEN_BINARY_SPEC.md).
 - [x] `otigen deploy` — full §3.3 pipeline (bundle → re-validate → resolve network + wallet → fetch nonce → build canonical tx → FALCON-sign → `pyde_sendRawTransaction` → poll receipt). `--dry-run` for offline inspection, `--no-wait` for fire-and-forget scripts. Wire format (`Tx` envelope + `TxType` / `FeePayer` / `AccessType` discriminant tags + canonical Poseidon2 hash) pinned to Ch 11 §11.6 / §11.8 / §"Transaction hash" on the toolchain side until Stream β's `tx` crate lifts beyond its current scaffold.
 - [x] `otigen upgrade` / `pause` / `unpause` / `kill` — shared lifecycle pipeline via `TxType::Standard` with `data = borsh(LifecyclePayload)`. Name-or-address targeting (auto-resolves via `pyde_resolveName`). `kill --yes` skips the retype-the-target confirmation. `LifecyclePayload` discriminants (0x00..=0x03) pinned to spec §8.3 until Stream β's `tx` crate formalises.
 - [x] `otigen inspect` — read-only metadata + state via the rpc client (`pyde_getAccount` + `pyde_getContractCode`). `--field <name>` queries `Poseidon2(name)`-derived storage slots; `--at-wave <id>` forwarded for archive nodes (v1 RPC catalog surfaces current state with a notice).
+- [x] `otigen verify` — reproducible-build check (spec §3.9). Compares local bundle's `contract.wasm` against chain-stored bytes via `pyde_getContractCode`, surfaces blake3 hashes + size delta + first-diff offset on mismatch. Fail-fast: local checks before RPC.
 - [ ] `otigen console` REPL (spec §3.8)
-- [ ] `otigen verify` (spec §3.9)
 - [ ] Canonical example contracts: Rust ✅, AssemblyScript, Go (TinyGo), C/C++ hello-worlds — Rust shipped + exercised by `tests/hello_rust_e2e.rs`; other languages pending
 
 #### α.qual — Quality bar (production-readiness gate)

@@ -100,6 +100,7 @@ Crates (in `pyde-net/otigen` workspace):
 - `otigen-abi` — `pyde.abi` custom-section construction + injection (via `wasm-encoder`)
 - `otigen-rpc` — JSON-RPC client
 - `otigen-wallet` — keystore (Argon2id + AES-256-GCM) + FALCON-512 signing
+- `otigen-test` — wasmtime-driven contract behaviour test runner (see [`OTIGEN_TEST_SPEC.md`](./OTIGEN_TEST_SPEC.md))
 - (later) `otigen-console` — REPL
 
 External dependencies:
@@ -219,6 +220,7 @@ The load-bearing table of this document. Every crate has exactly one owning stre
 | `otigen-abi` | **α** | `wasmparser`, `wasm-encoder`, `borsh` |
 | `otigen-rpc` | **α** | `reqwest`, `tokio-tungstenite` |
 | `otigen-wallet` | **α** | `pyde-crypto` |
+| `otigen-test` | **α** | `wasmtime`, `otigen-toml`, `otigen-abi`, `pyde-crypto` |
 
 ### `pyde-net/pyde-crypto` (existing polyrepo)
 
@@ -393,17 +395,21 @@ Implement the `otigen` developer toolchain binary in a fresh repo
 
 In priority order:
 1. `pyde-book/src/companion/OTIGEN_BINARY_SPEC.md` — your canonical
-   spec (819 lines, 12 sections). Every command, every config key,
+   spec (>820 lines). Every command, every config key,
    every validation rule.
 2. `pyde-book/src/companion/HOST_FN_ABI_SPEC.md` — the chain-facing
    ABI you validate WASM modules against.
-3. `pyde-book/src/companion/IMPLEMENTATION_PLAN.md` — coordination
+3. `pyde-book/src/companion/OTIGEN_TEST_SPEC.md` — canonical spec for
+   `otigen test`: TOML schema, name resolution (account → Blake3 addr,
+   field → Poseidon2 slot), cheatcode catalogue, mock host-fn
+   behaviour, limitations. Implements as the `otigen-test` crate.
+4. `pyde-book/src/companion/IMPLEMENTATION_PLAN.md` — coordination
    doc; defines your scope + how to coordinate with streams β and γ.
-4. `pyde-book/src/companion/PARACHAIN_DESIGN.md` — parachain-specific
+5. `pyde-book/src/companion/PARACHAIN_DESIGN.md` — parachain-specific
    extension surface (parachain deploy + cross-parachain messaging).
-5. `pyde-book/src/chapters/05-otigen-toolchain.md` — narrative
+6. `pyde-book/src/chapters/05-otigen-toolchain.md` — narrative
    overview (lighter; specs above are canonical).
-6. `pyde-book/src/chapters/11-account-model.md` — transaction wire
+7. `pyde-book/src/chapters/11-account-model.md` — transaction wire
    format, address derivation.
 
 ## Constraints
@@ -729,6 +735,7 @@ Quick reference for things the implementation must hold to:
 
 - [HOST_FN_ABI_SPEC.md](./HOST_FN_ABI_SPEC.md) — chain-facing ABI
 - [OTIGEN_BINARY_SPEC.md](./OTIGEN_BINARY_SPEC.md) — toolchain spec
+- [OTIGEN_TEST_SPEC.md](./OTIGEN_TEST_SPEC.md) — contract behaviour test framework
 - [PARACHAIN_DESIGN.md](./PARACHAIN_DESIGN.md) — parachain framework
 - [STATE_SYNC.md](./STATE_SYNC.md), [CHAIN_HALT.md](./CHAIN_HALT.md), [SLASHING.md](./SLASHING.md), [VALIDATOR_LIFECYCLE.md](./VALIDATOR_LIFECYCLE.md), [NETWORK_PROTOCOL.md](./NETWORK_PROTOCOL.md), [THREAT_MODEL.md](./THREAT_MODEL.md), [FAILURE_SCENARIOS.md](./FAILURE_SCENARIOS.md), [PERFORMANCE_HARNESS.md](./PERFORMANCE_HARNESS.md) — operational specs
 - [roadmap.md](../roadmap.md) — phase-by-phase checklist tracking

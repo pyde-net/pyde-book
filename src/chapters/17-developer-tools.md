@@ -16,7 +16,7 @@ For deep documentation on the primary developer-facing tool (the `otigen` binary
 
 - A dedicated Pyde block explorer frontend (the backend indexer is on the roadmap; the UI is community ecosystem work).
 - A proprietary IDE. Standard editors with the language's standard tooling (rust-analyzer for Rust, the AssemblyScript LSP, gopls for Go, clangd for C/C++) are the intended path. No Pyde-specific IDE.
-- Per-language testing wrappers. Contract authors use their language's native test runner (`cargo test`, `npm test`, `go test`, `clang` + your test framework of choice).
+- Per-language testing wrappers for pure helpers. Authors use their language's native test runner (`cargo test`, `npm test`, `go test`, `clang` + their test framework of choice) for function-internals tests. Contract *behaviour* tests — state changes, events, reverts — go through `otigen test`, a Foundry-style TOML-driven runner shared across all four supported languages. See [§17.1](#171-otigen--the-developer-toolchain) below and [Chapter 5 §5.12](./05-otigen-toolchain.md) for the split.
 
 ---
 
@@ -31,15 +31,21 @@ The Foundry / Hardhat / Cargo-equivalent for Pyde. Replaces the earlier `wright`
 ```
 otigen init <name> --lang <language>   Scaffold a new project from the language template
 otigen build                            Build the WASM module + ABI + bundle artifact
+otigen check                            Validate without packaging (fast CI gate)
 otigen deploy                           Sign and submit a deploy transaction
 otigen upgrade                          Submit an upgrade proposal
-otigen pause / kill                     Operational lifecycle (where supported)
+otigen pause / unpause / kill           Operational lifecycle (owner-signed)
 otigen inspect <address-or-name>        Read deployed contract state, ABI, version history
+otigen verify <address-or-name>         Compare local bundle against chain-stored bytes
 otigen wallet                           Wallet management subcommands
-otigen console                          REPL against a local or remote node
+otigen test                             Run contract behaviour tests (tests/*.test.toml)
+otigen console                          REPL against a local or remote node (post-v1)
 ```
 
-There is no `otigen test`. Authors use their language's native test runner.
+The two test layers complement each other:
+
+- `cargo test` / `npm test` / `go test` (the author's language-native runner) — pure helpers, math, parsing, formatting. Runs in-process, microseconds per test, no chain semantics.
+- `otigen test` — contract behaviour. Spins up a wasmtime sandbox per test, mocks every `pyde::*` host function, drives the contract through TOML-declared scenarios with named accounts, named storage slots, time / wave / chain cheats, multi-call sequences, named event matching, and revert assertions. The same `.test.toml` runs against the contract regardless of source language. Spec: [`OTIGEN_TEST_SPEC.md`](../companion/OTIGEN_TEST_SPEC.md).
 
 ### Performance — what to expect from `otigen build`
 
@@ -225,7 +231,7 @@ For readers coming from the pre-pivot world, the developer tooling has changed s
 | `wright` — project CLI | Retired; archived. Role taken by the new `otigen` binary |
 | `.oti` source files | Replaced by author's language of choice (`.rs`, `.ts`, `.go`, `.c`) |
 | PVM bytecode artifacts | Replaced by WASM `.wasm` artifacts |
-| Otigen-specific tests | Replaced by author's language's native test runner |
+| Otigen-specific tests | Two layers: author's language-native test runner for pure helpers (`cargo test`, etc.) + `otigen test` for contract behaviour (TOML-declared, language-agnostic) |
 | `pyde.toml` config | Replaced by `otigen.toml` config with state schema declaration |
 
 The `otigen` *name* survives, repurposed for the developer toolchain. See [The Pivot](../preface/pivot.md) for the full narrative, and [pivot/02-otigen-language-era.md](../pivot/02-otigen-language-era.md) for the design record of the retired language.

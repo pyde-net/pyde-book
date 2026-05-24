@@ -52,10 +52,12 @@ In order:
    semantics, gas costs, error codes. This is the contract the chain
    stands on.
 4. **[Chapter 5 — Otigen Toolchain](../chapters/05-otigen-toolchain.md)**
-   — how `otigen` builds, deploys, manages wallets, runs a local
-   console.
+   — how `otigen` builds, tests, deploys, and manages wallets.
 5. **[Otigen Binary Spec v1.0](../companion/OTIGEN_BINARY_SPEC.md)** —
    the CLI surface. Every command, every flag.
+6. **[Otigen Test Spec v1.0](../companion/OTIGEN_TEST_SPEC.md)** —
+   the contract-behaviour test framework (Foundry-grade, TOML).
+   Read once you have a working contract.
 
 Bookmark these. The rest of the book (state model, gas, accounts,
 consensus, networking, parachains, slashing, governance) you read on
@@ -69,18 +71,23 @@ demand.
 # 1. Scaffold a project
 otigen init my-token --lang rust
 
-# 2. Edit src/lib.rs + otigen.toml
+# 2. Edit src/lib.rs + otigen.toml; write tests/contract.test.toml
 
 # 3. Build (you run cargo; otigen post-processes)
 cargo build --target wasm32-unknown-unknown --release
 otigen build
 
-# 4. Deploy to devnet / testnet / mainnet
+# 4. Run the behaviour tests
+otigen test
+
+# 5. Deploy to devnet / testnet / mainnet
 otigen deploy --network devnet
 ```
 
 This loop is detailed in
-[`OTIGEN_BINARY_SPEC` §3.2](../companion/OTIGEN_BINARY_SPEC.md).
+[`OTIGEN_BINARY_SPEC` §3.2 + §3.10](../companion/OTIGEN_BINARY_SPEC.md).
+The TOML format for `tests/contract.test.toml` is documented in
+[`OTIGEN_TEST_SPEC.md`](../companion/OTIGEN_TEST_SPEC.md).
 
 ---
 

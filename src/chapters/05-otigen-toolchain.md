@@ -32,9 +32,13 @@ A contract project contains only the author's contract logic and an `otigen.toml
 
 State access and host-function calls go through whatever helper pattern the author or community provides for their language. `otigen` doesn't ship those helpers, doesn't generate them, doesn't depend on them. It only requires that the resulting `.wasm` imports the Host Function ABI correctly.
 
-### Native test runners
+### Two test layers, one toolchain
 
-Each language has a mature test framework. The toolchain does not wrap them. Rust authors run `cargo test`. AssemblyScript authors run `npm test`. Go authors run `go test`. C authors use whatever they already use. The toolchain does not impose its own test command.
+Pyde splits contract testing by layer. **Language-native test frameworks** (`cargo test`, `npm test`, `go test`, the author's C test harness) cover pure helpers — math, parsing, formatting — at the function-internals layer. The toolchain doesn't wrap them; authors keep their language's standard test workflow.
+
+**`otigen test`** covers the layer above: contract *behaviour* — does `transfer` decrement the right balance, emit the right event, revert on the right input. It runs the compiled `.wasm` inside a wasmtime sandbox with mock implementations of every `pyde::*` host function declared in the [Host Function ABI](../companion/HOST_FN_ABI_SPEC.md), driven by a TOML test spec (named accounts, named storage slots, time / wave / chain cheats, multi-call sequences, named event matching, named-or-substring revert assertions). The TOML format is language-agnostic — the same `.test.toml` runs against the contract regardless of source language. Full schema and semantics: [OTIGEN_TEST_SPEC](../companion/OTIGEN_TEST_SPEC.md).
+
+The split mirrors Foundry's `forge test` (behaviour) vs Rust's `cargo test` (unit) — neither subsumes the other, both shipping in one toolchain doesn't compromise the language-agnostic posture.
 
 ### Attributes and ABI declared in otigen.toml, enforced at runtime
 
@@ -54,11 +58,10 @@ Function attributes (`view`, `payable`, `reentrant`, `sponsored`, `constructor`,
 | `otigen inspect <target>` | Read deployed contract state via the rpc client. Surfaces address, account type, balance, nonce, code hash, code size, state root, and (when the wasm carries a `pyde.abi` custom section) the full ABI summary: version, function count, constructor / fallback / receive bindings, state schema hash, per-function selector + attribute labels. `--field <name>` queries `Poseidon2(name)`-derived storage slots; `--at-wave <id>` is forwarded for archive nodes. | ✅ account + state + ABI fields; ⏳ owner / version history land when the RPC catalog grows the corresponding endpoints. |
 | `otigen verify <target>` | Reproducibility check: compares the local bundle's `contract.wasm` against the chain-stored bytes from `pyde_getContractCode`. Exit 0 on match, 1 on mismatch with blake3 hashes + size delta + first-diff offset. | ✅ |
 | `otigen wallet` | FALCON-512 keystore management. Subcommands: `new <name>`, `list`, `show <name>`, `import <name> [--from-file <path>]`, `delete <name> [--yes]`, `password <name>`, `export <name> [--out <path>]`, `sign <name> <hex>`. | ✅ eight subcommands; ⏳ only the chain-side `rotate` (`KeyRotationTx`) is deferred — it needs the chain to accept that tx variant, so it lands after Stream β's executor. |
+| `otigen test` | Run contract behaviour tests declared in `tests/*.test.toml`. Spins up a wasmtime sandbox per test, mocks every `pyde::*` host function, applies a named-account + named-slot + cheatcode model, supports multi-call sequences with per-call and final-state assertions. See [OTIGEN_TEST_SPEC](../companion/OTIGEN_TEST_SPEC.md). | ⏳ ships in three follow-up PRs (parser → runner → full surface) per the `OTIGEN_TEST` track in [roadmap.md](../roadmap.md). |
 | `otigen console` | Interactive REPL against a Pyde node. | ⏳ post-v1. Every read / write surface is already scriptable via the other subcommands; the REPL is a UX nicety that benefits more from being built after the chain is live than before. |
 
-There is no `otigen test`. Authors use their language's native test runner.
-
-There is no `otigen compile`. Authors use their language's native compiler.
+There is no `otigen compile`. Authors use their language's native compiler (`cargo build --target wasm32-unknown-unknown --release`, `asc`, `tinygo build -target=wasi`, `clang --target=wasm32`). The `--compile` flag on `otigen build` is an opt-in convenience that invokes the language's default command — not a separate `compile` subcommand.
 
 ---
 
@@ -632,14 +635,14 @@ Status: **deferred post-v1.** Every read / write surface the REPL would expose i
 
 Deliberately omitted:
 
-- **Test runner** — use the language's native test framework.
+- **Language-native unit-test runner** — use `cargo test` / `npm test` / `go test` / the author's C test harness for pure-helper unit tests. `otigen test` covers contract behaviour (state changes, events, reverts), not language-internal function testing. The two layers are complementary, not overlapping (§5.1, [OTIGEN_TEST_SPEC](../companion/OTIGEN_TEST_SPEC.md)).
 - **Linter / formatter** — use the language's native tooling (`rustfmt`, `prettier`, `gofmt`, `clang-format`).
 - **IDE integration** — uses the language's standard LSP; no Otigen-specific IDE extension required.
 - **Documentation generator** — use the language's standard (`rustdoc`, `typedoc`, etc.).
 - **Dependency manager** — use the language's standard (`cargo`, `npm`, `go mod`, etc.).
 - **Custom syntax** — there is none; the contract is whatever the language allows.
 
-The toolchain wraps deployment-specific concerns. Everything else stays in the language ecosystems the authors already know.
+The toolchain wraps deployment-specific concerns + the chain-aware behaviour-test layer. Everything else stays in the language ecosystems the authors already know.
 
 ---
 
@@ -672,7 +675,86 @@ The benches are intentionally tight scope — they measure the toolchain-side wo
 
 ---
 
-## 5.12 Reading on
+## 5.12 Contract Behaviour Tests (`otigen test`)
+
+The toolchain ships a TOML-driven contract test runner. Authors write `tests/<name>.test.toml`, run `otigen test`, and get pass / fail per scenario — the same workflow Foundry users know from `forge test`, adapted to Pyde's host-function surface.
+
+The full schema, name-resolution rules, cheatcode catalogue, mock host-function behaviour, and limitations are documented in [`OTIGEN_TEST_SPEC.md`](../companion/OTIGEN_TEST_SPEC.md). The short overview:
+
+### What gets tested
+
+- **State changes** — assert balances / counters / mappings after a call sequence.
+- **Return values** — assert a function returned the expected scalar.
+- **Events** — assert `Transfer(from, to, amount)` (or any declared event) emitted with the right indexed + non-indexed fields.
+- **Reverts** — assert a call traps with a reason substring (`"InsufficientBalance"`).
+- **Multi-step scenarios** — assert "alice transfers to bob, then bob transfers to carol; final state is …" across multiple calls in one test.
+- **Time / wave / chain conditions** — cheatcode `now`, `wave_id`, `chain_id` per test.
+
+### What it looks like
+
+```toml
+# tests/contract.test.toml
+
+[accounts]
+alice = { balance = "0x100" }
+bob = {}
+
+[[tests]]
+name = "transfer_moves_balance"
+
+[tests.setup]
+storage.balances.alice = "100"
+storage.balances.bob   = "0"
+
+[[tests.calls]]
+function = "transfer"
+from     = "alice"
+args     = ["bob", "10"]
+expect.return_value = "1"
+expect.events = [
+  { name = "Transfer", from = "alice", to = "bob", amount = "10" },
+]
+
+[tests.expect]
+storage.balances.alice = "90"
+storage.balances.bob   = "10"
+```
+
+Account names resolve to 32-byte Blake3-of-name addresses; storage field names resolve to Poseidon2 slots per the contract's `[state]` schema + the [PIP-2 layout in Ch 4 §4.3](./04-state-model.md). Authors never type slot hashes by hand.
+
+### How it runs
+
+`otigen test` discovers `tests/*.test.toml`, spins up a wasmtime engine, loads the contract's `.wasm` from `./artifacts/<name>.bundle/contract.wasm`, and executes each test against a fresh `TestEnv` that mocks every `pyde::*` host function:
+
+- Real `poseidon2` / `blake3` (via `pyde-crypto`) so author-side slot derivation matches the runner.
+- Mock `sload` / `sstore` / `sdelete` / `caller` / `value` / `emit_event` / `revert` / `now` / `current_wave` / `chain_id` / `gas_remaining` / `balance_of` / `transfer_native` against an in-memory state map.
+- Every other host import (DKG, parachain-only, cross-contract) traps with `UnsupportedHostFn` in v1 and expands in v2.
+
+### What it doesn't do (v1)
+
+- No cross-contract calls (`pyde::call(other_addr, …)` traps).
+- No parallel-execution simulation; calls run sequentially.
+- No fuzzing / property tests; example-based only.
+- No gas-exhaustion testing in v1 (`gas` field documented but not enforced).
+- Complex argument types (structs / arrays) need manual memory setup in v1; primitive scalars and addresses work natively.
+
+Every limitation has a v2 plan in `OTIGEN_TEST_SPEC.md` §9. The v1 surface is deliberately scoped to what most contract authors need on day one — behaviour, state, events, reverts — without buying the complexity of multi-contract orchestration up front.
+
+### When to use what
+
+| You want to test | Use |
+|---|---|
+| Pure helper functions (math, parsing) | Language-native test runner (`cargo test`, `npm test`, `go test`) |
+| Contract behaviour given storage / time / caller | `otigen test` |
+| Cross-contract integration | Devnet (real chain integration) |
+| Fuzz / property testing of pure helpers | Language-native fuzzer (`proptest`, `quickcheck`) |
+| Multi-validator chain behaviour | Devnet + the performance harness ([Companion: PERFORMANCE_HARNESS](../companion/PERFORMANCE_HARNESS.md)) |
+
+The three layers (unit / behaviour / integration) compose; each catches things the others miss. `otigen test` is the middle layer that didn't exist before this rev of the toolchain.
+
+---
+
+## 5.13 Reading on
 
 - [Chapter 3: Execution Layer](./03-virtual-machine.md) — the runtime that contracts compile into.
 - [Chapter 4: State Model](./04-state-model.md) — what `sload` and `sstore` see.
@@ -680,3 +762,4 @@ The benches are intentionally tight scope — they measure the toolchain-side wo
 - [Chapter 13: Cross-Chain (Parachains)](./13-cross-chain.md) — parachain-specific deploy and upgrade flows.
 - [`HOST_FN_ABI_SPEC.md`](../companion/HOST_FN_ABI_SPEC.md) — the locked binary contract between WASM modules and the engine; every imported function the toolchain accepts is in its allowlist.
 - [`OTIGEN_BINARY_SPEC.md`](../companion/OTIGEN_BINARY_SPEC.md) — the canonical specification for this binary. Every subcommand, flag, `otigen.toml` schema rule, bundle format, exit code, and validation pass is defined there. If the implementation and the spec disagree, the spec is right and the code is a bug.
+- [`OTIGEN_TEST_SPEC.md`](../companion/OTIGEN_TEST_SPEC.md) — the canonical specification for `otigen test`: TOML schema, name resolution, cheatcode catalogue, mock host functions, limitations.

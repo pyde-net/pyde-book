@@ -150,9 +150,9 @@ Each language has its own template (scaffolded by `otigen init`) and its own nat
 ### Rust
 
 ```bash
-otigen init my_contract --lang rust
-cd my_contract
-# Edit src/main.rs with contract logic, declare entries + state in otigen.toml
+otigen init my-contract --lang rust
+cd my-contract
+# Edit src/lib.rs with contract logic; declare entries + state in otigen.toml.
 
 # Author runs their own build:
 cargo build --release --target wasm32-unknown-unknown
@@ -164,62 +164,67 @@ otigen deploy --network testnet
 
 Scaffolded project tree:
 ```
-my_contract/
-├── otigen.toml                 # author edits state + functions sections
-├── Cargo.toml                  # pre-configured for wasm32-unknown-unknown
-├── .cargo/config.toml          # target defaults
+my-contract/
+├── otigen.toml      # contract identity, network, [functions.*]
+├── Cargo.toml       # cdylib + release profile tuned for WASM size
 ├── src/
-│   └── main.rs                 # template with extern host-fn declarations + one example entry
-├── tests/
+│   └── lib.rs       # #![no_std] template: panic handler + one ping export +
+│                    # commented-out example host-fn import (link wasm_import_module = "pyde")
 └── .gitignore
 ```
 
 `otigen build` does:
-- Read `otigen.toml`; confirm `[build].wasm_path` points to an existing file.
-- Validate the WASM module (parses cleanly, only imports allowed host functions, only uses allowed WASM features).
-- Cross-check: every `[functions.X]` has a matching WASM export named `X`.
-- Generate `artifacts/<contract_name>.abi.json` from the `[state]` and `[functions]` tables.
-- Package `artifacts/<contract_name>.bundle` containing the `.wasm` + ABI + deploy metadata.
-- Print "ready to deploy" with the resolved paths.
+- Read `otigen.toml`; validate schema (§5.3) + attribute combinations.
+- Locate the `.wasm` at `[contract.lang.output]` (`target/wasm32-unknown-unknown/release/<crate>.wasm`).
+- Validate the WASM module (parses cleanly via `wasmparser`, every import declares module `pyde`, every imported function is on the [HOST_FN_ABI_SPEC](../companion/HOST_FN_ABI_SPEC.md) allowlist, every `[functions.X]` has a matching export, only deterministic WASM features used).
+- Run the static call-graph view check: any `view`-attributed function whose transitive call graph reaches a state-mutating host function is rejected.
+- Build the `ContractAbi` from `otigen.toml`, Borsh-encode it, inject as the `pyde.abi` custom section via `wasm-encoder`.
+- Write `<out>/<contract_name>.bundle/` containing `contract.wasm` (with `pyde.abi` embedded), `otigen.toml` (verbatim), `abi.json` (human-readable mirror), `manifest.json` (hashes, build timestamp, otigen version, target chain_id).
 
 ### AssemblyScript
 
 ```bash
-otigen init my_contract --lang assemblyscript
-cd my_contract
-# Edit assembly/index.ts, declare entries + state in otigen.toml
+otigen init my-contract --lang as
+cd my-contract
+# Edit assembly/index.ts; declare entries + state in otigen.toml.
 
-npm run asbuild      # or: npx asc assembly/index.ts -O --outFile build/my_contract.wasm
+npm install && npm run build        # delegates to: asc assembly/index.ts --config asconfig.json --target release
 
-otigen build         # verify + package
+otigen build                         # verify + package
 otigen deploy --network testnet
 ```
+
+The scaffold pins `runtime: "minimal"` in `asconfig.json` so the resulting WASM imports nothing outside `pyde` — anything else would fail the chain's import allowlist.
 
 ### Go (TinyGo)
 
 ```bash
-otigen init my_contract --lang go
-cd my_contract
-# Edit main.go, declare entries + state in otigen.toml
+otigen init my-contract --lang go
+cd my-contract
+# Edit main.go; declare entries + state in otigen.toml.
 
-tinygo build -target wasm-unknown -o build/my_contract.wasm
+tinygo build -target=wasi -o build/contract.wasm .
 
-otigen build         # verify + package
+otigen build                         # verify + package
 otigen deploy --network testnet
 ```
 
-### C/C++
+The scaffold uses `//go:wasmexport ping` to mark the entry point and documents the `//go:wasmimport pyde caller` pattern (commented out) for host-fn imports. TinyGo requires a `main()`; the chain dispatcher never calls it.
+
+### C / C++
 
 ```bash
-otigen init my_contract --lang c
-cd my_contract
-# Edit src/main.c, declare entries + state in otigen.toml
+otigen init my-contract --lang c
+cd my-contract
+# Edit contract.c; declare entries + state in otigen.toml.
 
-clang --target=wasm32 -O3 -Wl,--no-entry -o build/my_contract.wasm src/main.c
+make                                 # delegates to: clang --target=wasm32 -nostdlib -Wl,--no-entry ...
 
-otigen build         # verify + package
+otigen build                         # verify + package
 otigen deploy --network testnet
 ```
+
+The scaffold's `Makefile` pins `-nostdlib` so libc never leaks into the resulting WASM (which would fail the allowlist). Host-fn imports go through `__attribute__((import_module("pyde"), import_name(<fn>)))`; the scaffold ships one commented-out example. Exports use `__attribute__((export_name(<fn>)))`.
 
 ### Why this split
 

@@ -125,7 +125,7 @@ Implements [`OTIGEN_BINARY_SPEC.md`](companion/OTIGEN_BINARY_SPEC.md).
 - [x] `otigen build`: full validation pipeline (spec §3.2 step-by-step)
 - [x] `otigen-wallet`: keystore (Argon2id + AES-256-GCM, single-file multi-account per spec §7.1), FALCON-512 signing, secret-key zeroisation on drop — ported from archived `wright` repo
 - [x] `otigen wallet new` / `import` / `list` / `show` / `delete` / `password` — single-file `~/.pyde/keystore.json` (override via `--keystore`), confirmation prompt before destructive ops, NDJSON event stream under `--json`
-- [ ] `otigen-rpc`: JSON-RPC client (spec §8)
+- [x] `otigen-rpc`: JSON-RPC client per Ch 17.4 — sync `reqwest::blocking` `Client` + 15 typed method wrappers (account / call / send / receipt / gas / wave / logs / snapshot), typed error envelope, wiremock-driven e2e tests. WebSocket subscriptions deferred to v2.
 - [ ] `otigen deploy` / `upgrade` / `pause` / `unpause` / `kill` / `inspect`
 - [ ] `otigen console` REPL (spec §3.8)
 - [ ] `otigen verify` (spec §3.9)

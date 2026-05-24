@@ -130,8 +130,8 @@ Implements [`OTIGEN_BINARY_SPEC.md`](companion/OTIGEN_BINARY_SPEC.md).
 - [x] `otigen upgrade` / `pause` / `unpause` / `kill` — shared lifecycle pipeline via `TxType::Standard` with `data = borsh(LifecyclePayload)`. Name-or-address targeting (auto-resolves via `pyde_resolveName`). `kill --yes` skips the retype-the-target confirmation. `LifecyclePayload` discriminants (0x00..=0x03) pinned to spec §8.3 until Stream β's `tx` crate formalises.
 - [x] `otigen inspect` — read-only metadata + state via the rpc client (`pyde_getAccount` + `pyde_getContractCode`). `--field <name>` queries `Poseidon2(name)`-derived storage slots; `--at-wave <id>` forwarded for archive nodes (v1 RPC catalog surfaces current state with a notice).
 - [x] `otigen verify` — reproducible-build check (spec §3.9). Compares local bundle's `contract.wasm` against chain-stored bytes via `pyde_getContractCode`, surfaces blake3 hashes + size delta + first-diff offset on mismatch. Fail-fast: local checks before RPC.
+- [x] Canonical example contracts: Rust ✅, AssemblyScript ✅, Go (TinyGo) ✅, C/C++ ✅ — all four `otigen init --lang X` templates render valid hello-world projects with a `ping` entry point + commented host-fn import example. Rust end-to-end (init → build → bundle) exercised by `tests/hello_rust_e2e.rs`; AS/Go/C source→wasm compilation deferred to per-language external toolchains (`asc` / `tinygo` / `clang --target=wasm32`). Init's "next:" message picks the right build command per language.
 - [ ] `otigen console` REPL (spec §3.8)
-- [ ] Canonical example contracts: Rust ✅, AssemblyScript, Go (TinyGo), C/C++ hello-worlds — Rust shipped + exercised by `tests/hello_rust_e2e.rs`; other languages pending
 
 #### α.qual — Quality bar (production-readiness gate)
 

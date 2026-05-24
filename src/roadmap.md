@@ -278,7 +278,8 @@ Implements Chapter 6, `SLASHING.md`, `VALIDATOR_LIFECYCLE.md`, `STATE_SYNC.md`, 
 - [ ] Piggybacked decryption shares (pipeline decryption with consensus)
 - [x] HardFinalityCert generation (`FinalityCertCollector`: cached pre-image, duplicate-before-verify, deterministic member_id-sorted finalize, FinalityError taxonomy) — PR [#8](https://github.com/pyde-net/engine/pull/8)
 - [x] WaveCommitRecord assembly (`assemble_wave_commit_record`: canonical anchor_hash, u32 tx_count overflow check, WaveCommitInputs cross-stream boundary) — PR [#7](https://github.com/pyde-net/engine/pull/7)
-- [x] Committee selection primitive: Fisher-Yates shuffle keyed off 32-byte beacon; rejection-sampled for bias-free draws; `member_id ↔ FalconPubkey` lookups; rejects insufficient-eligible / duplicate-pubkey inputs. `CommitteeRegistry` (epoch → Committee) follow-up. — PR [#33](https://github.com/pyde-net/engine/pull/33)
+- [x] Committee selection primitive: Fisher-Yates shuffle keyed off 32-byte beacon; rejection-sampled for bias-free draws; `member_id ↔ FalconPubkey` lookups; rejects insufficient-eligible / duplicate-pubkey inputs. — PR [#33](https://github.com/pyde-net/engine/pull/33)
+- [x] `CommitteeRegistry` (epoch → Committee tracking): per-epoch insert/get/latest/known_epochs; rejects duplicate-epoch insertion (consensus diverges if two committees claim the same epoch); `Arc<Committee>` returned for cheap stable refs; `Arc<RwLock<_>>` for concurrent RPC + slashing readers. — PR [#36](https://github.com/pyde-net/engine/pull/36)
 - [ ] Equivocation detection + evidence collection → γ.4 Slashing
 - [x] Implement `ConsensusEngine` trait via `Driver` (composed runtime: `VertexStore` + `RoundTracker` + `PendingParents` + finality history; Arc-shared, fine-grained locks, wave-monotonicity guard, object-safe trait impl) — PR [#11](https://github.com/pyde-net/engine/pull/11)
 

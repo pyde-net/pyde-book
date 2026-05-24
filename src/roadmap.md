@@ -203,7 +203,12 @@ Implements [`HOST_FN_ABI_SPEC.md`](companion/HOST_FN_ABI_SPEC.md) (chain side), 
 - [x] Two-table architecture: `state_cf` (flat `slot_hash → value`) + `jmt_cf` (versioned tree). `StateCommitter::commit` writes both CFs in one RocksDB `WriteBatch` (atomic across families); live reads via `StateStore::read_slot` (single `state_cf` get, JMT not consulted). — PR [#38](https://github.com/pyde-net/engine/pull/38)
 - [x] PIP-2 clustered slot keys (contract-prefix layout). `slot_key.rs` ships `account_meta_key`, `storage_slot_key`, `map_entry_key`, `nested_map_entry_key`, `system_key` over `address[..16] || Poseidon2(...)[..16]`. PIP graduated Draft → Accepted in [pyde-net/pips#1](https://github.com/pyde-net/pips/pull/1); validation bench at `crates/state/benches/clustered_keys.rs`. — PR [#38](https://github.com/pyde-net/engine/pull/38)
 - [x] PIP-3 wave-level state prefetch (state-side). `prefetch_slots(store, &[SlotHash])` issues one `multi_get_cf` against `state_cf`; dedup + 10K-slot budget cap; per-key errors warn-logged and swallowed. Validation bench at `crates/state/benches/prefetch.rs`. PIP graduated Draft → Accepted in [pyde-net/pips#2](https://github.com/pyde-net/pips/pull/2). The tx-pipeline wire-up that calls this primitive before wave dispatch is deferred to β.3. — PR [#41](https://github.com/pyde-net/engine/pull/41)
-- [ ] PIP-4 write-back cache (DashMap + warm window + lazy flush)
+- [ ] PIP-4 write-back cache (DashMap + warm window + lazy flush). PIP graduated Draft → Accepted in [pyde-net/pips#3](https://github.com/pyde-net/pips/pull/3) with the "JMT writes are lazy too" resolution baked in (cache spans `state_cf` + `jmt_cf` via parallel `JmtPendingQueue`). Staged across 5 PRs.
+  - [x] **PR-5a** primitives — `CacheStore`, `CacheEntry`, `EntryState` machine, `JmtPendingQueue` — landed in PR [#44](https://github.com/pyde-net/engine/pull/44)
+  - [ ] **PR-5b** read-path integration (`StateStore::read_slot` consults cache first)
+  - [ ] **PR-5c** write-path integration (`StateCommitter::commit` writes cache + enqueues `TreeUpdateBatch`)
+  - [ ] **PR-5d** background flush task (three-signal policy + auto-tune + atomic cross-CF drain)
+  - [ ] **PR-5e** crash recovery (chain-log replay + `kill -9` mid-wave integration test)
 - [ ] events_cf + events_by_topic_cf + events_by_contract_cf (per `HOST_FN_ABI_SPEC §15.3`)
 - [ ] Atomic wave-commit WriteBatch (state + events + wave commit record in one transaction)
 - [ ] events_root (Blake3 binary Merkle) + events_bloom (256-byte, 3-hash) computation

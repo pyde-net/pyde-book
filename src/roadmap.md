@@ -225,7 +225,15 @@ Implements [`HOST_FN_ABI_SPEC.md`](companion/HOST_FN_ABI_SPEC.md) (chain side), 
 - [ ] Name registry as a system contract (ENS-style, unique names)
 
 #### β.3 `tx` crate `[PAR within β]`
-- [ ] Native tx types: `Transfer`, `ValidatorRegister`, `Stake`, `Unstake`, `NameRegister`, `Multisig`, `RotateKeys`
+- [ ] Native tx types: `Transfer`, `ValidatorRegister`, `Stake`, `Unstake`, `NameRegister`, `Multisig`, `RotateKeys`. Per-type state-effect handlers under `crates/tx/src/handlers/`:
+  - [x] **`Standard` (value-transfer half)** — `handle_standard` runs the §10.1 charge-up-front / debit-after-execution pipeline: load sender → `verify_tx_against_auth` dispatch → nonce-in-window → recipient code-hash check (contract-call path returns `HandlerError::ContractCallDeferred` until β.4) → balance vs `value + gas_limit×base_fee` reservation → debit fee `gas_used × base_fee` → commit nonce → move `value` sender→recipient (auto-creates `AuthKeys::None` funded-but-unregistered EOA per §11.8 row 13 if missing; self-transfer short-circuits the loop). Returns `HandlerOutput { gas_used, fee_distribution }` for wave-level fee aggregation. Per-tx fee crediting deferred (per §10.5 reward pool is lazy-accrued per-epoch + burn is a counter); vesting deferred (needs subsystem outside β.3). 17 tests across all 9 failure modes + happy path + self-transfer. Landed in PR [#77](https://github.com/pyde-net/engine/pull/77)
+  - [ ] `Deploy` (needs β.4 wasm-exec for init bytecode)
+  - [ ] `StakeDeposit` / `StakeWithdraw` / `ClaimReward`
+  - [ ] `Slash`
+  - [ ] `ClaimAirdrop` / `SweepAirdrop`
+  - [ ] `MultisigTx` / `RotateMultisig`
+  - [ ] `EmergencyPause` / `EmergencyResume`
+  - [ ] `RegisterPubkey`
 - [ ] WASM tx types: `ContractCall`, `ContractDeploy`
 - [x] Canonical tx hashing — `tx_hash = Poseidon2(chain_id ‖ from ‖ to ‖ value ‖ Poseidon2(data) ‖ gas_limit ‖ nonce ‖ fee_payer_tag ‖ Poseidon2(access_list) ‖ deadline ‖ tx_type)` per Ch 11 §11.6. `data` and `access_list` pre-hashed to bound outer permutation; signature NOT included (it signs the hash). **Roadmap originally said "Blake3" — corrected to Poseidon2 here** because tx hashes cross the ZK boundary (light-client receipts, aggregated state proofs, future SNARK roll-ups). Tag encodings for FeePayer / Option<deadline> / TxType are spelt out, not just borsh-derived, to keep wire stability independent of derive output. Landed in PR [#71](https://github.com/pyde-net/engine/pull/71)
 - [x] Tx signature verification — `verify_tx_signature(tx, pubkey)` FALCON-512-verifies `Tx.signature` against the canonical `tx_hash`. `verify_tx_against_auth(tx, AuthKeys)` dispatches by variant: `Single` → verify; `None` → `Err(NoAuth)`; `Programmable` → `Err(ProgrammableV1Reserved)` per §11.5 v1-reservation; `MultiSig` → `Err(MultisigDeferred)` (multisig sigs travel inside the `MultisigTx` handler's `data` envelope, not `Tx.signature`). Graceful-false on malformed sig/pubkey rather than panic. 11 tests including keygen→sign→verify round-trip + every dispatch path. Landed in PR [#74](https://github.com/pyde-net/engine/pull/74)

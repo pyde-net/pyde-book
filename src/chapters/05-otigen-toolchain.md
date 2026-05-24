@@ -42,17 +42,17 @@ Function attributes (`view`, `payable`, `reentrant`, `sponsored`, `constructor`,
 
 ## 5.2 Subcommand Surface
 
-| Command | Purpose |
-|---------|---------|
-| `otigen init <name> --lang <language>` | Scaffold a new project directory from the language template. Populates `otigen.toml` skeleton and a minimal source file. |
-| `otigen build` | **Verify + package.** Reads `otigen.toml`, checks the `.wasm` file exists at the declared path, validates the WASM module (well-formed, imports allowed only), cross-checks declared `[functions]` exist as WASM exports, generates `abi.json` from `otigen.toml`, packages bundle. Prints "ready to deploy" on success. Does NOT compile WASM — the author runs their own language build. |
-| `otigen deploy` | Sign and submit a deploy transaction. Registers the contract name (ENS-style), pays the registration fee, pays the owner deposit, transmits the WASM bytes + ABI. |
-| `otigen upgrade` | Submit an upgrade proposal. For smart contracts: owner-signed upgrade tx. For parachains: routes through governance (see Chapter 13). |
-| `otigen pause` | Pause an operational contract (owner-only, where supported). |
-| `otigen kill` | Permanently retire a contract (governance-required for parachains; owner-only for individual contracts where the contract opted into killable). |
-| `otigen inspect <address-or-name>` | Read deployed contract state, ABI, version history. |
-| `otigen wallet` | Key management. Subcommands: `create`, `import`, `list`, `export-pubkey`. |
-| `otigen console` | REPL against a local or remote Pyde node. |
+| Command | Purpose | v1 status |
+|---------|---------|-----------|
+| `otigen init <name> --lang <rust\|as\|go\|c>` | Scaffold a new project directory from the language template. Writes `otigen.toml` + a hello-world contract + language-specific build config (Cargo.toml / package.json + asconfig.json / go.mod / Makefile). | ✅ |
+| `otigen build` | **Verify + package.** Reads `otigen.toml`, locates the `.wasm` at the declared path, validates the WASM module (well-formed, imports allowed only, no `wasi:*` / `env`), cross-checks declared `[functions]` exist as WASM exports, builds the `ContractAbi`, Borsh-encodes it, injects as the `pyde.abi` custom section, writes `<contract>.bundle/`. Does NOT compile WASM — the author runs their own language build. | ✅ |
+| `otigen deploy` | Sign and submit a deploy transaction. Loads the bundle, re-validates, fetches nonce, builds the canonical `Tx`, FALCON-signs the Poseidon2 hash, submits via `pyde_sendRawTransaction`, polls the receipt. `--dry-run` to inspect without submitting; `--no-wait` to skip the receipt poll. | ✅ |
+| `otigen upgrade <target>` | Submit an upgrade transaction. Same pipeline as deploy but `TxType::Standard` with `LifecyclePayload::Upgrade { new_wasm }`. | ✅ contract owner-signed upgrade; ⏳ parachain governance flow (`--parachain` / `--finalize <proposal-id>`) deferred to the parachain rollout post-mainnet. |
+| `otigen pause` / `unpause` / `kill` | Operational lifecycle. Owner-signed `LifecyclePayload::{Pause, Unpause, Kill}`. `kill --yes` skips the retype-the-target confirmation. | ✅ |
+| `otigen inspect <target>` | Read deployed contract state via the rpc client. Surfaces address, account type, balance, nonce, code hash, code size, state root. `--field <name>` queries `Poseidon2(name)`-derived storage slots; `--at-wave <id>` is forwarded for archive nodes. | ✅ account + state fields; ⏳ owner / version history / ABI summary land when the RPC catalog grows the corresponding endpoints. |
+| `otigen verify <target>` | Reproducibility check: compares the local bundle's `contract.wasm` against the chain-stored bytes from `pyde_getContractCode`. Exit 0 on match, 1 on mismatch with blake3 hashes + size delta + first-diff offset. | ✅ |
+| `otigen wallet` | FALCON-512 keystore management. Subcommands: `new <name>`, `list`, `show <name>`, `import <name>` (interactive), `delete <name> [--yes]`, `password <name>`. | ✅ six subcommands; ⏳ chain-side `rotate` (`KeyRotationTx`), `export <name>` (encrypted backup), and `sign <name> <hex>` deferred to a later pass. |
+| `otigen console` | Interactive REPL against a Pyde node. | ⏳ post-v1. Every read / write surface is already scriptable via the other subcommands; the REPL is a UX nicety that benefits more from being built after the chain is live than before. |
 
 There is no `otigen test`. Authors use their language's native test runner.
 

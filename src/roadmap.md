@@ -293,12 +293,19 @@ Implements Chapter 6, `SLASHING.md`, `VALIDATOR_LIFECYCLE.md`, `STATE_SYNC.md`, 
 - [ ] May import from `pyde-crypto` if helpers land there first
 
 #### γ.4 `slashing` crate `[PAR within γ] → γ.1`
-- [ ] Validator state machine (registered → active → jailed → unbonding → withdrawn)
+- [ ] Validator state machine (registered → active → jailed → unbonding → withdrawn) — jail half of the machine landed in γ.slashing.3
 - [ ] Validator txs: register, unbond, withdraw, rotate-key, unjail
 - [ ] Operator-identity binding (anti-Sybil; max 3 validators per operator)
 - [ ] Synced-only committee enforcement
-- [ ] 10-offense catalog implementation per [`SLASHING.md`](companion/SLASHING.md)
-- [ ] Slashing escrow + grace period
+- [x] 9-offense catalog (Equivocation + 4 Safety + 4 Liveness) per [`SLASHING.md`](companion/SLASHING.md) — `Offense` enum + `OffenseSpec` + `Distribution` (SAFETY_DEFAULT 50/30/20, ALL_BURN) — PR [#21](https://github.com/pyde-net/engine/pull/21)
+- [x] Slash math: correlation multiplier (capped 2×) + repeat escalation (powers of 2) + exact burn-takes-remainder distribution sum — `compute_slash_amount` — PR [#21](https://github.com/pyde-net/engine/pull/21)
+- [x] Evidence types: `Evidence` + `EvidencePayload` taxonomy + cross-validation; Equivocation verified cryptographically (slot match + distinct hashes + paired FALCON sigs) — PR [#22](https://github.com/pyde-net/engine/pull/22)
+- [x] `Slasher` state machine: per-(epoch, accused, offense_type) repeat counters, per-(epoch, class) correlation counting excluding self, jail extends never shortens, strict `>` expiration — PR [#23](https://github.com/pyde-net/engine/pull/23)
+- [x] Slashing escrow (24h dispute window): bonded → slashed_frozen → slashed_finalized with governance void/reduce hooks during the window, idempotent maturation — PR [#24](https://github.com/pyde-net/engine/pull/24)
+- [x] New-validator grace period (50% reduction in first epoch; sum invariant preserved) — PR [#24](https://github.com/pyde-net/engine/pull/24)
+- [ ] BadAnchorAttestation / BadStateRootSignature / BadDecryptionShare / InvalidVertexStructure evidence verification (the four Safety offenses beyond Equivocation)
+- [ ] Consensus integration: wire `InsertOutcome::Equivocation` → auto-build Evidence
+- [ ] Persistence: Slasher + Escrow to RocksDB (lands at MC-2 alongside state-crate integration)
 - [ ] Reward distribution (pool-based, stake × uptime)
 
 #### γ.5 `node` crate `[SEQ within γ] → γ.1 + γ.2 + γ.4` — owned by γ; integration point

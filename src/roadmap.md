@@ -297,6 +297,7 @@ Implements Chapter 6, `SLASHING.md`, `VALIDATOR_LIFECYCLE.md`, `STATE_SYNC.md`, 
 - [ ] Sentry node pattern (committee primaries behind sentry proxies)
 - [ ] Peer scoring + multi-layer DDoS protections
 - [x] Vertex-fetch protocol: libp2p request-response with CBOR codec on `/pyde/vertex-fetch/1`. `VertexProvider` trait (sync getter from local store) services inbound requests; `Network::request_vertex` issues outbound + tracks in-flight hashes so `VertexFetchResponse` events echo the hash. `VertexFetchFailed` event for retry logic. — PR [#45](https://github.com/pyde-net/engine/pull/45)
+- [x] Batch-fetch protocol (`/pyde/batch-fetch/1`) + `BatchProvider` trait, `request_batch` / `BatchFetchResponse` / `BatchFetchFailed`. `Network::new` consolidated to take a `NetworkProviders` bundle so future request-response protocols (decryption-share fetch, state-sync chunks…) extend the bundle instead of the constructor signature. — PR [#47](https://github.com/pyde-net/engine/pull/47)
 - [ ] PeerId persistence + known-peers cache for fast restart
 - [ ] Implement `NetworkView` trait (from `interfaces`)
 

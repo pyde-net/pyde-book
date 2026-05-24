@@ -402,16 +402,34 @@ Wasmtime traps from causes OTHER than `revert` (out-of-bounds memory, integer ov
 For each entry in `expect.events`:
 
 1. Compute the expected topic-0 hash:
-   - If `name` is given, look up `[events.<name>]` in `otigen.toml`, compute `Blake3(signature)`.
-   - If `topic` is given, use the literal hex.
+   - If `name` is given AND `[events.<name>]` is declared in the contract's `otigen.toml`, compute `Blake3(signature)`.
+   - If `topic` is given, use the literal hex (raw-hex escape hatch).
+   - If `name` is given BUT no `[events.<name>]` is declared, fall through to the shape-only check — match passes if any event was emitted. See "Shape-only fallback" below.
 2. Compute expected indexed-field topics (for each `indexed = true` field):
    - If the value is an account name, resolve via `[accounts]`.
    - If decimal / hex, encode as 32-byte left-padded big-endian (matching how `Hash(value)` is computed for indexed fields per Ch 4).
 3. Compute the expected data payload (for non-indexed fields):
-   - Borsh-encode the listed values in field-declaration order.
+   - Borsh-encode the listed values in field-declaration order. Width is type-determined: u8/i8/bool = 1, u16/i16 = 2, u32/i32 = 4, u64/i64 = 8, u128 = 16, address = 32. Authors who skip a non-indexed field in the matcher have that field's width skipped in the data cursor (wildcard match).
 4. Scan `env.events` for at least one entry whose `(topic_0, topics_indexed, data)` exactly matches.
 
 Ordering is NOT enforced — events may be emitted by helper functions in arbitrary order. The assertion is existence, not sequence. (If ordering matters, the test can assert per-call events under `expect.events` inside the specific `[[tests.calls]]` block.)
+
+#### Supported field types (v1)
+
+| Type | Topic encoding (indexed) | Data encoding (non-indexed) |
+|---|---|---|
+| `address` | 32 bytes (account name → Blake3, or raw hex) | 32 bytes (same) |
+| `uint8` / `int8` / `bool` | 32-byte BE-padded | 1 byte LE |
+| `uint16` / `int16` | 32-byte BE-padded | 2 bytes LE |
+| `uint32` / `int32` | 32-byte BE-padded | 4 bytes LE |
+| `uint64` / `int64` | 32-byte BE-padded | 8 bytes LE |
+| `uint128` | 32-byte BE-padded | 16 bytes LE |
+
+Other types (`bytes`, dynamic arrays, custom structs) fall through to shape-only matching in v1; full type-aware matching lands in v2 alongside the rest of the Borsh decoder.
+
+#### Shape-only fallback
+
+If a matcher uses `name = "X"` but the contract's `otigen.toml` doesn't declare `[events.X]`, the runner can't compute the expected topic-0 or know the field layout — so it falls back to **"any event was emitted"** as a conservative existence check. This is useful for contracts that emit events declared only in source (not surfaced in `otigen.toml`), but it's strictly weaker than the schema-driven match. Authors who want precise matching declare the event in `otigen.toml` or use the raw-hex form.
 
 ---
 

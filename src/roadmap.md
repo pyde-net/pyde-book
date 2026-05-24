@@ -126,7 +126,8 @@ Implements [`OTIGEN_BINARY_SPEC.md`](companion/OTIGEN_BINARY_SPEC.md).
 - [x] `otigen-wallet`: keystore (Argon2id + AES-256-GCM, single-file multi-account per spec §7.1), FALCON-512 signing, secret-key zeroisation on drop — ported from archived `wright` repo
 - [x] `otigen wallet new` / `import` / `list` / `show` / `delete` / `password` — single-file `~/.pyde/keystore.json` (override via `--keystore`), confirmation prompt before destructive ops, NDJSON event stream under `--json`
 - [x] `otigen-rpc`: JSON-RPC client per Ch 17.4 — sync `reqwest::blocking` `Client` + 15 typed method wrappers (account / call / send / receipt / gas / wave / logs / snapshot), typed error envelope, wiremock-driven e2e tests. WebSocket subscriptions deferred to v2.
-- [ ] `otigen deploy` / `upgrade` / `pause` / `unpause` / `kill` / `inspect`
+- [x] `otigen deploy` — full §3.3 pipeline (bundle → re-validate → resolve network + wallet → fetch nonce → build canonical tx → FALCON-sign → `pyde_sendRawTransaction` → poll receipt). `--dry-run` for offline inspection, `--no-wait` for fire-and-forget scripts. Wire format (`Tx` envelope + `TxType` / `FeePayer` / `AccessType` discriminant tags + canonical Poseidon2 hash) pinned to Ch 11 §11.6 / §11.8 / §"Transaction hash" on the toolchain side until Stream β's `tx` crate lifts beyond its current scaffold.
+- [ ] `otigen upgrade` / `pause` / `unpause` / `kill` / `inspect`
 - [ ] `otigen console` REPL (spec §3.8)
 - [ ] `otigen verify` (spec §3.9)
 - [ ] Canonical example contracts: Rust ✅, AssemblyScript, Go (TinyGo), C/C++ hello-worlds — Rust shipped + exercised by `tests/hello_rust_e2e.rs`; other languages pending

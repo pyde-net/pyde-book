@@ -199,7 +199,7 @@ Implements [`HOST_FN_ABI_SPEC.md`](companion/HOST_FN_ABI_SPEC.md) (chain side), 
 
 #### β.1 `state` crate `[SEQ within β]` — foundational
 - [x] RocksDB scaffold + six column families declared (`state_cf`, `jmt_cf`, `events_cf`, `events_by_topic_cf`, `events_by_contract_cf`, `wave_commits_cf`); `StateStore` + `StateConfig` + open/close lifecycle. Foundation for the items below. — PR [#34](https://github.com/pyde-net/engine/pull/34)
-- [ ] JMT dual-hash (Blake3 + Poseidon2 per node)
+- [x] Dual-hash JMT (Blake3 for internal nodes via `jmt::SimpleHasher`; Poseidon2 reserved on `HybridJmtHasher` for the state-root + address-derivation surfaces per Chapter 4 §4.1). `PersistentJmt` exposes `update / get / root_hash_option / leaf_count` over `jmt_cf`. — PR [#35](https://github.com/pyde-net/engine/pull/35)
 - [ ] Two-table architecture: `state_cf` (flat `slot_hash → value`) + `jmt_cf` (versioned tree)
 - [ ] PIP-2 clustered slot keys (contract-prefix layout)
 - [ ] PIP-3 wave-level state prefetch (MultiGet against access lists)

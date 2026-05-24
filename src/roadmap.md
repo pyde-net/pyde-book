@@ -298,7 +298,8 @@ Implements Chapter 6, `SLASHING.md`, `VALIDATOR_LIFECYCLE.md`, `STATE_SYNC.md`, 
 - [x] `register` validator op — PR [#28](https://github.com/pyde-net/engine/pull/28)
 - [x] `unbond` validator op (Registered/Active/Jailed → Unbonding; `UNBONDING_PERIOD_EPOCHS = 7`; slot held during window) — PR [#29](https://github.com/pyde-net/engine/pull/29)
 - [x] `withdraw` validator op (Unbonding → Withdrawn after period elapses; returns stake; releases operator slot for re-registration) — PR [#29](https://github.com/pyde-net/engine/pull/29)
-- [ ] Validator txs: rotate-key, unjail (next slashing.N pull)
+- [x] `rotate_key` validator op (operational key rotation; allowed from any non-Withdrawn state, including Jailed for compromised-HSM recovery; registry-consistent on rejection) — PR [#30](https://github.com/pyde-net/engine/pull/30)
+- [x] `unjail` validator op (Jailed → Registered; caller gates on `Slasher::is_jailed` for jail-expiration so the registry stays decoupled from slasher internals) — PR [#30](https://github.com/pyde-net/engine/pull/30)
 - [ ] Synced-only committee enforcement
 - [x] 9-offense catalog (Equivocation + 4 Safety + 4 Liveness) per [`SLASHING.md`](companion/SLASHING.md) — `Offense` enum + `OffenseSpec` + `Distribution` (SAFETY_DEFAULT 50/30/20, ALL_BURN) — PR [#21](https://github.com/pyde-net/engine/pull/21)
 - [x] Slash math: correlation multiplier (capped 2×) + repeat escalation (powers of 2) + exact burn-takes-remainder distribution sum — `compute_slash_amount` — PR [#21](https://github.com/pyde-net/engine/pull/21)

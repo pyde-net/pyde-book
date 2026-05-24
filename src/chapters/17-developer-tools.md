@@ -246,7 +246,7 @@ The `otigen` *name* survives, repurposed for the developer toolchain. See [The P
 | `pyde` node binary + engine | `pyde-net/engine` |
 | `pyde-rust-sdk` | `pyde-net/pyde-rust-sdk` |
 | `pyde-ts-sdk` | `pyde-net/pyde-ts-sdk` |
-| `pyde-crypto-wasm` | `pyde-net/crypto-wasm` |
+| `pyde-crypto-wasm` | `pyde-net/pyde-crypto-wasm` |
 | Archived `otic` compiler | `pyde-net/otic` (archived) |
 | Archived `wright` toolchain | `pyde-net/wright` (archived) |
 | The Otigen Book (historical) | `pyde-net/otigen-book` (preserved as historical artifact) |

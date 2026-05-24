@@ -285,7 +285,7 @@ Implements Chapter 6, `SLASHING.md`, `VALIDATOR_LIFECYCLE.md`, `STATE_SYNC.md`, 
 
 #### γ.2 `net` crate `[PAR within γ]`
 - [ ] libp2p + QUIC transport (pinned versions)
-- [ ] Gossipsub topics: vertices, batches, decryption_shares, state_root_sigs, mempool, state_sync, evidence, governance
+- [x] Gossipsub topic constants (`topics::ALL` — vertices, batches, decryption-shares, state-root-sigs, mempool, state-sync, evidence, governance, all `/v1` versioned per NETWORK_PROTOCOL.md), `PeerId` newtype, `NetError` taxonomy. Sets the wire-stable surface ahead of the libp2p transport PR. — PR [#39](https://github.com/pyde-net/engine/pull/39)
 - [ ] Layered peer discovery: hardcoded seeds → DNS → on-chain validator registry → PEX → cache (NO DHT)
 - [ ] Sentry node pattern (committee primaries behind sentry proxies)
 - [ ] Peer scoring + multi-layer DDoS protections

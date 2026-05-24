@@ -62,84 +62,106 @@ There is no `otigen compile`. Authors use their language's native compiler.
 
 ## 5.3 The otigen.toml Schema
 
-A single TOML file declares everything `otigen` needs to know about the project.
+A single TOML file declares everything `otigen` needs to know about the project. The full schema with field-by-field validation rules is documented in [`OTIGEN_BINARY_SPEC.md` §4](../companion/OTIGEN_BINARY_SPEC.md); the shape below is the canonical reference.
 
 ```toml
-[project]
-name = "my_token"
-version = "1.0.0"
-language = "rust"            # one of: rust, assemblyscript, go, c
-
-[build]
-wasm_path = "target/wasm32-unknown-unknown/release/my_token.wasm"
-# Author runs their own language build to produce this file.
-# otigen build verifies it exists, validates it, and packages it.
-
 [contract]
-type = "smart_contract"      # or "parachain"
-description = "A simple PYDE-flavored token contract."
+name        = "my-token"          # required; lowercase + hyphens (ENS-style)
+version     = "1.0.0"             # required; semver
+description = "Example token"     # optional
+type        = "contract"          # "contract" (default) or "parachain"
 
-[name_registry]
-name = "mytoken"             # ENS-style unique name (see Account Model)
-extension = "pyde"           # reserved for v2; v1 uses flat namespace
+[contract.lang]
+language = "rust"                 # required; rust | as | go | c
+output   = "target/wasm32-unknown-unknown/release/my_token.wasm"
+                                  # required; path the author's compiler emits
+
+[contract.lang.toolchain]
+rust_channel   = "stable"         # rust only — informational, surfaced in manifest.json
+# asc_version, tinygo_version, clang_version for the other languages
+
+[deploy]
+gas_limit     = 10_000_000        # default per-deploy gas budget
+gas_price     = "auto"            # "auto" = use current base_fee; or fixed quanta
+owner_deposit = 1000              # PYDE locked at deploy time (parachain only)
+
+[wallet]
+default_keystore = "~/.pyde/keystore.json"   # optional; --keystore overrides
+default_account  = "deployer"                # optional; --from overrides
+
+[network.default]
+name = "testnet"                  # selects one of the named [network.X] entries
+
+[network.mainnet]
+rpc_url      = "https://rpc.pyde.network"
+chain_id     = 1
+explorer_url = "https://explorer.pyde.network"
+
+[network.testnet]
+rpc_url      = "https://rpc-testnet.pyde.network"
+chain_id     = 2
+
+[network.devnet]
+rpc_url      = "http://localhost:9933"
+chain_id     = 31337
 
 [state]
-# Declares the contract's state schema. Used for ABI generation,
-# explorer indexing, and cross-validation against runtime access patterns.
-# Authors derive slot_hash values themselves in their contract code.
-balance        = { type = "map<address, uint128>", disc = 0 }
-nonce          = { type = "map<address, uint64>",  disc = 1 }
-allowances     = { type = "map<address, map<address, uint128>>", disc = 6 }
-total_supply   = { type = "uint128",                disc = 7 }
+# State schema; each entry declares a top-level field name + type.
+# Used for ABI emission (state_schema_hash) + explorer decoding.
+# Authors still write their own slot derivation in contract code —
+# otigen does not generate accessor bindings.
+schema = [
+    { name = "owner",         type = "address" },
+    { name = "total_supply",  type = "uint128" },
+    { name = "balances",      type = "mapping(address -> uint128)" },
+]
 
 [functions.transfer]
-attributes = ["entry", "payable"]
-inputs     = ["address", "uint128"]
-outputs    = []
+attributes  = ["entry", "payable"]
+inputs      = ["address", "uint128"]
+outputs     = ["bool"]
+access_list = [                  # optional; unlocks parallel scheduling
+    "balances[caller()]",
+    "balances[args.0]",
+]
 
-[functions.balance]
+[functions.balance_of]
 attributes = ["entry", "view"]
 inputs     = ["address"]
 outputs    = ["uint128"]
 
-[functions.complex_callback]
-attributes = ["entry", "reentrant"]   # opts INTO reentrancy; default is BLOCKED
-inputs     = ["bytes"]
-
-[functions.user_signup]
-attributes = ["entry", "sponsored"]   # gas paid from contract's gas_tank
-inputs     = ["address"]
-
 [functions.init]
-attributes = ["constructor"]          # callable only at deploy time
+attributes = ["constructor"]      # callable only at deploy time
 inputs     = ["uint128"]
 
-[deploy]
-network        = "testnet"   # or "mainnet" or a named local node
-owner_wallet   = "alice"     # name of the wallet to sign with
-deposit        = 1000        # in PYDE; forfeited on misbehavior
-
-[gas]
-max_per_tx     = 10_000_000  # cap; can be raised at deploy time
+[events.Transfer]
+signature = "Transfer(address,address,uint128)"
+fields = [
+    { name = "from",   type = "address",  indexed = true },
+    { name = "to",     type = "address",  indexed = true },
+    { name = "amount", type = "uint128" },
+]
 ```
 
 ### Schema notes
 
-**`[project]`** — basic metadata. `language` is informational only; it tells humans (and explorers) what language the source is in. `otigen` does not use this to invoke a compiler.
+**`[contract]`** — identity + version + type (contract or parachain). `name` is the ENS-style on-chain name (globally unique; see [Ch 11 §11.2](./11-account-model.md)). The address is derived from the FALCON pubkey at deploy time, not from `name`; the registry binds `name → address`.
 
-**`[build]`** — the most important field: `wasm_path` tells `otigen build` where to find the `.wasm` file the author produced. If the file is missing, `otigen build` says so with a clear error and exits.
+**`[contract.lang]`** — declares which language the author compiled with and where their compiler emits the `.wasm`. `language` ∈ {`rust`, `as`, `go`, `c`}. `output` is the path `otigen build` reads. Optional `[contract.lang.toolchain]` pins specific toolchain versions (surfaced in `manifest.json` for reproducible-build verification).
 
-**`[contract]`** — for smart contracts, just descriptive. For parachains, this section grows to include consensus type, validator constraints, slashing preset (see Chapter 13).
+**`[deploy]`** — defaults for `otigen deploy`. `gas_limit` caps the deploy tx's gas. `gas_price = "auto"` uses the current chain base fee; a fixed integer overrides. `owner_deposit` is only meaningful for parachain deploys.
 
-**`[name_registry]`** — the human-readable name under which the contract will be registered. Names are globally unique (per the ENS-style registry in the account model chapter). Registration costs PYDE; renewal is yearly with a grace period.
+**`[wallet]`** — points at the default keystore + the default account. Both fields are optional; the global `--keystore <path>` and per-command `--from <name>` flags override.
 
-**`[state]`** — the schema of the contract's storage. Each entry declares a state field name, its type, and its discriminator. Used for: ABI emission (so explorers can decode state), explorer indexing, and as a reference for the author's hand-written slot derivation. `otigen` does not generate accessor code — the author writes their state access using whatever pattern their language community settles on.
+**`[network.*]`** — `[network.default.name]` selects which other `[network.<name>]` table the toolchain talks to. Each named entry carries `rpc_url`, `chain_id`, and an optional `explorer_url`. The global `--network <name>` flag overrides at the command line.
 
-**`[functions.<name>]`** — declares each callable function in the contract along with its attributes and signature. Every function the runtime should be able to invoke must have an entry here; `otigen build` cross-checks that every `[functions.X]` corresponds to a WASM export named `X`. Attributes are enforced at runtime by the engine based on what's in the deployed ABI.
+**`[state]`** — the schema of the contract's storage. Used by `otigen build` to compute `state_schema_hash` (which the chain compares against on every state read for type-safety enforcement) and emitted in `abi.json` for explorers. The author's contract code still derives the storage slots itself — Pyde does not ship per-language storage bindings.
 
-**`[deploy]`** — settings for `otigen deploy`. Overridable on the command line.
+**`[functions.<name>]`** — every callable function the runtime should dispatch to. `attributes` is the safety + dispatch attribute set documented in §5.6. `otigen build` cross-checks every `[functions.X]` has a matching WASM export named `X` and rejects exports that aren't declared. Optional `access_list` declares the storage slots the function touches; declaring them unlocks the parallel scheduler.
 
-**`[gas]`** — gas cap for the contract. Defaults are usually fine; explicit setting allows larger budgets where needed.
+**`[events.<name>]`** — emitted-event declarations. `signature` is the canonical string the chain hashes (Blake3) to derive the topic-0 value. Indexed fields are searchable via `pyde_getLogs`; non-indexed fields are Borsh-encoded into `data`.
+
+**`[parachain]`** *(parachain only)* — consensus preset, validator constraints, slashing preset. Detailed in [Chapter 13](./13-cross-chain.md).
 
 ---
 

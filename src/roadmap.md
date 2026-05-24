@@ -227,7 +227,7 @@ Implements [`HOST_FN_ABI_SPEC.md`](companion/HOST_FN_ABI_SPEC.md) (chain side), 
 #### β.3 `tx` crate `[PAR within β]`
 - [ ] Native tx types: `Transfer`, `ValidatorRegister`, `Stake`, `Unstake`, `NameRegister`, `Multisig`, `RotateKeys`
 - [ ] WASM tx types: `ContractCall`, `ContractDeploy`
-- [ ] Canonical tx hashing (Blake3 over deterministic encoding)
+- [x] Canonical tx hashing — `tx_hash = Poseidon2(chain_id ‖ from ‖ to ‖ value ‖ Poseidon2(data) ‖ gas_limit ‖ nonce ‖ fee_payer_tag ‖ Poseidon2(access_list) ‖ deadline ‖ tx_type)` per Ch 11 §11.6. `data` and `access_list` pre-hashed to bound outer permutation; signature NOT included (it signs the hash). **Roadmap originally said "Blake3" — corrected to Poseidon2 here** because tx hashes cross the ZK boundary (light-client receipts, aggregated state proofs, future SNARK roll-ups). Tag encodings for FeePayer / Option<deadline> / TxType are spelt out, not just borsh-derived, to keep wire stability independent of derive output. Landed in PR [#71](https://github.com/pyde-net/engine/pull/71)
 - [ ] Gas accounting (EIP-1559 base fee; no refunds per `gas-no-refund-v1` memory)
 - [ ] Deploy / upgrade / lifecycle handlers (per `OTIGEN_BINARY_SPEC §8`)
 

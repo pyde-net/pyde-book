@@ -343,7 +343,8 @@ Implements Chapter 6, `SLASHING.md`, `VALIDATOR_LIFECYCLE.md`, `STATE_SYNC.md`, 
 - [ ] JSON-RPC server (per `HOST_FN_ABI_SPEC §15.4-15.5` + chapter 17 method list)
 - [ ] `consensus_store` with `WriteOptions::set_sync(true)` (per Ch 16 §16.12)
 - [ ] `panic = "abort"` on persist failure
-- [ ] Validator role (FALCON keypair management, attestation, key rotation)
+- [x] Validator role — FALCON-512 keypair management: `FalconKeypair` (disk-backed, atomic tmp→rename persistence, integrity-checked on load via re-derived pubkey, secret redacted in Debug). `impl Signer` for direct use in vertex production. Borsh-encoded `FalconKeypairFile` with `version: u8` so swapping in real `pyde-crypto` FALCON-512 bumps the version. v1 ships a deterministic mock that matches `MockSigner`'s Blake3-extension pattern; production crypto swaps in when `pyde-crypto` ships. Wired into `ValidatorRuntime` + `pyde-node validator --falcon-keypair <path>`. — PR [#70](https://github.com/pyde-net/engine/pull/70)
+- [ ] Validator role — attestation + key rotation (depends on production `pyde-crypto` FALCON-512)
 - [ ] Persistence: receipts_cf, txs_cf, waves_cf
 
 **γ BAR:** `cargo test` clean on `consensus-side` branch; consensus loop runs end-to-end with `MockStateView` + `MockMempool` + `MockNetwork`; vertex production + anchor selection + commit work in isolation.

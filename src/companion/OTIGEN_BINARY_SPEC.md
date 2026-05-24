@@ -98,16 +98,17 @@ Exit codes: `0` on success, `1` if `<dir>` already exists, `2` if the language i
 
 ### 3.2 `otigen build`
 
-Verify + package. Does **not** invoke the language compiler — that is the author's responsibility (run `cargo build` first, etc.).
+Verify + package. By default does **not** invoke the language compiler — that is the author's responsibility (run `cargo build` first, etc.). The opt-in `--compile` flag inverts this: it runs the per-language default build command first, then proceeds with the same verify + package pipeline. Both paths produce byte-identical bundles when the inputs are equivalent — `--compile` is a UX convenience, not a different build.
 
 ```
-otigen build [--release|--debug] [--out <path>]
+otigen build [--release|--debug] [--compile] [--out <path>]
 ```
 
 | Flag | Default | Description |
 |---|---|---|
 | `--release` | (default) | Validate against release-build expectations |
 | `--debug` | off | Allow debug-build artifacts (useful for local dev) |
+| `--compile` | off | Invoke the per-language build command first. Dispatch table: `rust` → `cargo build --target wasm32-unknown-unknown --release`, `as` → `npm install && npm run build`, `go` → `tinygo build -target=wasi -o <output> .`, `c` → `make`. Only the default invocation per language; authors with custom build flags continue to compile manually and run `otigen build` afterwards. Toolchain missing on `PATH` exits with `ToolchainMissing` (resource failure); compiler returning non-zero propagates as a resource failure; output not at `[contract.lang.output]` after a 0-exit emits `CompileOutputMissing`. |
 | `--out` | `./artifacts/` | Output directory for the deploy bundle |
 
 Pipeline:

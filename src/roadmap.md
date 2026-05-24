@@ -332,6 +332,7 @@ Implements Chapter 6, `SLASHING.md`, `VALIDATOR_LIFECYCLE.md`, `STATE_SYNC.md`, 
 - [ ] Reward distribution wiring: `UptimeTracker` from consensus attestation events + `RewardPool` epoch-accumulator (depends on γ.1 attestation surface)
 
 #### γ.5 `node` crate `[SEQ within γ] → γ.1 + γ.2 + γ.4` — owned by γ; integration point
+- [x] `EquivocationDetector` — node-level wiring between consensus's `InsertOutcome::Equivocation` and slashing's `process_evidence`. Composes Arc'd `VertexStore` + `Slasher` + `Escrow`; `handle_equivocation` looks up the prior, builds Evidence, runs the slash pipeline. Closes the resolution side noted in slashing.12. — PR [#56](https://github.com/pyde-net/engine/pull/56)
 - [ ] `pyde` binary (cli, validator, full-node modes)
 - [ ] JSON-RPC server (per `HOST_FN_ABI_SPEC §15.4-15.5` + chapter 17 method list)
 - [ ] `consensus_store` with `WriteOptions::set_sync(true)` (per Ch 16 §16.12)

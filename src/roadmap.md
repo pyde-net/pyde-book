@@ -278,7 +278,7 @@ Implements Chapter 6, `SLASHING.md`, `VALIDATOR_LIFECYCLE.md`, `STATE_SYNC.md`, 
 - [ ] Piggybacked decryption shares (pipeline decryption with consensus)
 - [x] HardFinalityCert generation (`FinalityCertCollector`: cached pre-image, duplicate-before-verify, deterministic member_id-sorted finalize, FinalityError taxonomy) — PR [#8](https://github.com/pyde-net/engine/pull/8)
 - [x] WaveCommitRecord assembly (`assemble_wave_commit_record`: canonical anchor_hash, u32 tx_count overflow check, WaveCommitInputs cross-stream boundary) — PR [#7](https://github.com/pyde-net/engine/pull/7)
-- [ ] Committee management (epoch-bounded; uniform random from eligible stakers)
+- [x] Committee selection primitive: Fisher-Yates shuffle keyed off 32-byte beacon; rejection-sampled for bias-free draws; `member_id ↔ FalconPubkey` lookups; rejects insufficient-eligible / duplicate-pubkey inputs. `CommitteeRegistry` (epoch → Committee) follow-up. — PR [#33](https://github.com/pyde-net/engine/pull/33)
 - [ ] Equivocation detection + evidence collection → γ.4 Slashing
 - [x] Implement `ConsensusEngine` trait via `Driver` (composed runtime: `VertexStore` + `RoundTracker` + `PendingParents` + finality history; Arc-shared, fine-grained locks, wave-monotonicity guard, object-safe trait impl) — PR [#11](https://github.com/pyde-net/engine/pull/11)
 

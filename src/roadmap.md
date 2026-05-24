@@ -313,7 +313,8 @@ Implements Chapter 6, `SLASHING.md`, `VALIDATOR_LIFECYCLE.md`, `STATE_SYNC.md`, 
 - [ ] BadDecryptionShare evidence verification (gated on γ.3 DKG)
 - [ ] Consensus integration: wire `InsertOutcome::Equivocation` → auto-build Evidence
 - [ ] Persistence: Slasher + Escrow to RocksDB (lands at MC-2 alongside state-crate integration)
-- [ ] Reward distribution (pool-based, stake × uptime)
+- [x] Reward distribution math: `distribute_rewards(pool, entries)` pure function (pool × stake × uptime, sum-invariant bit-exact, u128-overflow-safe fallback, 6-decimal `UPTIME_PRECISION`) — PR [#31](https://github.com/pyde-net/engine/pull/31)
+- [ ] Reward distribution wiring: `UptimeTracker` from consensus attestation events + `RewardPool` epoch-accumulator (depends on γ.1 attestation surface)
 
 #### γ.5 `node` crate `[SEQ within γ] → γ.1 + γ.2 + γ.4` — owned by γ; integration point
 - [ ] `pyde` binary (cli, validator, full-node modes)

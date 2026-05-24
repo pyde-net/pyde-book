@@ -293,9 +293,10 @@ Implements Chapter 6, `SLASHING.md`, `VALIDATOR_LIFECYCLE.md`, `STATE_SYNC.md`, 
 - [ ] May import from `pyde-crypto` if helpers land there first
 
 #### γ.4 `slashing` crate `[PAR within γ] → γ.1`
-- [ ] Validator state machine (registered → active → jailed → unbonding → withdrawn) — jail half of the machine landed in γ.slashing.3
-- [ ] Validator txs: register, unbond, withdraw, rotate-key, unjail
-- [ ] Operator-identity binding (anti-Sybil; max 3 validators per operator)
+- [x] Validator state machine types (Registered / Active / Jailed / Unbonding / Withdrawn) with entry-epoch tagging; `occupies_operator_slot` predicate — PR [#28](https://github.com/pyde-net/engine/pull/28)
+- [x] Operator-identity binding (`MAX_VALIDATORS_PER_OPERATOR = 3` cap; `MIN_STAKE_QUANTA = 10_000`; duplicate-pubkey rejection) — PR [#28](https://github.com/pyde-net/engine/pull/28)
+- [x] `register` validator op — PR [#28](https://github.com/pyde-net/engine/pull/28)
+- [ ] Validator txs: unbond, withdraw, rotate-key, unjail (next slashing.N pulls)
 - [ ] Synced-only committee enforcement
 - [x] 9-offense catalog (Equivocation + 4 Safety + 4 Liveness) per [`SLASHING.md`](companion/SLASHING.md) — `Offense` enum + `OffenseSpec` + `Distribution` (SAFETY_DEFAULT 50/30/20, ALL_BURN) — PR [#21](https://github.com/pyde-net/engine/pull/21)
 - [x] Slash math: correlation multiplier (capped 2×) + repeat escalation (powers of 2) + exact burn-takes-remainder distribution sum — `compute_slash_amount` — PR [#21](https://github.com/pyde-net/engine/pull/21)

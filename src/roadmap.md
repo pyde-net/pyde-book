@@ -246,9 +246,9 @@ Implements [`HOST_FN_ABI_SPEC.md`](companion/HOST_FN_ABI_SPEC.md) (chain side), 
 - [ ] Deploy / upgrade / lifecycle handlers (per `OTIGEN_BINARY_SPEC §8`)
 
 #### β.4 `wasm-exec` crate `[SEQ within β] → β.1`
-- [ ] wasmtime engine config (deterministic feature subset per Ch 3 §3.2)
-- [ ] `WasmExecutor` type
-- [ ] Module cache: LRU + max-size (1 GB default) + TTL (8 epochs default) (per `HOST_FN_ABI_SPEC §3.6`)
+- [x] wasmtime engine config (deterministic feature subset per Ch 3 §3.2) — `deterministic_config()` builds `wasmtime::Config` with Cranelift at Speed opt, `consume_fuel=true`, `epoch_interruption=true`, `cranelift_nan_canonicalization=true` (cross-platform float determinism per Ch 3 — x86 SSE2 vs ARM NEON quiet-NaN encoding diverges otherwise), `wasm_simd/relaxed_simd/multi_memory/memory64=false`, `wasm_bulk_memory=true`. Threads / reference-types / function-references / GC / component-model are off via the wasmtime cargo-feature gate (proposal not compiled in → setter doesn't exist; the gate IS the off switch). 3 tests including AOT-output bit-equality across two engines. Landed in PR [#91](https://github.com/pyde-net/engine/pull/91)
+- [x] `WasmExecutor` type — engine-level handle that owns the singleton `wasmtime::Engine` + `ModuleCache`. Cheap to clone (both internally `Arc`'d), safe to share across wave-execution threads. Exposes `compile_and_cache(bytes) → CodeHash` / `has_module(hash)` / `engine()` / `cache()`. Foundation type subsequent PRs extend with per-tx instance creation, host-fn bindings, and overlay. Landed in PR [#91](https://github.com/pyde-net/engine/pull/91)
+- [ ] Module cache: LRU + max-size (1 GB default) + TTL (8 epochs default) (per `HOST_FN_ABI_SPEC §3.6`) — **basic scaffold shipped** (`ModuleCache` = `Arc<Mutex<HashMap<Blake3Hash, Module>>>` with `compile_and_cache` + `get`, idempotent against re-compilation), but LRU + max-size + TTL + disk-spill + pre-warm-on-deploy all deferred to PR-2+ as spec'd in the module docs.
 - [ ] Fuel-to-gas mapping (calibrated from spec §10 gas table)
 - [ ] Per-tx overlay execution model (snapshot-and-rollback; nested for cross-call)
 - [ ] Host functions — each independent task:

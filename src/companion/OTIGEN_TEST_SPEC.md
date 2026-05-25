@@ -357,26 +357,26 @@ v1 supports scalar types: `i32`, `i64`, `f32`, `f64`. The runner uses the functi
 
 ### 6.3 Mock host functions
 
-Every `pyde::*` host function declared in `HOST_FN_ABI_SPEC.md` has a mock implementation. v1 implements the read/write/event subset; v2 expands to the full surface.
+Every mocked host function uses the canonical `pyde::*` name from [`HOST_FN_ABI_SPEC §7`](./HOST_FN_ABI_SPEC.md) — contract code compiled against the chain runs unchanged under the test runner. v1 implements the read/write/event/balance/hash subset; v2 expands to the full surface.
 
 | Host fn | v1 mock |
 |---|---|
-| `sload(slot, value_out)` | Reads `storage[slot]` if present; returns length or 0. |
-| `sstore(slot, value)` | Writes 32 bytes to `storage[slot]`. |
-| `sdelete(slot)` | Removes `storage[slot]`. |
-| `caller(addr_out)` | Writes `env.caller` into wasm memory. |
-| `value()` | Returns `env.value` as i64 (v1 narrows u128 → i64; v2 returns the full width via a `value_out` ptr). |
-| `now()` | Returns `cheats.now` as i64. |
-| `current_wave()` | Returns `cheats.wave_id` as i64. |
+| `sload(slot_ptr, value_out_ptr)` | Reads `storage[slot]` if present; returns length or 0. |
+| `sstore(slot_ptr, value_ptr)` | Writes 32 bytes to `storage[slot]`. |
+| `sdelete(slot_ptr)` | Removes `storage[slot]`. |
+| `caller(addr_out_ptr)` | Writes `env.caller` (32 bytes) into wasm memory. |
+| `tx_value(value_out_ptr)` | Writes `env.value` as 16-byte little-endian u128. |
+| `balance(addr_ptr, out_ptr)` | Reads `env.balances[addr]`; writes 16-byte LE u128. |
+| `transfer(to_ptr, amount_lo, amount_hi)` | Decrements `env.balances[caller]`, increments `env.balances[to]`; reverts on underflow. (v1 takes amount as two i64 halves; v2 will take a single 16-byte LE u128 ptr to match HOST_FN_ABI_SPEC §7.2.) |
+| `block_height()` | Returns `cheats.wave_id` as i64 (v1: `block_height == wave_id` per chain design). |
+| `wave_id()` | Returns `cheats.wave_id` as i64. |
+| `block_timestamp()` | Returns `cheats.now` as i64. |
 | `chain_id()` | Returns `cheats.chain_id` as i64. |
-| `gas_remaining()` | Returns the per-call decrement of `cheats.gas_limit`. |
-| `emit_event(topic_ptr, topic_len, data_ptr, data_len)` | Appends to `env.events`. |
+| `emit_event(topics_ptr, n_topics, data_ptr, data_len)` | Appends to `env.events`. |
 | `revert(msg_ptr, msg_len)` | Captures the reason + traps the wasm. |
-| `balance_of(addr_ptr, out_ptr)` | Reads `env.balances[addr]`; writes u128 LE. |
-| `transfer_native(to_ptr, amount_lo, amount_hi)` | Decrements `env.balances[caller]`, increments `env.balances[to]`; reverts on underflow. |
-| `poseidon2(input_ptr, input_len, out_ptr)` | Real Poseidon2 via `pyde-crypto`. Authors using this for slot derivation in source code will produce the same slots the test framework expects. |
-| `blake3(input_ptr, input_len, out_ptr)` | Real Blake3. Same parity rationale. |
-| Other host fns (DKG, parachain-only, etc.) | **Not mocked in v1.** Calls trap with `UnsupportedHostFn`. v2 expands. |
+| `hash_poseidon2(input_ptr, input_len, out_ptr)` | Real Poseidon2 via `pyde-crypto`. Authors using this for slot derivation in source code will produce the same slots the test framework expects. |
+| `hash_blake3(input_ptr, input_len, out_ptr)` | Real Blake3 via `pyde-crypto`. Same parity rationale (event topic-0, address derivation). |
+| Other host fns (`origin`, `self_address`, `tx_hash`, `tx_gas_remaining`, `calldata_*`, `hash_keccak256`, `falcon_verify`, `cross_call*`, `delegate_call`, `consume_gas`, `beacon_get`, DKG, parachain-only) | **Not mocked in v1.** Calls trap with `UnsupportedHostFn`. v2 expands. |
 
 ### 6.4 Revert semantics
 
@@ -670,9 +670,9 @@ v2 may add `[invariants]` declared once at the file level, auto-asserted after e
 
 ## 11. Implementation phases
 
-This spec lands in three PRs:
+This spec lands incrementally. Phases 1–3 ship the core surface; Phase 4 adds typed-arg marshalling; later phases add cross-contract, fuzzing, invariants, gas metering.
 
-### Phase 1: parser + name resolution + spec validation
+### Phase 1: parser + name resolution + spec validation ✅ shipped (PR [otigen#30](https://github.com/pyde-net/otigen/pull/30))
 
 - `crates/otigen-test` crate with the TOML schema types
 - `[accounts]` + `[cheats]` + `[[tests]]` parsing
@@ -680,24 +680,39 @@ This spec lands in three PRs:
 - `otigen test --dry-run` lists tests + their resolved addresses / slots without executing
 - E2E tests against a hand-written `.test.toml` fixture
 
-### Phase 2: wasmtime runner + read/write/event/revert mocks
+### Phase 2: wasmtime runner + read/write/event/revert mocks ✅ shipped (PR [otigen#31](https://github.com/pyde-net/otigen/pull/31))
 
-- `pyde::sload` / `sstore` / `sdelete` / `caller` / `value` / `emit_event` / `revert` / `now` / `current_wave` / `chain_id`
+- `pyde::sload` / `sstore` / `sdelete` / `caller` / `tx_value` / `emit_event` / `revert` / `block_timestamp` / `wave_id` / `chain_id`
 - Single-call execution + per-call `expect`
 - Return-value + storage-after + events + revert assertions
 - `examples/hello-rust` ships a sample `tests/contract.test.toml`
 - E2E tests asserting pass / fail outcomes
 
-### Phase 3: full Foundry surface
+### Phase 3: full Foundry surface ✅ shipped (PR [otigen#32](https://github.com/pyde-net/otigen/pull/32))
 
-- Multi-call sequences (`[[tests.calls]]` chains)
-- Native-balance mocks (`balance_of`, `transfer_native`)
+- Multi-call sequences (`[[tests.calls]]` chains) with per-call state rollback on trap
+- Native-balance mocks (`balance`, `transfer`)
 - Final-state assertions (`[tests.expect]`)
 - Per-test cheat overrides
-- Named event matching against `[events.*]` declarations
+- Named event matching against `[events.*]` declarations + shape-only fallback
 - `--filter` flag + per-test timing
+- `--json` NDJSON test events (`test_suite_start` / `test_start` / `test_pass` / `test_fail` / `test_suite_done`)
+- `--bundle` override (test against an arbitrary `<bundle>/contract.wasm`)
+- `hash_poseidon2` / `hash_blake3` host fn mocks (added during PR [otigen#43](https://github.com/pyde-net/otigen/pull/43) when the `counter-token` example exercised contract-side slot derivation)
 
-After phase 3, `otigen test` is the canonical contract-behaviour test runner. Phases 4+ (cross-contract, fuzzing, invariants, gas metering) come in later releases.
+The `examples/counter-token` realistic-contract reference (PR [otigen#43](https://github.com/pyde-net/otigen/pull/43)) exercises every Phase 3 feature end-to-end: multi-call sequences, named events, expect.revert with rollback, per-test cheats, final-state storage assertions.
+
+### Phase 4: typed-arg marshalling (planned)
+
+- Runner-side encoding of declared `inputs` (e.g. `["address", "uint128"]`) so authors can pass `args = ["alice", "100"]` against contract signatures that take pointer-args without writing two-i64-half boilerplate.
+- For `address`: resolve account name, allocate 32 bytes at a safe linear-memory offset, write the bytes, pass the offset as i32. Requires parsing the contract's WASM data segments to find the data-end watermark and use a higher offset.
+- For `uint128`: allocate 16 bytes, write LE bytes, pass the offset.
+
+Until Phase 4 ships, contracts that take pointer-args must use `caller()` to sidestep the staging gap (e.g. `counter-token`'s `mint() / balance_of_caller()` pattern), or accept the two-i64-halves convention for u128 values.
+
+### Beyond Phase 4
+
+Later releases add `cross_call*` mocks (and a sibling-contract registry so cross-contract tests resolve to other `.bundle/` artifacts), gas metering, fuzz / invariant test modes, and the full parachain host-fn surface (`parachain_storage_*`, `send_xparachain_message`, `threshold_*`).
 
 ---
 

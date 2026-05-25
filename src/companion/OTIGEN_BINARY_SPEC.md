@@ -292,14 +292,22 @@ Per-test pipeline:
 1. Apply `[cheats]` (and per-test `[tests.cheats]` overrides).
 2. Resolve account names → 32-byte Blake3 addresses; resolve storage field names → Poseidon2 slot hashes per the contract's `[state]` schema + PIP-2.
 3. Pre-populate storage from `[tests.setup].storage`.
-4. For each `[[tests.calls]]` entry: parse args, invoke the WASM export, capture the return value + emitted events + revert reason. Check per-call `expect`.
-5. After the call sequence, check `[tests.expect]` (final-state assertions).
-6. Emit pass / fail.
+4. Record start time.
+5. For each `[[tests.calls]]` entry: parse args, invoke the WASM export, capture the return value + emitted events + revert reason. On trap, roll back the per-call state overlay. Check per-call `expect`.
+6. After the call sequence, check `[tests.expect]` (final-state assertions).
+7. Record end time; compute `duration_ms`.
+8. Emit pass / fail (with `duration_ms` included in the NDJSON event under `--json`).
 
-Mock host fns (v1):
+Mock host fns (v1) — canonical names per [`HOST_FN_ABI_SPEC §7`](./HOST_FN_ABI_SPEC.md):
 
-- Implemented: `sload`, `sstore`, `sdelete`, `caller`, `value`, `now`, `current_wave`, `chain_id`, `gas_remaining`, `emit_event`, `revert`, `balance_of`, `transfer_native`, `poseidon2`, `blake3`
-- Trap with `UnsupportedHostFn`: every other `pyde::*` import (DKG, parachain-only, cross-contract). v2 expands.
+- Storage: `sload`, `sstore`, `sdelete`
+- Account & balance: `balance`, `transfer`
+- Execution context: `caller`, `block_height`, `wave_id`, `block_timestamp`, `chain_id`
+- Transaction context: `tx_value`
+- Events + halt: `emit_event`, `revert`
+- Hashing: `hash_poseidon2`, `hash_blake3`
+
+Trap with `UnsupportedHostFn`: every other `pyde::*` import (DKG, parachain-only, cross-contract, `origin`, `self_address`, `tx_hash`, `tx_gas_remaining`, `calldata_size`, `calldata_copy`, `falcon_verify`, `beacon_get`, `hash_keccak256`, `consume_gas`, `cross_call*`, `delegate_call`, `return`). v2 expands.
 
 Exit codes: `0` all-pass; `1` any failure; `2` resource failure (test file unreadable, bundle missing); `4` schema error (malformed TOML, reference to undeclared `[state]` field).
 
@@ -849,6 +857,51 @@ Cross-version matrix:
 When `otigen` introduces a new `otigen.toml` key in a minor version, existing configs continue to work (the new key is optional with a sensible default). `otigen init` produces the latest schema.
 
 When `otigen` introduces a *required* new key, that's a MAJOR bump; `otigen migrate` exists to upgrade old configs.
+
+### 11.4 Release pipeline
+
+`otigen` ships as a pre-built binary on every `v*` tag push. The pipeline lives at [`.github/workflows/release.yml`](https://github.com/pyde-net/otigen/blob/main/.github/workflows/release.yml) in the `pyde-net/otigen` repo and produces signed, reproducible artifacts:
+
+**Target matrix:**
+
+| OS | Architecture | Triple | Tarball name |
+|---|---|---|---|
+| Linux | x86_64 | `x86_64-unknown-linux-gnu` | `otigen-{version}-x86_64-unknown-linux-gnu.tar.gz` |
+| Linux | aarch64 | `aarch64-unknown-linux-gnu` | `otigen-{version}-aarch64-unknown-linux-gnu.tar.gz` |
+| macOS | arm64 | `aarch64-apple-darwin` | `otigen-{version}-aarch64-apple-darwin.tar.gz` |
+| Windows | x86_64 | `x86_64-pc-windows-msvc` | `otigen-{version}-x86_64-pc-windows-msvc.zip` |
+
+**Per-platform job:**
+
+1. Check out the tagged commit (no `dirty` builds).
+2. Install the pinned MSRV toolchain (currently 1.87).
+3. `cargo build --release --target <triple>` → produces `target/<triple>/release/otigen[.exe]`.
+4. `tar -czf` (or `zip` on Windows) → produces the tarball above.
+5. `sha256sum` → produces `otigen-{version}-{triple}.tar.gz.sha256` alongside.
+6. Upload to the GitHub Release for the tag.
+
+**Signing:**
+
+Each tarball is signed via [sigstore-keyless OIDC](https://github.com/sigstore/cosign) using the GitHub Actions runner's OIDC token as the identity. The signature artifacts (`*.sig` + `*.pem`) are uploaded alongside the tarball. Verification:
+
+```bash
+cosign verify-blob \
+  --certificate-identity-regexp '^https://github.com/pyde-net/otigen/.github/workflows/release.yml@.*$' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  --signature otigen-{version}-{triple}.tar.gz.sig \
+  --certificate otigen-{version}-{triple}.tar.gz.pem \
+  otigen-{version}-{triple}.tar.gz
+```
+
+This proves the binary was built by the `pyde-net/otigen` repo's own `release.yml` workflow, on a commit at the corresponding tag, without ever needing a long-lived signing key. Compromise of any single workflow run does not compromise prior releases.
+
+**Versioning:**
+
+Tag names are full semver (`v0.1.0-testnet.0` → `v1.0.0` for mainnet). Pre-release tags (`-testnet.N`, `-rc.N`) are explicitly marked as GitHub pre-releases. The tag commit's `git describe` output is recorded in the binary via `build.rs` (visible as `otigen --version`).
+
+**Reproducibility:**
+
+The pipeline pins the MSRV toolchain version and disables debug info to maximize byte-equality between independent rebuilds. The α.qual reproducibility test (still open) will verify two clean rebuilds of the same tag produce byte-identical tarballs (modulo the build timestamp embedded by `cargo`).
 
 ---
 

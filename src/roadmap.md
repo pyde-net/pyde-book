@@ -360,7 +360,8 @@ Implements Chapter 6, `SLASHING.md`, `VALIDATOR_LIFECYCLE.md`, `STATE_SYNC.md`, 
 - [ ] `panic = "abort"` on persist failure
 - [x] Validator role — FALCON-512 keypair management: `FalconKeypair` (disk-backed, atomic tmp→rename persistence, integrity-checked on load via re-derived pubkey, secret redacted in Debug). `impl Signer` for direct use in vertex production. Borsh-encoded `FalconKeypairFile` with `version: u8` so swapping in real `pyde-crypto` FALCON-512 bumps the version. v1 ships a deterministic mock that matches `MockSigner`'s Blake3-extension pattern; production crypto swaps in when `pyde-crypto` ships. Wired into `ValidatorRuntime` + `pyde-node validator --falcon-keypair <path>`. — PR [#70](https://github.com/pyde-net/engine/pull/70)
 - [ ] Validator role — attestation + key rotation (depends on production `pyde-crypto` FALCON-512)
-- [ ] Persistence: receipts_cf, txs_cf, waves_cf
+- [x] Persistence — **txs_cf write-through shipped**: validator main loop routes `pyde/mempool/1` gossip to `consensus_store.put_tx(canonical_tx_hash(tx), tx)`. New `pyde-engine-tx::canonical_tx_hash` ships ahead of β.3 — `TxHash = Blake3(canonical_pre_image(tx))` per Ch 11 §11.6, same bytes the producer FALCON-signs (β.3 will adopt the same function for mempool admission, receipt indexing, execution-side lookups, so the keys remain interoperable). 4 new `MainLoopMetrics` counters (received / persisted / decode-failures / persist-failures). Operator can now publish a tx on gossip and read it back via `pyde_getTx(hash)`. — PR [#88](https://github.com/pyde-net/engine/pull/88)
+- [ ] Persistence — receipts_cf + waves_cf write-through (lands when execution layer commits waves)
 
 **γ BAR:** `cargo test` clean on `consensus-side` branch; consensus loop runs end-to-end with `MockStateView` + `MockMempool` + `MockNetwork`; vertex production + anchor selection + commit work in isolation.
 

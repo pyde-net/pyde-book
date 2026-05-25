@@ -200,6 +200,8 @@ Each call executes a contract function in order, with its own caller / value / e
 | `expect.events` | array of event matchers | no | Each entry MUST appear in this call's emitted events. See §6 for matching rules. |
 | `expect.revert` | string | no | If set, the call MUST trap with a reason that contains this substring. |
 | `expect.no_revert` | bool | no | Inverse: assert the call does NOT trap. Useful when an earlier call set up state that might cause an unexpected revert. |
+| `expect.gas` | u64 (dec or `0x`-hex) | no | Foundry-style **exact** gas assertion. Fails if observed gas (wasmtime fuel delta) does not equal this value. Brittle to opcode-level codegen changes — prefer `expect.gas_max` unless you specifically need a snapshot. |
+| `expect.gas_max` | u64 (dec or `0x`-hex) | no | Foundry-style **upper bound** assertion. Fails if observed gas > this value. Use as a regression guard: pick a ceiling once, the test breaks the moment a future change pushes you over it. |
 
 ### 4.6 `[tests.expect]` — final-state assertions
 
@@ -430,6 +432,23 @@ Other types (`bytes`, dynamic arrays, custom structs) fall through to shape-only
 #### Shape-only fallback
 
 If a matcher uses `name = "X"` but the contract's `otigen.toml` doesn't declare `[events.X]`, the runner can't compute the expected topic-0 or know the field layout — so it falls back to **"any event was emitted"** as a conservative existence check. This is useful for contracts that emit events declared only in source (not surfaced in `otigen.toml`), but it's strictly weaker than the schema-driven match. Authors who want precise matching declare the event in `otigen.toml` or use the raw-hex form.
+
+### 6.6 Gas tracking (Foundry-style)
+
+The runner enables wasmtime's `consume_fuel(true)` and seeds every call with a fuel cap (from `cheats.gas_limit` if set; otherwise a runner-internal default of 1,000,000,000 fuel units). Per-call gas usage is computed as `fuel_cap - remaining_fuel` after the call returns.
+
+What the runner records per test (the `TestReport` returned alongside `TestOutcome`):
+
+| Field | Source | Used by |
+|---|---|---|
+| `gas_used` | Sum of per-call fuel deltas | `otigen test -v` (and above); NDJSON `test_pass`/`test_fail` events |
+| `events` | `TestEnv.events` at test end | `otigen test -vv` |
+| `call_traces` | One per `[[tests.calls]]` (function, args, return, revert, gas) | `otigen test -vvv` |
+| `storage_diffs` | Slot-by-slot before/after | `otigen test -vvvv` |
+
+The runner's fuel units correlate to but are not bit-identical with on-chain Pyde gas. Foundry has the same caveat — its gas reports are estimates, not chain billing. For ground-truth gas, deploy to a devnet and pull the receipt.
+
+**Per-call gas assertions** (`expect.gas` / `expect.gas_max`, see §4.5) are checked after each call's per-call `expect.return_value` / `expect.events` block. A gas assertion failure produces a test fail with the reason `call[N]: expect.gas[_max] = X; observed Y`.
 
 ---
 

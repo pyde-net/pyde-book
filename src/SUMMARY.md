@@ -55,6 +55,18 @@
 
 ---
 
+# Otigen Toolchain Guide
+
+- [Overview](otigen/README.md)
+- [Installation](otigen/installation.md)
+- [Your First Contract](otigen/first-contract.md)
+- [Shipping](otigen/shipping.md)
+- [Inspect & Verify](otigen/inspecting.md)
+- [Lifecycle](otigen/lifecycle.md)
+- [Debugging](otigen/debugging.md)
+
+---
+
 # Companion Specifications
 
 - [Architecture (Design Doc)](companion/DESIGN.md)

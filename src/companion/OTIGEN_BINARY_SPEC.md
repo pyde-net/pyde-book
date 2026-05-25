@@ -64,7 +64,7 @@ All subcommands accept the global flags:
 
 | Flag | Effect |
 |---|---|
-| `-v, --verbose` | Verbose logging (also `-vv` for debug) |
+| `-v, --verbose` | Verbose logging. Counter flag — `-v` info, `-vv` debug. `otigen test` extends the ladder to `-vvv` (per-call traces) and `-vvvv` (storage diffs); see §3.10. |
 | `-q, --quiet` | Suppress non-error output |
 | `--json` | Output structured JSON (for CI / scripting) |
 | `--network <name>` | Override the default network (default: read from `otigen.toml` → `[network.default]`) |
@@ -271,6 +271,7 @@ Run contract behaviour tests declared in TOML against the built `.wasm`.
 
 ```
 otigen test [--filter <pattern>] [--bundle <path>] [--no-color] [--show-output]
+            [-v|-vv|-vvv|-vvvv]
 ```
 
 | Flag | Default | Description |
@@ -279,6 +280,12 @@ otigen test [--filter <pattern>] [--bundle <path>] [--no-color] [--show-output]
 | `--bundle <path>` | `./artifacts/<name>.bundle/` | Bundle whose `contract.wasm` is executed. |
 | `--no-color` | off | Disable terminal colour escapes (CI logs). |
 | `--show-output` | off | Print captured stdout / stderr per test (for mock-host debugging). |
+| `-v` (global) | off | Append gas-used + duration to each pass/fail line. |
+| `-vv` (global) | off | Above, plus per-test list of emitted events (topic-0 + topic count + data length). |
+| `-vvv` (global) | off | Above, plus per-call trace: function name, args, return value / revert reason, gas. |
+| `-vvvv` (global) | off | Above, plus per-test storage diff: every slot whose value changed (before → after). |
+
+Verbosity follows Foundry's `forge test -vvvv` ladder. Each level surfaces strictly more information; consumers paging through `forge` output will find the same mental model.
 
 Discovery order:
 1. `tests/*.test.toml` (canonical)
@@ -310,6 +317,14 @@ Mock host fns (v1) — canonical names per [`HOST_FN_ABI_SPEC §7`](./HOST_FN_AB
 Trap with `UnsupportedHostFn`: every other `pyde::*` import (DKG, parachain-only, cross-contract, `origin`, `self_address`, `tx_hash`, `tx_gas_remaining`, `calldata_size`, `calldata_copy`, `falcon_verify`, `beacon_get`, `hash_keccak256`, `consume_gas`, `cross_call*`, `delegate_call`, `return`). v2 expands.
 
 Exit codes: `0` all-pass; `1` any failure; `2` resource failure (test file unreadable, bundle missing); `4` schema error (malformed TOML, reference to undeclared `[state]` field).
+
+**Gas tracking.** The runner enables wasmtime's `consume_fuel(true)` and seeds each call with the test's `cheats.gas_limit` (default 1,000,000,000 fuel). Per-call gas usage is `fuel_cap - remaining_fuel` after the call returns. Total gas per test is the sum across calls.
+
+  - Reported in the NDJSON `test_pass` / `test_fail` events as `gas_used`.
+  - Surfaced at `-v` and above in the plain-text output.
+  - Optionally asserted via `expect.gas` (exact) or `expect.gas_max` (upper bound) per call. See [`OTIGEN_TEST_SPEC §4.5`](./OTIGEN_TEST_SPEC.md).
+
+Note: the runner's fuel units correlate to but are not bit-identical with on-chain Pyde gas. Foundry has the same caveat — gas reports under `forge test` are estimates, not chain billing.
 
 The full TOML schema, name resolution rules, cheatcode catalogue, mock host-function behaviour, and limitations are documented in [`OTIGEN_TEST_SPEC.md`](./OTIGEN_TEST_SPEC.md). That spec is authoritative.
 
@@ -511,6 +526,29 @@ preset = "standard"               # minimal / standard / strict
 ```
 
 See [PARACHAIN_DESIGN](./PARACHAIN_DESIGN.md) for the semantics of each preset.
+
+### 4.11 `[paths]` table (Foundry-style project layout overrides)
+
+Optional. Every key has a sensible default, so the table is only needed when an author's project tree diverges from the conventional layout. Declared keys override individually — undeclared keys keep their default.
+
+```toml
+[paths]
+src       = "src"               # language source root
+tests     = "tests"             # `.test.toml` discovery root for `otigen test`
+target    = "target"            # language compiler intermediate output
+artifacts = "artifacts"         # `otigen build` bundle output root
+cache     = ".otigen/cache"     # reserved for future module / manifest cache
+```
+
+| Key | Default | Used by |
+|---|---|---|
+| `src` | `"src"` | `otigen check`, reproducibility tooling |
+| `tests` | `"tests"` | `otigen test` (discovers `<tests>/*.test.toml`) |
+| `target` | `"target"` | `make clean` in scaffolded `Makefile`; reproducibility tooling |
+| `artifacts` | `"artifacts"` | `otigen build` (writes `<artifacts>/<contract.name>.bundle/`) |
+| `cache` | `".otigen/cache"` | reserved for v1.1+ (module cache + manifest replay) |
+
+Foundry parity. Authors moving Solidity projects to Pyde recognise the shape from `foundry.toml`'s `[profile.default] src / out / libs / test / cache_path`. The defaults assume the conventional layout (everything where a `cargo new` would put it); the table is purely for overrides.
 
 ---
 

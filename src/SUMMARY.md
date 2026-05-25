@@ -69,6 +69,7 @@
 - [Performance Harness](companion/PERFORMANCE_HARNESS.md)
 - [Parachain Design](companion/PARACHAIN_DESIGN.md)
 - [Host Function ABI v1.0](companion/HOST_FN_ABI_SPEC.md)
+- [WASM Contract Author Guide](companion/WASM_AUTHOR_GUIDE.md)
 - [Otigen Binary Spec v1.0](companion/OTIGEN_BINARY_SPEC.md)
 - [Otigen Test Spec v1.0](companion/OTIGEN_TEST_SPEC.md)
 - [Implementation Plan](companion/IMPLEMENTATION_PLAN.md)

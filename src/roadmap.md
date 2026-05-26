@@ -403,18 +403,82 @@ Reproduce: `cargo run --bin pyde -- devnet --smoke`. Full bench baseline: [`crat
 
 ### Full MC-2 (ahead — needs real β + real γ libs wired)
 
-- [ ] Final merges of β and γ to `main` (γ owns this)
-- [ ] Local devnet config (4-7 validators on a single machine, real libp2p networking)
-- [ ] End-to-end test flow with real crypto + real persistence + real WASM:
-  - Author writes contract (with α's otigen)
-  - `otigen deploy` against the devnet
-  - Tx submitted, validated by mempool (β), included in vertex (γ)
-  - Anchor commits, wasmtime executes (β), state updates (β)
-  - HardFinalityCert formed (γ), receipt queryable via RPC
-  - Event subscription pushes notifications
-- [ ] Smoke tests: simple transfer, contract deploy, view call, cross-contract call, event emission, event subscription
+The MC-2 spike (single-validator, stubbed crypto/network/persistence) proved the consensus + execution shape works end-to-end. **Full MC-2 swaps the stubs for the real β + γ crates** that landed in MC-1. The work is mechanical wiring, NOT new design — every component is already shipped; node-binary assembly is the last mile.
 
-**MC-2 BAR:** local devnet running with sub-second commits and successful end-to-end tx flow. Three smoke contracts deploy and operate correctly. All MC-1 deliverables integrated.
+#### Merge gates
+- [x] β-stream → `main` — execution PR [#130](https://github.com/pyde-net/engine/pull/130) (β.1 state + β.2 account + β.3 tx + β.4 wasm-exec + β.5 mempool, all rolled up)
+- [ ] γ-stream → `main` — γ owns; final γ.X PRs land first, then a `consensus-side → main` milestone PR mirroring β's pattern
+
+#### Node binary (`crates/node`) — currently a 34-line scaffold; needs to grow into the integration crate
+
+**Persistence wiring (replaces `DevnetState` stub from spike)**
+- [ ] Construct `StateStore::open(StateConfig::new(data_dir))` at boot — owns RocksDB handle, 7 column families, all PIP-4 caching
+- [ ] Wrap as `AccountStateView::new(state_store)` — the production `StateView + StateMutator` impl (β.2 PR-5 / PR [#69](https://github.com/pyde-net/engine/pull/69))
+- [ ] Wire `StateMutator::commit_with_events(wave_id, updates, events) → WaveCommitRecord` into the consensus commit path; this is what closes the β.1 PR-9 `NotImplemented` stub on `commit_wave`
+- [ ] Wire `Deploy` tx handler to call `WasmExecutor::compile_and_persist(state, bytes)` so the WASM blob lands in `code_cf` atomically with the receipt (PR [#115](https://github.com/pyde-net/engine/pull/115) shipped the storage primitive — the handler wire-up is still placeholder)
+- [ ] `receipts_cf` / `txs_cf` / `consensus_store` setup with `WriteOptions::set_sync(true)` per Ch 16 §16.12 (these CFs are NOT in the β.1 column-family set — they're node-owned, declared at node startup)
+
+**Executor wiring (replaces `DevnetExecutor` stub from spike)**
+- [ ] Construct `WasmExecutor::new()` (or `with_cache_config(...)` for tuned nodes) once at boot — the singleton holds the wasmtime `Engine` + `ModuleCache` with the LRU+TTL policy from PR [#119](https://github.com/pyde-net/engine/pull/119)
+- [ ] Wrap as `WasmExecutorAdapter::new(executor, base_fee)` (β.4 PR-17 / PR [#114](https://github.com/pyde-net/engine/pull/114)) — the `Executor` trait impl that dispatches by `tx.tx_type` into β.3 handlers
+- [ ] Hand `WasmExecutorAdapter` to the consensus `Driver` (γ.1) as the `Arc<dyn Executor>` it expects
+- [ ] Update `WasmExecutorAdapter.base_fee` after each wave commit (EIP-1559 dynamic adjustment lives in β.3 PR-2; the node calls into it post-commit)
+- [ ] Cold-restart path: on boot, scan `state.list_all_code_hashes()` (NEW state crate API) and call `WasmExecutor::load_from_persistent` to warm the ModuleCache to its target hot-set size
+
+**Mempool wiring (replaces stub from spike)**
+- [ ] Construct `Mempool::new(MempoolConfig::default().with_chain_id(genesis.chain_id))`
+- [ ] Wrap as `PydeMempoolView::new(mempool, account_state_view, initial_base_fee)` (β.5 PR-6 / PR [#129](https://github.com/pyde-net/engine/pull/129))
+- [ ] Validator-loop wiring: when γ's `WaveCommitter` produces a batch, call `view.drain_for_batch(MAX_BATCH_BYTES)` (FIFO-per-sender; priority-fee ordering is a follow-up if MEV metrics demand it)
+- [ ] Post-commit cleanup: for each tx in the committed wave, `mempool.remove(tx_hash)` to drop included txs
+
+**Network wiring (γ.2 `net` crate) — the most-novel β↔γ surface**
+- [ ] Define a tx-gossip topic on Gossipsub (parallel to vertex_topic + batch_topic that γ.2 already ships)
+- [ ] Inbound: `net.subscribe(tx_topic) → for each msg → mempool.admit_gossiped(decoded_tx, ...)` — the per-source counter increments under `admitted_gossiped`
+- [ ] Outbound: when `mempool.admit_local()` returns `Admitted`, the node publishes the tx on `tx_topic` so peers see it (re-broadcast suppression handled by Gossipsub's own message_id deduplication)
+- [ ] **NetworkView left untouched** (frozen `pyde-engine-interfaces`); the tx topic is a γ-internal concern that just exposes a publish/subscribe pair the node assembles around — no trait surface for it
+
+**Beacon + DKG wiring**
+- [ ] `BlockContext.beacon` (used by β.4 `pyde::beacon_get` host fn — PR [#113](https://github.com/pyde-net/engine/pull/113)) sourced from γ.15 PR-3 per-epoch beacon derivation flow (currently static all-zeros stub per PR [#112](https://github.com/pyde-net/engine/pull/112)); the node threads the real beacon through to `WasmExecutorAdapter.update_block_context()`
+- [ ] DKG ceremony at epoch boundaries (γ.3) — node listens for DKG events, persists own threshold share
+
+**RPC surface (HOST_FN_ABI §15.4–§15.5 + Ch 17)** — new sub-crate or module under `node`
+- [ ] `pyde_sendRawTx(bytes)` → borsh-decode → `MempoolView::insert` → return tx_hash on Admitted, structured error on reject
+- [ ] `pyde_getTxByHash` / `pyde_getReceipt(hash)` → mempool + receipts_cf
+- [ ] `pyde_getBalance(addr)` / `pyde_getNonceWindow(addr)` / `pyde_getAuthKeys(addr)` / `pyde_getCode(hash)` → `StateView`
+- [ ] `pyde_call(target, fn_name, calldata)` (view call) → spin up a fresh `Store`, `WasmExecutor::execute_call` with `view_mode=true` + `VIEW_FUEL_CAP` (per β.4 PR-15a) → return raw bytes
+- [ ] `pyde_chainId` / `pyde_blockNumber` / `pyde_getWaveCommit(wave_id)` — header reads
+- [ ] Event subscription (WebSocket): on `commit_with_events` push matching events to subscribers; index against `events_by_topic_cf` / `events_by_contract_cf` for replay
+
+**Bootstrap sequence**
+- [ ] Genesis file: TOML or borsh — chain_id, initial committee (FALCON pubkeys), initial balances, system contracts (NameRegistry from β.2 PR-6), DKG params
+- [ ] First-run: if `data_dir` is empty, `StateStore::open` + seed genesis state via the `StateMutator` trait; create `CommitteeRegistry` epoch-0 entry; persist validator's own FALCON keypair (pyde-crypto generate + on-disk encrypted file per Ch 17 key-management section)
+- [ ] Cold-start: if `data_dir` has prior state, load `last_flushed_wave`; replay any committed-but-unflushed waves from `consensus_store` (the β.1 PR-5e crash-recovery flow); load `CommitteeRegistry` from disk; lazy-populate ModuleCache via PR [#115](https://github.com/pyde-net/engine/pull/115)'s `load_from_persistent`; mempool starts empty (acceptable — txs will re-gossip)
+
+**Config + CLI**
+- [ ] `node.toml`: `data_dir`, `chain_id`, `validator_keypair_path`, `rpc.bind_addr`, `p2p.bind_addr`, `p2p.peers[]`, `mempool.max_size`, `mempool.rate_per_sec`, `cache.max_modules`, `cache.ttl_secs`
+- [ ] `pyde validator --config node.toml` — full node + consensus participation
+- [ ] `pyde full --config node.toml` — full node read-only (no validator role)
+- [ ] `pyde light --config node.toml` — light client (state-sync only, no full DAG storage; depends on MC-3)
+- [ ] `pyde genesis init` — generate a genesis file template
+- [ ] `pyde keys generate` / `pyde keys export` — FALCON keypair lifecycle
+
+**Smoke tests + devnet topology**
+- [ ] 1-validator local devnet (parity with the MC-2 spike but now backed by real β + γ — replaces `pyde devnet --smoke`)
+- [ ] 4-validator local devnet on one machine (real libp2p, real DKG, real beacon)
+- [ ] 7-validator local devnet (validates committee selection + Mysticeti 3-stage at small-but-realistic committee size; QUORUM scaled down via `select_anchor_for_testing`)
+- [ ] Smoke scenarios: simple transfer, contract deploy, view call (cross_call_static), state-mutating cross-call, event emission, event subscription, sender-key rotation, single-validator slash-evidence dry-run
+- [ ] Crash + restart: kill -9 a validator mid-wave, verify state survives + validator rejoins committee on restart (β.1 PR-5e + γ chain-halt-recovery cover the primitives — this test confirms the integration)
+
+#### Open questions to settle before MC-2 lands
+
+1. **`receipts_cf` + `txs_cf` ownership** — currently neither crate declares these; assumed node-owned but the spec is silent. Decision needed before bootstrap code lands.
+2. **`consensus_store` schema** — γ has a `consensus_store` trait; what's the persistent layout? Vertex+round indexes, or vertices in RocksDB + indexes in memory?
+3. **WAL on the mempool** — currently mempool is purely in-memory; on crash, in-flight txs are lost (acceptable for v1 per the spike, but operator UX may want a thin WAL).
+4. **Base fee update cadence** — `WasmExecutorAdapter.base_fee` updates post-commit. What's the EIP-1559 elasticity target? β.3 PR-2 shipped the math; the node decides the trigger.
+5. **Light client cutoff** — light client lands at MC-3 (state sync). For MC-2, `pyde light` could be a stub that returns "MC-3" rather than building partial.
+6. **Two-pass `WaveCommitter.tick_for_testing` reinstatement** — γ.15 / γ.16's 2 `#[ignore]`'d validator-integration tests need a multi-validator coordination harness; MC-2's 4+7-validator devnets are the natural test rigs.
+
+**MC-2 BAR:** local devnet running with sub-second commits and successful end-to-end tx flow. Three smoke contracts (one transfer, one storage R/W, one cross_call) deploy and operate correctly. All MC-1 deliverables integrated. `pyde validator --config testnet.toml` runs unattended for ≥1 hour without halting on a 7-validator devnet.
 
 ---
 

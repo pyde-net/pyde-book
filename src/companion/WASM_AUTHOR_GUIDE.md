@@ -834,6 +834,8 @@ The by-field forms cover the canonical `Poseidon2(self_addr ‖ field ‖ key)` 
 
 Mixing forms in the same contract is fine — they read/write the same JMT.
 
+The [`erc20-token`](https://github.com/pyde-net/otigen/tree/main/examples/erc20-token) example exercises all three storage layouts in one contract: scalar `total_supply`, mapping `balances[owner]`, and composite-key mapping `allowances[owner][spender]`. The same `read_u128(field, key)` helper handles all three by passing different `key` byte slices.
+
 ---
 
 ## 8. Cross-contract call patterns
@@ -1679,4 +1681,8 @@ let ptr: i32 = my_array.as_ptr() as i32;   // ← correct
 - [PARACHAIN_DESIGN](./PARACHAIN_DESIGN.md) — parachain framework: registration, lifecycle, extended ABI surface, cross-parachain messaging.
 - [OTIGEN_TEST_SPEC](./OTIGEN_TEST_SPEC.md) — test framework that runs contracts under the same wasmtime configuration the chain uses.
 - [WebAssembly Core Specification](https://webassembly.github.io/spec/core/) — the upstream WASM spec for value types, linear memory, instruction semantics.
-- [`otigen/examples/counter-token`](https://github.com/pyde-net/otigen/tree/main/examples/counter-token) — a canonical Rust contract demonstrating §2.3, §6.1, §6.2 patterns end-to-end.
+- **Examples catalog**: [`pyde-book/otigen/examples`](../otigen/examples.md) — full table of every canonical example with what each demonstrates, host fns exercised, and per-language test counts.
+- [`otigen/examples/counter-token`](https://github.com/pyde-net/otigen/tree/main/examples/counter-token) — a canonical Rust contract demonstrating §2.3, §6.1, §6.2 patterns end-to-end. **Also available in TinyGo / AssemblyScript / C** at [`counter-token-go`](https://github.com/pyde-net/otigen/tree/main/examples/counter-token-go), [`counter-token-as`](https://github.com/pyde-net/otigen/tree/main/examples/counter-token-as), [`counter-token-c`](https://github.com/pyde-net/otigen/tree/main/examples/counter-token-c) — same TOML test suite runs against all four ports.
+- [`otigen/examples/erc20-token`](https://github.com/pyde-net/otigen/tree/main/examples/erc20-token) — full ERC20-style fungible token. Exercises Phase 4 typed-arg marshalling (`address` / `uint128`), three storage layouts (scalar / mapping / composite-key), multi-topic events, and the `transfer_from` allowance flow.
+- [`otigen/examples/simple-multisig`](https://github.com/pyde-net/otigen/tree/main/examples/simple-multisig) — 3-signer FALCON-512 multisig (§9 canonical example).
+- [`otigen/examples/upgradeable-proxy`](https://github.com/pyde-net/otigen/tree/main/examples/upgradeable-proxy) — upgradeable proxy via `delegate_call` (§10 canonical example).

@@ -64,6 +64,7 @@
 - [Inspect & Verify](otigen/inspecting.md)
 - [Lifecycle](otigen/lifecycle.md)
 - [Debugging](otigen/debugging.md)
+- [Examples](otigen/examples.md)
 
 ---
 

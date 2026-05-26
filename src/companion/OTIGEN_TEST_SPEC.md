@@ -203,7 +203,7 @@ Each call executes a contract function in order, with its own caller / value / e
 | `args` | array of strings | no | Positional args. v1 supports `i32` / `i64` literals (decimal or `0x`-hex). Complex types deferred to v2. |
 | `value` | hex / decimal | no | Quanta attached to the call (visible via `pyde::value()`). Default `"0"`. |
 | `gas` | u64 | no | Per-call gas budget override. Default uses `[cheats].gas_limit`. |
-| `expect.return_value` | hex / decimal | no | Asserted return value. Decimal and `0x`-hex compare numerically (so `"42"` and `"0x2a"` match the same return). |
+| `expect.return_value` | hex / decimal / negative decimal | no | Asserted return value. Unsigned decimal and `0x`-hex compare numerically (so `"42"` and `"0x2a"` match the same return). **Negative decimal literals** (e.g. `"-8"`) parse as i64 and compare against the wasm result's sign-extended i64 view — useful for asserting error codes returned by host fns like `pyde::cross_call` (which surfaces `ERR_CROSS_CALL_FAILED = -8` when its sub-call traps). |
 | `expect.events` | array of event matchers | no | Each entry MUST appear in this call's emitted events. See §6 for matching rules. |
 | `expect.revert` | string | no | If set, the call MUST trap with a reason that contains this substring. |
 | `expect.no_revert` | bool | no | Inverse: assert the call does NOT trap. Useful when an earlier call set up state that might cause an unexpected revert. |
@@ -221,6 +221,27 @@ After every call in `[[tests.calls]]` has run, the runner checks these once:
 | `expect.balances.<account>` | hex / decimal | Asserted final native-PYDE balance of the account. |
 | `expect.no_other_storage_writes` | bool | If `true`, assert that NO slots outside the declared `expect.storage` were modified by the test. Default `false` (would be too brittle in most cases). |
 | `expect.events_total` | u32 | If set, assert exactly N events were emitted across all calls. Helps catch accidental double-emits. |
+
+### 4.7 `[[contracts]]` — secondary contracts for cross-contract tests
+
+Cross-contract tests (`pyde::cross_call` / `pyde::delegate_call` targeting an external contract) require multiple contracts deployed at distinct addresses in the same test run. The `[[contracts]]` block declares secondaries; the primary contract is the one whose `otigen.toml` lives in cwd.
+
+```toml
+[[contracts]]
+name   = "counter-pair-b"
+bundle = "../counter-pair-b/artifacts/counter-pair-b.bundle"
+```
+
+| Key | Type | Required | Description |
+|---|---|---|---|
+| `name` | string | yes | Contract name. Used for the canonical address derivation (`Poseidon2("pyde-contract:" ‖ name)`) — must match the secondary's own `[contract].name`. Address surfaces under the same name in accounts / args / `balances.<name>` paths. |
+| `bundle` | path (string) | yes | Path to the secondary's `.bundle/` directory, relative to the test file's location. The CLI reads `<bundle>/contract.wasm`. |
+
+The planner adds each secondary's name to the resolvable-account set, so tests can write `args = ["counter-pair-b", "100"]`, `from = "counter-pair-b"`, or `balances."counter-pair-b" = "100"` without re-declaring under `[accounts]`. Names colliding with the primary or with each other are rejected at plan time.
+
+Empty (the default) means single-contract mode — backwards-compatible with every existing test suite.
+
+See [`otigen/examples/counter-pair-a/tests/contract.test.toml`](https://github.com/pyde-net/otigen/tree/main/examples/counter-pair-a/tests) for the canonical multi-contract test pattern.
 
 ---
 
@@ -426,7 +447,8 @@ Every mocked host function uses the canonical `pyde::*` name from [`HOST_FN_ABI_
 | `hash_blake3(input_ptr, input_len, out_ptr)` | Real Blake3 via `pyde-crypto`. Same parity rationale (event topic-0, address derivation). |
 | `falcon_verify(pk_ptr, msg_ptr, msg_len, sig_ptr, sig_len)` | Real FALCON-512 verification via `pyde_crypto::falcon::falcon_verify` — same primitive the engine uses, so a sig that passes `otigen test` will pass on-chain. Returns `0` on valid, `ERR_SIGNATURE_INVALID = -8` on invalid (malformed pubkey/signature bytes are also rejected as "invalid" rather than trap). |
 | `delegate_call(target_ptr, fn_name_ptr, fn_name_len, calldata_ptr, calldata_len, gas_limit, return_data_out_ptr, return_data_out_len_ptr)` | Re-enters the same wasm `Instance` at a named export, preserving the caller's storage context per `HOST_FN_ABI_SPEC §7.8`. **v1 limitation: target must equal `self_address`** — the proxy + impl must live in the same wasm. Multi-contract delegate (target = a different contract's code) requires multi-module runner support and is on the roadmap. The target export must take the canonical `(calldata_ptr: i32, calldata_len: i32) -> i32` shape; the runner passes the contract's original `calldata_ptr` / `calldata_len` through unchanged (same linear memory, no copy). Return-data plumbing through `return_data_out_*` is zero-len in v1 — the inner can still surface state changes via the shared storage. |
-| Other host fns (`origin`, `tx_hash`, `tx_gas_remaining`, `calldata_*`, `hash_keccak256`, `cross_call*`, `consume_gas`, `beacon_get`, DKG, parachain-only) | **Not mocked in v1.** Calls trap with `UnsupportedHostFn`. v2 expands. |
+| `cross_call(target_ptr, fn_name_ptr, fn_name_len, calldata_ptr, calldata_len, value_ptr, gas_limit, return_data_out_ptr, return_data_out_len_ptr)` | Synchronous call into another contract (§7.8). Multi-contract tests declare secondaries via `[[contracts]]` (§4.7); each gets its own Instance + storage namespace (slots are field-keyed by self_address, so isolation is implicit). The mock: looks up target Instance, snapshots storage / balances / events, transfers `value` from caller to target (parent frame), switches active context (caller, contract_address, instance, scratch_base, tx_value), copies calldata from caller's memory into the callee's separate linear memory at the callee's scratch_base, invokes the named export with the canonical `(calldata_ptr, calldata_len) -> i32` shape, then restores context. Sub-call trap → snapshot restore + return `ERR_CROSS_CALL_FAILED = -8` (parent doesn't trap; gets the rc back and decides). Author-config errors (unknown target / missing export / wrong signature) DO trap loudly. Inside the callee, `caller()` returns the immediate caller-contract's address (= active address at call time, not the tx originator); `tx_value()` returns the cross_call's `value` parameter. |
+| Other host fns (`origin`, `tx_hash`, `tx_gas_remaining`, `calldata_*`, `hash_keccak256`, `cross_call_static`, `consume_gas`, `beacon_get`, DKG, parachain-only) | **Not mocked in v1.** Calls trap with `UnsupportedHostFn`. v2 expands. |
 
 **Slot-derivation invariant.** The by-field mocks compute the slot via `pyde_crypto::poseidon2_hash(env.contract_address ‖ field ‖ key)` exactly the way the production engine will. If a future engine change to the derivation recipe lands, both this runner and the resolver in §5.2 must move together — they're the contract between author-written tests and contract-side reads/writes.
 

@@ -55,6 +55,8 @@ Example: `0x0001_0000` = ABI v1.0.
 
 - **Engine support is monotonic.** An engine running ABI v1.7 supports every contract deployed against v1.0 through v1.7. It refuses contracts declaring v1.8 or higher.
 
+> **Worked example.** The §7.1 field-keyed storage trio (`sload_by_field` / `sstore_by_field` / `sdelete_by_field`) is the canonical instance of a backwards-compatible minor bump: three new functions added, no existing signature touched, no gas / error-code redefinition, no contract re-deployment required. Old contracts that only import `sload` / `sstore` / `sdelete` execute unchanged; new contracts get the convenience form.
+
 ### 2.3 What does *not* count as a breaking change
 
 - Bug fixes in the engine's implementation that bring observed behavior into compliance with this spec

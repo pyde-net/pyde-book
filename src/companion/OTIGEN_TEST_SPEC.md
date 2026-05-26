@@ -366,7 +366,11 @@ Every mocked host function uses the canonical `pyde::*` name from [`HOST_FN_ABI_
 | `sload(slot_ptr, value_out_ptr)` | Reads `storage[slot]` if present; returns length or 0. |
 | `sstore(slot_ptr, value_ptr)` | Writes 32 bytes to `storage[slot]`. |
 | `sdelete(slot_ptr)` | Removes `storage[slot]`. |
+| `sload_by_field(field_ptr, field_len, key_ptr, key_len, value_out_ptr)` | Derives `slot = Poseidon2(env.contract_address ‖ field ‖ key)` host-side, then reads `storage[slot]`. Derivation is byte-for-byte identical to a contract that calls `self_address` + `hash_poseidon2` itself, so test-side `[tests.expect].storage.<field>.<key>` assertions and contract-side `sload_by_field` reads hit the same slot. |
+| `sstore_by_field(field_ptr, field_len, key_ptr, key_len, value_ptr)` | Same derivation as `sload_by_field`; writes 32 bytes to the derived slot. |
+| `sdelete_by_field(field_ptr, field_len, key_ptr, key_len)` | Same derivation as `sload_by_field`; removes the derived slot. |
 | `caller(addr_out_ptr)` | Writes `env.caller` (32 bytes) into wasm memory. |
+| `self_address(addr_out_ptr)` | Writes `env.contract_address` (32 bytes) into wasm memory. |
 | `tx_value(value_out_ptr)` | Writes `env.value` as 16-byte little-endian u128. |
 | `balance(addr_ptr, out_ptr)` | Reads `env.balances[addr]`; writes 16-byte LE u128. |
 | `transfer(to_ptr, amount_lo, amount_hi)` | Decrements `env.balances[caller]`, increments `env.balances[to]`; reverts on underflow. (v1 takes amount as two i64 halves; v2 will take a single 16-byte LE u128 ptr to match HOST_FN_ABI_SPEC §7.2.) |
@@ -378,7 +382,9 @@ Every mocked host function uses the canonical `pyde::*` name from [`HOST_FN_ABI_
 | `revert(msg_ptr, msg_len)` | Captures the reason + traps the wasm. |
 | `hash_poseidon2(input_ptr, input_len, out_ptr)` | Real Poseidon2 via `pyde-crypto`. Authors using this for slot derivation in source code will produce the same slots the test framework expects. |
 | `hash_blake3(input_ptr, input_len, out_ptr)` | Real Blake3 via `pyde-crypto`. Same parity rationale (event topic-0, address derivation). |
-| Other host fns (`origin`, `self_address`, `tx_hash`, `tx_gas_remaining`, `calldata_*`, `hash_keccak256`, `falcon_verify`, `cross_call*`, `delegate_call`, `consume_gas`, `beacon_get`, DKG, parachain-only) | **Not mocked in v1.** Calls trap with `UnsupportedHostFn`. v2 expands. |
+| Other host fns (`origin`, `tx_hash`, `tx_gas_remaining`, `calldata_*`, `hash_keccak256`, `falcon_verify`, `cross_call*`, `delegate_call`, `consume_gas`, `beacon_get`, DKG, parachain-only) | **Not mocked in v1.** Calls trap with `UnsupportedHostFn`. v2 expands. |
+
+**Slot-derivation invariant.** The by-field mocks compute the slot via `pyde_crypto::poseidon2_hash(env.contract_address ‖ field ‖ key)` exactly the way the production engine will. If a future engine change to the derivation recipe lands, both this runner and the resolver in §5.2 must move together — they're the contract between author-written tests and contract-side reads/writes.
 
 ### 6.4 Revert semantics
 

@@ -18,7 +18,7 @@ Pyde does not ship a maintained per-language SDK. The contract surface is a WASM
 
 That design keeps the chain's surface minimal and audit-friendly, but it pushes more responsibility onto the author. This guide is the conceptual bridge between the formal [HOST_FN_ABI_SPEC](./HOST_FN_ABI_SPEC.md) (which is normative but terse) and the working code in [`otigen/examples/`](https://github.com/pyde-net/otigen/tree/main/examples).
 
-If you only read one section: §6 (host-fn declarations) and §8 (cross-contract calls) cover 90% of the patterns a real contract needs.
+If you only read one section: §5 (host-fn declarations), §7 (field-keyed storage), §8 (cross-contract calls), and §9 (FALCON-512 verification) cover 90% of the patterns a real contract needs.
 
 ---
 
@@ -1101,11 +1101,136 @@ export function transferViaToken(
 
 ---
 
-## 9. How the host reads it
+## 9. FALCON-512 verification pattern
+
+`pyde::falcon_verify` lets a contract check post-quantum signatures inside its own execution — the building block for multisig wallets, gasless / meta-transaction relayers, ZK-coupled off-chain authorizations, and anything else that needs in-contract sig checks against a known FALCON-512 public key.
+
+### 9.1 Host function signature (recap)
+
+```rust
+#[link(wasm_import_module = "pyde")]
+extern "C" {
+    /// Verify a FALCON-512 signature.
+    ///
+    /// `pk_ptr` must point to exactly 897 readable bytes (the
+    /// `FalconPublicKey::SIZE` constant). `msg` and `sig` are
+    /// variable-length.
+    ///
+    /// Returns 0 on valid, ERR_SIGNATURE_INVALID = -8 otherwise.
+    /// Malformed pubkey or signature bytes are rejected as invalid
+    /// rather than trapping — the contract can recover gracefully.
+    pub fn falcon_verify(
+        pk_ptr:  *const u8,
+        msg_ptr: *const u8, msg_len: i32,
+        sig_ptr: *const u8, sig_len: i32,
+    ) -> i32;
+}
+```
+
+Per HOST_FN_ABI_SPEC §7.7. Gas: **50,000 base** — verification is intentionally expensive because FALCON's algebra is heavy; design contracts so authors can amortize multiple sigs in one tx rather than one-sig-per-tx.
+
+### 9.2 Storing FALCON pubkeys on-chain
+
+A FALCON-512 pubkey is 897 bytes. Storing the full pubkey per-signer is wasteful (≈ 28 storage slots, each at 5,000 gas to write). The canonical optimization:
+
+```rust
+// Store the 32-byte Poseidon2 hash of the pubkey as the "signer ID".
+// Callers provide the full pubkey at verify time; the contract
+// recomputes the hash and matches against its registered set.
+const FIELD_SIGNERS: &[u8] = b"signers";
+
+fn register_signer(slot_idx: u8, pubkey: &[u8]) {
+    let mut hash = [0u8; 32];
+    unsafe { host_fns::hash_poseidon2(pubkey.as_ptr(), pubkey.len() as i32, hash.as_mut_ptr()); }
+    unsafe {
+        host_fns::sstore_by_field(
+            FIELD_SIGNERS.as_ptr(), FIELD_SIGNERS.len() as i32,
+            &slot_idx as *const u8, 1,
+            hash.as_ptr(),
+        );
+    }
+}
+```
+
+One slot per signer instead of 28. The test framework's `@pubkey_hash:NAME` DSL prefix (see `OTIGEN_TEST_SPEC §5.5`) computes the identical hash at plan time so test init calls register the same IDs.
+
+### 9.3 The verify-and-count loop
+
+For a multi-signer check (threshold M-of-N), three contract-side checks bracket every `falcon_verify` call: pubkey-is-known, pubkey-not-already-counted, sig-actually-verifies. Skipping any of them leaks signature-forgery surface; doing them in the wrong order (e.g. verify before checking the pubkey is registered) wastes gas on attacker-supplied sigs that would never have counted anyway.
+
+```rust
+fn verify_signer_set(
+    msg_ptr: *const u8, msg_len: i32,
+    pubkeys: &[(*const u8, i32)],   // each (ptr, len). len==0 ⇒ unused slot.
+    sigs:    &[(*const u8, i32)],
+    threshold: u8,
+) -> u8 {
+    let mut seen: u8 = 0;       // bitmap of signer-indices already counted
+    let mut valid: u8 = 0;
+
+    for ((pk_ptr, pk_len), (sig_ptr, sig_len)) in pubkeys.iter().zip(sigs) {
+        if *pk_len == 0 { continue; }
+
+        // 1. Identify which registered signer this pubkey is.
+        let mut pk_hash = [0u8; 32];
+        unsafe { host_fns::hash_poseidon2(*pk_ptr, *pk_len, pk_hash.as_mut_ptr()); }
+        let Some(idx) = lookup_signer_idx(&pk_hash) else { fail(b"UnknownSigner"); };
+
+        // 2. Anti-double-count.
+        let bit = 1u8 << idx;
+        if seen & bit != 0 { fail(b"DuplicateSigner"); }
+        seen |= bit;
+
+        // 3. FALCON-verify.
+        let rc = unsafe {
+            host_fns::falcon_verify(*pk_ptr, msg_ptr, msg_len, *sig_ptr, *sig_len)
+        };
+        if rc != 0 { fail(b"BadSignature"); }
+        valid += 1;
+    }
+
+    if valid < threshold { fail(b"InsufficientApprovals"); }
+    valid
+}
+```
+
+### 9.4 Canonical message construction
+
+A FALCON sig binds a public key to a specific message. If the contract and the off-chain wallet disagree about what bytes go into that message, every verify fails. Two well-trodden conventions:
+
+**Action hash (Safe-style):** the off-chain wallet pre-computes a 32-byte digest covering the full intent (`Poseidon2(self_address ‖ target ‖ amount ‖ nonce ‖ chain_id)`) and feeds *that* to each signer. The contract receives the hash as a `bytes32` arg, verifies sigs against it, then uses the hash itself as the anti-replay key. Used by [`simple-multisig`](https://github.com/pyde-net/otigen/tree/main/examples/simple-multisig).
+
+**Structured message:** the contract receives the structured fields (`target`, `amount`, etc.) and re-derives the canonical message at verify time. Cheaper for the wallet UI (no upfront hash computation), more gas inside the contract. Pick this when wallet ergonomics dominate.
+
+### 9.5 Testing FALCON contracts
+
+`otigen test` mocks `falcon_verify` with `pyde_crypto::falcon::falcon_verify` — the same primitive the engine uses. Combined with the `[accounts]` keypair declaration (`OTIGEN_TEST_SPEC §4.1`) and the `@sig:NAME:args.IDX` DSL (§5.5), authors write multisig tests without ever hand-pasting kilobyte FALCON blobs:
+
+```toml
+[accounts]
+alice = { keypair = "falcon512" }
+bob   = { keypair = "falcon512" }
+
+[[tests.calls]]
+function = "execute"
+args = [
+  "recipient", "500",
+  "0x4141414141414141414141414141414141414141414141414141414141414141",  # action_hash
+  "@pubkey:alice", "@sig:alice:args.2",
+  "@pubkey:bob",   "@sig:bob:args.2",
+  "0x", "0x",
+]
+```
+
+The full live example — including replay protection, duplicate-signer rejection, and malformed-sig handling — is in [`otigen/examples/simple-multisig/`](https://github.com/pyde-net/otigen/tree/main/examples/simple-multisig).
+
+---
+
+## 10. How the host reads it
 
 The host (Pyde's engine, in Rust, hosted on top of wasmtime) registers `cross_call` as a linker function during executor initialization. The function signature on the host side mirrors the WASM signature, plus a `Caller` handle that gives access to the contract's linear memory.
 
-### 9.1 Engine-side `cross_call` handler
+### 10.1 Engine-side `cross_call` handler
 
 ```rust
 // Register cross_call with the wasmtime linker. This wires the WASM-side
@@ -1246,7 +1371,7 @@ linker.func_wrap(
 )?;
 ```
 
-### 9.2 Why this design
+### 10.2 Why this design
 
 Three properties fall out of this shape:
 
@@ -1258,7 +1383,7 @@ Three properties fall out of this shape:
 
 ---
 
-## 10. The end-to-end flow
+## 11. The end-to-end flow
 
 Putting §6 (contract-side staging), §7 (the cross_call invocation), and §8 (host-side handling) together:
 
@@ -1356,7 +1481,7 @@ Putting §6 (contract-side staging), §7 (the cross_call invocation), and §8 (h
                    decides whether to revert / retry / propagate.
 ```
 
-### 10.1 What you actually pay for
+### 11.1 What you actually pay for
 
 For a single `cross_call` with 48 bytes of calldata and an empty return:
 
@@ -1371,17 +1496,17 @@ The sub-call's `gas_used` is debited from the caller's remaining budget regardle
 
 ---
 
-## 11. Common pitfalls
+## 12. Common pitfalls
 
 A non-exhaustive list of things that have bitten real Pyde contracts during development:
 
-### 11.1 Endianness mismatch
+### 12.1 Endianness mismatch
 
 **Symptom:** A contract writes `amount: u128 = 100` via `amount.to_be_bytes()`, the host reads via `u128::from_le_bytes` — you end up with a 16-byte big-endian on-wire representation interpreted as little-endian. The host sees `0x6400000000000000_00000000_00000000` instead of `100`.
 
 **Fix:** Always little-endian on the wire. `to_le_bytes` / `from_le_bytes` on both sides.
 
-### 11.2 Returning a pointer to a dropped local
+### 12.2 Returning a pointer to a dropped local
 
 ```rust
 // ❌ BROKEN: `local_buf` is dropped at the end of this function.
@@ -1397,19 +1522,19 @@ pub fn broken_pattern() -> i32 {
 
 **Fix:** For data that must survive past the current call, use `static mut` (§6.2) or heap allocation (§6.3). For data that only needs to live through one host call, stack-allocated is fine.
 
-### 11.3 Forgetting to provision the return-length slot
+### 12.3 Forgetting to provision the return-length slot
 
 **Symptom:** `cross_call` writes the actual return length into `return_data_out_len_ptr`, but you passed an uninitialized or shared slot — leading to garbage values for the length check.
 
 **Fix:** Always declare `let mut return_len: i32 = 0;` (or equivalent in Go/AS) immediately before the call. Don't re-use a slot across multiple cross-calls without re-zeroing.
 
-### 11.4 Returning a too-small buffer
+### 12.4 Returning a too-small buffer
 
 **Symptom:** Sub-call returns 256 bytes of data; your `return_buf` is 32 bytes; wasmtime traps with `MemoryOutOfBounds` when the host tries to write past your buffer.
 
 **Fix:** Size return buffers to the documented worst case for the target function. For unknown / variable-size returns, do a two-pass approach: first call with `return_buf = []` and read the length; second call with a buffer of that size. (Pyde's spec defers the formal "buffer too small" semantics to per-host-fn definitions — check the spec for each host fn before assuming.)
 
-### 11.5 Forgetting that pointers are 32-bit
+### 12.5 Forgetting that pointers are 32-bit
 
 ```rust
 // ❌ BROKEN: `let ptr: i64 = my_array.as_ptr() as i64;`
@@ -1423,13 +1548,13 @@ let ptr: i32 = my_array.as_ptr() as i32;   // ← correct
 
 **Fix:** Always cast pointers to `i32` (or `usize` in AS / TinyGo). Host fn signatures use `i32` for pointers; matching exactly prevents subtle type-coercion bugs.
 
-### 11.6 Importing a host fn that doesn't exist
+### 12.6 Importing a host fn that doesn't exist
 
 **Symptom:** Deploy fails with `ERR_FORBIDDEN_IMPORT`.
 
 **Fix:** Every imported function name must appear in the canonical ABI table (HOST_FN_ABI_SPEC §7 and §8). The deploy-time validator rejects unknown imports. Typos like `pyde::s_load` (extra underscore) vs `pyde::sload` (no underscore) are a frequent culprit.
 
-### 11.7 Calling a parachain-only host fn from a non-parachain contract
+### 12.7 Calling a parachain-only host fn from a non-parachain contract
 
 **Symptom:** Deploy fails with `ERR_FORBIDDEN_IMPORT` for functions like `parachain_storage_read`, `send_xparachain_message`, `threshold_encrypt`, etc.
 
@@ -1437,7 +1562,7 @@ let ptr: i32 = my_array.as_ptr() as i32;   // ← correct
 
 ---
 
-## 12. References
+## 13. References
 
 - [HOST_FN_ABI_SPEC v1.0](./HOST_FN_ABI_SPEC.md) — normative ABI specification.
 - [Chapter 3 — Execution Layer](../chapters/03-virtual-machine.md) — wasmtime runtime architecture, fuel metering, module caching.

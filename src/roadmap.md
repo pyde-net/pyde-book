@@ -417,7 +417,7 @@ The MC-2 spike (single-validator, stubbed crypto/network/persistence) proved the
 - [ ] Wrap as `AccountStateView::new(state_store)` — the production `StateView + StateMutator` impl (β.2 PR-5 / PR [#69](https://github.com/pyde-net/engine/pull/69))
 - [ ] Wire `StateMutator::commit_with_events(wave_id, updates, events) → WaveCommitRecord` into the consensus commit path; this is what closes the β.1 PR-9 `NotImplemented` stub on `commit_wave`
 - [ ] Wire `Deploy` tx handler to call `WasmExecutor::compile_and_persist(state, bytes)` so the WASM blob lands in `code_cf` atomically with the receipt (PR [#115](https://github.com/pyde-net/engine/pull/115) shipped the storage primitive — the handler wire-up is still placeholder)
-- [ ] `receipts_cf` / `txs_cf` / `consensus_store` setup with `WriteOptions::set_sync(true)` per Ch 16 §16.12 (these CFs are NOT in the β.1 column-family set — they're node-owned, declared at node startup)
+- [x] `receipts_cf` / `txs_cf` — landed in the state crate (not the node) via PR [#132](https://github.com/pyde-net/engine/pull/132). `StateStore::store_receipt` / `get_receipt` / `store_tx` / `get_tx` (`TxHash`-keyed, borsh-encoded). Append-only with overwrite-on-re-org semantics aligned to the 1-epoch bounded rollback policy. The `consensus_store` (separate γ-owned CF for vertex/round persistence) still needs `WriteOptions::set_sync(true)` per Ch 16 §16.12 — γ-side task
 
 **Executor wiring (replaces `DevnetExecutor` stub from spike)**
 - [ ] Construct `WasmExecutor::new()` (or `with_cache_config(...)` for tuned nodes) once at boot — the singleton holds the wasmtime `Engine` + `ModuleCache` with the LRU+TTL policy from PR [#119](https://github.com/pyde-net/engine/pull/119)
@@ -472,7 +472,7 @@ The MC-2 spike (single-validator, stubbed crypto/network/persistence) proved the
 
 #### Open questions to settle before MC-2 lands
 
-1. **`receipts_cf` + `txs_cf` ownership** — currently neither crate declares these; assumed node-owned but the spec is silent. Decision needed before bootstrap code lands.
+1. ~~**`receipts_cf` + `txs_cf` ownership**~~ — **resolved**: landed in state crate via PR [#132](https://github.com/pyde-net/engine/pull/132). Rationale: state already owns every persistent CF; node-owned CFs would mean either (a) two RocksDB instances or (b) a shared registry — both add coordination burden.
 2. **`consensus_store` schema** — γ has a `consensus_store` trait; what's the persistent layout? Vertex+round indexes, or vertices in RocksDB + indexes in memory?
 3. **WAL on the mempool** — currently mempool is purely in-memory; on crash, in-flight txs are lost (acceptable for v1 per the spike, but operator UX may want a thin WAL).
 4. **Base fee update cadence** — `WasmExecutorAdapter.base_fee` updates post-commit. What's the EIP-1559 elasticity target? β.3 PR-2 shipped the math; the node decides the trigger.

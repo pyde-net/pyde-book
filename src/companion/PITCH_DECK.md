@@ -75,15 +75,15 @@ A Layer 1 chain built from scratch with all four properties as defaults:
 
 ## Performance Targets (Honest)
 
-Validated by multi-region production-realistic harness (mandatory before any external claim):
+Validated by multi-region production-realistic harness (mandatory before any external claim). Pyde publishes **no forward throughput number** — the v1 throughput target is established only once the harness measures it. Latency targets, by contrast, are concrete:
 
-| Mode | v1 realistic | v2 stretch | Aspirational |
+| Mode | v1 | v2 | Aspirational |
 |---|---|---|---|
-| Plaintext TPS (commodity) | 10–30K | 50–100K | 500K |
-| Encrypted TPS (commodity) | 0.5–2K | 5–10K | 50K |
+| Plaintext throughput (commodity) | awaiting harness | awaiting harness | awaiting harness |
+| Encrypted throughput (commodity) | awaiting harness | awaiting harness | awaiting harness |
 | Median finality | ~500ms | ~400ms | ~300ms |
 
-Aspirational targets require GPU acceleration or batch-decryption research advances. Pyde will publish only numbers validated by the production-realistic harness, not microbenchmarks.
+Aspirational throughput requires GPU acceleration or batch-decryption research advances and carries no concrete number. Pyde will publish only numbers validated by the production-realistic harness, not microbenchmarks.
 
 ## The Pivot Story
 

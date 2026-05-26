@@ -21,7 +21,7 @@ The execution layer is **WebAssembly via wasmtime** (with Cranelift AOT) and a h
 
 This document presents the current design following a **May 2026 architectural pivot** from an in-house HotStuff variant (whose persistent wedges and stalls at 400 ms slot timing motivated a clean rebuild) to a DAG-based consensus inspired by Narwhal, Bullshark, and Mysticeti. The pivot scoped the chain to its execution and cryptography layers first; the consensus layer is being rebuilt design-first against the new foundation.
 
-Realistic v1 mainnet throughput targets, validated by a multi-region performance harness, are **10 K–30 K plaintext TPS sustained** and **500–2 K encrypted TPS** on commodity validator hardware. Aspirational long-term targets (with GPU acceleration, batch threshold decryption, and protocol upgrades) reach 500 K TPS; those are not v1 commitments. The chain commits to claiming 1/3 of measured peak — never lab extrapolations — so the numbers above are numbers application teams and businesses can plan against rather than aspire to.
+The v1 mainnet throughput target — for both the plaintext and encrypted regimes, on commodity validator hardware — is established by a multi-region performance harness before any number is published. Long-term aspirational headroom (with GPU acceleration, batch threshold decryption, and protocol upgrades) is real but carries no concrete number and is not a v1 commitment. The chain commits to publishing only what the harness measures under sustained, production-realistic conditions — never lab extrapolations or microbenchmark peaks — so any number it eventually publishes is one application teams and businesses can plan against rather than aspire to.
 
 ---
 
@@ -69,7 +69,7 @@ Pyde's earlier architecture used an in-house pipelined HotStuff variant with VRF
 
 Post-pivot:
 
-- The active engine workspace contains six execution-layer crates: `crypto`, `pvm`, `aot`, `state`, `account`, `tx`. Nothing else.
+- The active engine workspace contains five execution-layer crates: `crypto`, `execution` (the wasmtime-based WASM executor), `state`, `account`, `tx`. Nothing else.
 - Consensus, mempool, networking, slashing, and the node binary have been moved to a `archive/` archive for reference.
 - The next consensus layer is being designed against the lessons of HotStuff failure: no view changes, no single-proposer bottleneck, data-driven round advancement, structural censorship resistance.
 
@@ -369,7 +369,7 @@ Encryption is opt-in. Simple transfers go plaintext for lower gas; MEV-sensitive
 - **DoS defense:** four layers — connection (IP / ASN caps), message (rate limits per type), peer scoring (misbehavior accumulates, decays with good behavior), application (gas tank prepayment for encrypted submission).
 - **Committee defense:** sentry-node pattern (Cosmos-style) to insulate committee primaries from direct internet exposure.
 
-Committee NIC requirement at v1's honest throughput target (10–30 K plaintext TPS, 0.5–2 K encrypted) is **≥500 Mbps**. Higher-throughput regimes (1 Gbps, 10 Gbps) appear in §12.1 below labeled as Stretch / Aspirational, not v1.
+Committee NIC requirement at v1's honest throughput target (to be established by the multi-region performance harness) is **≥500 Mbps**. Higher-throughput regimes (1 Gbps, 10 Gbps) appear in §12.1 below labeled as Stretch / Aspirational, not v1.
 
 ---
 
@@ -409,16 +409,16 @@ The parachain framework is the chain's most consequential decision for ecosystem
 
 ### 12.1 Honest Targets
 
-Realistic v1 mainnet throughput, validated by a multi-region production-realistic harness:
+The v1 mainnet throughput target is validated by a multi-region production-realistic harness before any number is published. Pyde publishes **no forward throughput figure**; latency targets and the hardware envelope, by contrast, are concrete:
 
-| Mode | Realistic v1 | Stretch v1 | Aspirational |
+| Mode | v1 | Stretch | Aspirational |
 | --- | --- | --- | --- |
-| Plaintext TPS (sustained, commodity) | 10 K – 30 K | 50 K – 100 K | 500 K |
-| Encrypted TPS (sustained, commodity) | 0.5 K – 2 K | 5 K – 10 K | 50 K + (GPU) |
+| Plaintext throughput (sustained, commodity) | awaiting harness | awaiting harness | awaiting harness |
+| Encrypted throughput (sustained, commodity) | awaiting harness | awaiting harness | awaiting harness (GPU) |
 | Median commit finality | ~ 500 ms | ~ 400 ms | ~ 300 ms |
-| Committee NIC at sustained TPS | 500 Mbps | 1 Gbps | 10 Gbps |
+| Committee NIC | 500 Mbps | 1 Gbps | 10 Gbps |
 
-These numbers will be revised based on actual harness output and adjusted using the **"claim one-third of measured peak" rule**.
+The published throughput figure comes only from actual harness output, under the discipline of publishing only what the harness measures under sustained, production-realistic conditions — never lab extrapolations or microbenchmark peaks.
 
 ### 12.2 Hardware Tiers
 
@@ -427,11 +427,11 @@ These numbers will be revised based on actual harness output and adjusted using 
 | Light client | Mobile / browser |
 | Full node / RPC | 8c / 16 GB / 500 GB NVMe / 100 Mbps |
 | Non-committee validator | 8c / 16 GB / 500 GB / 100 – 250 Mbps |
-| **Committee validator (v1 realistic, 30 K TPS)** | 8 – 16c / 32 GB / 1 TB SSD / 500 Mbps |
-| Committee validator (Stretch v2, 100 K TPS) | 16c / 32 GB / 2 TB SSD / 1 Gbps |
-| Committee validator (Aspirational, 500 K TPS, GPU-class) | 32c / 64 GB / 4 TB SSD / 10 Gbps |
+| **Committee validator (v1 baseline)** | 8 – 16c / 32 GB / 1 TB SSD / 500 Mbps |
+| Committee validator (Stretch, post-mainnet) | 16c / 32 GB / 2 TB SSD / 1 Gbps |
+| Committee validator (Aspirational, GPU-class) | 32c / 64 GB / 4 TB SSD / 10 Gbps |
 
-The commodity-hardware promise applies layered: full nodes and validators awaiting committee selection stay on a developer workstation at every TPS level. The first committee row is the v1 hardware Pyde is sized against; the higher rows are post-mainnet scaling targets, not v1 commitments.
+The commodity-hardware promise applies layered: full nodes and validators awaiting committee selection stay on a developer workstation at every throughput level. The first committee row is the v1 hardware Pyde is sized against; the higher rows are post-mainnet scaling targets, not v1 commitments.
 
 ### 12.3 Methodology
 
@@ -440,14 +440,14 @@ Pyde's pre-pivot in-house HotStuff implementation measured ~ 4 K TPS in practice
 - **Multi-region testing mandatory.** Localhost devnet numbers do not count.
 - **Production-realistic workload mix.** Not synthetic transfer-only; realistic ratios of transfers / AMM swaps / NFT mints / contract calls.
 - **Continuous soak.** 4-hour minimum for any TPS claim that ships externally.
-- **One-third rule.** External claims are one-third of measured peak.
+- **Measured-only rule.** External claims publish only what the harness measures under sustained, production-realistic conditions — never lab extrapolations or microbenchmark peaks.
 - **Public dashboard.** Rolling 30-day metrics, visible.
 
 No TPS claim is published externally without harness evidence. This is non-negotiable, and it is the most important lesson absorbed from the pre-pivot reset.
 
 ### 12.4 What the Numbers Enable
 
-10K – 30K plaintext TPS at ~500 ms median finality on commodity hardware is enough headroom to run a serious DEX, a settlement system, a high-frequency NFT marketplace, a payments rail, or a real-time gaming backend — without queueing or fee spikes during peak load. Application teams designing for Pyde plan against the harness-validated numbers, not the aspirational ones; the chain's discipline is to publish what it can deliver and over-deliver as the harness validates higher tiers. For businesses sizing Pyde for production load, the contract is honest: the v1 figure is what the production-realistic harness has shown, not a marketing extrapolation.
+The v1 throughput target at ~500 ms median finality on commodity hardware is sized to run a serious DEX, a settlement system, a high-frequency NFT marketplace, a payments rail, or a real-time gaming backend — without queueing or fee spikes during peak load. Application teams designing for Pyde plan against the harness-validated number, not an aspirational one; the chain's discipline is to publish what it can deliver and over-deliver as the harness validates higher tiers. For businesses sizing Pyde for production load, the contract is honest: the v1 figure is whatever the production-realistic harness has shown, not a marketing extrapolation.
 
 ---
 
@@ -485,7 +485,7 @@ Per-token yield is uniform across all validators (single tier; rewards distribut
 
 ### 13.5 Net Inflation
 
-Net inflation = mint − burn. At sustained moderate usage (10 K – 30 K TPS plaintext with realistic fee loads), the annual burn exceeds annual mint within a few years; the chain becomes net deflationary. At low usage, slight inflation maintains the validator security budget. At very high usage, deflationary pressure may eventually require parameter adjustment via governance.
+Net inflation = mint − burn. At sustained moderate usage (with realistic fee loads), the annual burn exceeds annual mint within a few years; the chain becomes net deflationary. At low usage, slight inflation maintains the validator security budget. At very high usage, deflationary pressure may eventually require parameter adjustment via governance.
 
 ### 13.6 Token Demand Drivers
 
@@ -532,7 +532,6 @@ Coordinated safety offenses apply a 2 × multiplier. Reporter receives 10 % of s
 | Post-quantum signatures (default) | **Yes** (FALCON-512) | Roadmap | Roadmap | Roadmap | Roadmap | Roadmap | Roadmap | Roadmap |
 | Encrypted mempool (default) | **Yes** (Kyber-768 threshold) | No (PBS auction) | No (Jito auction) | No | No | No | Proposals in IBC track | No |
 | Sandwich-attack prevention | **Structural** | Partial (PBS) | Partial (Jito) | Partial | Partial | N/A (relay-chain) | Partial | Partial |
-| Sustained throughput target | 10 K – 30 K v1 (harness-validated) | ~ 15 TPS L1 | High peak; outage history | Lab high | Lab high | Variable (per parachain) | Variable (per zone) | High (per subnet) |
 | Hard-finality time | ~ 500 ms (DAG commit) | ~ 12 min | Probabilistic (~ 13 s) | < 1 s | < 1 s | ~ 12 – 60 s | ~ 6 s | ~ 1 s |
 | Validator hardware | 8c / 16 GB / 500 GB / 100 Mbps (awaiting committee) | Modest | 12 + cores / 256 + GB | Modest | Modest | Modest (validator tier) | Modest (per zone) | Modest |
 | Equal validator voting | **Yes** (1 = 1) | Stake-weighted | Stake-weighted | Stake-weighted | Stake-weighted | Stake-weighted | Stake-weighted | Stake-weighted |
@@ -573,7 +572,7 @@ Production-grade threshold variants of Kyber are research-stage. Pyde v1 may shi
 
 ### 17.2 Batch Threshold Decryption
 
-Per-ciphertext threshold decryption scales poorly at very high TPS (~ 50 K – 100 K encrypted TPS ceiling on commodity hardware before per-ceremony cost dominates). Batch decryption schemes — where one threshold ceremony decrypts multiple ciphertexts amortized — are research-stage. Pyde v2 will adopt one once standardization matures; v1 ships the per-ceremony scheme with GPU-acceleration headroom characterized by the performance harness.
+Per-ciphertext threshold decryption scales poorly at very high encrypted throughput — beyond a certain point the per-ceremony cost dominates on commodity hardware. Batch decryption schemes — where one threshold ceremony decrypts multiple ciphertexts amortized — are research-stage. Pyde v2 will adopt one once standardization matures; v1 ships the per-ceremony scheme with GPU-acceleration headroom characterized by the performance harness.
 
 ### 17.3 ZK Light Clients
 

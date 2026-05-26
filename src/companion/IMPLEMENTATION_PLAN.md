@@ -173,7 +173,7 @@ Owner: shared between β and γ as the changes touch both sides. Coordinated by 
 
 ### 3.5 MC-4 — Performance + Failure Handling (parallel within)
 
-- **Performance harness build-out** — multi-region workload generation, soak testing, "claim 1/3 of measured peak" discipline. Spec: `PERFORMANCE_HARNESS.md`.
+- **Performance harness build-out** — multi-region workload generation, soak testing, and the publishing discipline (publish only what the harness measures under sustained, production-realistic conditions — never lab extrapolations or microbenchmark peaks). Spec: `PERFORMANCE_HARNESS.md`.
 - **Chaos / failure injection** — failure-scenarios catalog walkthroughs (`FAILURE_SCENARIOS.md`).
 - **Chain halt recovery drills** — `CHAIN_HALT.md` playbooks executed in test environments.
 

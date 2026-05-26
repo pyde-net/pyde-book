@@ -6,7 +6,7 @@ This chapter covers how new nodes join the network (state sync) and what happens
 
 ### The Problem
 
-At 30K+ TPS, replaying every block from genesis is infeasible (~10^13 transactions/year). A new node joining the network needs a way to reach current state without full replay.
+At the chain's sustained throughput, replaying every block from genesis is infeasible (the transaction count runs into the trillions per year). A new node joining the network needs a way to reach current state without full replay.
 
 ### Three Sync Modes
 

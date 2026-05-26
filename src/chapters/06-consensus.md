@@ -22,7 +22,7 @@ The DAG approach removes the fragile parts:
 | Throughput limited by leader bandwidth | Scales with committee size |
 | HotStuff bugs cluster in view-change code | DAG doesn't have view-change code |
 
-The same lab/laptop devnet that hit ~4K TPS under pre-pivot HotStuff is the baseline against which DAG performance will be measured. Honest target: 10-30K plaintext TPS, 0.5-2K encrypted TPS, in production-realistic conditions for v1.
+The same lab/laptop devnet that hit ~4K TPS under pre-pivot HotStuff is the baseline against which DAG performance will be measured. The v1 honest throughput target (to be established by the multi-region performance harness) covers both plaintext and encrypted regimes under production-realistic conditions.
 
 ## 2. Worker / Primary Split (Narwhal Pattern)
 
@@ -372,7 +372,7 @@ Partials are computed **as soon as the encrypted tx enters the mempool DAG**, be
 
 ### Scale via batched share-combine
 
-> **Headroom analysis, not a v1 claim.** v1's honest encrypted-TPS target is 0.5-2K. The math below sizes what it would take to push encrypted throughput an order of magnitude further — useful for understanding the scaling lever, *not* a v1 promise.
+> **Headroom analysis, not a v1 claim.** v1's honest encrypted-throughput target is to be established by the multi-region performance harness. The math below sizes what it would take to push encrypted throughput well beyond that — useful for understanding the scaling lever, *not* a v1 promise.
 
 At a hypothetical 100K encrypted TPS:
 

@@ -531,7 +531,7 @@ Spec: [`PERFORMANCE_HARNESS.md`](companion/PERFORMANCE_HARNESS.md).
 - [ ] Chaos scenarios (validator drops, network partitions, slow disks, equivocating actors)
 - [ ] Soak-test scheduler (1h / 4h / 24h / 7-day)
 - [ ] Metrics: TPS, p50/p99/p999 latency, memory, CPU breakdown, gas accounting
-- [ ] "Claim 1/3 of measured peak" publication discipline
+- [ ] Publication discipline: publish only what the harness measures under sustained, production-realistic conditions — never lab extrapolations or microbenchmark peaks
 - [ ] Per-host-function micro-benchmarks (calibrate gas cost table against real hardware)
 - [ ] Sequential vs parallel execution scaling tests
 

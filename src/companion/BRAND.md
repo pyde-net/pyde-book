@@ -141,7 +141,7 @@ This is the brand's voice — apply it to any official copy or external comms.
 | Quality | Means |
 |---|---|
 | **Direct** | Short sentences. Active voice. Avoid "we are excited to announce." Just announce. |
-| **Honest** | Numbers are real numbers. "10–30K plaintext TPS on commodity hardware" is a Pyde-voice sentence; "Pyde achieves limitless throughput" is not. |
+| **Honest** | Numbers are real numbers. "Throughput is whatever the multi-region harness measures on commodity hardware — published only once it's measured" is a Pyde-voice sentence; "Pyde achieves limitless throughput" is not. |
 | **Specific** | "Mysticeti DAG with 128-validator committee, FALCON-512 signatures" beats "next-generation consensus." Name the thing. |
 | **Unpretentious** | No "L1 of L1s," no "ushering in a new era." If a competitor would write it, don't. |
 | **Curious** | When something is hard or undecided, say so. The audience is technical; treating them as adults builds trust. |
@@ -149,7 +149,7 @@ This is the brand's voice — apply it to any official copy or external comms.
 **Examples:**
 
 > ✓ Pyde commits in waves on a 128-validator Mysticeti DAG. Encrypted transactions stay sealed until the wave commits.  
-> ✓ v1 ships realistic numbers, not aspirational ones. ~10–30K plaintext TPS on commodity hardware.  
+> ✓ v1 ships realistic numbers, not aspirational ones. The throughput target is published only once the multi-region harness measures it on commodity hardware.  
 > ✗ Pyde is the world's first post-quantum, MEV-resistant, infinitely scalable Web3 platform of the future.  
 > ✗ We are revolutionizing how the world thinks about blockchain.  
 

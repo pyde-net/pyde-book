@@ -25,8 +25,11 @@ who need to reconcile against pre-pivot artifacts.
 - Single-tier staking — 10,000 PYDE minimum, uniform-random committee selection per epoch, operator-identity cap (3 per operator).
 - Jellyfish Merkle Tree (radix-16, path-compressed).
 - Hybrid hashing — Blake3 (high-volume native) + Poseidon2 (ZK-bearing).
-- v1 honest target: 10-30K plaintext / 0.5-2K encrypted TPS on commodity
-  committee hardware, per the "claim 1/3 of measured peak" rule.
+- v1 honest throughput target (to be established by the multi-region
+  performance harness) on commodity committee hardware, per the publishing
+  discipline: publish only what the harness measures under sustained,
+  production-realistic conditions — never lab extrapolations or
+  microbenchmark peaks.
 
 ## Why the Pivot
 
@@ -118,8 +121,9 @@ describes the post-pivot target architecture. Implementation status:
 | Performance harness | 🔴 Not yet built |
 
 The performance harness is the bottleneck on credible TPS claims. No
-external number leaves this project without harness evidence under the
-"claim 1/3 of measured peak" rule.
+external number leaves this project without harness evidence: publish only
+what the harness measures under sustained, production-realistic conditions
+— never lab extrapolations or microbenchmark peaks.
 
 ## Related Docs
 

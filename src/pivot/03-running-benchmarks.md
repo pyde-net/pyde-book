@@ -118,7 +118,7 @@ What you should take from them:
 
 What you should **not** take from them:
 
-- **These are not Pyde's TPS numbers.** Full-chain TPS depends on consensus latency, signature verification throughput, network bandwidth, the parallel scheduler, and disk IO in addition to VM execution. The realistic v1 target of 10–30K plaintext TPS on commodity hardware reflects all of those layers combined, not just the VM.
+- **These are not Pyde's TPS numbers.** Full-chain TPS depends on consensus latency, signature verification throughput, network bandwidth, the parallel scheduler, and disk IO in addition to VM execution. Pyde's realistic v1 throughput target — awaiting the multi-region performance harness — reflects all of those layers combined, not just the VM.
 - **These do not include parallel execution.** Each benchmark above runs one workload on one thread. The production scheduler runs many workloads in parallel via static access lists + Block-STM speculation; that compounds throughput but is measured separately by the full-chain harness, not here.
 - **These do not separate memory reads from memory writes, or from disk IO.** The token-transfer benchmark exercises storage IO end-to-end as a single number; it does not isolate "Sload cost" from "Sstore cost" from "leaf-hash recomputation cost." That level of decomposition is the job of the per-component micro-benchmark suite (in flight; see below) and the full-chain performance harness.
 
@@ -132,7 +132,7 @@ The benchmarks above are deliberately simple — they were enough to drive the p
 - **Workload mixes** — realistic blends of transfer / token-op / DEX / NFT-mint / encrypted txs, with the realistic-mix fraction tracked over time.
 - **Multi-region full-chain TPS** — the end-to-end measurement with consensus, network, and IO all under load.
 
-Those benchmarks live with the performance harness, not in the engine bench files. See the [Performance Harness](../companion/PERFORMANCE_HARNESS.md) document for the full testing methodology, what's planned, and the "claim 1/3 of measured peak" discipline that governs how numbers are published.
+Those benchmarks live with the performance harness, not in the engine bench files. See the [Performance Harness](../companion/PERFORMANCE_HARNESS.md) document for the full testing methodology, what's planned, and the publishing discipline that governs how numbers are released — publish only what the harness measures under sustained, production-realistic conditions, never lab extrapolations or microbenchmark peaks.
 
 ## What you can do with this guide
 

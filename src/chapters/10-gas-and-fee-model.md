@@ -184,23 +184,24 @@ target┤----+                 +---+----  target line
 
 At 2 commits/sec (~500 ms commit), `GAS_TARGET = 400M`, `GAS_CEILING = 1.6B`:
 
-| Workload                | Gas/tx  | Theoretical target TPS | Realistic v1 (committee-bound) |
-| ----------------------- | ------- | ----------------------- | ------------------------------ |
-| Simple transfer         | 21,000  | ~38,000                 | ~20-30K plaintext / 1-2K encrypted |
-| Token transfer (ERC-20) | 65,000  | ~12,300                 | ~10-15K plaintext / 0.5-1K encrypted |
-| DEX swap                | 200,000 | ~4,000                  | ~3-4K plaintext / 200-400 encrypted |
+| Workload                | Gas/tx  | Theoretical gas-bound TPS | Realistic v1 (committee-bound) |
+| ----------------------- | ------- | ------------------------- | ------------------------------ |
+| Simple transfer         | 21,000  | ~38,000                   | awaiting harness |
+| Token transfer (ERC-20) | 65,000  | ~12,300                   | awaiting harness |
+| DEX swap                | 200,000 | ~4,000                    | awaiting harness |
 
 **Honest v1 numbers.** The theoretical numbers above assume committee
-hardware fully saturates execution. In practice, the v1 targets are
-**10-30K TPS plaintext, 0.5-2K TPS encrypted** on commodity committee
-hardware (500 Mbps NIC, 32-core, 64 GB). Higher numbers require larger
-NICs and more cores; see Chapter 19 for the launch-strategy capacity
-table.
+hardware fully saturates execution. In practice, the v1 honest throughput
+target (to be established by the multi-region performance harness) is set on
+commodity committee hardware (500 Mbps NIC, 32-core, 64 GB). Higher numbers
+require larger NICs and more cores; see Chapter 19 for the launch-strategy
+capacity table.
 
 Real numbers depend on workload composition. The performance harness
 ([companion/PERFORMANCE_HARNESS.md](../companion/PERFORMANCE_HARNESS.md)) is the only valid source of TPS claims —
-under the **"claim 1/3 of measured peak"** rule, the headline number is
-never the theoretical max.
+publish only what the harness measures under sustained, production-realistic
+conditions, never lab extrapolations or microbenchmark peaks. The headline
+number is never the theoretical max.
 
 ---
 

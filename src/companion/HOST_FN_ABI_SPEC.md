@@ -1880,7 +1880,7 @@ Three hash functions, 2048-bit filter. Expected false-positive rate at typical w
 | 5,000 | ~17 % |
 | 10,000 | ~52 % |
 
-At v1 honest throughput (~10-30K TPS plaintext, most txs not emitting events), a typical wave has <2,000 events and the bloom is highly selective. At peak load it becomes less useful but never lies (no false negatives). Historical query (§15.4) uses the bloom as a pre-filter and the indexes for exact matches.
+At the v1 honest throughput target (most txs not emitting events), a typical wave has <2,000 events and the bloom is highly selective. At peak load it becomes less useful but never lies (no false negatives). Historical query (§15.4) uses the bloom as a pre-filter and the indexes for exact matches.
 
 ### 15.3 Per-node storage layout
 

@@ -173,7 +173,7 @@ PYDE is intended to be used for transactions, staking, and bond, not held purely
 
 Post year-4, supply economics are:
 - Inflation: ~1% per year (~10M PYDE)
-- Burn rate: depends on usage; at 30K TPS sustained with mixed workload, estimated ~30-100M PYDE/year burned
+- Burn rate: depends on usage; at sustained moderate usage with a mixed workload, estimated ~30-100M PYDE/year burned
 
 **At sustained moderate usage, the chain is net deflationary** (burn > inflation). At low usage, slight inflation maintains validator security budget. At very high usage, deflationary pressure may eventually require fee structure adjustments (governance decision).
 

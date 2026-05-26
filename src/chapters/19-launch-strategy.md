@@ -66,13 +66,13 @@ This split is intentional. v1 ships the properties that justify Pyde's existence
 
 ---
 
-## 19.4 The "claim 1/3" Discipline
+## 19.4 The Publishing Discipline
 
 A discipline carried forward from the consensus pivot:
 
-> No external TPS claim is published until the performance harness exists, has been run on production-realistic conditions, and the methodology is reproducible by third parties. Published headline numbers are 1/3 of measured peak — never burst, never microbenchmark, never single-machine if multi-region is the relevant scope.
+> No external TPS claim is published until the performance harness exists, has been run on production-realistic conditions, and the methodology is reproducible by third parties. Publish only what the harness measures under sustained, production-realistic conditions — never burst, never microbenchmark, never single-machine if multi-region is the relevant scope.
 
-The earlier consensus implementation hit roughly 4K TPS in lab tests despite higher claimed targets. The discipline above prevents that gap from recurring. Realistic v1 targets — 10-30K plaintext TPS, 500-2K encrypted TPS, on commodity validator hardware — come from this discipline.
+The earlier consensus implementation hit roughly 4K TPS in lab tests despite a higher claimed design target. The discipline above prevents that gap from recurring. The v1 honest throughput target (to be established by the multi-region performance harness) on commodity validator hardware comes from this discipline.
 
 See the [Performance Harness](../companion/PERFORMANCE_HARNESS.md) companion document for the testing methodology.
 

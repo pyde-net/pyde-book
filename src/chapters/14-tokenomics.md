@@ -184,7 +184,7 @@ The remainder-to-treasury pattern means rounding dust never disappears.
 
 ### Why 70% burn
 
-- **High burn pressure.** At 10-30K sustained TPS with realistic fee
+- **High burn pressure.** At sustained moderate usage with realistic fee
   loads, the annual burn exceeds the annual mint within a few years —
   net deflation.
 - **MEV resistance.** A would-be MEV searcher who used Pyde for
@@ -207,7 +207,7 @@ at a representative base-fee assumption:
 | 20,000  | ~70M PYDE       | 50M              | -20M (deflationary)           |
 | 30,000  | ~105M PYDE      | 50M              | -55M (strong deflation)       |
 
-At v1 realistic targets (10-30K TPS plaintext), the network is near-neutral
+At sustained moderate usage, the network is near-neutral
 to deflationary in year 1. At the 1% terminal inflation rate (year 4+),
 even very low TPS produces net deflation.
 

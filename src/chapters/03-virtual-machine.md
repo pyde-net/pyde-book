@@ -392,9 +392,9 @@ The honest numbers, measured against PVM-era proxies (WASM-era numbers will repl
 - Paid once per contract per node startup, then cached forever.
 
 **End-to-end TPS:**
-The realistic v1 target on commodity validator hardware is **10,000-30,000 plaintext TPS** sustained, **500-2,000 encrypted TPS**. These numbers come from the full-chain performance harness (consensus + execution + state + network), not from VM microbenchmarks alone. The VM is approximately the fifth-most-important contributor to that number, behind signature verification, network bandwidth, consensus latency, and disk I/O.
+The v1 honest throughput target on commodity validator hardware (for both the plaintext and encrypted regimes) is to be established by the multi-region performance harness — it comes from the full-chain harness (consensus + execution + state + network), not from VM microbenchmarks alone. The VM is approximately the fifth-most-important contributor to that number, behind signature verification, network bandwidth, consensus latency, and disk I/O.
 
-The "claim 1/3 of measured peak" discipline applies: published TPS numbers are derived conservatively from sustained measurement under realistic conditions, never from microbenchmark peaks.
+The publishing discipline applies: published TPS numbers are derived conservatively from sustained measurement under realistic conditions, never from microbenchmark peaks or lab extrapolations.
 
 ---
 

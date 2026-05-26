@@ -366,8 +366,8 @@ The key headline figures, with their sources:
 | ---------------------------------- | -------------------------------------------- |
 | ~150 ms DAG round period            | `ROUND_PERIOD_MS` in `consensus/round.rs`     |
 | ~500 ms median commit          | `COMMIT_TARGET_MS` in `consensus/commit.rs`|
-| v1 plaintext TPS: 10-30K            | Performance harness measurement, "claim 1/3 of measured peak" rule ([companion/PERFORMANCE_HARNESS.md](../companion/PERFORMANCE_HARNESS.md)) |
-| v1 encrypted TPS: 0.5-2K             | Same harness; threshold-decryption serial cost |
+| v1 plaintext throughput target      | Awaiting multi-region performance harness measurement; publish only what the harness measures under sustained, production-realistic conditions ([companion/PERFORMANCE_HARNESS.md](../companion/PERFORMANCE_HARNESS.md)) |
+| v1 encrypted throughput target       | Same harness; reduced by threshold-decryption serial cost |
 | 70 / 20 / 10 fee split              | `FEE_BURN_PCT` etc in `tx/execution.rs`        |
 | 5% → 1% inflation schedule          | `INFLATION_BPS` in `tx/fee.rs`                 |
 | 10,000 PYDE validator min stake     | `MIN_VALIDATOR_STAKE` in `tx/pipeline.rs` (single tier)|

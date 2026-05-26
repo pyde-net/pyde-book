@@ -422,6 +422,82 @@ Gas: 150 base. (Cheaper than sstore — clearing a slot is less work than writin
      No refund applied; the user pays gas_used regardless.)
 ```
 
+#### Field-keyed storage (recommended)
+
+`sload_by_field` / `sstore_by_field` / `sdelete_by_field` are convenience variants where the host computes the slot from `(field, key)` bytes rather than the contract pre-hashing. The engine derives:
+
+```text
+slot = Poseidon2(self_address || field_bytes[..field_len] || key_bytes[..key_len])
+```
+
+This is **bit-identical** to the conventional contract-side derivation (Pyde's `Poseidon2(self_address || field || key)` recipe). Use these variants by default; fall back to the raw `sload`/`sstore`/`sdelete` only when the contract needs to address a slot it derived itself (e.g., cross-contract storage proofs, custom-keyed slots, or layouts inherited from a delegated implementation).
+
+Pass `key_ptr = 0` and `key_len = 0` for **scalar** slots (no key). Pass any non-empty `key_bytes` for mappings (32 bytes for an address key, 64 bytes for an `(owner, spender)` composite key, etc.).
+
+Gas: matches the raw counterpart — the host-side hash + derivation is folded into the base cost so authors aren't charged twice for choosing the convenience form.
+
+##### `sload_by_field`
+
+```text
+pyde::sload_by_field(
+    field_ptr: i32, field_len: i32,
+    key_ptr:   i32, key_len:   i32,
+    value_out_ptr: i32,
+) -> i32
+
+field_ptr / field_len — pointer + length of the field-name bytes
+                        (e.g. b"balances"; length = 8)
+key_ptr / key_len     — pointer + length of the key bytes
+                        (0 / 0 for scalar slots)
+value_out_ptr         — pointer to 32-byte buffer where the value is written
+
+Returns: 0 on success,
+         ERR_ACCESS_LIST_VIOLATION if the derived slot is outside the declared access list.
+
+Gas: 200 base (identical to `sload`).
+
+Semantics: same as `sload` after the host-side derivation — unset slots read back as 32
+zero bytes (NOT an error). Empty field bytes (field_len = 0) are valid but discouraged
+(every field-empty slot in a contract would alias to the same hash).
+```
+
+##### `sstore_by_field`
+
+```text
+pyde::sstore_by_field(
+    field_ptr: i32, field_len: i32,
+    key_ptr:   i32, key_len:   i32,
+    value_ptr: i32,
+) -> i32
+
+field_ptr / field_len — pointer + length of the field-name bytes
+key_ptr / key_len     — pointer + length of the key bytes (0 / 0 for scalars)
+value_ptr             — pointer to 32-byte value to write
+
+Returns: 0 on success, ERR_FORBIDDEN if called from a view function,
+         ERR_ACCESS_LIST_VIOLATION if the derived slot is outside the declared access list.
+
+Gas: 5,000 base (identical to `sstore`).
+```
+
+##### `sdelete_by_field`
+
+```text
+pyde::sdelete_by_field(
+    field_ptr: i32, field_len: i32,
+    key_ptr:   i32, key_len:   i32,
+) -> i32
+
+field_ptr / field_len — pointer + length of the field-name bytes
+key_ptr / key_len     — pointer + length of the key bytes (0 / 0 for scalars)
+
+Returns: 0 on success (even if the derived slot did not exist),
+         ERR_FORBIDDEN if called from a view function,
+         ERR_ACCESS_LIST_VIOLATION if the derived slot is outside the declared access list.
+
+Gas: 150 base (identical to `sdelete`).
+```
+
 ### 7.2 Account & balance
 
 #### `balance`
@@ -1131,6 +1207,9 @@ Authoritative gas costs for every host function. This table is the source of tru
 | `sload` | 200 | — | Same gas hot/cold |
 | `sstore` | 5,000 | — | Same gas new/overwrite |
 | `sdelete` | 150 | — | No refund |
+| `sload_by_field` | 200 | — | Host derives `slot = Poseidon2(self_addr ‖ field ‖ key)`; cost folded into base |
+| `sstore_by_field` | 5,000 | — | Same derivation as `sload_by_field` |
+| `sdelete_by_field` | 150 | — | Same derivation as `sload_by_field` |
 | `balance` | 100 | — | |
 | `transfer` | 7,000 | — | |
 | `caller`, `origin`, `self_address` | 5 | — | |

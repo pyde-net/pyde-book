@@ -71,7 +71,7 @@ Vertices form a Directed Acyclic Graph: parents must be strictly from prior roun
 
 Each round has a deterministically-selected **anchor**:
 ```
-anchor_member = Hash(beacon, round, recent_state_root) mod 128
+anchor_member = Hash(beacon, round, prev_state_root) mod 128
 ```
 
 When the anchor vertex collects sufficient support from later rounds (Mysticeti 3-stage support), a commit fires. ~95% of rounds commit successfully; ~5% skip (next round absorbs the skip).

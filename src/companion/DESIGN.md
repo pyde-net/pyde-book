@@ -90,10 +90,10 @@ A round is a layer in the DAG, advancing when a member collects ≥85 parent ver
 
 Each round has a deterministically-selected anchor:
 ```
-anchor_member_id = Hash(beacon, round, recent_state_root) mod 128
+anchor_member_id = Hash(beacon, round, prev_state_root) mod 128
 ```
 
-The `recent_state_root` lookback (N=3 rounds) limits anchor predictability to ~450ms (down from a full epoch).
+The `prev_state_root` lookback (N=3 rounds) limits anchor predictability to ~450ms (down from a full epoch).
 
 A commit fires when the anchor vertex has sufficient support (Mysticeti 3-stage support). Multiple commits can be in flight; ~95% of rounds commit successfully.
 

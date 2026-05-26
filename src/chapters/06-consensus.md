@@ -102,13 +102,13 @@ Round 3: [128 vertices]
 Each round has a deterministically-selected **anchor**:
 
 ```
-anchor_member_id = Hash(beacon, round, recent_state_root) mod 128
+anchor_member_id = Hash(beacon, round, prev_state_root) mod 128
 ```
 
 Components:
 - **beacon:** epoch-scoped randomness, published in last wave of prior epoch
 - **round:** current round number
-- **recent_state_root:** state root from N=3 rounds ago (limits anchor predictability to ~450ms)
+- **prev_state_root:** state root from N=3 rounds ago (limits anchor predictability to ~450ms)
 
 Properties:
 - **Deterministic** — every honest validator computes the same answer

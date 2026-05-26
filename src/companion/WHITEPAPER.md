@@ -152,11 +152,11 @@ Poseidon2 over the Goldilocks field is the algebraic hash everywhere a future ZK
 
 Each epoch's beacon is produced by the previous epoch's committee via a threshold-signature ceremony on a known message. â‰¥ 85 shares combine into a deterministic aggregated signature; the hash of the signature is the beacon, 32 bytes. The beacon seeds:
 
-- Per-round anchor selection: `anchor_member_id = Hash(beacon, round, recent_state_root) mod 128`
+- Per-round anchor selection: `anchor_member_id = Hash(beacon, round, prev_state_root) mod 128`
 - Next epoch's committee VRF picks
 - Other protocol randomness
 
-The `recent_state_root` term reduces anchor predictability from a full epoch (~ 3 hours) to a few rounds (~ 450 ms).
+The `prev_state_root` term reduces anchor predictability from a full epoch (~ 3 hours) to a few rounds (~ 450 ms).
 
 ---
 
@@ -213,7 +213,7 @@ Rounds are data-driven: a member ticks from round N to N + 1 once it collects â‰
 Each round has a deterministically-selected anchor:
 
 ```
-anchor_member_id = Hash(beacon, round, recent_state_root) mod 128
+anchor_member_id = Hash(beacon, round, prev_state_root) mod 128
 ```
 
 When the anchor vertex collects sufficient Mysticeti 3-stage support from later rounds, a commit fires:

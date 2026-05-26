@@ -18,7 +18,7 @@ Pyde does not ship a maintained per-language SDK. The contract surface is a WASM
 
 That design keeps the chain's surface minimal and audit-friendly, but it pushes more responsibility onto the author. This guide is the conceptual bridge between the formal [HOST_FN_ABI_SPEC](./HOST_FN_ABI_SPEC.md) (which is normative but terse) and the working code in [`otigen/examples/`](https://github.com/pyde-net/otigen/tree/main/examples).
 
-If you only read one section: §5 (host-fn declarations), §7 (field-keyed storage), §8 (cross-contract calls), and §9 (FALCON-512 verification) cover 90% of the patterns a real contract needs.
+If you only read one section: §5 (host-fn declarations), §7 (field-keyed storage), §8 (cross-contract calls), §9 (FALCON-512 verification), and §10 (upgradeable proxy pattern) cover 90% of the patterns a real contract needs.
 
 ---
 
@@ -1226,11 +1226,120 @@ The full live example — including replay protection, duplicate-signer rejectio
 
 ---
 
-## 10. How the host reads it
+## 10. Upgradeable proxy pattern
+
+The canonical upgradeable contract ships as two roles: a tiny **proxy** that owns the storage and an admin-controlled implementation pointer, plus one or more **implementation** contracts that hold the actual logic. Users always call the proxy; the proxy `delegate_call`s the current implementation to run that code against the proxy's own storage slots. Upgrading is a single sstore — point the slot at a new contract address.
+
+### 10.1 Why delegate_call (vs cross_call)
+
+`delegate_call` and `cross_call` are siblings under `HOST_FN_ABI_SPEC §7.8` but enforce opposite storage semantics:
+
+| | Code from | Storage context | `caller()` value | Use for |
+|---|---|---|---|---|
+| `cross_call` | target | target's slots | the calling contract | Inter-contract APIs ("call into the token contract") |
+| `delegate_call` | target | **caller's slots** | preserved (whoever called the proxy) | Proxies, libraries that mutate caller's state, hot-swappable logic |
+
+When the proxy `delegate_call`s into the impl, the impl's `sstore`s land on the proxy's slots. The proxy "borrows" the impl's code; the impl never touches its own storage when called this way.
+
+### 10.2 Slot layout
+
+The proxy owns two reserved slots plus whatever the impl logic uses:
+
+| Slot | Type | Purpose |
+|---|---|---|
+| `admin` | `address` | Who can call `upgrade()`. Set once at `init`. |
+| `impl` | `address` | Current implementation pointer. Mutated only by `upgrade()`. |
+| ...impl slots... | various | Whatever fields the impl writes via delegate_call (`value`, `balances`, `total_supply`, etc.). |
+
+**Storage-layout compatibility is a hard contract between the proxy and every impl.** An impl that reads/writes slot `X` for purpose A is fundamentally incompatible with one that uses `X` for purpose B — the upgrade silently corrupts state. Two mitigations:
+
+1. **Field-keyed storage (§7).** Slots are derived from `Poseidon2(self_address ‖ field ‖ key)`. Two impls using the same field-name strings for the same data type collide cleanly; mismatched naming surfaces as obvious "fresh slot" reads.
+2. **Append-only impl evolution.** New impls may add fields (new names) but must never repurpose an existing name. Document the slot-name vocabulary explicitly.
+
+### 10.3 The proxy entry points (Rust)
+
+```rust
+const FIELD_ADMIN: &[u8] = b"admin";
+const FIELD_IMPL:  &[u8] = b"impl";
+const INNER_SET:   &[u8] = b"_inner_set_value";
+
+/// One-shot constructor.
+#[no_mangle]
+pub extern "C" fn init(impl_addr_ptr: *const u8) -> i32 {
+    let impl_addr = unsafe { read_32(impl_addr_ptr) };
+    write_slot(FIELD_ADMIN, &[], &caller_addr());
+    write_slot(FIELD_IMPL,  &[], &impl_addr);
+    0
+}
+
+/// Admin-only impl pointer swap.
+#[no_mangle]
+pub extern "C" fn upgrade(new_impl_ptr: *const u8) -> i32 {
+    if read_slot(FIELD_ADMIN, &[]) != caller_addr() { fail(b"NotAdmin"); }
+    let new_impl = unsafe { read_32(new_impl_ptr) };
+    write_slot(FIELD_IMPL, &[], &new_impl);
+    0
+}
+
+/// Forwarded write — calls the impl's inner export in this proxy's
+/// storage context. The impl's sstore lands on the proxy's `value`
+/// slot.
+#[no_mangle]
+pub extern "C" fn set_value(value_ptr: *const u8) -> i32 {
+    let impl_addr = read_slot(FIELD_IMPL, &[]);
+    let mut ret_data = [0u8; 32];
+    let mut ret_len: i32 = 0;
+    let rc = unsafe {
+        host_fns::delegate_call(
+            impl_addr.as_ptr(),
+            INNER_SET.as_ptr(), INNER_SET.len() as i32,
+            value_ptr, 16,           // pass through caller's 16-byte u128
+            i64::MAX,                // gas — chain-side enforces real limits
+            ret_data.as_mut_ptr(),
+            &mut ret_len as *mut i32,
+        )
+    };
+    if rc != 0 { fail(b"DelegateFailed"); }
+    0
+}
+```
+
+### 10.4 The impl side
+
+The impl exports functions that take `(calldata_ptr: i32, calldata_len: i32) -> i32` — calldata-driven dispatch, matching how the engine's real `delegate_call` will route. The impl decodes its own args from the calldata buffer:
+
+```rust
+/// Called via delegate_call from the proxy's `set_value`.
+#[no_mangle]
+pub extern "C" fn _inner_set_value(calldata_ptr: *const u8, calldata_len: i32) -> i32 {
+    if calldata_len < 16 { return -1; }  // malformed input
+    let v = unsafe { read_u128(calldata_ptr) };  // 16-byte LE u128
+    let mut slot_value = [0u8; 32];
+    slot_value[16..].copy_from_slice(&v.to_be_bytes());  // BE u128 in upper 16 bytes
+    write_slot(b"value", &[], &slot_value);  // lands on PROXY's slot (delegate_call!)
+    0
+}
+```
+
+### 10.5 Auth pitfalls
+
+- **`caller()` semantics across delegate_call**: the impl's `caller()` returns whoever called the PROXY, not the proxy. If the impl gates a function on a specific caller, that gate triggers against the user — not what proxies want. Workaround: gate at the proxy layer (`upgrade` is admin-only), and treat the impl as logic-only.
+- **Re-entrancy under upgrade**: if the impl is mid-execution when `upgrade()` swaps the slot, the still-running impl reads the OLD code (`delegate_call` is per-invocation, not a permanent binding). New calls run the NEW impl. Practical implication: don't make the upgrade behaviour depend on state half-touched by the old impl.
+- **`init()` re-execution**: on chain, the `constructor` attribute prevents post-deploy calls. In tests, each test starts from fresh state so re-running `init` is a clean overwrite; treat it the same way in your test design.
+
+### 10.6 Testing under the v1 runner
+
+The runner's `delegate_call` mock requires `target == self_address` (single-wasm v1 limitation). For tests this means the proxy + impl live in the SAME wasm — both exported, the proxy `delegate_call`s into its own module. Functionally identical to delegate-to-different-contract because the storage context is what matters, not the code source.
+
+The full live example — including 7 behaviour tests covering admin-only upgrade, slot updates via delegate, multi-call overwrite, and a round-trip after upgrade — is in [`otigen/examples/upgradeable-proxy/`](https://github.com/pyde-net/otigen/tree/main/examples/upgradeable-proxy).
+
+---
+
+## 11. How the host reads it
 
 The host (Pyde's engine, in Rust, hosted on top of wasmtime) registers `cross_call` as a linker function during executor initialization. The function signature on the host side mirrors the WASM signature, plus a `Caller` handle that gives access to the contract's linear memory.
 
-### 10.1 Engine-side `cross_call` handler
+### 11.1 Engine-side `cross_call` handler
 
 ```rust
 // Register cross_call with the wasmtime linker. This wires the WASM-side
@@ -1371,7 +1480,7 @@ linker.func_wrap(
 )?;
 ```
 
-### 10.2 Why this design
+### 11.2 Why this design
 
 Three properties fall out of this shape:
 
@@ -1383,7 +1492,7 @@ Three properties fall out of this shape:
 
 ---
 
-## 11. The end-to-end flow
+## 12. The end-to-end flow
 
 Putting §6 (contract-side staging), §7 (the cross_call invocation), and §8 (host-side handling) together:
 
@@ -1481,7 +1590,7 @@ Putting §6 (contract-side staging), §7 (the cross_call invocation), and §8 (h
                    decides whether to revert / retry / propagate.
 ```
 
-### 11.1 What you actually pay for
+### 12.1 What you actually pay for
 
 For a single `cross_call` with 48 bytes of calldata and an empty return:
 
@@ -1496,17 +1605,17 @@ The sub-call's `gas_used` is debited from the caller's remaining budget regardle
 
 ---
 
-## 12. Common pitfalls
+## 13. Common pitfalls
 
 A non-exhaustive list of things that have bitten real Pyde contracts during development:
 
-### 12.1 Endianness mismatch
+### 13.1 Endianness mismatch
 
 **Symptom:** A contract writes `amount: u128 = 100` via `amount.to_be_bytes()`, the host reads via `u128::from_le_bytes` — you end up with a 16-byte big-endian on-wire representation interpreted as little-endian. The host sees `0x6400000000000000_00000000_00000000` instead of `100`.
 
 **Fix:** Always little-endian on the wire. `to_le_bytes` / `from_le_bytes` on both sides.
 
-### 12.2 Returning a pointer to a dropped local
+### 13.2 Returning a pointer to a dropped local
 
 ```rust
 // ❌ BROKEN: `local_buf` is dropped at the end of this function.
@@ -1522,19 +1631,19 @@ pub fn broken_pattern() -> i32 {
 
 **Fix:** For data that must survive past the current call, use `static mut` (§6.2) or heap allocation (§6.3). For data that only needs to live through one host call, stack-allocated is fine.
 
-### 12.3 Forgetting to provision the return-length slot
+### 13.3 Forgetting to provision the return-length slot
 
 **Symptom:** `cross_call` writes the actual return length into `return_data_out_len_ptr`, but you passed an uninitialized or shared slot — leading to garbage values for the length check.
 
 **Fix:** Always declare `let mut return_len: i32 = 0;` (or equivalent in Go/AS) immediately before the call. Don't re-use a slot across multiple cross-calls without re-zeroing.
 
-### 12.4 Returning a too-small buffer
+### 13.4 Returning a too-small buffer
 
 **Symptom:** Sub-call returns 256 bytes of data; your `return_buf` is 32 bytes; wasmtime traps with `MemoryOutOfBounds` when the host tries to write past your buffer.
 
 **Fix:** Size return buffers to the documented worst case for the target function. For unknown / variable-size returns, do a two-pass approach: first call with `return_buf = []` and read the length; second call with a buffer of that size. (Pyde's spec defers the formal "buffer too small" semantics to per-host-fn definitions — check the spec for each host fn before assuming.)
 
-### 12.5 Forgetting that pointers are 32-bit
+### 13.5 Forgetting that pointers are 32-bit
 
 ```rust
 // ❌ BROKEN: `let ptr: i64 = my_array.as_ptr() as i64;`
@@ -1548,13 +1657,13 @@ let ptr: i32 = my_array.as_ptr() as i32;   // ← correct
 
 **Fix:** Always cast pointers to `i32` (or `usize` in AS / TinyGo). Host fn signatures use `i32` for pointers; matching exactly prevents subtle type-coercion bugs.
 
-### 12.6 Importing a host fn that doesn't exist
+### 13.6 Importing a host fn that doesn't exist
 
 **Symptom:** Deploy fails with `ERR_FORBIDDEN_IMPORT`.
 
 **Fix:** Every imported function name must appear in the canonical ABI table (HOST_FN_ABI_SPEC §7 and §8). The deploy-time validator rejects unknown imports. Typos like `pyde::s_load` (extra underscore) vs `pyde::sload` (no underscore) are a frequent culprit.
 
-### 12.7 Calling a parachain-only host fn from a non-parachain contract
+### 13.7 Calling a parachain-only host fn from a non-parachain contract
 
 **Symptom:** Deploy fails with `ERR_FORBIDDEN_IMPORT` for functions like `parachain_storage_read`, `send_xparachain_message`, `threshold_encrypt`, etc.
 
@@ -1562,7 +1671,7 @@ let ptr: i32 = my_array.as_ptr() as i32;   // ← correct
 
 ---
 
-## 13. References
+## 14. References
 
 - [HOST_FN_ABI_SPEC v1.0](./HOST_FN_ABI_SPEC.md) — normative ABI specification.
 - [Chapter 3 — Execution Layer](../chapters/03-virtual-machine.md) — wasmtime runtime architecture, fuel metering, module caching.

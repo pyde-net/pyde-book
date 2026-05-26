@@ -425,7 +425,7 @@ The MC-2 spike (single-validator, stubbed crypto/network/persistence) proved the
 - [ ] Wrap as `WasmExecutorAdapter::new(executor, accounts)` (β.4 PR-17 / PR [#114](https://github.com/pyde-net/engine/pull/114)) — the `Executor` trait impl that dispatches by `tx.tx_type` into β.3 handlers
 - [ ] Hand `WasmExecutorAdapter` to the consensus `Driver` (γ.1) as the `Arc<dyn Executor>` it expects
 - [x] `WasmExecutorAdapter` interior mutability — `wave_id` + `base_fee` are `Arc<AtomicU64>` so the node updates them post-commit through the shared `Arc<dyn Executor>` reference. `update_wave_id(&self, ...)` + `update_base_fee(&self, ...)` ship in PR [#133](https://github.com/pyde-net/engine/pull/133). Per-tx dispatch snapshots both atomics once.
-- [ ] Cold-restart path: on boot, scan `state.list_all_code_hashes()` (NEW state crate API) and call `WasmExecutor::load_from_persistent` to warm the ModuleCache to its target hot-set size
+- [ ] Cold-restart path: on boot, scan `state.list_all_code_hashes()` (shipped via PR [#135](https://github.com/pyde-net/engine/pull/135) — iterates code_cf, returns `Vec<Blake3Hash>` in RocksDB-natural order) and call `WasmExecutor::load_from_persistent` for each to warm the ModuleCache to its target hot-set size. Caller-orchestration still pending (lands in the node binary).
 
 **Mempool wiring (replaces stub from spike)**
 - [ ] Construct `Mempool::new(MempoolConfig::default().with_chain_id(genesis.chain_id))`

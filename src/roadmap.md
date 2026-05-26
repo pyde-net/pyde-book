@@ -421,9 +421,9 @@ The MC-2 spike (single-validator, stubbed crypto/network/persistence) proved the
 
 **Executor wiring (replaces `DevnetExecutor` stub from spike)**
 - [ ] Construct `WasmExecutor::new()` (or `with_cache_config(...)` for tuned nodes) once at boot — the singleton holds the wasmtime `Engine` + `ModuleCache` with the LRU+TTL policy from PR [#119](https://github.com/pyde-net/engine/pull/119)
-- [ ] Wrap as `WasmExecutorAdapter::new(executor, base_fee)` (β.4 PR-17 / PR [#114](https://github.com/pyde-net/engine/pull/114)) — the `Executor` trait impl that dispatches by `tx.tx_type` into β.3 handlers
+- [ ] Wrap as `WasmExecutorAdapter::new(executor, accounts)` (β.4 PR-17 / PR [#114](https://github.com/pyde-net/engine/pull/114)) — the `Executor` trait impl that dispatches by `tx.tx_type` into β.3 handlers
 - [ ] Hand `WasmExecutorAdapter` to the consensus `Driver` (γ.1) as the `Arc<dyn Executor>` it expects
-- [ ] Update `WasmExecutorAdapter.base_fee` after each wave commit (EIP-1559 dynamic adjustment lives in β.3 PR-2; the node calls into it post-commit)
+- [x] `WasmExecutorAdapter` interior mutability — `wave_id` + `base_fee` are `Arc<AtomicU64>` so the node updates them post-commit through the shared `Arc<dyn Executor>` reference. `update_wave_id(&self, ...)` + `update_base_fee(&self, ...)` ship in PR [#133](https://github.com/pyde-net/engine/pull/133). Per-tx dispatch snapshots both atomics once.
 - [ ] Cold-restart path: on boot, scan `state.list_all_code_hashes()` (NEW state crate API) and call `WasmExecutor::load_from_persistent` to warm the ModuleCache to its target hot-set size
 
 **Mempool wiring (replaces stub from spike)**

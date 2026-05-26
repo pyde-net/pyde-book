@@ -605,11 +605,242 @@ export function readBalance(accountPtr: usize): u64 {
 
 ---
 
-## 7. Cross-contract call patterns
+## 7. Field-keyed storage (recommended)
+
+The §7.1 host-fn catalog lists six storage primitives: the three raw slot-addressed ones (`sload` / `sstore` / `sdelete`) and the three field-keyed ones (`sload_by_field` / `sstore_by_field` / `sdelete_by_field`). **Default to the field-keyed trio.** They take the field name + optional key as raw bytes and the engine derives the slot internally:
+
+```text
+slot = Poseidon2(self_address || field_bytes || key_bytes)
+```
+
+What you save by using them:
+
+| Without (`sload` / `sstore` raw) | With (`sload_by_field` / `sstore_by_field`) |
+|---|---|
+| Declare a `slot_<field>()` helper per storage field | None |
+| Call `self_address` to seed the hash | Engine does it host-side |
+| Allocate a scratch buffer for `addr ‖ field ‖ key` | None |
+| Call `hash_poseidon2` to compute the slot | Folded into the host-fn base cost |
+| `sload(slot, value_out)` / `sstore(slot, value)` | `sload_by_field(field, field_len, key, key_len, value_out)` |
+| **~5 lines + 2 imports** | **1 line** |
+
+Gas is **identical** — the host-side derivation is included in the 200/5000/150 base cost. Use the raw fns only when you need to address a slot you derived yourself (cross-contract storage proofs, custom-keyed slots, or layouts inherited from a delegated implementation).
+
+### 7.1 Calling convention
+
+All three by-field fns share the same head:
+
+```text
+pyde::sX_by_field(field_ptr, field_len, key_ptr, key_len, [value_ptr_or_out_ptr]) -> i32
+```
+
+- `field_ptr` / `field_len` — pointer + length of the field-name bytes (`b"balances"`, `b"total_supply"`, etc.). Length is the count of bytes, not characters.
+- `key_ptr` / `key_len` — pointer + length of the key bytes.
+  - For **scalar** slots (no key), pass `0, 0`.
+  - For **mapping** slots, pass a 32-byte address (or any unique key bytes) + its length.
+  - For **composite-key** mappings (`allowances[owner][spender]`), pack into a single buffer (e.g., 64 bytes = `owner ‖ spender`) and pass that pointer + 64.
+- The final pointer is the value buffer:
+  - `sload_by_field`: `value_out_ptr` — a 32-byte buffer the host writes into.
+  - `sstore_by_field`: `value_ptr` — a 32-byte buffer the host reads from.
+  - `sdelete_by_field`: no value pointer.
+
+### 7.2 Rust — scalar + mapping + composite-key
+
+```rust
+#[link(wasm_import_module = "pyde")]
+extern "C" {
+    fn sload_by_field(
+        field_ptr: *const u8, field_len: i32,
+        key_ptr:   *const u8, key_len:   i32,
+        value_out_ptr: *mut u8,
+    ) -> i32;
+
+    fn sstore_by_field(
+        field_ptr: *const u8, field_len: i32,
+        key_ptr:   *const u8, key_len:   i32,
+        value_ptr: *const u8,
+    ) -> i32;
+}
+
+const FIELD_TOTAL_SUPPLY: &[u8] = b"total_supply";
+const FIELD_BALANCES:     &[u8] = b"balances";
+const FIELD_ALLOWANCES:   &[u8] = b"allowances";
+
+/// One helper covers scalar + mapping + composite-key uniformly.
+/// Pass `key = &[]` for scalars.
+fn read_u128(field: &[u8], key: &[u8]) -> u128 {
+    let mut buf = [0u8; 32];
+    let key_ptr = if key.is_empty() { core::ptr::null() } else { key.as_ptr() };
+    unsafe {
+        sload_by_field(
+            field.as_ptr(), field.len() as i32,
+            key_ptr,        key.len() as i32,
+            buf.as_mut_ptr(),
+        );
+    }
+    let mut amt = [0u8; 16]; amt.copy_from_slice(&buf[16..]);
+    u128::from_be_bytes(amt)
+}
+
+fn write_u128(field: &[u8], key: &[u8], value: u128) {
+    let mut buf = [0u8; 32];
+    buf[16..].copy_from_slice(&value.to_be_bytes());
+    let key_ptr = if key.is_empty() { core::ptr::null() } else { key.as_ptr() };
+    unsafe {
+        sstore_by_field(
+            field.as_ptr(), field.len() as i32,
+            key_ptr,        key.len() as i32,
+            buf.as_ptr(),
+        );
+    }
+}
+
+// Usage:
+let supply  = read_u128(FIELD_TOTAL_SUPPLY, &[]);              // scalar
+let balance = read_u128(FIELD_BALANCES, &owner);               // mapping (key = 32-byte addr)
+
+// Composite key — pack inline:
+let mut k = [0u8; 64]; k[..32].copy_from_slice(&owner); k[32..].copy_from_slice(&spender);
+let allowed = read_u128(FIELD_ALLOWANCES, &k);                 // nested mapping
+```
+
+### 7.3 TinyGo — same shape, `//go:wasmimport`
+
+```go
+//go:wasmimport pyde sload_by_field
+func sload_by_field(
+    fieldPtr int32, fieldLen int32,
+    keyPtr   int32, keyLen   int32,
+    valueOutPtr int32,
+) int32
+
+//go:wasmimport pyde sstore_by_field
+func sstore_by_field(
+    fieldPtr int32, fieldLen int32,
+    keyPtr   int32, keyLen   int32,
+    valuePtr int32,
+) int32
+
+var fieldBalances = []byte("balances")
+
+func readBalance(owner [32]byte) uint64 {
+    var buf [32]byte
+    sload_by_field(
+        int32(uintptr(unsafe.Pointer(&fieldBalances[0]))),
+        int32(len(fieldBalances)),
+        int32(uintptr(unsafe.Pointer(&owner[0]))), 32,
+        int32(uintptr(unsafe.Pointer(&buf[0]))),
+    )
+    return binary.BigEndian.Uint64(buf[24:32])
+}
+
+func writeBalance(owner [32]byte, value uint64) {
+    var buf [32]byte
+    binary.BigEndian.PutUint64(buf[24:32], value)
+    sstore_by_field(
+        int32(uintptr(unsafe.Pointer(&fieldBalances[0]))),
+        int32(len(fieldBalances)),
+        int32(uintptr(unsafe.Pointer(&owner[0]))), 32,
+        int32(uintptr(unsafe.Pointer(&buf[0]))),
+    )
+}
+```
+
+For a scalar slot pass `0, 0` for the key pair.
+
+### 7.4 AssemblyScript — same shape, `@external`
+
+```ts
+@external("pyde", "sload_by_field")
+declare function sload_by_field(
+  fieldPtr: usize, fieldLen: i32,
+  keyPtr:   usize, keyLen:   i32,
+  valueOutPtr: usize,
+): i32;
+
+@external("pyde", "sstore_by_field")
+declare function sstore_by_field(
+  fieldPtr: usize, fieldLen: i32,
+  keyPtr:   usize, keyLen:   i32,
+  valuePtr: usize,
+): i32;
+
+const FIELD_BALANCES: StaticArray<u8> = [
+  0x62, 0x61, 0x6c, 0x61, 0x6e, 0x63, 0x65, 0x73,  // "balances"
+];
+
+function readBalance(owner: StaticArray<u8>): u64 {
+  const buf = new StaticArray<u8>(32);
+  sload_by_field(
+    changetype<usize>(FIELD_BALANCES), FIELD_BALANCES.length,
+    changetype<usize>(owner), 32,
+    changetype<usize>(buf),
+  );
+  let v: u64 = 0;
+  for (let i = 0; i < 8; i++) v = (v << 8) | u64(buf[24 + i]);
+  return v;
+}
+```
+
+For a scalar slot pass `0, 0` for the key pair.
+
+### 7.5 C — same shape, `import_module`
+
+```c
+__attribute__((import_module("pyde"), import_name("sload_by_field")))
+extern int32_t sload_by_field(
+    const uint8_t* field_ptr, int32_t field_len,
+    const uint8_t* key_ptr,   int32_t key_len,
+    uint8_t* value_out_ptr);
+
+__attribute__((import_module("pyde"), import_name("sstore_by_field")))
+extern int32_t sstore_by_field(
+    const uint8_t* field_ptr, int32_t field_len,
+    const uint8_t* key_ptr,   int32_t key_len,
+    const uint8_t* value_ptr);
+
+static const uint8_t FIELD_BALANCES[8] = {'b','a','l','a','n','c','e','s'};
+
+static uint64_t read_balance(const uint8_t owner[32]) {
+    uint8_t buf[32];
+    sload_by_field(
+        FIELD_BALANCES, sizeof FIELD_BALANCES,
+        owner, 32,
+        buf);
+    uint64_t v = 0;
+    for (int i = 0; i < 8; i++) v = (v << 8) | (uint64_t)buf[24 + i];
+    return v;
+}
+
+static void write_balance(const uint8_t owner[32], uint64_t value) {
+    uint8_t buf[32] = {0};
+    for (int i = 7; i >= 0; i--) { buf[24 + i] = (uint8_t)(value & 0xff); value >>= 8; }
+    sstore_by_field(
+        FIELD_BALANCES, sizeof FIELD_BALANCES,
+        owner, 32,
+        buf);
+}
+```
+
+For a scalar slot pass `(const uint8_t*)0, 0` for the key pair.
+
+### 7.6 When to fall back to raw `sload` / `sstore`
+
+The by-field forms cover the canonical `Poseidon2(self_addr ‖ field ‖ key)` derivation. Use the raw forms when:
+
+- **You need to address a foreign-contract slot.** Cross-contract storage proofs derive the slot from a *different* contract's address, not your own — `sload_by_field` would derive it from yours.
+- **You inherited a layout that uses a non-canonical derivation.** Migrated contracts, ports from other chains with different slot schemes, etc.
+- **You want a fully custom hash recipe.** Maybe `Blake3` instead of `Poseidon2`, or a multi-step keccak ladder. Compute the slot yourself, pass it to raw `sstore`.
+
+Mixing forms in the same contract is fine — they read/write the same JMT.
+
+---
+
+## 8. Cross-contract call patterns
 
 This section walks through the most complex per-language pattern: calling another contract via `pyde::cross_call`. The mechanics generalize to every other variable-data host function (`emit_event`, `calldata_copy`, `parachain_storage_write`, etc.).
 
-### 7.1 The host function signature (recap)
+### 8.1 The host function signature (recap)
 
 From [HOST_FN_ABI_SPEC §7.8](./HOST_FN_ABI_SPEC.md):
 
@@ -625,7 +856,7 @@ pyde::cross_call(
 ) -> i32                                       ; status code
 ```
 
-### 7.2 Rust — calling `token.transfer(recipient, amount)`
+### 8.2 Rust — calling `token.transfer(recipient, amount)`
 
 ```rust
 // Import the host fn (see §5.1).
@@ -743,7 +974,7 @@ pub fn transfer_via_token(
 }
 ```
 
-### 7.3 TinyGo — same pattern
+### 8.3 TinyGo — same pattern
 
 ```go
 package contract
@@ -808,7 +1039,7 @@ func transferViaToken(
 }
 ```
 
-### 7.4 AssemblyScript — same pattern
+### 8.4 AssemblyScript — same pattern
 
 ```typescript
 // Host fn declaration.
@@ -870,11 +1101,11 @@ export function transferViaToken(
 
 ---
 
-## 8. How the host reads it
+## 9. How the host reads it
 
 The host (Pyde's engine, in Rust, hosted on top of wasmtime) registers `cross_call` as a linker function during executor initialization. The function signature on the host side mirrors the WASM signature, plus a `Caller` handle that gives access to the contract's linear memory.
 
-### 8.1 Engine-side `cross_call` handler
+### 9.1 Engine-side `cross_call` handler
 
 ```rust
 // Register cross_call with the wasmtime linker. This wires the WASM-side
@@ -1015,7 +1246,7 @@ linker.func_wrap(
 )?;
 ```
 
-### 8.2 Why this design
+### 9.2 Why this design
 
 Three properties fall out of this shape:
 
@@ -1027,7 +1258,7 @@ Three properties fall out of this shape:
 
 ---
 
-## 9. The end-to-end flow
+## 10. The end-to-end flow
 
 Putting §6 (contract-side staging), §7 (the cross_call invocation), and §8 (host-side handling) together:
 
@@ -1125,7 +1356,7 @@ Putting §6 (contract-side staging), §7 (the cross_call invocation), and §8 (h
                    decides whether to revert / retry / propagate.
 ```
 
-### 9.1 What you actually pay for
+### 10.1 What you actually pay for
 
 For a single `cross_call` with 48 bytes of calldata and an empty return:
 
@@ -1140,17 +1371,17 @@ The sub-call's `gas_used` is debited from the caller's remaining budget regardle
 
 ---
 
-## 10. Common pitfalls
+## 11. Common pitfalls
 
 A non-exhaustive list of things that have bitten real Pyde contracts during development:
 
-### 10.1 Endianness mismatch
+### 11.1 Endianness mismatch
 
 **Symptom:** A contract writes `amount: u128 = 100` via `amount.to_be_bytes()`, the host reads via `u128::from_le_bytes` — you end up with a 16-byte big-endian on-wire representation interpreted as little-endian. The host sees `0x6400000000000000_00000000_00000000` instead of `100`.
 
 **Fix:** Always little-endian on the wire. `to_le_bytes` / `from_le_bytes` on both sides.
 
-### 10.2 Returning a pointer to a dropped local
+### 11.2 Returning a pointer to a dropped local
 
 ```rust
 // ❌ BROKEN: `local_buf` is dropped at the end of this function.
@@ -1166,19 +1397,19 @@ pub fn broken_pattern() -> i32 {
 
 **Fix:** For data that must survive past the current call, use `static mut` (§6.2) or heap allocation (§6.3). For data that only needs to live through one host call, stack-allocated is fine.
 
-### 10.3 Forgetting to provision the return-length slot
+### 11.3 Forgetting to provision the return-length slot
 
 **Symptom:** `cross_call` writes the actual return length into `return_data_out_len_ptr`, but you passed an uninitialized or shared slot — leading to garbage values for the length check.
 
 **Fix:** Always declare `let mut return_len: i32 = 0;` (or equivalent in Go/AS) immediately before the call. Don't re-use a slot across multiple cross-calls without re-zeroing.
 
-### 10.4 Returning a too-small buffer
+### 11.4 Returning a too-small buffer
 
 **Symptom:** Sub-call returns 256 bytes of data; your `return_buf` is 32 bytes; wasmtime traps with `MemoryOutOfBounds` when the host tries to write past your buffer.
 
 **Fix:** Size return buffers to the documented worst case for the target function. For unknown / variable-size returns, do a two-pass approach: first call with `return_buf = []` and read the length; second call with a buffer of that size. (Pyde's spec defers the formal "buffer too small" semantics to per-host-fn definitions — check the spec for each host fn before assuming.)
 
-### 10.5 Forgetting that pointers are 32-bit
+### 11.5 Forgetting that pointers are 32-bit
 
 ```rust
 // ❌ BROKEN: `let ptr: i64 = my_array.as_ptr() as i64;`
@@ -1192,13 +1423,13 @@ let ptr: i32 = my_array.as_ptr() as i32;   // ← correct
 
 **Fix:** Always cast pointers to `i32` (or `usize` in AS / TinyGo). Host fn signatures use `i32` for pointers; matching exactly prevents subtle type-coercion bugs.
 
-### 10.6 Importing a host fn that doesn't exist
+### 11.6 Importing a host fn that doesn't exist
 
 **Symptom:** Deploy fails with `ERR_FORBIDDEN_IMPORT`.
 
 **Fix:** Every imported function name must appear in the canonical ABI table (HOST_FN_ABI_SPEC §7 and §8). The deploy-time validator rejects unknown imports. Typos like `pyde::s_load` (extra underscore) vs `pyde::sload` (no underscore) are a frequent culprit.
 
-### 10.7 Calling a parachain-only host fn from a non-parachain contract
+### 11.7 Calling a parachain-only host fn from a non-parachain contract
 
 **Symptom:** Deploy fails with `ERR_FORBIDDEN_IMPORT` for functions like `parachain_storage_read`, `send_xparachain_message`, `threshold_encrypt`, etc.
 
@@ -1206,7 +1437,7 @@ let ptr: i32 = my_array.as_ptr() as i32;   // ← correct
 
 ---
 
-## 11. References
+## 12. References
 
 - [HOST_FN_ABI_SPEC v1.0](./HOST_FN_ABI_SPEC.md) — normative ABI specification.
 - [Chapter 3 — Execution Layer](../chapters/03-virtual-machine.md) — wasmtime runtime architecture, fuel metering, module caching.

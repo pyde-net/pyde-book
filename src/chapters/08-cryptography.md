@@ -470,7 +470,7 @@ Verify(pk, input, output, proof):
 ### Where the VRF is used
 
 1. **Anchor selection (indirect).** Each round, the canonical anchor is
-   computed as `Hash(beacon, round, recent_state_root) mod 128` (see
+   computed as `Hash(beacon, round, prev_state_root) mod 128` (see
    Chapter 6 §3). The beacon itself is the threshold-aggregated VRF
    output of the prior epoch's committee — so VRF underpins anchor
    selection one step removed, not per-round.

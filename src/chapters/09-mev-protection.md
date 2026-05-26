@@ -237,7 +237,7 @@ ordering, because there is no proposer. Instead:
    parents and accumulate Mysticeti's 3-stage support.
 
 3. **Anchor commit at round R+3:** the deterministic anchor at round
-   R+3 (selected by `Hash(beacon, round, recent_state_root) mod 128`)
+   R+3 (selected by `Hash(beacon, round, prev_state_root) mod 128`)
    collects sufficient support, and a canonical subdag traversal emits
    a fixed ordered list of vertices, batches, and transactions.
 
@@ -396,7 +396,7 @@ Step 3 — DAG VERTEX PRODUCTION (round R)
 
 Step 4 — DAG ANCHOR COMMIT (round R+3, ~500 ms after submission)
   - Deterministic anchor at round R+3:
-      anchor_member = Hash(beacon, R+3, recent_state_root) mod 128
+      anchor_member = Hash(beacon, R+3, prev_state_root) mod 128
   - Anchor collects Mysticeti 3-stage support -> commit fires
   - Canonical subdag traversal emits ordered tx list — including Alice's
 

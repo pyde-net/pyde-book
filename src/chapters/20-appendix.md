@@ -32,7 +32,7 @@ and the post-mainnet roadmap.
 | **Vertex**           | A committee member's per-round output: batch refs + parent refs + state-root sigs + decryption shares + FALCON sig. |
 | **Round**            | A ~150 ms DAG cycle. Each member produces one vertex per round.            |
 | **Wave**             | The Mysticeti commit unit. Anchor at round R+3 commits the subdag rooted at round R. |
-| **Anchor**           | Deterministically-selected committee member whose round-R vertex commits the wave. `Hash(beacon, round, recent_state_root) mod 128`. |
+| **Anchor**           | Deterministically-selected committee member whose round-R vertex commits the wave. `Hash(beacon, round, prev_state_root) mod 128`. |
 | **Worker / Primary** | Narwhal pattern: workers gossip tx batches, primary produces vertices and runs consensus. |
 | **HardFinalityCert** | ≥ 85 FALCON sigs over `(wave_id, blake3_state_root, poseidon2_state_root)`. |
 | **Committee**        | The 128 active validators per epoch. Equal vote weight; uniform random selection. |

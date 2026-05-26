@@ -1108,7 +1108,7 @@ When a primary contract calls `pyde::cross_call(target, fn_name, calldata, value
 1. **Target's storage context.** Sub-call sstores land in the TARGET's slot namespace (`Poseidon2(target_address ‖ field ‖ key)`), not the caller's. Storage isolation is implicit because slot hashes include each contract's `self_address`.
 2. **`caller()` shift.** Inside the callee, `caller()` returns the **immediate** caller-contract's address — the contract that issued the `cross_call`, NOT the tx originator (`origin`). Useful for the callee to authorise the call source; common pitfall to confuse it with `origin()`.
 3. **Value transfer.** The `value` parameter debits the caller's native-PYDE balance and credits the target's. Inside the callee, `tx_value()` returns the same `value`. The transfer happens in the parent's frame, so even if the sub-call reverts (and the runner snapshots state), the transfer rolls back too.
-4. **Revert rollback.** Sub-call trap (revert / unreachable / out-of-fuel / etc.) does NOT propagate to the parent. Instead the host fn returns `ERR_CROSS_CALL_FAILED = -8` and rolls back all of the sub-call's storage / balance / event mutations. The parent observes the rc and decides whether to handle the failure or revert further.
+4. **Revert rollback.** Sub-call trap (revert / unreachable / out-of-fuel / etc.) does NOT propagate to the parent. Instead the host fn returns `ERR_CROSS_CALL_FAILED = -10` and rolls back all of the sub-call's storage / balance / event mutations. The parent observes the rc and decides whether to handle the failure or revert further.
 
 The [`counter-pair`](https://github.com/pyde-net/otigen/tree/main/examples/counter-pair-a) example pair (counter-pair-a + counter-pair-b) exercises all four invariants in a six-test suite. counter-pair-a's `bump_via_b(b, n)` cross_calls counter-pair-b's `bump_remote` (storage + caller-shift); `send_value_to_b(b, n)` cross_calls with `value = n` (value transfer); `bump_via_b_revert(b)` triggers a sub-call revert (rollback). One composition test runs success → revert → success and asserts the parent survived every revert without trapping. Read the contracts side-by-side as a calibration point for any cross-contract design.
 
@@ -1133,7 +1133,7 @@ extern "C" {
     /// `FalconPublicKey::SIZE` constant). `msg` and `sig` are
     /// variable-length.
     ///
-    /// Returns 0 on valid, ERR_SIGNATURE_INVALID = -8 otherwise.
+    /// Returns 0 on valid, ERR_SIGNATURE_INVALID = -17 otherwise.
     /// Malformed pubkey or signature bytes are rejected as invalid
     /// rather than trapping — the contract can recover gracefully.
     pub fn falcon_verify(

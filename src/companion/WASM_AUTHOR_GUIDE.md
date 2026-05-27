@@ -1352,11 +1352,174 @@ The full live example — including 7 behaviour tests covering admin-only upgrad
 
 ---
 
-## 11. How the host reads it
+## 11. Hash-based commitments and Merkle proofs
+
+Pyde exposes three hash host fns and a real PQ signature primitive — together they cover every commitment-style pattern devs reach for: airdrops, allowlists, batched offchain-state proofs, content-addressed storage, leaderboard snapshots, and ZK-coupled inclusion claims. This chapter ties the three hashes to their use cases and walks through the canonical pattern (Merkle inclusion) end-to-end so the surrounding tradeoffs aren't buried in a single example file.
+
+### 11.1 The hash host fn surface
+
+| Host fn | Output | Gas (base + per word) | When to reach for it |
+|---|---|---|---|
+| `hash_blake3` | 32 B | 15 + 3/8B | The performance default. ~2 GB/s on x86. Use for event topics, address derivation, merkle proofs, anything the contract recomputes hot. |
+| `hash_poseidon2` | 32 B | 100 + 30/8B | ZK-friendly. ~10× slower than Blake3 native, but generates circuit-friendly outputs. Use for storage slot derivation (the engine does this internally), state-root commitments, and anything you might prove in a ZK circuit later. |
+| `hash_keccak256` | 32 B | 30 + 6/8B | Cross-chain interop only. Use when you're verifying an Ethereum-side artifact (Merkle Patricia proof, EIP-712 hash) and the comparison must agree byte-for-byte with Ethereum. Don't pick this for fresh Pyde-native designs. |
+
+All three have the same shape:
+
+```rust
+#[link(wasm_import_module = "pyde")]
+extern "C" {
+    pub fn hash_blake3   (in_ptr: *const u8, in_len: i32, out_ptr: *mut u8);
+    pub fn hash_poseidon2(in_ptr: *const u8, in_len: i32, out_ptr: *mut u8);
+    pub fn hash_keccak256(in_ptr: *const u8, in_len: i32, out_ptr: *mut u8);
+}
+```
+
+`out_ptr` must point to at least 32 writable bytes. None of them return a value — the output lands in linear memory at `out_ptr`. Spec: HOST_FN_ABI_SPEC §7.6.
+
+### 11.2 Domain separation: prepend a tag, always
+
+If you hash both `(claimant, amount)` *leaves* and `(left, right)` *internal nodes* with the same function and no distinguishing prefix, an attacker who knows two leaves can claim a forged "leaf" whose 64-byte preimage exactly matches the 64-byte preimage of an internal node. The resulting hash collides — a *second-preimage attack* against the structure, not the hash function itself.
+
+The fix is a domain-separation tag — a fixed byte prefix that's different for every distinct kind of input:
+
+```rust
+const LEAF_TAG: &[u8] = b"PYDE_LEAF";
+const NODE_TAG: &[u8] = b"PYDE_NODE";
+
+fn leaf_hash(claimant: &[u8; 32], amount: u128) -> [u8; 32] {
+    let mut buf = [0u8; 9 + 32 + 16];
+    buf[..9].copy_from_slice(LEAF_TAG);
+    buf[9..41].copy_from_slice(claimant);
+    buf[41..].copy_from_slice(&amount.to_be_bytes());
+    let mut out = [0u8; 32];
+    unsafe { host_fns::hash_blake3(buf.as_ptr(), buf.len() as i32, out.as_mut_ptr()); }
+    out
+}
+
+fn node_hash(left: &[u8; 32], right: &[u8; 32]) -> [u8; 32] {
+    let mut buf = [0u8; 9 + 32 + 32];
+    buf[..9].copy_from_slice(NODE_TAG);
+    buf[9..41].copy_from_slice(left);
+    buf[41..].copy_from_slice(right);
+    let mut out = [0u8; 32];
+    unsafe { host_fns::hash_blake3(buf.as_ptr(), buf.len() as i32, out.as_mut_ptr()); }
+    out
+}
+```
+
+Tag length is irrelevant for security (Blake3 mixes input in 64 B chunks regardless). 4–16 bytes is conventional. The structure-level invariant the tag must hold: **any two inputs that play different roles in the protocol have non-overlapping byte prefixes**. Cross-protocol use too — `b"PYDE_FALCON_MSG"`, `b"PYDE_AIRDROP_LEAF"`, etc. — to keep separate apps from cross-colliding.
+
+This is RFC 9162-style (Certificate Transparency v2) and the same approach OpenZeppelin, EIP-712, and Sigsum all use. Skipping it has bitten production systems.
+
+### 11.3 Building a Merkle tree off-chain
+
+The contract never builds the tree — it only commits to a root and verifies inclusion against it. The tree-build happens in whatever tool generates the (claimant, amount) allocation list:
+
+```text
+        root = node_hash(node_AB, node_CD)
+              /                         \
+     node_AB = node_hash(leaf_A, leaf_B)      node_CD = node_hash(leaf_C, leaf_D)
+       /              \                              /              \
+   leaf_A          leaf_B                       leaf_C          leaf_D
+ (alice,100)    (bob,200)                     (carol,300)    (dave,400)
+```
+
+Pad odd levels by hashing the lone child with itself (or with a sentinel like `[0u8; 32]` — pick one and document it; the verifier needs to do the same). Pre-sort the (claimant, amount) list by claimant address for determinism — two different orderings produce two different roots, and a launcher who picks the wrong order will mint an unusable commitment.
+
+The publisher commits `root` on-chain via a one-shot `set_root(bytes32)` call. They publish each `(claimant, amount, path)` tuple via whatever offchain channel makes sense (S3, IPFS, a Discord pin) — the path is just a witness, not a secret, so cheap-and-cheerful hosting is fine.
+
+### 11.4 Encoding a proof
+
+A merkle proof from leaf `i` to the root is `log₂(N)` levels deep. At each level you need:
+1. The **sibling** at that level (32 bytes), and
+2. The **position** of your current running hash — left or right child (1 bit).
+
+The simplest sound encoding: pack each level as a 33-byte step, `[position_byte][sibling_32B]`. Total proof length is `33 × depth`. For a 1 M-leaf tree, the proof is `33 × 20 = 660 bytes`. Cheap.
+
+Two common alternatives, and why I'd avoid them:
+
+- **Sorted-pair hashing** (OpenZeppelin's default): hash `(min(a, b), max(a, b))` at each level so the position bit isn't needed. Saves a byte per level but lets attackers permute proofs — there's only one valid hash for any `(a, b)` regardless of which side `a` lives on. Easier to forge if the tree-builder later changes orderings; harder to extend with auxiliary metadata.
+- **Bit-packed positions**: stash all the position bits in a single 4-byte prefix, then sibling-array. Saves `depth - 4` bytes (negligible at depth 10) at the cost of a manual bit-unpacking loop. Pick this only if proof size genuinely matters (block-space-sensitive proofs, on-chain *every* tx).
+
+Stick with the byte-per-step encoding unless you have a concrete reason not to.
+
+### 11.5 Verifying a proof on-chain
+
+The verification loop is short, because the structure pushes complexity offchain. The contract:
+1. Recomputes the leaf hash from `(caller, amount)`.
+2. Walks the proof, applying each sibling at the position the byte specifies.
+3. Compares the final hash against the stored root.
+
+```rust
+fn walk_proof(leaf: [u8; 32], proof: &[u8]) -> [u8; 32] {
+    let mut hash = leaf;
+    let mut i = 0;
+    while i < proof.len() {
+        let position = proof[i];
+        let mut sibling = [0u8; 32];
+        sibling.copy_from_slice(&proof[i + 1..i + 33]);
+        hash = if position == 0 {
+            // Running hash is on the LEFT this level.
+            node_hash(&hash, &sibling)
+        } else {
+            // Running hash is on the RIGHT.
+            node_hash(&sibling, &hash)
+        };
+        i += 33;
+    }
+    hash
+}
+
+#[no_mangle]
+pub extern "C" fn claim(amount_ptr: *const u8, proof_ptr: *const u8, proof_len: i32) -> i32 {
+    // SAFETY: typed-arg marshalling guarantees readable bytes.
+    let amount = unsafe { read_u128_arg(amount_ptr) };
+
+    // Sanity-check proof length BEFORE hashing — saves gas on garbage input.
+    if (proof_len as usize) % 33 != 0 { revert(b"MalformedProof"); }
+
+    let mut buf = [0u8; 33 * 32];                     // cap at 32 levels = 2^32 leaves
+    let plen = proof_len as usize;
+    if plen > buf.len() { revert(b"ProofTooLong"); }
+    if plen > 0 {
+        unsafe { core::ptr::copy_nonoverlapping(proof_ptr, buf.as_mut_ptr(), plen); }
+    }
+
+    let claimant = caller_addr();
+    let leaf = leaf_hash(&claimant, amount);
+    let computed = walk_proof(leaf, &buf[..plen]);
+
+    if computed != stored_root() { revert(b"InvalidProof"); }
+
+    // ... mark claimed, emit event, etc.
+    0
+}
+```
+
+The `caller_addr()` binding is the trick that makes this safe: the leaf commits to whoever's *actually calling*, not an address arg. An attacker who steals alice's path can't replay it because their `caller_addr()` would be different, so the leaf hashes wouldn't match.
+
+Gas cost is `15 base + 3/word` per `hash_blake3` invocation, times `depth` per `claim`. For a 1 M-leaf tree (depth 20) verifying a 73 B node-hash preimage, that's ~`20 × (15 + 3×10) = 900 gas` for the hashes alone — cheaper than a single sstore.
+
+### 11.6 Common pitfalls
+
+- **Forgetting the sibling-vs-self ordering on odd levels.** If the tree-builder and the contract handle odd levels differently (one duplicates the lone child, the other uses zero-padding), roots disagree. Pick one rule. Pin it in a comment.
+- **Hashing the address as ASCII.** The leaf's `claimant` field is 32 raw bytes, NOT the hex-string repr. If your offchain tool hashes the string `"0xabc…"`, the contract — which feeds raw bytes from `caller()` — will recompute a different leaf.
+- **Forgetting to verify proof length.** A non-multiple-of-33 proof leaks garbage into the sibling buffer. Always `proof_len % 33 == 0` before walking.
+- **Trusting the amount arg without rebinding to caller.** If `claim(claimant, amount, proof)` accepts the claimant as an *argument* instead of using `caller()`, anyone who knows alice's path can submit it under their own tx and the verification still passes — but the funds go to whoever the contract pays out to (often the arg, not the caller). Tie the leaf to `caller()`.
+- **Reusing the same tree across protocols.** Two airdrops sharing a leaf scheme (no protocol-specific tag prefix) means proofs from one can be replayed against the other. Add a protocol identifier to the leaf tag: `b"PYDE_AIRDROP_V1_LEAF"`.
+
+### 11.7 Live example
+
+The full pattern — domain-separated hashing, 33-byte step encoding, proof verification, double-claim protection, all-error-path tests — lives in [`otigen/examples/merkle-claim-airdrop/`](https://github.com/pyde-net/otigen/tree/main/examples/merkle-claim-airdrop). 10 behaviour tests cover the happy path, every revert path, and the off-by-one edge cases (zero-length proofs, max-depth proofs, malformed lengths).
+
+---
+
+## 12. How the host reads it
 
 The host (Pyde's engine, in Rust, hosted on top of wasmtime) registers `cross_call` as a linker function during executor initialization. The function signature on the host side mirrors the WASM signature, plus a `Caller` handle that gives access to the contract's linear memory.
 
-### 11.1 Engine-side `cross_call` handler
+### 12.1 Engine-side `cross_call` handler
 
 ```rust
 // Register cross_call with the wasmtime linker. This wires the WASM-side
@@ -1497,7 +1660,7 @@ linker.func_wrap(
 )?;
 ```
 
-### 11.2 Why this design
+### 12.2 Why this design
 
 Three properties fall out of this shape:
 
@@ -1509,7 +1672,7 @@ Three properties fall out of this shape:
 
 ---
 
-## 12. The end-to-end flow
+## 13. The end-to-end flow
 
 Putting §6 (contract-side staging), §7 (the cross_call invocation), and §8 (host-side handling) together:
 
@@ -1607,7 +1770,7 @@ Putting §6 (contract-side staging), §7 (the cross_call invocation), and §8 (h
                    decides whether to revert / retry / propagate.
 ```
 
-### 12.1 What you actually pay for
+### 13.1 What you actually pay for
 
 For a single `cross_call` with 48 bytes of calldata and an empty return:
 
@@ -1622,17 +1785,17 @@ The sub-call's `gas_used` is debited from the caller's remaining budget regardle
 
 ---
 
-## 13. Common pitfalls
+## 14. Common pitfalls
 
 A non-exhaustive list of things that have bitten real Pyde contracts during development:
 
-### 13.1 Endianness mismatch
+### 14.1 Endianness mismatch
 
 **Symptom:** A contract writes `amount: u128 = 100` via `amount.to_be_bytes()`, the host reads via `u128::from_le_bytes` — you end up with a 16-byte big-endian on-wire representation interpreted as little-endian. The host sees `0x6400000000000000_00000000_00000000` instead of `100`.
 
 **Fix:** Always little-endian on the wire. `to_le_bytes` / `from_le_bytes` on both sides.
 
-### 13.2 Returning a pointer to a dropped local
+### 14.2 Returning a pointer to a dropped local
 
 ```rust
 // ❌ BROKEN: `local_buf` is dropped at the end of this function.
@@ -1648,19 +1811,19 @@ pub fn broken_pattern() -> i32 {
 
 **Fix:** For data that must survive past the current call, use `static mut` (§6.2) or heap allocation (§6.3). For data that only needs to live through one host call, stack-allocated is fine.
 
-### 13.3 Forgetting to provision the return-length slot
+### 14.3 Forgetting to provision the return-length slot
 
 **Symptom:** `cross_call` writes the actual return length into `return_data_out_len_ptr`, but you passed an uninitialized or shared slot — leading to garbage values for the length check.
 
 **Fix:** Always declare `let mut return_len: i32 = 0;` (or equivalent in Go/AS) immediately before the call. Don't re-use a slot across multiple cross-calls without re-zeroing.
 
-### 13.4 Returning a too-small buffer
+### 14.4 Returning a too-small buffer
 
 **Symptom:** Sub-call returns 256 bytes of data; your `return_buf` is 32 bytes; wasmtime traps with `MemoryOutOfBounds` when the host tries to write past your buffer.
 
 **Fix:** Size return buffers to the documented worst case for the target function. For unknown / variable-size returns, do a two-pass approach: first call with `return_buf = []` and read the length; second call with a buffer of that size. (Pyde's spec defers the formal "buffer too small" semantics to per-host-fn definitions — check the spec for each host fn before assuming.)
 
-### 13.5 Forgetting that pointers are 32-bit
+### 14.5 Forgetting that pointers are 32-bit
 
 ```rust
 // ❌ BROKEN: `let ptr: i64 = my_array.as_ptr() as i64;`
@@ -1674,13 +1837,13 @@ let ptr: i32 = my_array.as_ptr() as i32;   // ← correct
 
 **Fix:** Always cast pointers to `i32` (or `usize` in AS / TinyGo). Host fn signatures use `i32` for pointers; matching exactly prevents subtle type-coercion bugs.
 
-### 13.6 Importing a host fn that doesn't exist
+### 14.6 Importing a host fn that doesn't exist
 
 **Symptom:** Deploy fails with `ERR_FORBIDDEN_IMPORT`.
 
 **Fix:** Every imported function name must appear in the canonical ABI table (HOST_FN_ABI_SPEC §7 and §8). The deploy-time validator rejects unknown imports. Typos like `pyde::s_load` (extra underscore) vs `pyde::sload` (no underscore) are a frequent culprit.
 
-### 13.7 Calling a parachain-only host fn from a non-parachain contract
+### 14.7 Calling a parachain-only host fn from a non-parachain contract
 
 **Symptom:** Deploy fails with `ERR_FORBIDDEN_IMPORT` for functions like `parachain_storage_read`, `send_xparachain_message`, `threshold_encrypt`, etc.
 
@@ -1688,7 +1851,7 @@ let ptr: i32 = my_array.as_ptr() as i32;   // ← correct
 
 ---
 
-## 14. References
+## 15. References
 
 - [HOST_FN_ABI_SPEC v1.0](./HOST_FN_ABI_SPEC.md) — normative ABI specification.
 - [Chapter 3 — Execution Layer](../chapters/03-virtual-machine.md) — wasmtime runtime architecture, fuel metering, module caching.
@@ -1701,3 +1864,5 @@ let ptr: i32 = my_array.as_ptr() as i32;   // ← correct
 - [`otigen/examples/erc20-token`](https://github.com/pyde-net/otigen/tree/main/examples/erc20-token) — full ERC20-style fungible token. Exercises Phase 4 typed-arg marshalling (`address` / `uint128`), three storage layouts (scalar / mapping / composite-key), multi-topic events, and the `transfer_from` allowance flow.
 - [`otigen/examples/simple-multisig`](https://github.com/pyde-net/otigen/tree/main/examples/simple-multisig) — 3-signer FALCON-512 multisig (§9 canonical example).
 - [`otigen/examples/upgradeable-proxy`](https://github.com/pyde-net/otigen/tree/main/examples/upgradeable-proxy) — upgradeable proxy via `delegate_call` (§10 canonical example).
+- [`otigen/examples/merkle-claim-airdrop`](https://github.com/pyde-net/otigen/tree/main/examples/merkle-claim-airdrop) — Merkle-tree airdrop claim with `hash_blake3` host fn (§11 canonical example).
+- [RFC 9162 — Certificate Transparency v2](https://datatracker.ietf.org/doc/rfc9162/) — domain-separation conventions for hash-based commitment trees (§11.2 background).

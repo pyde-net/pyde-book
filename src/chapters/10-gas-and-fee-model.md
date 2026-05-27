@@ -180,18 +180,18 @@ target┤----+                 +---+----  target line
 - **State growth.** Larger blocks drive faster state growth. The 4× ceiling
   bounds worst-case growth by the same factor.
 
-### Throughput estimates
+### Gas-bound throughput ceiling
 
 At 2 commits/sec (~500 ms commit), `GAS_TARGET = 400M`, `GAS_CEILING = 1.6B`:
 
-| Workload                | Gas/tx  | Theoretical gas-bound TPS | Realistic v1 (committee-bound) |
-| ----------------------- | ------- | ------------------------- | ------------------------------ |
-| Simple transfer         | 21,000  | ~38,000                   | awaiting harness |
-| Token transfer (ERC-20) | 65,000  | ~12,300                   | awaiting harness |
-| DEX swap                | 200,000 | ~4,000                    | awaiting harness |
+| Workload                | Gas/tx  | Relative gas-bound ceiling | Realistic v1 (committee-bound) |
+| ----------------------- | ------- | -------------------------- | ------------------------------ |
+| Simple transfer         | 21,000  | Highest                    | awaiting harness |
+| Token transfer (ERC-20) | 65,000  | Moderate                   | awaiting harness |
+| DEX swap                | 200,000 | Lowest                     | awaiting harness |
 
-**Honest v1 numbers.** The theoretical numbers above assume committee
-hardware fully saturates execution. In practice, the v1 honest throughput
+**Honest v1 numbers.** The gas-bound ceiling above is a mechanical cap — block
+gas budget ÷ gas-per-tx — assuming committee hardware fully saturates execution. In practice, the v1 honest throughput
 target (to be established by the multi-region performance harness) is set on
 commodity committee hardware (500 Mbps NIC, 32-core, 64 GB). Higher numbers
 require larger NICs and more cores; see Chapter 19 for the launch-strategy

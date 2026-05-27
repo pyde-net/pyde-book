@@ -374,11 +374,10 @@ Partials are computed **as soon as the encrypted tx enters the mempool DAG**, be
 
 > **Headroom analysis, not a v1 claim.** v1's honest encrypted-throughput target is to be established by the multi-region performance harness. The math below sizes what it would take to push encrypted throughput well beyond that — useful for understanding the scaling lever, *not* a v1 promise.
 
-At a hypothetical 100K encrypted TPS:
+At encrypted throughput well beyond the v1 target:
 
 - Per-tx ceremony: 85 partials × ~80μs verify + ~1ms Lagrange = ~8ms CPU work
-- 100K txs × 8ms = 800,000 ms of CPU per second total
-- Naive sequential: not feasible. But share-combine vectorizes:
+- Multiplied across a high transaction rate, that per-tx cost overruns a single core's per-second budget — naive sequential combine isn't feasible. But share-combine vectorizes:
   - Group partials by ciphertext, combine in parallel across cores
   - GPU acceleration on the share-combine path is the realistic post-v1 scale lever
 

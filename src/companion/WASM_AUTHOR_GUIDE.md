@@ -1851,9 +1851,9 @@ let ptr: i32 = my_array.as_ptr() as i32;   // ← correct
 
 ### 14.8 Leaving `debug_log` calls in a production bundle
 
-**Symptom:** `otigen build --strict` (future) or `otigen deploy` fails with `ForbiddenImport(debug_log)`.
+**Symptom:** `otigen build --strict` or `otigen deploy` fails with `import pyde.debug_log is a test-only host fn (forbidden on chain)`.
 
-**Fix:** `pyde::debug_log` is a test-only host fn (HOST_FN_ABI_SPEC §9.3). The otigen-test runner provides it for `console.log`-style debugging; the chain rejects any module that imports it. Strip the calls before deploying.
+**Fix:** `pyde::debug_log` is a test-only host fn (HOST_FN_ABI_SPEC §9.3). `otigen build` (default) and `otigen test` accept it so the dev loop works. The production gate fires at `otigen build --strict` and at `otigen deploy` (which sets strict implicitly). Strip the calls — or guard them behind `#[cfg(feature = "debug")]` — before deploying.
 
 ```rust
 // Development: print intermediate values during otigen test.

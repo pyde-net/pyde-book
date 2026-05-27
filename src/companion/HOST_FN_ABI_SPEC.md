@@ -1209,7 +1209,17 @@ fn in any module shipped to mainnet or testnet.
 
 Use cases: ad-hoc value dumps, breadcrumb traces, asserting intermediate state in tests without polluting events. Bridges the gap that previously forced devs to call `revert(b"value=42")` to surface intermediate values.
 
-**Stripping for deploy:** `otigen build --strict` (planned) will reject any bundle that imports `pyde::debug_log`. Until that lands, the honour-system rule is: strip all `debug_log` calls before running `otigen deploy`. A simple grep over the source tree (`grep -rn debug_log src/`) is sufficient.
+**Stripping for deploy:** `otigen build --strict` rejects any bundle that imports `pyde::debug_log`, surfacing `ValidationError::TestOnlyHostFn`. `otigen deploy` runs the same gate implicitly — so authors who skip the explicit `--strict` step still get the production check before anything reaches the network. The chain's deploy validator hard-rejects modules whose import section names `debug_log` regardless of how they were bundled.
+
+| Path | Test-only fns accepted? |
+|---|---|
+| `otigen build` (default) | yes — dev loop unobstructed |
+| `otigen build --strict` | **no** — production gate |
+| `otigen check` | yes |
+| `otigen deploy` | **no** — implicit `--strict` |
+| `otigen test` runner | mocked (writes to stderr) |
+
+The honour-system rule is therefore: drop `debug_log` calls (or guard them behind `#[cfg(feature = "debug")]`) before pushing. A grep over the source tree (`grep -rn debug_log src/`) is a fast pre-flight check.
 
 ### 9.4 WASM features rejected at instantiation time
 

@@ -150,6 +150,48 @@ Cheats reserved for v2 (parsed but currently a no-op with a warning):
 - `cheats.prank_origin` — separate `tx.origin` from `caller` (Pyde currently has no `origin`; reserved for forward-compatibility).
 - `cheats.assume_balance` — assume an account has at least N quanta (fuzzing constraint).
 
+**Per-call overrides.** `now`, `wave_id`, `chain_id`, `gas` can also be set on individual `[[tests.calls]]` entries — see §4.5. The per-call values use **sticky semantics**: once a call sets `now = X`, X persists into subsequent calls in the same test until another override fires. This models a real chain's monotonically-advancing clock and avoids the per-call-restore footgun.
+
+```toml
+[cheats]
+now = 1000      # test baseline
+
+[[tests.calls]]
+function = "propose"           # block_timestamp() returns 1000
+
+[[tests.calls]]
+function = "vote"
+now      = 1500                # advance clock — block_timestamp() returns 1500
+
+[[tests.calls]]
+function = "check_state"       # block_timestamp() still 1500 (sticky)
+
+[[tests.calls]]
+function = "execute"
+now      = 2500                # advance again
+```
+
+### Foundry → otigen translation
+
+Coming from Solidity / Foundry? `vm.xxx()` imperative cheats map to declarative TOML in otigen. Same coverage, no scope footguns, contract code stays identical between test and prod.
+
+| Foundry imperative | otigen declarative |
+|---|---|
+| `vm.prank(addr)` | `from = "alice"` on the call |
+| `vm.startPrank / stopPrank(addr)` | every call has its own `from` (no scope to forget) |
+| `vm.deal(addr, n)` | `[tests.setup].balances.alice = "100"` |
+| `vm.warp(t)` | `[cheats] now = t` (or `now =` per call) |
+| `vm.roll(blockNum)` | `[cheats] wave_id = N` (Pyde uses waves, not blocks) |
+| `vm.chainId(id)` | `[cheats] chain_id = id` (or per-call) |
+| `vm.expectRevert("msg")` | `expect.revert = "msg"` |
+| `vm.expectEmit(...)` | `expect.events = [{ name = "Foo", ... }]` |
+| `vm.signMessage(key, msg)` | `@sig:NAME:args.IDX` DSL (sigs are FALCON-512, generated at plan time) |
+| `vm.mockCall(target, calldata, ret)` | `[[contracts]]` secondary contracts (§4.7) |
+| `vm.label(addr, "name")` | `[accounts].alice = {}` — names are always used in traces |
+| `vm.snapshot / vm.revertTo` | not needed — each test starts from fresh state |
+| `vm.recordLogs` | not needed — events are always recorded for matching |
+| `console.log(...)` | not supported in v1 (queued — test-only `debug_log` host fn) |
+
 ### 4.3 `[[tests]]` — test case array
 
 Each test case is a TOML table-array entry. Order in the file is the order they run; tests are independent (one's state doesn't leak into the next).
@@ -203,6 +245,9 @@ Each call executes a contract function in order, with its own caller / value / e
 | `args` | array of strings | no | Positional args. v1 supports `i32` / `i64` literals (decimal or `0x`-hex). Complex types deferred to v2. |
 | `value` | hex / decimal | no | Quanta attached to the call (visible via `pyde::value()`). Default `"0"`. |
 | `gas` | u64 | no | Per-call gas budget override. Default uses `[cheats].gas_limit`. |
+| `now` | u64 (unix seconds) | no | Per-call `block_timestamp()` override. **Sticky:** the new value persists into subsequent calls in the same test until another override fires. Models a real chain's monotonically-advancing clock. |
+| `wave_id` | u64 | no | Per-call `current_wave()` override. Sticky, same semantics as `now`. |
+| `chain_id` | u64 | no | Per-call `chain_id()` override. Sticky. Rare in practice (chain_id doesn't change across a chain's lifetime) — exists for symmetry + future cross-chain replay-protection testing. |
 | `expect.return_value` | hex / decimal / negative decimal | no | Asserted return value. Unsigned decimal and `0x`-hex compare numerically (so `"42"` and `"0x2a"` match the same return). **Negative decimal literals** (e.g. `"-10"`) parse as i64 and compare against the wasm result's sign-extended i64 view — useful for asserting error codes returned by host fns like `pyde::cross_call` (which surfaces `ERR_CROSS_CALL_FAILED = -10` when its sub-call traps). |
 | `expect.events` | array of event matchers | no | Each entry MUST appear in this call's emitted events. See §6 for matching rules. |
 | `expect.revert` | string | no | If set, the call MUST trap with a reason that contains this substring. |

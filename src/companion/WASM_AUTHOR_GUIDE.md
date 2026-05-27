@@ -1849,6 +1849,28 @@ let ptr: i32 = my_array.as_ptr() as i32;   // ← correct
 
 **Fix:** These functions are gated to parachain-typed modules at deploy time (HOST_FN_ABI_SPEC §9.2). If your contract needs them, declare `type = "parachain"` in `otigen.toml`; otherwise refactor to avoid the dependency.
 
+### 14.8 Leaving `debug_log` calls in a production bundle
+
+**Symptom:** `otigen build --strict` (future) or `otigen deploy` fails with `ForbiddenImport(debug_log)`.
+
+**Fix:** `pyde::debug_log` is a test-only host fn (HOST_FN_ABI_SPEC §9.3). The otigen-test runner provides it for `console.log`-style debugging; the chain rejects any module that imports it. Strip the calls before deploying.
+
+```rust
+// Development: print intermediate values during otigen test.
+#[link(wasm_import_module = "pyde")]
+extern "C" { fn debug_log(msg: *const u8, len: i32); }
+
+fn dump(label: &str, value: u64) {
+    let line = format!("{label}={value}");
+    unsafe { debug_log(line.as_ptr(), line.len() as i32); }
+}
+
+// In a function:
+dump("alice_balance", read_u128(FIELD_BALANCES, &alice) as u64);
+```
+
+Run `otigen test -v` and watch stderr for `[debug] <fn>: alice_balance=100`. Strip these calls (or guard them behind `#[cfg(feature = "debug")]`) before `otigen deploy`. A grep over the source tree (`grep -rn debug_log src/`) is sufficient.
+
 ---
 
 ## 15. References

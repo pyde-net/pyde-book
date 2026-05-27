@@ -1176,14 +1176,42 @@ The deploy validator rejects any module whose WASM import section references any
 | `wasi_unstable` | (any) | Same |
 | `wasi:*` | (any) | Same |
 | `env` | (any) | Generic env-namespace functions out of scope for Pyde ABI |
-| `pyde` | functions not in this spec | Future-proofing; rejects modules built against an unreleased ABI version |
+| `pyde` | `debug_log` | **Test-only.** Provided by the otigen-test runner for `console.log`-style printf debugging. Production deployments MUST strip these calls before deploy. See §9.3. |
+| `pyde` | other functions not in this spec | Future-proofing; rejects modules built against an unreleased ABI version |
 | Any other module name | (any) | Single permitted namespace is `pyde`. |
 
 ### 9.2 Parachain functions called from non-parachain modules
 
 If a non-parachain module imports a function from §8, the deploy validator rejects the deployment with `DeployRejected: ParachainOnly(<name>)`. The eligible-import set is determined by the contract's declared `type` in `otigen.toml`.
 
-### 9.3 WASM features rejected at instantiation time
+### 9.3 Test-only imports (otigen-test runner)
+
+The otigen-test runner provides one extra `pyde::*` import that is **forbidden on the chain** but available during local development for `console.log`-style debugging.
+
+#### `debug_log`
+
+```text
+pyde::debug_log(msg_ptr: i32, msg_len: i32) -> ()
+
+msg_ptr — pointer to UTF-8 message bytes (lossy decoding tolerates non-UTF-8)
+msg_len — message length (max 4 KB; exceeding traps)
+
+Returns: nothing.
+
+Gas: untracked (test-only).
+
+Semantics (test runner): writes "[debug] <fn_name>: <msg>" to stderr. Also
+captured in TestEnv.debug_logs for programmatic access in trace renderers.
+
+Semantics (chain): rejected at deploy time. The contract MUST NOT import this
+fn in any module shipped to mainnet or testnet.
+```
+
+Use cases: ad-hoc value dumps, breadcrumb traces, asserting intermediate state in tests without polluting events. Bridges the gap that previously forced devs to call `revert(b"value=42")` to surface intermediate values.
+
+**Stripping for deploy:** `otigen build --strict` (planned) will reject any bundle that imports `pyde::debug_log`. Until that lands, the honour-system rule is: strip all `debug_log` calls before running `otigen deploy`. A simple grep over the source tree (`grep -rn debug_log src/`) is sufficient.
+
+### 9.4 WASM features rejected at instantiation time
 
 The wasmtime config (see [Chapter 3 §3.2](../chapters/03-virtual-machine.md)) rejects modules that use:
 

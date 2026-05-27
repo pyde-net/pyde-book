@@ -11,7 +11,7 @@ Every major Layer 1 in production today has at least one structural problem the 
 | Bitcoin | ❌ secp256k1 | ✅ (slow blocks) | ❌ 60+ min | ✅ |
 | Aptos / Sui | ❌ BLS12-381 | ⚠️ partial | ✅ ~400ms | ⚠️ medium |
 
-**No chain in production today is post-quantum + MEV-free + sub-second + commodity-validated.**
+**No chain in production today is post-quantum + MEV-resistant + sub-second + commodity-validated.**
 
 The migration to PQ cryptography on existing chains is a multi-year coordinated upgrade — trillions of dollars of value, entrenched wallets, entrenched contracts. The chain built greenfield with PQ as default ships those properties at genesis without retrofitting.
 

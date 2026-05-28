@@ -307,14 +307,18 @@ Per-test pipeline:
 
 Mock host fns (v1) — canonical names per [`HOST_FN_ABI_SPEC §7`](./HOST_FN_ABI_SPEC.md):
 
-- Storage: `sload`, `sstore`, `sdelete`
-- Account & balance: `balance`, `transfer`
-- Execution context: `caller`, `wave_id`, `wave_timestamp`, `chain_id`
-- Transaction context: `tx_value`
-- Events + halt: `emit_event`, `revert`
-- Hashing: `hash_poseidon2`, `hash_blake3`
+- **Storage** (variable-length): `sload`, `sstore`, `sdelete`
+- **Account & balance**: `balance`, `transfer`
+- **Execution context**: `caller`, `self_address`, `wave_id`, `wave_timestamp`, `chain_id`
+- **Transaction context**: `tx_value`
+- **Events + halt**: `emit_event`, `revert`
+- **Hashing**: `hash_blake3`, `hash_poseidon2`
+- **Post-quantum crypto**: `falcon_verify` (real verification via the runner's bundled `pyde-crypto`; pairs with the `@sig:NAME:args.IDX` DSL — see [`OTIGEN_TEST_SPEC §6`](./OTIGEN_TEST_SPEC.md))
+- **Cross-contract**: `cross_call`, `delegate_call` (multi-contract topology declared via `[[contracts]]`; each secondary instance gets its own Store + storage namespace)
+- **Parachain §8** (when `[contract].type = "parachain"`): `parachain_id`, `parachain_version`, `parachain_storage_read`, `parachain_storage_write`, `parachain_storage_delete`, `parachain_emit_event`
+- **Test-only**: `debug_log` (printf-style; not registered chain-side. `otigen build --strict` and `otigen deploy` reject contracts that import it. See [`OTIGEN_TEST_SPEC §7`](./OTIGEN_TEST_SPEC.md).)
 
-Trap with `UnsupportedHostFn`: every other `pyde::*` import (DKG, parachain-only, cross-contract, `origin`, `self_address`, `tx_hash`, `tx_gas_remaining`, `calldata_size`, `calldata_copy`, `falcon_verify`, `beacon_get`, `hash_keccak256`, `consume_gas`, `cross_call*`, `delegate_call`, `return`). v2 expands.
+Trap with `UnsupportedHostFn`: every other `pyde::*` import — `origin`, `tx_hash`, `tx_gas_remaining`, `calldata_size`, `calldata_copy`, `hash_keccak256`, `beacon_get`, `consume_gas`, `cross_call_static`, `return`. These trap-rather-than-mock either because the test framework can't model them faithfully (`beacon_get` needs DKG output; `consume_gas` would conflict with the runner's wasmtime fuel accounting) or because no canonical example exercises them yet (post-v1 ladder).
 
 Exit codes: `0` all-pass; `1` any failure; `2` resource failure (test file unreadable, bundle missing); `4` schema error (malformed TOML, reference to undeclared `[state]` field).
 
@@ -327,6 +331,59 @@ Exit codes: `0` all-pass; `1` any failure; `2` resource failure (test file unrea
 Note: the runner's fuel units correlate to but are not bit-identical with on-chain Pyde gas. Foundry has the same caveat — gas reports under `forge test` are estimates, not chain billing.
 
 The full TOML schema, name resolution rules, cheatcode catalogue, mock host-function behaviour, and limitations are documented in [`OTIGEN_TEST_SPEC.md`](./OTIGEN_TEST_SPEC.md). That spec is authoritative.
+
+### 3.11 `otigen new`
+
+Scaffold a project by cloning a canonical example from the [`pyde-net/otigen` example catalogue](https://github.com/pyde-net/otigen/tree/main/examples). Where `otigen init` writes a minimal hello-world, `otigen new` produces a fully-working contract with a passing TOML test suite — the fastest path from zero to a green `otigen test` run.
+
+```
+otigen new <name> --from <template> [--dir <path>]
+otigen new --list
+```
+
+| Arg | Required | Description |
+|---|---|---|
+| `<name>` | yes (unless `--list`) | Project name. Lowercase + hyphens (ENS-style, 1–32 chars). Used for the contract identity and the directory. |
+| `--from` | yes (unless `--list`) | Template to clone. Run `otigen new --list` for the catalogue. |
+| `--list` | no | List available templates and exit. Mutually exclusive with `<name>`, `--from`, and `--dir`. |
+| `--dir` | no | Target directory (default: `./<name>`). |
+
+Canonical templates (frozen at v1):
+
+| Template | Highlights |
+|---|---|
+| `counter` | Minimum viable contract — single u64 + variable-length storage + `derive_slot` helper. |
+| `erc20-token` | ERC20-style fungible token. Phase 4 typed-arg marshalling + composite-key mapping for allowances. |
+| `erc721-token` | ERC721-shape NFT. Per-token ownership + balance_of + single-spender approval. |
+| `simple-multisig` | 3-signer FALCON-512 multisig. `falcon_verify` + signer-ID lookup + action-hash anti-replay. |
+| `upgradeable-proxy` | Upgradeable proxy via `delegate_call`. Admin-controlled implementation slot. |
+| `merkle-claim-airdrop` | Off-chain Merkle commitment + on-chain inclusion verification. |
+| `vesting` | Linear vesting with cliff. Time-locked allocation using `wave_timestamp`. |
+| `dao-governance` | Composed example. FALCON-signed votes + time-phased state machine + hash_blake3-committed execution. |
+
+Side effects:
+
+1. Creates `<dir>/` and copies every file from the template into it.
+2. Rewrites identity fields to `<name>` in `otigen.toml` (`[contract].name`), `Cargo.toml` / `package.json` / `go.mod` (per-language idiom), and the `Makefile`'s display strings.
+3. Preserves every other file byte-for-byte — `src/`, `tests/`, the per-template `README.md`, the build config — so `cd <name> && make test` produces an identical result to running the template in-tree.
+
+Exit codes: `0` on success, `1` if `<dir>` already exists, `2` if the template is unknown (run with `--list` to see the catalogue).
+
+### 3.12 `otigen check`
+
+Validate the project without packaging. Same checks as `otigen build` steps 1–7 (read + schema-validate `otigen.toml`, locate `.wasm`, every WASM-level validator, ABI build) minus the bundle write. Intended for pre-commit hooks, IDE integrations, and tight iteration loops where the bundle write is wasted I/O.
+
+```
+otigen check [--compile]
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--compile` | off | Run the per-language build command first (same dispatch table as `otigen build --compile`). |
+
+Exit codes: `0` on clean validation, `1` on validation failure (with per-violation diagnostics on stderr), `2` if the `.wasm` was not found at the declared `[contract.lang.output]` path.
+
+Coverage parity with `otigen build`: any contract that passes `otigen check` will pass `otigen build`'s validators identically (steps 8+ are I/O-only). Likewise any contract that fails `otigen build` validation fails `otigen check` with the same diagnostic. The two commands share the validation core; `check` is `build` with the writer disabled.
 
 ---
 

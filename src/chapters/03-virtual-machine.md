@@ -105,9 +105,11 @@ Smart contracts cannot directly access state, signatures, or anything outside th
 This section gives the conceptual surface; the spec gives the binary signatures.
 
 **Storage:**
-- `sload(slot_hash) -> value` — read a 32-byte slot.
-- `sstore(slot_hash, value)` — write a 32-byte slot. Costs increase for new slot allocations.
-- `sdelete(slot_hash)` — explicitly delete a slot (lower cost than `sstore`; no refund in v1, per Chapter 10).
+- `sload(slot_ptr, out_ptr, out_max_len) -> i32` — read a slot. Slot keys are 32 bytes (Poseidon2 of the contract address ‖ logical slot ID); slot **values are variable-length raw bytes**, up to `MAX_STORAGE_VALUE_BYTES = 16 KB`. Caller passes a max length and an out-pointer; host writes `min(actual, out_max_len)` bytes and returns the actual length (or `SLOAD_MISSING = -1` for a never-written slot).
+- `sstore(slot_ptr, val_ptr, val_len) -> ()` — write a slot. `val_len` is arbitrary up to the 16 KB cap; exceed it and the host fn traps. Costs are `GAS_SSTORE_BASE = 5_000 + 32/byte` value (the per-byte component is what makes large writes proportionally expensive).
+- `sdelete(slot_ptr) -> ()` — explicitly delete a slot (lower cost than `sstore`; no refund in v1, per Chapter 10).
+
+**Why variable-length values, not EVM-style 32-byte words.** Pyde isn't word-oriented at the VM level — WASM operates on linear memory, not 256-bit words. Forcing slot values into 32 bytes would (a) require contracts to manually pack/unpack any non-uint256 data, and (b) burn one slot per logical field regardless of size, blowing up state-tree node count for the common case of small structs. The variable-length model lets a contract Borsh-encode an entire small struct into one slot (e.g. a `Position { trader, size, entry, leverage }` at ~80 bytes → one slot, one read, one decode) — closer to a key-value store than a word array. For larger logical values, contracts use standard chunking patterns: `slot[H(base ‖ i)] = chunk_i` for chunked sequential data, or `slot[H(base ‖ key)] = value` for mapping-style access. The 16 KB cap is a RocksDB write-amplification budget (per-slot write costs scale with size; >16 KB starts to hurt LSM compaction); it's a chain-spec parameter, tunable via a future PIP if real workloads demand it.
 
 **Balances and transfers:**
 - `balance(addr) -> u128` — read an account's PYDE balance.

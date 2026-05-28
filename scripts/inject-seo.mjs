@@ -101,15 +101,14 @@ function splitTomlPath(name) {
   return out;
 }
 
-// ── Path → metadata resolver ─────────────────────────────────────
+// ── Path → manifest fallback (section-level + default) ───────────
+//
+// The manifest provides FALLBACK values when per-page content
+// extraction (below) yields nothing usable. Image always comes
+// from the manifest (it's shared across pages by intent).
 
-function resolveMetaForPath(relPath, manifest) {
-  // Strip .html suffix so the manifest can use path-style keys
-  // (e.g., "otigen" matches "otigen/01-quickstart.html").
+function resolveSectionFallback(relPath, manifest) {
   const noExt = relPath.replace(/\.html$/, "");
-
-  // Find every section whose key is a prefix of this path; pick
-  // the longest. Field-level fallback handles independent inheritance.
   const sections = manifest.sections || {};
   const matched = [];
   for (const [key, val] of Object.entries(sections)) {
@@ -117,22 +116,110 @@ function resolveMetaForPath(relPath, manifest) {
       matched.push({ key, val });
     }
   }
-  // Sort by key length descending; longest match first.
   matched.sort((a, b) => b.key.length - a.key.length);
-
   const def = manifest.default || {};
-  // Walk matched + default in order; first-defined wins per field.
   const resolve = (field) => {
     for (const m of matched) {
       if (m.val[field] != null) return m.val[field];
     }
     return def[field];
   };
-
   return {
     title: resolve("title"),
     description: resolve("description"),
     image: resolve("image"),
+  };
+}
+
+// ── Per-page content extraction ──────────────────────────────────
+//
+// Title  = the page's H1 text (mdBook generates `<h1 class="...">...
+// Description = first meaningful <p> after that H1, stripped of
+// inline HTML, normalised whitespace, truncated to MAX_DESC_LEN
+// chars at a word boundary with an ellipsis.
+
+const MAX_DESC_LEN = 200;
+
+function decodeHtmlEntities(s) {
+  return String(s)
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&mdash;/g, "—")
+    .replace(/&ndash;/g, "–")
+    .replace(/&hellip;/g, "…")
+    .replace(/&[a-zA-Z0-9#]+;/g, ""); // strip anything else
+}
+
+function stripInlineHtml(html) {
+  // Replace block tags that should produce a space boundary,
+  // then strip every remaining tag. Collapse whitespace.
+  return html
+    .replace(/<br\s*\/?>/gi, " ")
+    .replace(/<\/(p|li|h[1-6]|div|td|tr)>/gi, " ")
+    .replace(/<[^>]*>/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function truncateAtWord(s, max) {
+  if (s.length <= max) return s;
+  const sliced = s.slice(0, max - 1);
+  const lastSpace = sliced.lastIndexOf(" ");
+  const base = lastSpace > max - 40 ? sliced.slice(0, lastSpace) : sliced;
+  return base.replace(/[\s,.;:!?—–-]+$/, "") + "…";
+}
+
+function extractPageMeta(html) {
+  // Scope to mdBook's <main> element so we skip the nav/sidebar's
+  // `<h1 class="menu-title">The Pyde Book` and only see the
+  // actual page content. mdBook always emits `<main>` for the
+  // chapter body.
+  const mainMatch = html.match(/<main\b[^>]*>([\s\S]*?)<\/main>/i);
+  const content = mainMatch ? mainMatch[1] : html;
+
+  // First H1 inside <main>. mdBook adds `id="..."` for anchor
+  // links + an inline `<a class="header" .../>` after the text.
+  // Strip both the anchor + any other inline markup.
+  const h1Match = content.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i);
+  let title = null;
+  if (h1Match) {
+    title = decodeHtmlEntities(stripInlineHtml(h1Match[1]));
+    if (!title) title = null;
+  }
+
+  // First paragraph AFTER the H1 (still scoped to <main>). Skip
+  // empty / very short paragraphs (typically figure captions or
+  // stray markup).
+  let description = null;
+  if (h1Match) {
+    const after = content.slice(h1Match.index + h1Match[0].length);
+    const paragraphs = after.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/gi);
+    for (const p of paragraphs) {
+      const stripped = decodeHtmlEntities(stripInlineHtml(p[1]));
+      if (stripped.length < 40) continue;
+      description = truncateAtWord(stripped, MAX_DESC_LEN);
+      break;
+    }
+  }
+
+  return { title, description };
+}
+
+function resolveMetaForPath(relPath, manifest, html) {
+  const fallback = resolveSectionFallback(relPath, manifest);
+  const extracted = extractPageMeta(html);
+  return {
+    // Per-page title from H1; fall back to section/default.
+    title: extracted.title || fallback.title,
+    // Per-page description from first paragraph; fall back to
+    // section/default.
+    description: extracted.description || fallback.description,
+    // Image is intentionally shared (section/default only).
+    image: fallback.image,
   };
 }
 
@@ -238,23 +325,25 @@ const htmlFiles = findAllHtml(BOOK_DIR);
 console.log(`[inject-seo] walking ${htmlFiles.length} HTML files...`);
 
 let updated = 0;
-const sectionStats = {};
+let extractedTitleCount = 0;
+let extractedDescCount = 0;
 for (const file of htmlFiles) {
   const relPath = file.slice(BOOK_DIR.length + 1);
-  const meta = resolveMetaForPath(relPath, manifest);
   const html = readFileSync(file, "utf8");
+  const meta = resolveMetaForPath(relPath, manifest, html);
+  // Telemetry: did extraction succeed for this page, or did we
+  // fall back to the section default?
+  const pageMeta = extractPageMeta(html);
+  if (pageMeta.title) extractedTitleCount++;
+  if (pageMeta.description) extractedDescCount++;
   const rewritten = rewriteHtml(html, meta);
   if (rewritten !== html) {
     writeFileSync(file, rewritten);
     updated++;
-    // Telemetry: which section did this page resolve into?
-    const sectionKey = meta.title; // proxy for grouping
-    sectionStats[sectionKey] = (sectionStats[sectionKey] || 0) + 1;
   }
 }
 
 console.log(`[inject-seo] rewrote SEO on ${updated}/${htmlFiles.length} pages.`);
-console.log("[inject-seo] per-section page count:");
-for (const [title, count] of Object.entries(sectionStats).sort((a, b) => b[1] - a[1])) {
-  console.log(`  ${count.toString().padStart(4)}  ${title}`);
-}
+console.log(`[inject-seo] per-page title  extracted from H1 on ${extractedTitleCount}/${htmlFiles.length} pages`);
+console.log(`[inject-seo] per-page desc   extracted from <p> on ${extractedDescCount}/${htmlFiles.length} pages`);
+console.log(`[inject-seo] (the rest fall back to section/default values from theme/seo.toml)`);

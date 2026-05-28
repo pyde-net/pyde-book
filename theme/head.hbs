@@ -46,20 +46,28 @@
 <meta property="og:title" content="{{#if chapter_title}}{{ chapter_title }} — The Pyde Book{{else}}The Pyde Book{{/if}}">
 <meta property="og:description" content="Comprehensive technical reference for the Pyde blockchain protocol.">
 <meta property="og:url" content="https://book.pyde.network/{{ path }}">
-<meta property="og:image" content="https://book.pyde.network/assets/android-chrome-512x512.png">
+<meta property="og:image" content="https://book.pyde.network/assets/og-1200x630.png">
 <meta property="og:image:type" content="image/png">
-<meta property="og:image:width" content="512">
-<meta property="og:image:height" content="512">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="Pyde — a post-quantum, MEV-resistant Layer 1 blockchain">
 <meta property="og:locale" content="en_US">
 
 {{!-- ── Twitter / X Card ───────────────────────────────────────────── --}}
+{{!--
+  The `twitter:card` value is overwritten to `summary_large_image`
+  by `scripts/inject-seo.mjs` after `mdbook build` so the larger
+  preview tile renders on X / LinkedIn. The pre-rewrite value stays
+  `summary` here so a first-build (before the script runs) still
+  shows a valid card. The post-build script also rewrites the
+  twitter:* title / description / image per section per `theme/seo.toml`.
+--}}
 <meta name="twitter:card" content="summary">
 <meta name="twitter:site" content="@pydenet">
 <meta name="twitter:creator" content="@pydenet">
 <meta name="twitter:title" content="{{#if chapter_title}}{{ chapter_title }} — The Pyde Book{{else}}The Pyde Book{{/if}}">
 <meta name="twitter:description" content="Comprehensive technical reference for the Pyde blockchain protocol.">
-<meta name="twitter:image" content="https://book.pyde.network/assets/android-chrome-512x512.png">
+<meta name="twitter:image" content="https://book.pyde.network/assets/og-1200x630.png">
 <meta name="twitter:image:alt" content="Pyde — a post-quantum, MEV-resistant Layer 1 blockchain">
 
 {{!--
@@ -76,7 +84,7 @@
   "headline": "{{#if chapter_title}}{{ chapter_title }}{{else}}The Pyde Book{{/if}}",
   "description": "Comprehensive technical reference for the Pyde blockchain protocol.",
   "url": "https://book.pyde.network/{{ path }}",
-  "image": "https://book.pyde.network/assets/android-chrome-512x512.png",
+  "image": "https://book.pyde.network/assets/og-1200x630.png",
   "inLanguage": "en",
   "isPartOf": {
     "@type": "Book",

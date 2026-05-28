@@ -422,7 +422,7 @@ Step 7 — STATE ROOT ATTESTATION
 
 Step 8 — RECEIPT
   - Receipt available via pyde_getTransactionReceipt:
-      success, gas_used, logs, fee_paid, fee_payer, block_height
+      success, gas_used, logs, fee_paid, fee_payer, wave_id
 ```
 
 At no point in this flow does any party know transaction contents AND have

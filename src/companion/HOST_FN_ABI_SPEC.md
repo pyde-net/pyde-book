@@ -55,7 +55,7 @@ Example: `0x0001_0000` = ABI v1.0.
 
 - **Engine support is monotonic.** An engine running ABI v1.7 supports every contract deployed against v1.0 through v1.7. It refuses contracts declaring v1.8 or higher.
 
-> **Worked example.** The §7.1 field-keyed storage trio (`sload_by_field` / `sstore_by_field` / `sdelete_by_field`) is the canonical instance of a backwards-compatible minor bump: three new functions added, no existing signature touched, no gas / error-code redefinition, no contract re-deployment required. Old contracts that only import `sload` / `sstore` / `sdelete` execute unchanged; new contracts get the convenience form.
+> **Worked example.** The `pyde::debug_log` test-only host fn (§9.3) is a canonical backwards-compatible minor bump: one new function added (in the test runner's allowlist; rejected on chain), no existing signature touched, no gas / error-code redefinition. Old contracts that don't import it are unaffected; new contracts get the printf-debug capability during development.
 
 ### 2.3 What does *not* count as a breaking change
 
@@ -112,7 +112,7 @@ Every host function returns an **i32 result code**:
 - Positive non-zero — currently unused; reserved for future warning/info codes
 - Negative — error (see §4)
 
-Functions that conceptually return data (e.g., `balance()`) write the data to a caller-provided output pointer and return the i32 result code. Functions that conceptually return a small scalar (e.g., `block_height()`) return the scalar directly via WASM's normal return mechanism (e.g., `-> i64`).
+Functions that conceptually return data (e.g., `balance()`) write the data to a caller-provided output pointer and return the i32 result code. Functions that conceptually return a small scalar (e.g., `wave_id()`) return the scalar directly via WASM's normal return mechanism (e.g., `-> i64`).
 
 Convention summary:
 
@@ -123,7 +123,7 @@ Convention summary:
 | `-> i32` + writes to out_ptr | Returns fixed-size data (`caller`, `balance`) — writes a known byte width into `out_ptr` |
 | `-> i32` (actual_len) + writes to out_ptr (up to `out_max_len`) | **Variable-size storage reads** (`sload`) — caller passes a max length, host writes `min(actual, max)` and returns the true length. `-1` for missing. |
 | `-> i32` + writes to out_ptr + out_len_ptr | Returns variable-size data with separate length out-param (`calldata_copy`, `parachain_storage_read`) |
-| `-> i64` | Returns a single u64/i64 scalar (`block_height`, `wave_id`) |
+| `-> i64` | Returns a single u64/i64 scalar (`wave_id`, `wave_timestamp`) |
 | `(never returns)` | Halt operations (`return`, `revert`) trap to end execution |
 
 ### 3.4 Memory safety
@@ -365,7 +365,7 @@ A correct Pyde host function call **must produce bit-identical results on every 
 - Threading or any concurrency primitive observable to the contract
 - Memory allocation patterns that depend on system state (engine uses a fixed-size arena per call)
 
-Host functions that *appear* to depend on time (`block_timestamp`) actually return chain-state-derived values that are deterministic across validators. Same for `beacon_get`.
+Host functions that *appear* to depend on time (`wave_timestamp`) actually return chain-state-derived values that are deterministic across validators. Same for `beacon_get`.
 
 The wasmtime configuration (see [Chapter 3 §3.2](../chapters/03-virtual-machine.md)) enforces WASM-side determinism (canonical NaN, no threads, no SIMD, no relaxed-SIMD, no bulk-memory non-determinism, no GC). Host-side determinism is the spec's contract; implementations that violate it are bugs.
 
@@ -450,81 +450,32 @@ Semantics: subsequent sload at this slot returns SLOAD_MISSING (-1). Sdelete
 on a slot that was never written is a no-op but still charges full gas.
 ```
 
-#### Field-keyed storage (recommended)
+#### Deriving storage slots
 
-`sload_by_field` / `sstore_by_field` / `sdelete_by_field` are convenience variants where the host computes the slot from `(field, key)` bytes rather than the contract pre-hashing. The engine derives:
-
-```text
-slot = Poseidon2(self_address || field_bytes[..field_len] || key_bytes[..key_len])
-```
-
-This is **bit-identical** to the conventional contract-side derivation (Pyde's `Poseidon2(self_address || field || key)` recipe). Use these variants by default; fall back to the raw `sload`/`sstore`/`sdelete` only when the contract needs to address a slot it derived itself (e.g., cross-contract storage proofs, custom-keyed slots, or layouts inherited from a delegated implementation).
-
-Pass `key_ptr = 0` and `key_len = 0` for **scalar** slots (no key). Pass any non-empty `key_bytes` for mappings (32 bytes for an address key, 64 bytes for an `(owner, spender)` composite key, etc.).
-
-Gas: matches the raw counterpart — the host-side hash + derivation is folded into the base cost so authors aren't charged twice for choosing the convenience form.
-
-##### `sload_by_field`
+Pyde's canonical slot derivation is:
 
 ```text
-pyde::sload_by_field(
-    field_ptr: i32, field_len: i32,
-    key_ptr:   i32, key_len:   i32,
-    value_out_ptr: i32,
-) -> i32
-
-field_ptr / field_len — pointer + length of the field-name bytes
-                        (e.g. b"balances"; length = 8)
-key_ptr / key_len     — pointer + length of the key bytes
-                        (0 / 0 for scalar slots)
-value_out_ptr         — pointer to 32-byte buffer where the value is written
-
-Returns: 0 on success,
-         ERR_ACCESS_LIST_VIOLATION if the derived slot is outside the declared access list.
-
-Gas: 200 base (identical to `sload`).
-
-Semantics: same as `sload` after the host-side derivation — unset slots read back as 32
-zero bytes (NOT an error). Empty field bytes (field_len = 0) are valid but discouraged
-(every field-empty slot in a contract would alias to the same hash).
+slot = Poseidon2(self_address || field_bytes [|| key_bytes])
 ```
 
-##### `sstore_by_field`
+`field_bytes` is whatever raw bytes the contract chooses (e.g., `b"balances"`). `key_bytes` is optional — used for mappings like `balances[user_address]`.
 
-```text
-pyde::sstore_by_field(
-    field_ptr: i32, field_len: i32,
-    key_ptr:   i32, key_len:   i32,
-    value_ptr: i32,
-) -> i32
+Contracts compute this themselves via `hash_poseidon2` + `self_address`, then call the raw `sload` / `sstore` / `sdelete` above. A typical 5-line helper:
 
-field_ptr / field_len — pointer + length of the field-name bytes
-key_ptr / key_len     — pointer + length of the key bytes (0 / 0 for scalars)
-value_ptr             — pointer to 32-byte value to write
-
-Returns: 0 on success, ERR_FORBIDDEN if called from a view function,
-         ERR_ACCESS_LIST_VIOLATION if the derived slot is outside the declared access list.
-
-Gas: 5,000 base (identical to `sstore`).
+```rust
+fn derive_slot(field: &[u8], key: &[u8]) -> [u8; 32] {
+    let mut preimage = [0u8; 32 + 96];
+    let total = 32 + field.len() + key.len();
+    unsafe { host_fns::self_address(preimage.as_mut_ptr()); }
+    preimage[32..32 + field.len()].copy_from_slice(field);
+    preimage[32 + field.len()..total].copy_from_slice(key);
+    let mut out = [0u8; 32];
+    unsafe { host_fns::hash_poseidon2(preimage.as_ptr(), total as i32, out.as_mut_ptr()); }
+    out
+}
 ```
 
-##### `sdelete_by_field`
-
-```text
-pyde::sdelete_by_field(
-    field_ptr: i32, field_len: i32,
-    key_ptr:   i32, key_len:   i32,
-) -> i32
-
-field_ptr / field_len — pointer + length of the field-name bytes
-key_ptr / key_len     — pointer + length of the key bytes (0 / 0 for scalars)
-
-Returns: 0 on success (even if the derived slot did not exist),
-         ERR_FORBIDDEN if called from a view function,
-         ERR_ACCESS_LIST_VIOLATION if the derived slot is outside the declared access list.
-
-Gas: 150 base (identical to `sdelete`).
-```
+This was previously offered as a host-side convenience trio (`sload_by_field` / `sstore_by_field` / `sdelete_by_field`) — dropped in the variable-length storage migration to keep the storage host fn surface minimal and uniform with the engine's executor. The 5-line helper recovers the ergonomics without adding host fns.
 
 ### 7.2 Account & balance
 
@@ -611,31 +562,21 @@ Gas: 5 base.
 Semantics: returns the address of the currently-executing contract or parachain.
 ```
 
-#### `block_height`
-
-```text
-pyde::block_height() -> i64
-
-Returns: the current block height as a u64 (Pyde collapses "block" and "wave" —
-this is the same value as wave_id()).
-
-Gas: 2 base.
-```
-
 #### `wave_id`
 
 ```text
 pyde::wave_id() -> i64
 
-Returns: the current wave id as a u64. Identical to block_height() in v1.
+Returns: the current wave id as a u64. Pyde's consensus-round counter,
+monotonically increasing.
 
 Gas: 2 base.
 ```
 
-#### `block_timestamp`
+#### `wave_timestamp`
 
 ```text
-pyde::block_timestamp() -> i64
+pyde::wave_timestamp() -> i64
 
 Returns: the canonical timestamp of the wave being committed, in seconds since Unix epoch.
 This value is committee-attested and identical across all validators.
@@ -1271,16 +1212,13 @@ Authoritative gas costs for every host function. This table is the source of tru
 
 | Function | Base gas | Per-byte / per-word | Notes |
 |---|---|---|---|
-| `sload` | 200 | — | Same gas hot/cold |
-| `sstore` | 5,000 | — | Same gas new/overwrite |
-| `sdelete` | 150 | — | No refund |
-| `sload_by_field` | 200 | — | Host derives `slot = Poseidon2(self_addr ‖ field ‖ key)`; cost folded into base |
-| `sstore_by_field` | 5,000 | — | Same derivation as `sload_by_field` |
-| `sdelete_by_field` | 150 | — | Same derivation as `sload_by_field` |
+| `sload` | 100 | 1 / byte copied | Returns actual length or `-1` (`SLOAD_MISSING`) |
+| `sstore` | 5,000 | 32 / byte | Variable-length value (≤ 16 KB) |
+| `sdelete` | 5,000 | — | No refund (PIP-4 `gas-no-refund`) |
 | `balance` | 100 | — | |
 | `transfer` | 7,000 | — | |
 | `caller`, `origin`, `self_address` | 5 | — | |
-| `block_height`, `wave_id`, `block_timestamp`, `chain_id` | 2 | — | |
+| `wave_id`, `wave_timestamp`, `chain_id` | 2 | — | |
 | `tx_hash` | 5 | — | |
 | `tx_value` | 5 | — | |
 | `tx_gas_remaining` | 2 | — | |

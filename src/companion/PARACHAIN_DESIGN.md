@@ -278,7 +278,6 @@ events:
 
 context:
   parachain_get_caller(out_ptr) -> i32
-  parachain_get_block_height() -> u64
   parachain_get_wave_id() -> u64
   parachain_get_parachain_id(out_ptr) -> i32
 
@@ -303,7 +302,7 @@ explicit gas metering:
 ```text
 network calls (any kind) — non-deterministic
 file/disk access — non-deterministic + capability escape
-system clock — non-deterministic; use get_block_height instead
+system clock — non-deterministic; use wave_timestamp / wave_id instead
 non-deterministic entropy — non-deterministic; use VRF beacon via host fn
 direct RocksDB access — must route through parachain_storage_*
 WASM threads — non-deterministic by definition

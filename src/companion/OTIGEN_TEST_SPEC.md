@@ -157,14 +157,14 @@ Cheats reserved for v2 (parsed but currently a no-op with a warning):
 now = 1000      # test baseline
 
 [[tests.calls]]
-function = "propose"           # block_timestamp() returns 1000
+function = "propose"           # wave_timestamp() returns 1000
 
 [[tests.calls]]
 function = "vote"
-now      = 1500                # advance clock — block_timestamp() returns 1500
+now      = 1500                # advance clock — wave_timestamp() returns 1500
 
 [[tests.calls]]
-function = "check_state"       # block_timestamp() still 1500 (sticky)
+function = "check_state"       # wave_timestamp() still 1500 (sticky)
 
 [[tests.calls]]
 function = "execute"
@@ -245,7 +245,7 @@ Each call executes a contract function in order, with its own caller / value / e
 | `args` | array of strings | no | Positional args. v1 supports `i32` / `i64` literals (decimal or `0x`-hex). Complex types deferred to v2. |
 | `value` | hex / decimal | no | Quanta attached to the call (visible via `pyde::value()`). Default `"0"`. |
 | `gas` | u64 | no | Per-call gas budget override. Default uses `[cheats].gas_limit`. |
-| `now` | u64 (unix seconds) | no | Per-call `block_timestamp()` override. **Sticky:** the new value persists into subsequent calls in the same test until another override fires. Models a real chain's monotonically-advancing clock. |
+| `now` | u64 (unix seconds) | no | Per-call `wave_timestamp()` override. **Sticky:** the new value persists into subsequent calls in the same test until another override fires. Models a real chain's monotonically-advancing clock. |
 | `wave_id` | u64 | no | Per-call `current_wave()` override. Sticky, same semantics as `now`. |
 | `chain_id` | u64 | no | Per-call `chain_id()` override. Sticky. Rare in practice (chain_id doesn't change across a chain's lifetime) — exists for symmetry + future cross-chain replay-protection testing. |
 | `expect.return_value` | hex / decimal / negative decimal | no | Asserted return value. Unsigned decimal and `0x`-hex compare numerically (so `"42"` and `"0x2a"` match the same return). **Negative decimal literals** (e.g. `"-10"`) parse as i64 and compare against the wasm result's sign-extended i64 view — useful for asserting error codes returned by host fns like `pyde::cross_call` (which surfaces `ERR_CROSS_CALL_FAILED = -10` when its sub-call traps). |
@@ -471,20 +471,16 @@ Every mocked host function uses the canonical `pyde::*` name from [`HOST_FN_ABI_
 
 | Host fn | v1 mock |
 |---|---|
-| `sload(slot_ptr, value_out_ptr)` | Reads `storage[slot]` if present; returns length or 0. |
-| `sstore(slot_ptr, value_ptr)` | Writes 32 bytes to `storage[slot]`. |
-| `sdelete(slot_ptr)` | Removes `storage[slot]`. |
-| `sload_by_field(field_ptr, field_len, key_ptr, key_len, value_out_ptr)` | Derives `slot = Poseidon2(env.contract_address ‖ field ‖ key)` host-side, then reads `storage[slot]`. Derivation is byte-for-byte identical to a contract that calls `self_address` + `hash_poseidon2` itself, so test-side `[tests.expect].storage.<field>.<key>` assertions and contract-side `sload_by_field` reads hit the same slot. |
-| `sstore_by_field(field_ptr, field_len, key_ptr, key_len, value_ptr)` | Same derivation as `sload_by_field`; writes 32 bytes to the derived slot. |
-| `sdelete_by_field(field_ptr, field_len, key_ptr, key_len)` | Same derivation as `sload_by_field`; removes the derived slot. |
+| `sload(slot_ptr, out_ptr, out_max_len)` | Reads `storage[slot]` if present; writes up to `out_max_len` bytes and returns the actual length, or `-1` (`SLOAD_MISSING`) on miss. |
+| `sstore(slot_ptr, val_ptr, val_len)` | Writes `val_len` bytes (≤ 16 KB) to `storage[slot]`. |
+| `sdelete(slot_ptr)` | Removes `storage[slot]`. Subsequent `sload` returns `-1`. |
 | `caller(addr_out_ptr)` | Writes `env.caller` (32 bytes) into wasm memory. |
 | `self_address(addr_out_ptr)` | Writes `env.contract_address` (32 bytes) into wasm memory. |
 | `tx_value(value_out_ptr)` | Writes `env.value` as 16-byte little-endian u128. |
 | `balance(addr_ptr, out_ptr)` | Reads `env.balances[addr]`; writes 16-byte LE u128. |
 | `transfer(to_ptr, amount_lo, amount_hi)` | Decrements `env.balances[caller]`, increments `env.balances[to]`; reverts on underflow. (v1 takes amount as two i64 halves; v2 will take a single 16-byte LE u128 ptr to match HOST_FN_ABI_SPEC §7.2.) |
-| `block_height()` | Returns `cheats.wave_id` as i64 (v1: `block_height == wave_id` per chain design). |
 | `wave_id()` | Returns `cheats.wave_id` as i64. |
-| `block_timestamp()` | Returns `cheats.now` as i64. |
+| `wave_timestamp()` | Returns `cheats.now` as i64. |
 | `chain_id()` | Returns `cheats.chain_id` as i64. |
 | `emit_event(topics_ptr, n_topics, data_ptr, data_len)` | Appends to `env.events`. |
 | `revert(msg_ptr, msg_len)` | Captures the reason + traps the wasm. |
@@ -824,7 +820,7 @@ This spec lands incrementally. Phases 1–3 ship the core surface; Phase 4 adds 
 
 ### Phase 2: wasmtime runner + read/write/event/revert mocks ✅ shipped (PR [otigen#31](https://github.com/pyde-net/otigen/pull/31))
 
-- `pyde::sload` / `sstore` / `sdelete` / `caller` / `tx_value` / `emit_event` / `revert` / `block_timestamp` / `wave_id` / `chain_id`
+- `pyde::sload` / `sstore` / `sdelete` / `caller` / `tx_value` / `emit_event` / `revert` / `wave_timestamp` / `wave_id` / `chain_id`
 - Single-call execution + per-call `expect`
 - Return-value + storage-after + events + revert assertions
 - `examples/hello-rust` ships a sample `tests/contract.test.toml`

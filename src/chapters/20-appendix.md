@@ -206,7 +206,7 @@ The full Host Function ABI specification (signatures, memory layout conventions,
 `balance`, `transfer`
 
 ### Execution context
-`caller`, `origin`, `block_height`, `wave_id`, `block_timestamp`, `chain_id`
+`caller`, `origin`, `self_address`, `wave_id`, `wave_timestamp`, `chain_id`
 
 ### Events
 `emit_event`

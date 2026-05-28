@@ -118,7 +118,7 @@ This section gives the conceptual surface; the spec gives the binary signatures.
 **Execution context:**
 - `caller() -> addr` — the address that invoked the current call.
 - `origin() -> addr` — the externally-owned address that initiated the transaction. (Deliberately distinct from `caller()` to avoid the `tx.origin` footgun from Ethereum.)
-- `block_height() -> u64`, `wave_id() -> u64`, `block_timestamp() -> u64`.
+- `wave_id() -> u64`, `wave_timestamp() -> u64`.
 - `chain_id() -> u64`.
 
 **Events:**
@@ -148,7 +148,7 @@ This section gives the conceptual surface; the spec gives the binary signatures.
 **Forbidden by design:**
 - Network calls (any kind).
 - Filesystem access.
-- System clock (use `block_timestamp` instead — deterministic).
+- System clock (use `wave_timestamp` instead — deterministic).
 - Non-deterministic entropy (use a VRF-based host function when randomness is needed).
 - Direct RocksDB access (everything routes through `sload`/`sstore`).
 
@@ -308,7 +308,7 @@ For consensus to hold, every validator must produce bit-identical state changes 
 - Fuel consumption per host function is defined in the gas table, identical across validators.
 
 **What contracts cannot observe:**
-- Wall-clock time. Use `block_timestamp` (deterministic, set by consensus).
+- Wall-clock time. Use `wave_timestamp` (deterministic, set by consensus).
 - True randomness. Use a VRF-derived host function when randomness is required (deterministic per block, unpredictable beforehand).
 - The host machine. No CPU info, no OS info, no environment access.
 

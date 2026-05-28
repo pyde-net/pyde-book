@@ -73,9 +73,9 @@ Example: `0x0001_0000` = ABI v1.0.
 All host functions are registered under the WASM module name **`pyde`**. A contract imports functions like:
 
 ```wat
-(import "pyde" "sload" (func (param i32 i32) (result i32)))
-(import "pyde" "sstore" (func (param i32 i32) (result i32)))
-(import "pyde" "emit_event" (func (param i32 i32 i32 i32) (result i32)))
+(import "pyde" "sload" (func (param i32 i32 i32) (result i32)))
+(import "pyde" "sstore" (func (param i32 i32 i32)))
+(import "pyde" "emit_event" (func (param i32 i32 i32 i32)))
 ```
 
 Parachain-only host functions are also registered under `pyde`; they are gated at deploy time by the validator rejecting them for non-parachain contracts (§9.2).
@@ -118,9 +118,11 @@ Convention summary:
 
 | Return shape | Function category |
 |---|---|
-| `-> i32` (error code only) | Mutating ops without return data (`sstore`, `transfer`) |
-| `-> i32` + writes to out_ptr | Returns fixed-size data (`sload`, `caller`, `balance`) |
-| `-> i32` + writes to out_ptr + out_len_ptr | Returns variable-size data (`calldata_copy`, `parachain_storage_read`) |
+| `-> i32` (error code only) | Mutating ops without return data (`transfer`) |
+| `-> ()` (no return) | Mutating ops that trap on failure (`sstore`, `sdelete`, `emit_event`) |
+| `-> i32` + writes to out_ptr | Returns fixed-size data (`caller`, `balance`) — writes a known byte width into `out_ptr` |
+| `-> i32` (actual_len) + writes to out_ptr (up to `out_max_len`) | **Variable-size storage reads** (`sload`) — caller passes a max length, host writes `min(actual, max)` and returns the true length. `-1` for missing. |
+| `-> i32` + writes to out_ptr + out_len_ptr | Returns variable-size data with separate length out-param (`calldata_copy`, `parachain_storage_read`) |
 | `-> i64` | Returns a single u64/i64 scalar (`block_height`, `wave_id`) |
 | `(never returns)` | Halt operations (`return`, `revert`) trap to end execution |
 
@@ -375,53 +377,77 @@ All functions below are available to **every** deployed module (contracts + para
 
 ### 7.1 Storage
 
+Pyde's storage model is a **key-value store with variable-length values** (up to `MAX_STORAGE_VALUE_BYTES = 16 KB` per slot), NOT EVM-style fixed 32-byte words. Keys are 32 bytes (Poseidon2-derived); values are arbitrary raw bytes — Borsh-encoded structs, packed arrays, anything the contract author chooses to write. The width is the contract's call, the chain only enforces the 16 KB upper bound.
+
+**Why variable-length, not 32-byte words.** WASM operates on linear memory, not 256-bit words; forcing slot values into 32 bytes would (a) require contracts to manually pack non-uint256 data, and (b) burn one slot per logical field regardless of size — blowing up state-tree node count for the common case of small structs. Variable-length lets a `Position { trader, size, entry, leverage }` at ~80 bytes fit in one slot, one read, one decode. For values larger than 16 KB the canonical pattern is slot-chunking: `slot[H(base ‖ i)] = chunk_i`.
+
+The 16 KB cap is a RocksDB write-amplification budget (per-slot write costs scale with size; >16 KB starts to hurt LSM compaction). It's a chain-spec parameter, tunable via a future PIP if load demands.
+
 #### `sload`
 
 ```text
-pyde::sload(slot_ptr: i32, value_out_ptr: i32) -> i32
+pyde::sload(slot_ptr: i32, out_ptr: i32, out_max_len: i32) -> i32
 
-slot_ptr        — pointer to 32-byte slot hash
-value_out_ptr   — pointer to 32-byte buffer where the value is written
+slot_ptr      — pointer to a 32-byte slot key (Poseidon2-derived)
+out_ptr       — pointer to a contract-allocated buffer to receive the value
+out_max_len   — size of that buffer (caller-supplied upper bound)
 
-Returns: 0 on success,
-         ERR_ACCESS_LIST_VIOLATION if slot is outside the declared access list.
+Returns:
+  >= 0  — actual length of the stored value (may be 0 for an empty value).
+         The host writes min(actual, out_max_len) bytes into out_ptr.
+  -1    — SLOAD_MISSING: this slot has never been written, or has been sdeleted.
 
-Gas: 200 base. (Cache-warm reads from the dashmap layer cost the same gas;
-     gas is paid against the worst-case disk-fetch cost.)
+Gas: GAS_SLOAD = 100 base + 1 per byte copied to out_ptr.
+     (Cache-warm reads cost the same gas; gas is paid against the worst-case
+     disk-fetch cost.)
 
-Semantics: a slot that was never written (or was sdeleted) reads back as 32 zero
-bytes — NOT an error. This matches EVM's storage model: empty and zero are
-indistinguishable, contracts that need to track "set vs unset" must use a separate
-flag slot. The only failure modes are gas exhaustion (traps) and access-list
-violation (returns the error code).
+Semantics: a never-written slot returns SLOAD_MISSING (-1), distinct from a slot
+that was written with a zero-length value (returns 0). This is a deliberate
+departure from EVM's "empty == zero" conflation. The only failure modes are
+gas exhaustion (traps) and a malformed out_max_len (negative → traps).
+
+If actual > out_max_len, the contract sees a truncated value AND the true
+length as the return value, so the caller knows to retry with a bigger buffer.
 ```
 
 #### `sstore`
 
 ```text
-pyde::sstore(slot_ptr: i32, value_ptr: i32) -> i32
+pyde::sstore(slot_ptr: i32, val_ptr: i32, val_len: i32) -> ()
 
-slot_ptr   — pointer to 32-byte slot hash
-value_ptr  — pointer to 32-byte value to write
+slot_ptr  — pointer to a 32-byte slot key
+val_ptr   — pointer to the raw value bytes to write
+val_len   — length of the value in bytes (0..=MAX_STORAGE_VALUE_BYTES)
 
-Returns: 0 on success, ERR_FORBIDDEN if called from a view function,
-         ERR_ACCESS_LIST_VIOLATION if slot is outside the declared access list.
+Traps (no return code) on:
+  - val_len > MAX_STORAGE_VALUE_BYTES (= 16 KB)
+  - negative val_len
+  - ERR_FORBIDDEN when called from view mode (cross_call_static sub-call)
+  - gas exhaustion
 
-Gas: 5,000 base. (Same cost for new and overwrite; no cold/warm distinction in v1.)
+Gas: GAS_SSTORE_BASE = 5_000 + GAS_SSTORE_PER_BYTE = 32 per byte of value.
+     (Same cost for new and overwrite; no cold/warm distinction in v1.
+     Per-byte component is what makes large writes proportionally expensive.)
 ```
 
 #### `sdelete`
 
 ```text
-pyde::sdelete(slot_ptr: i32) -> i32
+pyde::sdelete(slot_ptr: i32) -> ()
 
-slot_ptr — pointer to 32-byte slot hash
+slot_ptr  — pointer to a 32-byte slot key
 
-Returns: 0 on success (even if slot did not exist), ERR_FORBIDDEN if called from a
-         view function, ERR_ACCESS_LIST_VIOLATION if slot is outside the access list.
+Traps on:
+  - ERR_FORBIDDEN when called from view mode
+  - gas exhaustion
 
-Gas: 150 base. (Cheaper than sstore — clearing a slot is less work than writing it.
-     No refund applied; the user pays gas_used regardless.)
+Gas: GAS_SDELETE = 5_000 base.
+     (Same cost as sstore base — clearing a slot writes a tombstone, which is
+     a state-tree update equivalent to a write. No refund per PIP-4 gas-no-
+     refund-v1; the user pays gas_used regardless of the storage delta.)
+
+Semantics: subsequent sload at this slot returns SLOAD_MISSING (-1). Sdelete
+on a slot that was never written is a no-op but still charges full gas.
 ```
 
 #### Field-keyed storage (recommended)
@@ -1009,10 +1035,11 @@ Returns: 0 on success,
 Gas: 250 base + 1 per byte returned.
 
 Semantics: read from this parachain's state subtree (PIP-2 clustered under
-parachain_id[..16]). Variable-length keys + variable-length values, unlike the
-core sload's fixed 32-byte interface. A key that was never written returns
-success with *out_len_ptr written as 0 — NOT an error. Callers check the written
-length to distinguish "empty value" from "value too large for my buffer."
+parachain_id[..16]). Variable-length **keys** (unlike core `sload`, which takes
+a fixed 32-byte slot key); variable-length values up to MAX_STORAGE_VALUE_BYTES
+(same 16 KB cap as core `sload`). A key that was never written returns success
+with *out_len_ptr written as 0 — NOT an error. Callers check the written length
+to distinguish "empty value" from "value too large for my buffer."
 ```
 
 #### `parachain_storage_write`
@@ -1315,10 +1342,10 @@ A WebAssembly module's binary format includes an **import section** listing ever
 Pyde reserves the module name **`pyde`** for all host functions. A contract that declares an import like:
 
 ```wat
-(import "pyde" "sload" (func (param i32 i32) (result i32)))
+(import "pyde" "sload" (func (param i32 i32 i32) (result i32)))
 ```
 
-is saying: "Give me a function named `sload` from module `pyde`, taking (i32, i32) and returning i32." At instantiation time, wasmtime walks the import section and looks each one up in a host-provided `Linker`. If the entry exists, the contract's call is wired to the host's Rust implementation. If not, instantiation fails — and the deploy validator rejects the contract before it ever reaches a node.
+is saying: "Give me a function named `sload` from module `pyde`, taking (i32, i32, i32) and returning i32 (the `(slot_ptr, out_ptr, out_max_len) -> actual_len` shape)." At instantiation time, wasmtime walks the import section and looks each one up in a host-provided `Linker`. If the entry exists, the contract's call is wired to the host's Rust implementation. If not, instantiation fails — and the deploy validator rejects the contract before it ever reaches a node.
 
 ### 12.2 Rust contract — declaring imports
 
@@ -1367,10 +1394,10 @@ No Pyde library dependency. No code generation. Just `extern` declarations and t
 ```typescript
 // AssemblyScript uses @external decorators
 @external("pyde", "sload")
-declare function sload(slotPtr: usize, valueOutPtr: usize): i32;
+declare function sload(slotPtr: usize, valueOutPtr: usize, valueMaxLen: i32): i32;
 
 @external("pyde", "sstore")
-declare function sstore(slotPtr: usize, valuePtr: usize): i32;
+declare function sstore(slotPtr: usize, valuePtr: usize, valueLen: i32): void;
 
 @external("pyde", "caller")
 declare function caller(addrOutPtr: usize): i32;
@@ -1480,14 +1507,17 @@ pub fn build_linker(engine: &wasmtime::Engine) -> Linker<HostState> {
     linker
 }
 
-// sload implementation (correct version — missing slot returns zeros, no error)
+// sload implementation (variable-length value, returns actual_len or
+// SLOAD_MISSING = -1 for never-written slots)
 fn host_sload(
     mut caller: Caller<'_, HostState>,
     slot_ptr: i32,
-    value_out_ptr: i32,
+    out_ptr: i32,
+    out_max_len: i32,
 ) -> i32 {
-    // 1. Charge gas FIRST (before any work)
-    if caller.consume_fuel(SLOAD_GAS_COST).is_err() {
+    // 1. Charge base gas FIRST (before any work); per-byte gas charged
+    //    after we know the value length.
+    if caller.consume_fuel(SLOAD_BASE_GAS).is_err() {
         return ERR_OUT_OF_GAS;  // documentation; wasmtime traps with OutOfFuel
     }
 
@@ -1508,15 +1538,25 @@ fn host_sload(
         return ERR_ACCESS_LIST_VIOLATION;
     }
 
-    // 5. Look up the value — default to 32 zero bytes if never written
-    let value_bytes = caller.data().state_get(&slot_bytes).unwrap_or([0u8; 32]);
+    // 5. Look up the value — variable-length; missing returns SLOAD_MISSING
+    let value_bytes = match caller.data().state_get(&slot_bytes) {
+        Some(bytes) => bytes,
+        None => return -1, // SLOAD_MISSING
+    };
+    let actual_len = value_bytes.len() as i32;
 
-    // 6. Write back to WASM memory (bounds-checked)
-    if memory.write(&mut caller, value_out_ptr as usize, &value_bytes).is_err() {
+    // 6. Charge per-byte gas based on what we'll copy to the caller
+    let to_copy = actual_len.min(out_max_len.max(0)) as usize;
+    if caller.consume_fuel(to_copy as u64).is_err() {
+        return ERR_OUT_OF_GAS;
+    }
+
+    // 7. Write back to WASM memory (truncated to out_max_len)
+    if memory.write(&mut caller, out_ptr as usize, &value_bytes[..to_copy]).is_err() {
         return ERR_INVALID_INPUT;
     }
 
-    0  // success
+    actual_len  // contract sees the true length even if truncated
 }
 ```
 

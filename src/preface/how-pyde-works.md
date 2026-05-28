@@ -2,7 +2,7 @@
 
 <img src="../assets/logo.png" alt="The Pyde mark" class="pyde-logo-hero" />
 
-_A guided tour for the impatient. Read this first to build intuition; then the technical chapters will land._
+_The whole protocol in one tour — tide, atom, factory — so the spec chapters land on intuition, not acronyms._
 
 ---
 

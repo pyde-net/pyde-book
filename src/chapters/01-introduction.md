@@ -46,7 +46,7 @@ Chains optimizing for throughput have ended up requiring datacenter-class valida
 - **PIP-2 clustered slot keys + PIP-3 prefetch + PIP-4 write-back cache** — three-layer state performance stack
 - **Encryption opt-in** per-tx — MEV protection where needed, no overhead where not
 - **`otigen` developer toolchain** — zero-extra-code authoring: write contract logic + `otigen.toml`, the tool handles everything else
-- **Honest performance targets** — 10-30K TPS realistic v1, validated by multi-region performance harness
+- **Honest performance targets** — the v1 throughput target is validated by a multi-region performance harness before any number is published
 - **Phased mainnet plan** — external audit + incentivized testnet before launch (see Roadmap)
 
 ## Honest Status
@@ -69,15 +69,15 @@ This book describes **designed architecture**, with implementation in various st
 
 ## Performance Targets
 
-Validated by multi-region production-realistic harness (mandatory before any external claim):
+Throughput is validated by a multi-region production-realistic harness (mandatory before any external claim). Pyde publishes **no forward throughput number** — the v1 honest throughput target is established only once the harness measures it under sustained, production-realistic conditions. Latency targets, by contrast, are concrete:
 
-| Mode | v1 realistic | v2 stretch | Aspirational |
+| Mode | v1 | v2 | Aspirational |
 |---|---|---|---|
-| Plaintext TPS (commodity) | 10K-30K | 50K-100K | 500K |
-| Encrypted TPS (commodity) | 0.5K-2K | 5K-10K | 50K+ |
+| Plaintext throughput (commodity) | awaiting harness | awaiting harness | awaiting harness |
+| Encrypted throughput (commodity) | awaiting harness | awaiting harness | awaiting harness |
 | Median finality | ~500ms | ~400ms | ~300ms |
 
-**The HotStuff Lesson:** the pre-pivot implementation hit ~4K TPS in practice despite higher claimed targets. Pyde now adopts the **"claim 1/3 of measured peak" rule** — under-promise, over-deliver. No external TPS claim without harness evidence.
+**The HotStuff Lesson:** the pre-pivot implementation hit ~4K TPS in practice despite a higher claimed design target. Pyde now adopts the discipline of publishing only what the harness measures under sustained, production-realistic conditions — never lab extrapolations or microbenchmark peaks. No external TPS claim without harness evidence.
 
 ## Reading Path
 

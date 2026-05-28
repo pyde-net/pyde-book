@@ -510,18 +510,18 @@ Key choices:
 
 Validated by multi-region production-realistic harness (see [PERFORMANCE_HARNESS.md](./PERFORMANCE_HARNESS.md)):
 
-| Metric | Realistic v1 | Stretch v2 | Aspirational |
+| Metric | v1 baseline | Stretch (post-mainnet) | Aspirational |
 |---|---|---|---|
-| Plaintext TPS (commodity) | 10K-30K | 50K-100K | 500K |
-| Encrypted TPS (commodity CPU) | 500-2K | 5K-10K | 50K+ (GPU) |
+| Plaintext throughput (commodity) | awaiting harness | awaiting harness | awaiting harness |
+| Encrypted throughput (commodity CPU) | awaiting harness | awaiting harness | awaiting harness (GPU) |
 | Median finality | ~500ms | ~400ms | ~300ms |
-| Committee NIC requirement (at TPS) | 500 Mbps | 1 Gbps | 10 Gbps |
+| Committee NIC requirement | 500 Mbps | 1 Gbps | 10 Gbps |
 
-### "Claim 1/3 of Bench" Rule
+### Publishing Discipline
 
-- Harness measures: X TPS sustained
-- Public claim: X/3 TPS
-- Aspirational: X with "production validation pending"
+- Publish only what the harness measures under sustained, production-realistic conditions.
+- Never lab extrapolations, microbenchmark peaks, or single-machine numbers where multi-region is the relevant scope.
+- Aspirational figures are labelled "production validation pending" and carry no concrete number.
 
 No external TPS claim without harness evidence.
 
@@ -532,11 +532,11 @@ No external TPS claim without harness evidence.
 | Light client | Mobile / browser |
 | Full node / RPC | 8c / 16GB / 500GB / 100 Mbps |
 | Non-committee validator | 8c / 16GB / 500GB / 100-250 Mbps |
-| Committee at 30K TPS (v1 realistic) | 8-16c / 32GB / 1TB SSD / 500 Mbps |
-| Committee at 100K TPS (v2 stretch) | 16c / 32GB / 2TB SSD / 1 Gbps |
-| Committee at 500K TPS (aspirational, GPU-class) | 32c / 64GB / 4TB SSD / 10 Gbps |
+| Committee (v1 baseline) | 8-16c / 32GB / 1TB SSD / 500 Mbps |
+| Committee (Stretch, post-mainnet) | 16c / 32GB / 2TB SSD / 1 Gbps |
+| Committee (Aspirational, GPU-class) | 32c / 64GB / 4TB SSD / 10 Gbps |
 
-Modest hardware applies to any validator awaiting committee selection at all levels. Active-committee hardware scales with throughput target. The 500K row is aspirational and tied to GPU-acceleration / batch-decryption research advances per the honest performance targets above.
+Modest hardware applies to any validator awaiting committee selection at all levels. Active-committee hardware scales with the throughput target. The aspirational tier is tied to GPU-acceleration / batch-decryption research advances per the honest performance targets above.
 
 ## Implementation Status
 

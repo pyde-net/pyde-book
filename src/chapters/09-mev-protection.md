@@ -524,9 +524,10 @@ for plaintext). Plaintext-only chains pay zero of this overhead.
 
 **Throughput impact.** Encrypted txs are ~3-5× slower end-to-end than
 plaintext because the decryption pipeline serializes (shares must be
-gathered before the wave can execute). Realistic v1 targets:
-- Plaintext: 10-30K TPS on commodity committee hardware
-- Encrypted: 0.5-2K TPS on the same hardware
+gathered before the wave can execute). Both the plaintext and encrypted v1
+throughput targets are to be established by the multi-region performance
+harness; the encrypted regime lands well below the plaintext one because of
+this serialization.
 
 The bandwidth cost is per-share data piggybacked on consensus vertices
 (~250 KB/validator/wave), well within the 500 Mbps committee NIC budget.

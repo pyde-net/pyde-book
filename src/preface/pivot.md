@@ -136,7 +136,7 @@ We then ran our own benchmarks instead of guessing. Real measurements on the exi
 - **PVM AOT, token transfer (storage-bound):** ~243K transfers per second — essentially identical to the interpreter's ~231K. Storage IO dominates; the AOT compute advantage disappears.
 - **AOT compilation cost:** under one millisecond for contracts under 256 instructions.
 
-> These numbers are single-thread micro-benchmarks of the execution layer in isolation — one VM, one workload, no consensus, no network, no parallel scheduling. They measure raw VM throughput, not end-to-end TPS. Full-chain TPS is governed by consensus latency, signature verification, network bandwidth, parallel scheduling, and disk IO in addition to VM execution; the realistic v1 target of 10–30K plaintext TPS on commodity hardware reflects all of those layers combined. The numbers above are useful for the VM-vs-VM comparison; they are not the chain's TPS.
+> These numbers are single-thread micro-benchmarks of the execution layer in isolation — one VM, one workload, no consensus, no network, no parallel scheduling. They measure raw VM throughput, not end-to-end TPS. Full-chain TPS is governed by consensus latency, signature verification, network bandwidth, parallel scheduling, and disk IO in addition to VM execution; Pyde's realistic v1 throughput target (awaiting harness measurement) reflects all of those layers combined. The numbers above are useful for the VM-vs-VM comparison; they are not the chain's TPS.
 >
 > **Hardware used:** Apple M4 Pro, 14 cores, 24 GB RAM, macOS 26.3.1.
 >

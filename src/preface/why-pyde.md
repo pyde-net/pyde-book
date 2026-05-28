@@ -55,7 +55,7 @@ Pyde's `HardFinalityCert` is portable. Any chain that can verify FALCON signatur
 Pyde's scheduler combines static access-list parallelism (the Solana model — declared accesses run in parallel) with Block-STM speculation (the Aptos model — dynamic accesses speculate and re-execute on conflict). Most chains pick one. Pyde ships both — fast path when the compiler can statically analyze your contract, optimistic fallback when it can't. Your contracts get parallelism for free without giving up dynamic dispatch.
 
 **Performance numbers you can defend in production.**
-v1 mainnet target: 10K-30K plaintext TPS sustained on commodity hardware, measured by a multi-region harness with real network latency. We claim 1/3 of measured peak — never lab extrapolations. If we promise it, you can build on it.
+The v1 mainnet throughput target is established by a multi-region harness with real network latency before any number is published. We publish only what the harness measures under sustained, production-realistic conditions — never lab extrapolations or microbenchmark peaks. If we promise it, you can build on it.
 
 **Runtime that already powers production at scale.**
 wasmtime + Cranelift AOT — the same WebAssembly runtime Fastly serves edge functions on, Microsoft ships in Hyperlight, Shopify uses for app extensions, and the Bytecode Alliance maintains with 50+ corporate contributors. Not a homegrown VM with a 1.0 release ahead of it.

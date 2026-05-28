@@ -273,7 +273,7 @@ runbooks/
 ├── 03-network-partition.md
 ├── 04-state-root-divergence.md
 ├── 05-dkg-failure.md
-├── 06-pvm-bug-disclosed.md
+├── 06-execution-bug-disclosed.md
 ├── 07-active-exploit.md
 ├── 08-multisig-key-event.md
 ├── 09-cloud-provider-outage.md

@@ -243,13 +243,13 @@ Slashing is implemented as system transactions handled by the engine:
 
 ```rust
 // At evidence submission:
-pvm.execute_system_tx(SystemTx::SubmitEvidence(evidence));
+engine.execute_system_tx(SystemTx::SubmitEvidence(evidence));
 
 // At slashing escrow expiry (24h after slash):
-pvm.execute_system_tx(SystemTx::FinalizeSlash(slash_id));
+engine.execute_system_tx(SystemTx::FinalizeSlash(slash_id));
 
 // At unjail request:
-pvm.execute_system_tx(SystemTx::Unjail(validator_id));
+engine.execute_system_tx(SystemTx::Unjail(validator_id));
 ```
 
 All slashing state is part of validator account state, indexed by validator_id.

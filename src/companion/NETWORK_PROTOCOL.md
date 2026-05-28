@@ -113,14 +113,14 @@ Memory safety, DoS resistance, predictability, audit-friendliness all depend on 
 
 ### BatchData Sizing
 
-| Hard Limit | Modest hardware fit | Max TPS support |
+| Hard Limit | Modest hardware fit | Theoretical batch-implied ceiling |
 |---|---|---|
-| 2 MB | Strongest | ~30K |
-| **4 MB (chosen)** | **Strong** | **~100K** |
-| 8 MB | Mixed | ~200K |
-| 16 MB | Aspirational | ~500K |
+| 2 MB | Strongest | Lowest |
+| **4 MB (chosen)** | **Strong** | **Moderate** |
+| 8 MB | Mixed | Higher |
+| 16 MB | Aspirational | Highest |
 
-**4 MB hard limit** balances modest-hardware committee promise (≥500 Mbps NIC sufficient for v1's 10-30K plaintext TPS target, with headroom in the batch size for post-mainnet scaling) with realistic burst scenarios (NFT mints up to ~2000 encrypted txs in one batch). The "Max TPS support" column above is a *theoretical ceiling* implied by the batch limit; the v1 *honest target* is much lower (see [honest throughput reset](../chapters/01-introduction.md)).
+**4 MB hard limit** balances modest-hardware committee promise (≥500 Mbps NIC sufficient for v1's honest throughput target, which is to be established by the multi-region performance harness, with headroom in the batch size for post-mainnet scaling) with realistic burst scenarios (NFT mints up to ~2000 encrypted txs in one batch). The theoretical-ceiling column above is implied by the batch limit; the v1 *honest target* is much lower (see [honest throughput reset](../chapters/01-introduction.md)).
 
 For batches >4 MB: chunked transfer (BatchAnnouncement → multiple BatchChunk messages of 4 MB each).
 

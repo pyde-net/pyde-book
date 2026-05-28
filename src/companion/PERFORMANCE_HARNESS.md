@@ -80,7 +80,7 @@ Concrete workloads:
 - **TransferWorkload:** simple A→B transfers; baseline
 - **ContractWorkload:** realistic WASM contract interactions
 - **EncryptedSwapWorkload:** ~80% encrypted (worst-case for decryption)
-- **NFTMintBurstWorkload:** 0 → 100K → 0 TPS in 60s
+- **NFTMintBurstWorkload:** ramps from idle to a high burst and back over 60s
 - **MixedWorkload:** 70% transfers / 15% contracts / 10% encrypted / 5% complex
 
 **Workload realism:**
@@ -174,30 +174,30 @@ All must pass with publishable evidence before any TPS claim:
 
 | Test | Pass Criteria |
 |---|---|
-| Steady-state 30K TPS | 4 hours @ 30K, p99 <1s, no stalls |
-| Burst 100K TPS | 60s burst absorbed, queue drains in 5 min |
+| Steady-state at v1 target | 4 hours at the v1 throughput target, p99 <1s, no stalls |
+| Burst above target | 60s burst absorbed, queue drains in 5 min |
 | Validator restart loop | 24h with restarts every 5 min, no stall |
 | Network partition | 30% partition for 5 min, both recover, no fork |
-| DKG under load | Epoch transition at 30K TPS, no commit stall |
-| State sync under load | New node joins at 30K TPS, syncs in <1 hour |
+| DKG under load | Epoch transition at the v1 throughput target, no commit stall |
+| State sync under load | New node joins under sustained load, syncs in <1 hour |
 | Slashing under load | Equivocation slashed within 1 epoch |
-| 7-day soak | 10K TPS for 7 days, no memory leak, no drift |
-| Encrypted tx mix | 30% encrypted at 30K TPS, decrypt latency <500ms |
+| 7-day soak | Sustained load for 7 days, no memory leak, no drift |
+| Encrypted tx mix | 30% encrypted at the v1 throughput target, decrypt latency <500ms |
 | Modest hardware | Single committee validator on 1 Gbps, 8c/16GB |
 
 ## Honest Reporting Discipline
 
-**Adopting the "claim 1/3 of measured peak" rule:**
+**The publishing discipline:**
 
-- Harness measures: X TPS sustained
-- Public claim: X/3 TPS
-- Aspirational: X with "production validation pending"
+- Publish only what the harness measures under sustained, production-realistic conditions.
+- Never lab extrapolations, microbenchmark peaks, or single-machine numbers where multi-region is the relevant scope.
+- Aspirational figures are labelled "production validation pending" and carry no concrete number.
 
 **Publication format:**
 
-> *"Pyde sustained 30,000 TPS over a 4-hour test on a 16-validator multi-region testnet (US-East, EU-West, AP-Southeast), with median finality of 480ms and p99 of 950ms. Workload: 70% transfers, 15% contract calls, 10% encrypted, 5% complex. Test methodology and raw data available at `pyde.network/perf/{run-id}`."*
+> *"Pyde sustained [harness-measured] TPS over a 4-hour test on a 16-validator multi-region testnet (US-East, EU-West, AP-Southeast), with median finality of 480ms and p99 of 950ms. Workload: 70% transfers, 15% contract calls, 10% encrypted, 5% complex. Test methodology and raw data available at `pyde.network/perf/{run-id}`."*
 
-Specific numbers, methodology referenced, reproducible. **NOT** "Pyde supports 500K TPS" with no caveats.
+Specific numbers, methodology referenced, reproducible. **NOT** "Pyde supports [huge number] TPS" with no caveats.
 
 ## Public Dashboard Structure
 

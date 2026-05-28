@@ -2,7 +2,7 @@
 
 **Version 0.1**
 
-How new nodes join the network at any point in time. At 30K+ TPS, replaying from genesis is infeasible — snapshot sync is the default.
+How new nodes join the network at any point in time. At the chain's sustained throughput, replaying from genesis is infeasible — snapshot sync is the default.
 
 ## Sync Modes
 

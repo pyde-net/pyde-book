@@ -126,7 +126,7 @@ Hybrid layered: Blake3 for high-volume native paths (JMT internals), Poseidon2 f
 - **DoS protection:** 4-layer (connection / message / peer-scoring / application)
 - **Committee defense:** sentry node pattern (Cosmos-style)
 
-Committee NIC requirement at v1's honest throughput target (10-30K plaintext TPS, 0.5-2K encrypted) is **≥500 Mbps**. Higher-throughput regimes are post-mainnet scaling work; the v1 number is what mainnet hardware is sized against.
+Committee NIC requirement at v1's honest throughput target (to be established by the multi-region performance harness) is **≥500 Mbps**. Higher-throughput regimes are post-mainnet scaling work; the v1 target is what mainnet hardware is sized against.
 
 ## Account Model
 

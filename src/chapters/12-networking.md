@@ -391,8 +391,9 @@ does not modify the underlying behavior.
 
 ## 12.9 Bandwidth Profile
 
-At a steady-state v1 target of 10-30K plaintext TPS (~80 KB average
-batches, ~500 ms median commit cadence):
+At the steady-state v1 throughput target (to be established by the
+multi-region performance harness; ~80 KB average batches, ~500 ms median
+commit cadence):
 
 | Channel               | Inbound       | Outbound      |
 | --------------------- | ------------- | ------------- |
@@ -552,7 +553,7 @@ Honest about what is not in the network layer at launch:
 | Connection limits          | 50 total / 30 inbound / 20 outbound (defaults)        |
 | Rate limit (per IP)        | 5 / sec (defaults)                                    |
 | Symmetric encryption       | TLS 1.3 inside QUIC                                   |
-| Bandwidth (committee)      | 500 Mbps @ 30K TPS, scales w/ TPS (Ch 19)             |
+| Bandwidth (committee)      | 500 Mbps, scales with throughput (Ch 19)              |
 
 The next chapter covers the cross-chain and parachain story — what's in
 scope for mainnet, what isn't, and what the SDK direction looks like.

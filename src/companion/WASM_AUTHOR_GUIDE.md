@@ -1482,11 +1482,240 @@ The full pattern — domain-separated hashing, 33-byte step encoding, proof veri
 
 ---
 
-## 12. How the host reads it
+## 12. Composed contracts — when primitives stack
+
+The §7-§11 chapters each cover a primitive in isolation: storage, cross-call, FALCON, proxy, hashing. Real contracts compose them. A DAO needs all five at once. A vesting contract with multisig admin needs three. The composition is not always obvious — pairing FALCON sigs with time-phased state introduces replay surfaces that neither pattern has alone, and inlining a delegate_call into a hash-committed dispatch can corrupt storage if the slot layouts diverge.
+
+This chapter walks through the canonical composed example — [`otigen/examples/dao-governance/`](https://github.com/pyde-net/otigen/tree/main/examples/dao-governance) — and pulls out the four reusable composition patterns it demonstrates. The patterns generalise beyond DAOs to any contract that pairs off-chain authorization with on-chain time-bound execution.
+
+### 12.1 Why composition is its own concern
+
+A contract built from one primitive is straightforward. A contract built from four primitives has *combinatorial* failure modes — interactions you can only see with all four in play.
+
+| Primitive alone | Failure mode you get |
+|---|---|
+| FALCON-signed action | Replay (the sig is reusable across calls) |
+| Time-phased state | "What if the call arrives at exactly the boundary?" off-by-ones |
+| Hash-committed calldata | "What if the calldata grows between commit and execute?" length-confusion |
+| Mapping storage | Composite-key collisions |
+
+A composed contract has all four. The pitfalls don't add — they multiply. A FALCON sig that replay-protects within one DAO can still be replayed across DAOs unless the canonical message includes `self_address`. A time-phased state machine that's safe with caller-based voting opens a denial-of-service surface when votes become signed (anyone can submit, including spam). A hash-commitment that's collision-resistant alone becomes preimage-attackable when an attacker can choose what gets hashed via a separate call. The patterns below address these interactions directly.
+
+### 12.2 Anatomy of dao-governance
+
+The full contract is ~450 lines; the high-level shape is just four phases:
+
+```text
+1. configure(quorum, voting_duration, signer0_pkh, signer1_pkh, signer2_pkh)
+     ↳ one-shot: locks in 3 signer pubkey hashes + governance parameters
+
+2. propose(target, calldata_hash) → proposal_id
+     ↳ anyone: writes (target, calldata_hash, end_time = now + voting_duration)
+       into 6 per-proposal storage fields
+
+3. cast_signed_vote(proposal_id, in_favor, canonical_msg, voter_pubkey, sig)
+     ↳ anyone submits (relayer-friendly): host verifies caller's FALCON sig
+       against the canonical message, increments yes/no tally
+
+4. execute(proposal_id, calldata)
+     ↳ anyone (post-deadline): if quorum + majority + calldata-hash-match,
+       marks executed + emits Executed event
+```
+
+The composition surface is at the phase boundaries:
+
+- **propose → vote** — vote sigs bind to `proposal_id`, so a sig for proposal 0 can't be replayed against proposal 1. But the binding alone isn't enough; see §12.4.
+- **vote → execute** — execute checks both `quorum_met` AND `yes > no`, AND the calldata hash matches. Skip any of these and you have an exploit. §12.6 walks through why.
+- **propose → execute** — the `calldata_hash` stored at propose-time is the *commitment*; the bytes supplied at execute-time are the *reveal*. The contract verifies they match, so neither party can swap calldata between commit and execute. §12.6 again.
+
+### 12.3 Pattern 1 — signed off-chain action authorization
+
+The classic Web2 + multisig + meta-tx pattern, ported to FALCON:
+
+1. Voter computes the canonical message bytes off-chain (their wallet does this).
+2. Voter signs with their FALCON-512 secret key.
+3. Voter ships `(canonical_msg, pubkey, sig)` to a relayer (Discord bot, web app, whatever).
+4. Relayer submits `cast_signed_vote(proposal_id, in_favor, canonical_msg, pubkey, sig)` — pays gas, doesn't need any FALCON key themselves.
+5. Contract recomputes the canonical message from `(proposal_id, in_favor, self_address)`, verifies the relayer's `canonical_msg` matches, then `falcon_verify(pubkey, canonical_msg, sig)`. Tally incremented.
+
+The relayer's gas-paying role is real: **a 666-byte FALCON sig + 897-byte pubkey + 64-byte message ≈ 1.6 KB of calldata per vote**, costing the relayer ~13K gas in calldata alone before the verify (~50K). Voters never need a funded account. This pattern generalises to any "approve N actions off-chain, submit them in one batch on-chain" flow — airdrops, governance, multisig spend.
+
+#### Why the sig isn't the only auth check
+
+```rust
+// 1. Reject unknown signers BEFORE verifying — verify is 50K gas, lookup is 100.
+let voter_hash = poseidon2(&pk_buf);
+if read_u64(FIELD_SIGNERS, &voter_hash) == 0 {
+    revert(b"UnknownSigner");
+}
+
+// 2. Reject double-votes BEFORE verify — same gas economy argument.
+let v_key = voted_key(proposal_id, &voter_hash);
+if read_u64(FIELD_VOTED, &v_key) != 0 {
+    revert(b"AlreadyVoted");
+}
+
+// 3. NOW verify.
+let rc = falcon_verify(pk_buf.as_ptr(), msg.as_ptr(), msg.len(), sig_ptr, sig_len);
+if rc != 0 { revert(b"BadSignature"); }
+```
+
+Order matters: cheap structural checks first, expensive cryptographic check last. An attacker who spams unknown-signer votes pays 200 gas per attempt, not 50K. The contract's gas-ddos-resistance is built into the check order.
+
+### 12.4 Pattern 2 — domain-separated canonical messages
+
+The single most-bitten composition pitfall in production contracts. A FALCON sig binds a public key to a specific message-bytes preimage. If two contracts produce identical preimages for different intents, sigs leak across them — a sig authorizing "vote yes on proposal 3 in DAO A" verifies as "vote yes on proposal 3 in DAO B" if DAO B uses the same canonical-message recipe.
+
+Pyde's canonical message format for dao-governance:
+
+```text
+canonical_msg =
+    "PYDE_DAO_VOTE_V1"  (16 bytes — domain-separation tag)
+  ‖ self_address        (32 bytes — this DAO's contract address)
+  ‖ proposal_id_be      (8 bytes)
+  ‖ in_favor_be         (8 bytes)
+  = 64 bytes total
+```
+
+The three composition guarantees, each one closing an attack:
+
+| Field | Closes |
+|---|---|
+| `"PYDE_DAO_VOTE_V1"` tag | Cross-protocol replay (a sig for a Pyde airdrop claim can't double as a vote, even if a malicious wallet UI tricks the voter) |
+| `self_address` | Cross-DAO replay (alice's sig for DAO A doesn't auth her in DAO B even if she's a signer of both with the same FALCON key) |
+| `proposal_id`, `in_favor` | Per-proposal binding (a yes-vote on #3 doesn't auth a yes-vote on #4) |
+
+Skip `self_address` and the contract has a real cross-DAO replay bug. Skip the domain tag and you have a real cross-protocol bug. Skip `proposal_id` and the same sig votes on everything.
+
+#### Why dao-governance threads the canonical message as a *separate arg*
+
+```rust
+cast_signed_vote(proposal_id, in_favor, canonical_msg, voter_pubkey, sig)
+                                        ^^^^^^^^^^^^^^
+                                        ALSO supplied?
+```
+
+Couldn't the contract just construct the canonical message itself from `(proposal_id, in_favor, self_address)`? Yes — and it does. But the test framework's `@sig:NAME:args.IDX` DSL signs the raw bytes of one of the call args. To get the framework to produce a real FALCON sig over the canonical bytes, the bytes have to be *an arg*. So the contract:
+
+1. Accepts `canonical_msg` as a `bytes` arg.
+2. Reconstructs the expected canonical message from the other args.
+3. **Verifies the supplied bytes match the reconstruction**, reverting if not.
+4. FALCON-verifies the sig against the supplied (== reconstructed) bytes.
+
+Skip step 3 and an attacker can submit a sig over an arbitrary preimage while claiming it authorizes a different action — the contract would count the wrong vote.
+
+In production (no test framework involved), the wallet computes the canonical message once and ships only the sig. The contract reconstructs and verifies. The arg-threading is a test-time convenience.
+
+### 12.5 Pattern 3 — time-phased state machines via `wave_timestamp`
+
+A proposal has a natural lifecycle: open → voting closed → executed (or stale). Time gates the transitions.
+
+```rust
+// In propose:
+let end_time = now() + read_u64(FIELD_VOTING_DURATION, &[]);
+write_u64(FIELD_PROPOSAL_END_TIME, &id_key, end_time);
+
+// In vote:
+if now() >= end_time { revert(b"VotingClosed"); }
+
+// In execute:
+if now() < end_time { revert(b"VotingStillOpen"); }
+```
+
+`now()` is a contract-side wrapper around `wave_timestamp` — the committee-attested wall-clock, identical across all validators. Deterministic; no "what time did *your* node see?" race.
+
+#### Boundary conditions: `<` vs `<=`
+
+```text
+vote check:    now() >= end_time   →   revert
+execute check: now() <  end_time   →   revert
+
+At exactly now == end_time:
+  - vote sees `end_time >= end_time` → revert (voting closed)
+  - execute sees `end_time < end_time` → does NOT revert (voting open)
+```
+
+So at the *exact* boundary, voting closes and execution opens in the same wave. No "one-wave window of nothing." Pick this direction explicitly when designing the gates — the alternative (votes open at `now() <= end_time`, execute requires `now() > end_time`) creates a one-wave gap where neither operation is valid, which has surfaced as a real bug in production governance contracts.
+
+#### `wave_timestamp` is in seconds; time-window math fits u64 easily
+
+Pyde's `wave_timestamp` returns unix seconds (committee-attested). A `u64` covers ~5×10¹¹ years. Adding `voting_duration` to `now()` cannot realistically overflow at any input the contract would accept. The contract still uses `saturating_add` defensively — cheap, makes the bound explicit.
+
+### 12.6 Pattern 4 — hash-committed deferred dispatch
+
+Proposals announce *what* they'll do at execute-time without revealing it cheaply. The mechanism:
+
+```rust
+// At propose:
+write_slot(FIELD_PROPOSAL_CALLDATA_HASH, &id_key, &calldata_hash);
+
+// At execute:
+let actual = hash_blake3(&calldata_bytes);
+if actual != stored_hash { revert(b"CalldataMismatch"); }
+```
+
+The contract never has to store the calldata bytes themselves — just the 32-byte hash. Why this is genuinely useful:
+
+- **Storage cost**: a 4 KB calldata bundle would cost ~129K gas to sstore (5K + 32×4096 = 5K + 131K). Storing the hash is 5K base + 32×32 = ~6K. **20× cheaper for any non-trivial calldata.**
+- **Forward compatibility**: the contract can dispatch arbitrary future calldata shapes without redeploy. The proposer commits to bytes; whoever executes provides those bytes verbatim. If the cross_call ABI evolves, only the proposer + executor need to coordinate — the contract stays stable.
+- **Auditability**: the hash on-chain is a permanent record. Anyone can recompute it from the (publicly-archived) calldata and verify what the proposal was *actually* about, regardless of UI claims.
+
+#### Why the hash check happens *after* quorum/majority checks
+
+```rust
+// Revert ladder, in order:
+if proposal_id >= count          { revert(b"UnknownProposal"); }
+if now() < end_time              { revert(b"VotingStillOpen"); }
+if read_u64(EXECUTED) != 0       { revert(b"AlreadyExecuted"); }
+if yes < quorum                  { revert(b"QuorumNotMet"); }
+if yes <= no                     { revert(b"VoteFailed"); }
+let actual = blake3(&calldata);  // expensive: 15 + 3/word
+if actual != stored              { revert(b"CalldataMismatch"); }
+```
+
+`blake3` is cheap (~3 gas per 8 bytes) but every host fn pays a 15 gas base. The order matters at scale: structural checks (proposal exists, time, quorum) are 10× cheaper than the hash. An attacker who spams `execute` with wrong calldata pays the quorum-check gas, not the hash gas.
+
+#### The 4 KB cap
+
+```rust
+const MAX_CD: usize = 4096;
+if cd_len > MAX_CD { revert(b"CalldataTooLong"); }
+```
+
+Pyde's `bytes`-typed args are theoretically up to 16 KB; capping at 4 KB protects the stack buffer the contract uses to store calldata for hashing. Without the cap, an attacker passes a 12 KB blob and the contract's `[0u8; MAX_CD]` allocation overflows. Set the cap to match the proposal patterns you actually expect; 4 KB covers a typical cross-call signature + args.
+
+### 12.7 Composition pitfalls (a checklist)
+
+Working through composed contracts, these are the failures that look obvious in hindsight but bit me writing dao-governance:
+
+- **Reverting *after* state mutation.** If `falcon_verify` happens AFTER `yes_votes += 1`, a verify failure means storage is corrupted. Pyde's tx overlay rolls back automatically on trap, but only if the trap reaches the boundary — emit_event won't trap on its own. Order: mutate state LAST, after every check.
+- **Domain tag drift.** `b"PYDE_DAO_VOTE_V1"` is 16 bytes. `b"PYDE_DAO_VOTE_V2"` is also 16 bytes but a different preimage. If you ship V2 logic and forget to bump the tag, every old V1 sig is silently still valid against the new contract. Bump the tag whenever the canonical-message shape changes; treat it as a version pin.
+- **Composite key ordering.** `voted[(proposal_id, voter_hash)]` packs into bytes via `proposal_id_be ‖ voter_hash`. Reverse the order and you have a *different* slot — your "already-voted" check misses, double-vote works. Pick an order, document it, never reverse.
+- **Single-shot init left unlocked.** `configure` checks `read_u64(FIELD_CONFIGURED) != 0` — if you forget the flag write, anyone can re-configure the DAO. The flag is the single most security-critical line in the file. Test it explicitly (`second_init_reverts`).
+- **Auth check order.** Cheap checks first, expensive last. A `falcon_verify` upstream of an `is_signer` lookup wastes 50K gas per attacker probe.
+- **`block_timestamp` vs `wave_timestamp`.** Pyde renamed this in 2026-05. If you copy old EVM contracts and import `block_timestamp`, the contract fails to instantiate. Use `wave_timestamp`. (The handful of canonical examples in the catalog all use the new name; copying from those avoids the trap.)
+
+### 12.8 Live example
+
+The full pattern — every check ordered correctly, all 16 behaviour tests covering happy paths + revert paths + boundary conditions + composition surfaces — is in [`otigen/examples/dao-governance/`](https://github.com/pyde-net/otigen/tree/main/examples/dao-governance). It's the canonical reference for any contract that pairs FALCON-signed authorization with time-bound on-chain execution.
+
+Scaffolding a starting point:
+
+```text
+$ otigen new my-dao --from dao-governance
+$ cd my-dao
+$ cargo build --target wasm32-unknown-unknown --release && otigen test
+```
+
+The contract builds + tests pass out of the box; edit from there.
+
+---
+
+## 13. How the host reads it
 
 The host (Pyde's engine, in Rust, hosted on top of wasmtime) registers `cross_call` as a linker function during executor initialization. The function signature on the host side mirrors the WASM signature, plus a `Caller` handle that gives access to the contract's linear memory.
 
-### 12.1 Engine-side `cross_call` handler
+### 13.1 Engine-side `cross_call` handler
 
 ```rust
 // Register cross_call with the wasmtime linker. This wires the WASM-side
@@ -1627,7 +1856,7 @@ linker.func_wrap(
 )?;
 ```
 
-### 12.2 Why this design
+### 13.2 Why this design
 
 Three properties fall out of this shape:
 
@@ -1639,7 +1868,7 @@ Three properties fall out of this shape:
 
 ---
 
-## 13. The end-to-end flow
+## 14. The end-to-end flow
 
 Putting §6 (contract-side staging), §7 (the cross_call invocation), and §8 (host-side handling) together:
 
@@ -1737,7 +1966,7 @@ Putting §6 (contract-side staging), §7 (the cross_call invocation), and §8 (h
                    decides whether to revert / retry / propagate.
 ```
 
-### 13.1 What you actually pay for
+### 14.1 What you actually pay for
 
 For a single `cross_call` with 48 bytes of calldata and an empty return:
 
@@ -1752,17 +1981,17 @@ The sub-call's `gas_used` is debited from the caller's remaining budget regardle
 
 ---
 
-## 14. Common pitfalls
+## 15. Common pitfalls
 
 A non-exhaustive list of things that have bitten real Pyde contracts during development:
 
-### 14.1 Endianness mismatch
+### 15.1 Endianness mismatch
 
 **Symptom:** A contract writes `amount: u128 = 100` via `amount.to_be_bytes()`, the host reads via `u128::from_le_bytes` — you end up with a 16-byte big-endian on-wire representation interpreted as little-endian. The host sees `0x6400000000000000_00000000_00000000` instead of `100`.
 
 **Fix:** Always little-endian on the wire. `to_le_bytes` / `from_le_bytes` on both sides.
 
-### 14.2 Returning a pointer to a dropped local
+### 15.2 Returning a pointer to a dropped local
 
 ```rust
 // ❌ BROKEN: `local_buf` is dropped at the end of this function.
@@ -1778,19 +2007,19 @@ pub fn broken_pattern() -> i32 {
 
 **Fix:** For data that must survive past the current call, use `static mut` (§6.2) or heap allocation (§6.3). For data that only needs to live through one host call, stack-allocated is fine.
 
-### 14.3 Forgetting to provision the return-length slot
+### 15.3 Forgetting to provision the return-length slot
 
 **Symptom:** `cross_call` writes the actual return length into `return_data_out_len_ptr`, but you passed an uninitialized or shared slot — leading to garbage values for the length check.
 
 **Fix:** Always declare `let mut return_len: i32 = 0;` (or equivalent in Go/AS) immediately before the call. Don't re-use a slot across multiple cross-calls without re-zeroing.
 
-### 14.4 Returning a too-small buffer
+### 15.4 Returning a too-small buffer
 
 **Symptom:** Sub-call returns 256 bytes of data; your `return_buf` is 32 bytes; wasmtime traps with `MemoryOutOfBounds` when the host tries to write past your buffer.
 
 **Fix:** Size return buffers to the documented worst case for the target function. For unknown / variable-size returns, do a two-pass approach: first call with `return_buf = []` and read the length; second call with a buffer of that size. (Pyde's spec defers the formal "buffer too small" semantics to per-host-fn definitions — check the spec for each host fn before assuming.)
 
-### 14.5 Forgetting that pointers are 32-bit
+### 15.5 Forgetting that pointers are 32-bit
 
 ```rust
 // ❌ BROKEN: `let ptr: i64 = my_array.as_ptr() as i64;`
@@ -1804,19 +2033,19 @@ let ptr: i32 = my_array.as_ptr() as i32;   // ← correct
 
 **Fix:** Always cast pointers to `i32` (or `usize` in AS / TinyGo). Host fn signatures use `i32` for pointers; matching exactly prevents subtle type-coercion bugs.
 
-### 14.6 Importing a host fn that doesn't exist
+### 15.6 Importing a host fn that doesn't exist
 
 **Symptom:** Deploy fails with `ERR_FORBIDDEN_IMPORT`.
 
 **Fix:** Every imported function name must appear in the canonical ABI table (HOST_FN_ABI_SPEC §7 and §8). The deploy-time validator rejects unknown imports. Typos like `pyde::s_load` (extra underscore) vs `pyde::sload` (no underscore) are a frequent culprit.
 
-### 14.7 Calling a parachain-only host fn from a non-parachain contract
+### 15.7 Calling a parachain-only host fn from a non-parachain contract
 
 **Symptom:** Deploy fails with `ERR_FORBIDDEN_IMPORT` for functions like `parachain_storage_read`, `send_xparachain_message`, `threshold_encrypt`, etc.
 
 **Fix:** These functions are gated to parachain-typed modules at deploy time (HOST_FN_ABI_SPEC §9.2). If your contract needs them, declare `type = "parachain"` in `otigen.toml`; otherwise refactor to avoid the dependency.
 
-### 14.8 Leaving `debug_log` calls in a production bundle
+### 15.8 Leaving `debug_log` calls in a production bundle
 
 **Symptom:** `otigen build --strict` or `otigen deploy` fails with `import pyde.debug_log is a test-only host fn (forbidden on chain)`.
 
@@ -1840,7 +2069,7 @@ Run `otigen test -v` and watch stderr for `[debug] <fn>: alice_balance=100`. Str
 
 ---
 
-## 15. References
+## 16. References
 
 - [HOST_FN_ABI_SPEC v1.0](./HOST_FN_ABI_SPEC.md) — normative ABI specification.
 - [Chapter 3 — Execution Layer](../chapters/03-virtual-machine.md) — wasmtime runtime architecture, fuel metering, module caching.
@@ -1854,4 +2083,5 @@ Run `otigen test -v` and watch stderr for `[debug] <fn>: alice_balance=100`. Str
 - [`otigen/examples/simple-multisig`](https://github.com/pyde-net/otigen/tree/main/examples/simple-multisig) — 3-signer FALCON-512 multisig (§9 canonical example).
 - [`otigen/examples/upgradeable-proxy`](https://github.com/pyde-net/otigen/tree/main/examples/upgradeable-proxy) — upgradeable proxy via `delegate_call` (§10 canonical example).
 - [`otigen/examples/merkle-claim-airdrop`](https://github.com/pyde-net/otigen/tree/main/examples/merkle-claim-airdrop) — Merkle-tree airdrop claim with `hash_blake3` host fn (§11 canonical example).
+- [`otigen/examples/dao-governance`](https://github.com/pyde-net/otigen/tree/main/examples/dao-governance) — composed example: FALCON-signed votes + time phases + hash-committed execution (§12 canonical example).
 - [RFC 9162 — Certificate Transparency v2](https://datatracker.ietf.org/doc/rfc9162/) — domain-separation conventions for hash-based commitment trees (§11.2 background).

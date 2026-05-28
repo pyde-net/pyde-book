@@ -1,0 +1,59 @@
+# Per-section SEO overrides for The Pyde Book.
+#
+# The build-time `scripts/inject-seo.mjs` walks each rendered HTML
+# page and rewrites the OG / Twitter / `<meta name="description">` /
+# JSON-LD tags based on the page's path. This file is the source of
+# truth for those overrides.
+#
+# Matching: longest-prefix-wins. A page at `otigen/03-deploy.html`
+# inherits from `[sections."otigen"]`. A page at
+# `chapters/05-otigen-toolchain.html` inherits from
+# `[sections."chapters/05-otigen-toolchain"]` if defined, else from
+# the next-shorter matching key (`[sections."chapters"]`), else from
+# `[default]`.
+#
+# Field-level inheritance: each field (title, description, image)
+# falls back independently. A section can override only `title` and
+# let `description` + `image` inherit from a shorter-prefix section
+# or `[default]`.
+
+[default]
+title = "The Pyde Book"
+description = "Comprehensive technical reference for the Pyde blockchain protocol — post-quantum cryptography (FALCON-512, Kyber-768, Poseidon2 + Blake3), Mysticeti DAG consensus, WebAssembly execution via wasmtime, and structural MEV protection."
+image = "https://book.pyde.network/assets/og-1200x630.png"
+
+# ── Top-level sections ───────────────────────────────────────────
+
+[sections."preface"]
+title = "Pyde — Getting Started"
+description = "Onboarding for Pyde: what it is, why it exists, and how to start building or using the network. Developer + user quickstart paths."
+
+[sections."chapters"]
+title = "Pyde — Core Protocol"
+description = "The Pyde core protocol: execution layer (WebAssembly via wasmtime), state model, Mysticeti DAG consensus, post-quantum cryptography, MEV protection, gas + tokenomics, governance, accounts, and networking."
+
+[sections."otigen"]
+title = "Otigen — Pyde's Smart Contract Toolchain"
+description = "Otigen is Pyde's WebAssembly-targeted smart contract toolchain. Compile Pyde contracts in any wasm32-compatible language (Rust, AssemblyScript, TinyGo); deploy via the wright CLI; standard ABI per HOST_FN_ABI v1.0."
+
+[sections."companion"]
+title = "Pyde — Authoritative Spec Documents"
+description = "Frozen authoritative specs for Pyde: HOST_FN_ABI v1.0, PIPs (Pyde Improvement Proposals), validator lifecycle, slashing rules, state sync protocol, chain halt + recovery, network protocol specifics."
+
+[sections."pivot"]
+title = "Pyde — Historical Design References"
+description = "Archived design decisions from Pyde's pre-pivot era: the HotStuff consensus model + the Otigen domain-specific language that were superseded by Mysticeti DAG consensus and the WASM-targeted toolchain."
+
+[sections."roadmap"]
+title = "Pyde — Implementation Roadmap"
+description = "Phase-by-phase implementation status of the Pyde protocol: MC-0 foundation, MC-1 streams (state, account, tx, wasm-exec, mempool, consensus, network), MC-2 integration, MC-3 state sync + parachains, MC-4 performance, MC-5 mainnet."
+
+# ── Specific overrides for cross-section pages ───────────────────
+#
+# The Otigen Toolchain chapter sits in `chapters/` but topically
+# belongs to the Otigen toolchain. Pin its SEO to the Otigen story
+# so the search-result snippet matches reader intent.
+
+[sections."chapters/05-otigen-toolchain"]
+title = "Otigen Toolchain — Core Protocol Integration"
+description = "How Pyde's smart contract toolchain (Otigen) integrates with the core protocol: wasmtime runtime, the HOST_FN_ABI host-function set, deploy flow, and cross-contract call semantics."

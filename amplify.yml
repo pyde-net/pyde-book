@@ -24,6 +24,14 @@ frontend:
     build:
       commands:
         - /tmp/mdbook build
+        # Rewrite the OG / Twitter / <meta name="description"> /
+        # JSON-LD tags per section so each chapter ships its own
+        # SEO + social-preview metadata. mdBook's head.hbs is a
+        # single template, so without this post-process every page
+        # gets the book-level description — bad for crawlers + bad
+        # for social-card previews. See theme/seo.toml for the
+        # per-section overrides.
+        - node scripts/inject-seo.mjs
   artifacts:
     baseDirectory: book
     files:

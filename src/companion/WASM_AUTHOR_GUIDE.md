@@ -605,232 +605,203 @@ export function readBalance(accountPtr: usize): u64 {
 
 ---
 
-## 7. Field-keyed storage (recommended)
+## 7. Storage — variable-length values + slot derivation
 
-The §7.1 host-fn catalog lists six storage primitives: the three raw slot-addressed ones (`sload` / `sstore` / `sdelete`) and the three field-keyed ones (`sload_by_field` / `sstore_by_field` / `sdelete_by_field`). **Default to the field-keyed trio.** They take the field name + optional key as raw bytes and the engine derives the slot internally:
-
-```text
-slot = Poseidon2(self_address || field_bytes || key_bytes)
-```
-
-What you save by using them:
-
-| Without (`sload` / `sstore` raw) | With (`sload_by_field` / `sstore_by_field`) |
-|---|---|
-| Declare a `slot_<field>()` helper per storage field | None |
-| Call `self_address` to seed the hash | Engine does it host-side |
-| Allocate a scratch buffer for `addr ‖ field ‖ key` | None |
-| Call `hash_poseidon2` to compute the slot | Folded into the host-fn base cost |
-| `sload(slot, value_out)` / `sstore(slot, value)` | `sload_by_field(field, field_len, key, key_len, value_out)` |
-| **~5 lines + 2 imports** | **1 line** |
-
-Gas is **identical** — the host-side derivation is included in the 200/5000/150 base cost. Use the raw fns only when you need to address a slot you derived yourself (cross-contract storage proofs, custom-keyed slots, or layouts inherited from a delegated implementation).
-
-### 7.1 Calling convention
-
-All three by-field fns share the same head:
+Pyde v1 storage is **variable-length** per HOST_FN_ABI_SPEC §7.1. Three host fns:
 
 ```text
-pyde::sX_by_field(field_ptr, field_len, key_ptr, key_len, [value_ptr_or_out_ptr]) -> i32
+pyde::sload(slot_ptr, out_ptr, out_max_len) -> i32   // actual_len, or -1 (SLOAD_MISSING)
+pyde::sstore(slot_ptr, val_ptr, val_len)             // val_len capped at 16 KB
+pyde::sdelete(slot_ptr)                              // tombstone the slot
 ```
 
-- `field_ptr` / `field_len` — pointer + length of the field-name bytes (`b"balances"`, `b"total_supply"`, etc.). Length is the count of bytes, not characters.
-- `key_ptr` / `key_len` — pointer + length of the key bytes.
-  - For **scalar** slots (no key), pass `0, 0`.
-  - For **mapping** slots, pass a 32-byte address (or any unique key bytes) + its length.
-  - For **composite-key** mappings (`allowances[owner][spender]`), pack into a single buffer (e.g., 64 bytes = `owner ‖ spender`) and pass that pointer + 64.
-- The final pointer is the value buffer:
-  - `sload_by_field`: `value_out_ptr` — a 32-byte buffer the host writes into.
-  - `sstore_by_field`: `value_ptr` — a 32-byte buffer the host reads from.
-  - `sdelete_by_field`: no value pointer.
+Slot **keys** are always 32 bytes. Slot **values** are whatever the contract writes — `u64::to_be_bytes()` (8 bytes), `u128::to_be_bytes()` (16 bytes), an address (32 bytes), arbitrary bytes up to 16 KB. No 32-byte padding required.
 
-### 7.2 Rust — scalar + mapping + composite-key
+Contracts derive their own slot keys via the canonical recipe:
+
+```text
+slot = Poseidon2(self_address || field_bytes [|| key_bytes])
+```
+
+Wrap the derivation in a single `derive_slot(field, key)` helper. Every read/write becomes a one-line call.
+
+### 7.1 The 5-line `derive_slot` helper (Rust)
 
 ```rust
 #[link(wasm_import_module = "pyde")]
 extern "C" {
-    fn sload_by_field(
-        field_ptr: *const u8, field_len: i32,
-        key_ptr:   *const u8, key_len:   i32,
-        value_out_ptr: *mut u8,
-    ) -> i32;
-
-    fn sstore_by_field(
-        field_ptr: *const u8, field_len: i32,
-        key_ptr:   *const u8, key_len:   i32,
-        value_ptr: *const u8,
-    ) -> i32;
+    fn sload(slot_ptr: *const u8, out_ptr: *mut u8, out_max_len: i32) -> i32;
+    fn sstore(slot_ptr: *const u8, val_ptr: *const u8, val_len: i32);
+    fn self_address(addr_out_ptr: *mut u8) -> i32;
+    fn hash_poseidon2(in_ptr: *const u8, in_len: i32, out_ptr: *mut u8);
 }
 
+/// `slot = Poseidon2(self_address || field || key)`. Pass `key = &[]`
+/// for scalar slots. Fixed-size buffer caps the preimage at 32 + 96 =
+/// 128 bytes (covers any realistic field name + composite key).
+fn derive_slot(field: &[u8], key: &[u8]) -> [u8; 32] {
+    let mut preimage = [0u8; 32 + 96];
+    let total = 32 + field.len() + key.len();
+    unsafe { self_address(preimage.as_mut_ptr()); }
+    preimage[32..32 + field.len()].copy_from_slice(field);
+    preimage[32 + field.len()..total].copy_from_slice(key);
+    let mut out = [0u8; 32];
+    unsafe { hash_poseidon2(preimage.as_ptr(), total as i32, out.as_mut_ptr()); }
+    out
+}
+```
+
+### 7.2 Rust — scalar + mapping + composite-key
+
+```rust
 const FIELD_TOTAL_SUPPLY: &[u8] = b"total_supply";
 const FIELD_BALANCES:     &[u8] = b"balances";
 const FIELD_ALLOWANCES:   &[u8] = b"allowances";
 
-/// One helper covers scalar + mapping + composite-key uniformly.
-/// Pass `key = &[]` for scalars.
+/// Read/write a u128 as 16 raw bytes (no 32-byte padding).
 fn read_u128(field: &[u8], key: &[u8]) -> u128 {
-    let mut buf = [0u8; 32];
-    let key_ptr = if key.is_empty() { core::ptr::null() } else { key.as_ptr() };
-    unsafe {
-        sload_by_field(
-            field.as_ptr(), field.len() as i32,
-            key_ptr,        key.len() as i32,
-            buf.as_mut_ptr(),
-        );
-    }
-    let mut amt = [0u8; 16]; amt.copy_from_slice(&buf[16..]);
-    u128::from_be_bytes(amt)
+    let slot = derive_slot(field, key);
+    let mut buf = [0u8; 16];
+    // -1 (missing) and 0 (empty) both default to 0 here.
+    let actual = unsafe { sload(slot.as_ptr(), buf.as_mut_ptr(), 16) };
+    if actual <= 0 { return 0; }
+    u128::from_be_bytes(buf)
 }
 
 fn write_u128(field: &[u8], key: &[u8], value: u128) {
-    let mut buf = [0u8; 32];
-    buf[16..].copy_from_slice(&value.to_be_bytes());
-    let key_ptr = if key.is_empty() { core::ptr::null() } else { key.as_ptr() };
-    unsafe {
-        sstore_by_field(
-            field.as_ptr(), field.len() as i32,
-            key_ptr,        key.len() as i32,
-            buf.as_ptr(),
-        );
-    }
+    let slot = derive_slot(field, key);
+    let bytes = value.to_be_bytes();              // exactly 16 bytes
+    unsafe { sstore(slot.as_ptr(), bytes.as_ptr(), 16); }
 }
 
-// Usage:
-let supply  = read_u128(FIELD_TOTAL_SUPPLY, &[]);              // scalar
-let balance = read_u128(FIELD_BALANCES, &owner);               // mapping (key = 32-byte addr)
+// Usage — uniform across scalar / mapping / composite-key:
+let supply  = read_u128(FIELD_TOTAL_SUPPLY, &[]);                  // scalar
+let balance = read_u128(FIELD_BALANCES, &owner);                   // mapping (key = 32-byte addr)
 
 // Composite key — pack inline:
-let mut k = [0u8; 64]; k[..32].copy_from_slice(&owner); k[32..].copy_from_slice(&spender);
-let allowed = read_u128(FIELD_ALLOWANCES, &k);                 // nested mapping
+let mut k = [0u8; 64];
+k[..32].copy_from_slice(&owner);
+k[32..].copy_from_slice(&spender);
+let allowed = read_u128(FIELD_ALLOWANCES, &k);                     // nested mapping
 ```
+
+`read_u64` / `write_u64` follow the same shape with 8-byte buffers; `read_address` / `write_address` use 32. Storage costs (5000 base + 32/byte on `sstore`) scale with what you write — pay for what you use, no 32-byte padding overhead.
 
 ### 7.3 TinyGo — same shape, `//go:wasmimport`
 
 ```go
-//go:wasmimport pyde sload_by_field
-func sload_by_field(
-    fieldPtr int32, fieldLen int32,
-    keyPtr   int32, keyLen   int32,
-    valueOutPtr int32,
-) int32
+//go:wasmimport pyde sload
+func sload(slotPtr int32, outPtr int32, outMaxLen int32) int32
 
-//go:wasmimport pyde sstore_by_field
-func sstore_by_field(
-    fieldPtr int32, fieldLen int32,
-    keyPtr   int32, keyLen   int32,
-    valuePtr int32,
-) int32
+//go:wasmimport pyde sstore
+func sstore(slotPtr int32, valPtr int32, valLen int32)
+
+//go:wasmimport pyde self_address
+func self_address(addrOutPtr int32) int32
+
+//go:wasmimport pyde hash_poseidon2
+func hash_poseidon2(inPtr int32, inLen int32, outPtr int32)
+
+func deriveSlot(field []byte, key []byte) [32]byte {
+    var preimage [32 + 96]byte
+    total := 32 + len(field) + len(key)
+    self_address(int32(uintptr(unsafe.Pointer(&preimage[0]))))
+    copy(preimage[32:32+len(field)], field)
+    copy(preimage[32+len(field):total], key)
+
+    var out [32]byte
+    hash_poseidon2(
+        int32(uintptr(unsafe.Pointer(&preimage[0]))),
+        int32(total),
+        int32(uintptr(unsafe.Pointer(&out[0]))),
+    )
+    return out
+}
 
 var fieldBalances = []byte("balances")
 
 func readBalance(owner [32]byte) uint64 {
-    var buf [32]byte
-    sload_by_field(
-        int32(uintptr(unsafe.Pointer(&fieldBalances[0]))),
-        int32(len(fieldBalances)),
-        int32(uintptr(unsafe.Pointer(&owner[0]))), 32,
+    slot := deriveSlot(fieldBalances, owner[:])
+    var buf [8]byte
+    actual := sload(
+        int32(uintptr(unsafe.Pointer(&slot[0]))),
         int32(uintptr(unsafe.Pointer(&buf[0]))),
+        8,
     )
-    return binary.BigEndian.Uint64(buf[24:32])
-}
-
-func writeBalance(owner [32]byte, value uint64) {
-    var buf [32]byte
-    binary.BigEndian.PutUint64(buf[24:32], value)
-    sstore_by_field(
-        int32(uintptr(unsafe.Pointer(&fieldBalances[0]))),
-        int32(len(fieldBalances)),
-        int32(uintptr(unsafe.Pointer(&owner[0]))), 32,
-        int32(uintptr(unsafe.Pointer(&buf[0]))),
-    )
+    if actual <= 0 { return 0 }
+    return binary.BigEndian.Uint64(buf[:])
 }
 ```
-
-For a scalar slot pass `0, 0` for the key pair.
 
 ### 7.4 AssemblyScript — same shape, `@external`
 
 ```ts
-@external("pyde", "sload_by_field")
-declare function sload_by_field(
-  fieldPtr: usize, fieldLen: i32,
-  keyPtr:   usize, keyLen:   i32,
-  valueOutPtr: usize,
-): i32;
+@external("pyde", "sload")
+declare function sload(slot_ptr: usize, out_ptr: usize, out_max_len: i32): i32;
 
-@external("pyde", "sstore_by_field")
-declare function sstore_by_field(
-  fieldPtr: usize, fieldLen: i32,
-  keyPtr:   usize, keyLen:   i32,
-  valuePtr: usize,
-): i32;
+@external("pyde", "sstore")
+declare function sstore(slot_ptr: usize, val_ptr: usize, val_len: i32): void;
 
-const FIELD_BALANCES: StaticArray<u8> = [
-  0x62, 0x61, 0x6c, 0x61, 0x6e, 0x63, 0x65, 0x73,  // "balances"
-];
+@external("pyde", "self_address")
+declare function self_address(addr_out_ptr: usize): i32;
 
-function readBalance(owner: StaticArray<u8>): u64 {
-  const buf = new StaticArray<u8>(32);
-  sload_by_field(
-    changetype<usize>(FIELD_BALANCES), FIELD_BALANCES.length,
-    changetype<usize>(owner), 32,
-    changetype<usize>(buf),
-  );
-  let v: u64 = 0;
-  for (let i = 0; i < 8; i++) v = (v << 8) | u64(buf[24 + i]);
-  return v;
+@external("pyde", "hash_poseidon2")
+declare function hash_poseidon2(in_ptr: usize, in_len: i32, out_ptr: usize): void;
+
+function deriveSlot(field: StaticArray<u8>, key: StaticArray<u8> | null): StaticArray<u8> {
+  const fieldLen = field.length;
+  const keyLen = key != null ? key.length : 0;
+  const total = 32 + fieldLen + keyLen;
+
+  const preimage = new StaticArray<u8>(total);
+  self_address(changetype<usize>(preimage));
+  for (let i = 0; i < fieldLen; i++) preimage[32 + i] = field[i];
+  if (key != null) {
+    for (let i = 0; i < keyLen; i++) preimage[32 + fieldLen + i] = key[i];
+  }
+
+  const out = new StaticArray<u8>(32);
+  hash_poseidon2(changetype<usize>(preimage), total, changetype<usize>(out));
+  return out;
 }
 ```
-
-For a scalar slot pass `0, 0` for the key pair.
 
 ### 7.5 C — same shape, `import_module`
 
 ```c
-__attribute__((import_module("pyde"), import_name("sload_by_field")))
-extern int32_t sload_by_field(
-    const uint8_t* field_ptr, int32_t field_len,
-    const uint8_t* key_ptr,   int32_t key_len,
-    uint8_t* value_out_ptr);
+__attribute__((import_module("pyde"), import_name("sload")))
+extern int32_t sload(const uint8_t* slot_ptr, uint8_t* out_ptr, int32_t out_max_len);
 
-__attribute__((import_module("pyde"), import_name("sstore_by_field")))
-extern int32_t sstore_by_field(
-    const uint8_t* field_ptr, int32_t field_len,
-    const uint8_t* key_ptr,   int32_t key_len,
-    const uint8_t* value_ptr);
+__attribute__((import_module("pyde"), import_name("sstore")))
+extern void sstore(const uint8_t* slot_ptr, const uint8_t* val_ptr, int32_t val_len);
 
-static const uint8_t FIELD_BALANCES[8] = {'b','a','l','a','n','c','e','s'};
+__attribute__((import_module("pyde"), import_name("self_address")))
+extern int32_t self_address(uint8_t* addr_out_ptr);
 
-static uint64_t read_balance(const uint8_t owner[32]) {
-    uint8_t buf[32];
-    sload_by_field(
-        FIELD_BALANCES, sizeof FIELD_BALANCES,
-        owner, 32,
-        buf);
-    uint64_t v = 0;
-    for (int i = 0; i < 8; i++) v = (v << 8) | (uint64_t)buf[24 + i];
-    return v;
-}
+__attribute__((import_module("pyde"), import_name("hash_poseidon2")))
+extern void hash_poseidon2(const uint8_t* in_ptr, int32_t in_len, uint8_t* out_ptr);
 
-static void write_balance(const uint8_t owner[32], uint64_t value) {
-    uint8_t buf[32] = {0};
-    for (int i = 7; i >= 0; i--) { buf[24 + i] = (uint8_t)(value & 0xff); value >>= 8; }
-    sstore_by_field(
-        FIELD_BALANCES, sizeof FIELD_BALANCES,
-        owner, 32,
-        buf);
+static void derive_slot(const uint8_t* field, int32_t field_len,
+                        const uint8_t* key,   int32_t key_len,
+                        uint8_t out[32]) {
+    uint8_t preimage[128];
+    self_address(preimage);
+    for (int32_t i = 0; i < field_len; i++) preimage[32 + i] = field[i];
+    for (int32_t i = 0; i < key_len;   i++) preimage[32 + field_len + i] = key[i];
+    hash_poseidon2(preimage, 32 + field_len + key_len, out);
 }
 ```
 
-For a scalar slot pass `(const uint8_t*)0, 0` for the key pair.
+### 7.6 Pre-migration: `*_by_field` is gone
 
-### 7.6 When to fall back to raw `sload` / `sstore`
+An earlier ABI revision shipped host-side convenience variants — `sload_by_field` / `sstore_by_field` / `sdelete_by_field` — that did the slot derivation inside the host. These were **dropped in the variable-length storage migration** to keep the host fn surface minimal and uniform with the engine's executor. The 5-line `derive_slot` helper above recovers the ergonomics without adding host fns; gas is comparable (a `hash_poseidon2` call replaces what was previously folded into the host base cost).
 
-The by-field forms cover the canonical `Poseidon2(self_addr ‖ field ‖ key)` derivation. Use the raw forms when:
+If you're updating an older contract, replace every `sX_by_field(field, field_len, key, key_len, ...)` call with:
 
-- **You need to address a foreign-contract slot.** Cross-contract storage proofs derive the slot from a *different* contract's address, not your own — `sload_by_field` would derive it from yours.
-- **You inherited a layout that uses a non-canonical derivation.** Migrated contracts, ports from other chains with different slot schemes, etc.
-- **You want a fully custom hash recipe.** Maybe `Blake3` instead of `Poseidon2`, or a multi-step keccak ladder. Compute the slot yourself, pass it to raw `sstore`.
+```rust
+let slot = derive_slot(field, key);
+sX(slot.as_ptr(), ...);  // sload / sstore / sdelete with the new variable-length signatures
+```
 
 Mixing forms in the same contract is fine — they read/write the same JMT.
 
@@ -1159,17 +1130,13 @@ const FIELD_SIGNERS: &[u8] = b"signers";
 fn register_signer(slot_idx: u8, pubkey: &[u8]) {
     let mut hash = [0u8; 32];
     unsafe { host_fns::hash_poseidon2(pubkey.as_ptr(), pubkey.len() as i32, hash.as_mut_ptr()); }
-    unsafe {
-        host_fns::sstore_by_field(
-            FIELD_SIGNERS.as_ptr(), FIELD_SIGNERS.len() as i32,
-            &slot_idx as *const u8, 1,
-            hash.as_ptr(),
-        );
-    }
+    // derive_slot is the §7.1 helper.
+    let slot = derive_slot(FIELD_SIGNERS, &[slot_idx]);
+    unsafe { host_fns::sstore(slot.as_ptr(), hash.as_ptr(), 32); }
 }
 ```
 
-One slot per signer instead of 28. The test framework's `@pubkey_hash:NAME` DSL prefix (see `OTIGEN_TEST_SPEC §5.5`) computes the identical hash at plan time so test init calls register the same IDs.
+One slot per signer instead of 29. The test framework's `@pubkey_hash:NAME` DSL prefix (see `OTIGEN_TEST_SPEC §5.5`) computes the identical hash at plan time so test init calls register the same IDs.
 
 ### 9.3 The verify-and-count loop
 

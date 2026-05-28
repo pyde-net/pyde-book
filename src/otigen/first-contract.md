@@ -64,7 +64,7 @@ pub extern "C" fn get() -> i64 {
 }
 ```
 
-`read_counter` and `write_counter` are private helpers that call `pyde::sload_by_field` / `pyde::sstore_by_field`, passing the raw field name (`b"counter"`). The engine derives `slot = Poseidon2(self_address ‖ field ‖ key)` internally — the contract never has to hash anything by hand. See [WASM Contract Author Guide §7 “Field-keyed storage (recommended)”](../companion/WASM_AUTHOR_GUIDE.md) for the per-language breakdown, and the raw `pyde::sload` / `pyde::sstore` if you need to address a slot you derived yourself.
+`read_counter` and `write_counter` are private helpers built around a 5-line `derive_slot(field, key)` that runs `Poseidon2(self_address ‖ field ‖ key)` and a single `pyde::sload` / `pyde::sstore` call. Storage values are **variable-length** (`u64` stored as 8 raw bytes — no 32-byte padding). See [WASM Contract Author Guide §7](../companion/WASM_AUTHOR_GUIDE.md) for the per-language breakdown of `derive_slot` + `sload` / `sstore` / `sdelete`.
 
 The corresponding `otigen.toml`:
 

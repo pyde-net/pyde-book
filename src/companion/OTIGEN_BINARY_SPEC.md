@@ -309,7 +309,7 @@ Mock host fns (v1) — canonical names per [`HOST_FN_ABI_SPEC §7`](./HOST_FN_AB
 
 - Storage: `sload`, `sstore`, `sdelete`
 - Account & balance: `balance`, `transfer`
-- Execution context: `caller`, `block_height`, `wave_id`, `block_timestamp`, `chain_id`
+- Execution context: `caller`, `wave_id`, `wave_timestamp`, `chain_id`
 - Transaction context: `tx_value`
 - Events + halt: `emit_event`, `revert`
 - Hashing: `hash_poseidon2`, `hash_blake3`

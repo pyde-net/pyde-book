@@ -253,14 +253,16 @@ When a round skips, its vertices aren't lost — the next round's commit absorbs
 - **Epoch length:** ~3 hours wall-clock (commit count varies with network conditions — typically ~21,600 commits at the 500 ms median cadence)
 
 ```python
-# At epoch boundary, derive committee:
+# T-30min in epoch N: beacon_N+1 has just been finalized (see §9).
+# Every staked validator now derives the committee for epoch N+1:
 eligible = [v for v in all_validators
             if v.stake >= MIN_VALIDATOR_STAKE and not v.jailed]
 for slot in 0..128:
-    seed = Hash(beacon, slot)
+    seed = Hash(beacon_N+1, slot)
     member = uniform_random_pick(eligible, seed)
     committee[slot] = member
     eligible.remove(member)  # without replacement
+# Committee N+1 immediately begins DKG — see §10 for the boundary timing.
 ```
 
 ### Equal Power Within Committee
@@ -303,23 +305,45 @@ Holds under partial synchrony (messages eventually delivered, bounded clock skew
 
 ## 9. Randomness Beacon
 
-Each epoch's beacon is produced by the previous epoch's committee:
+Each epoch's beacon is produced by the **previous** epoch's committee. The beacon for epoch N+1 must be finalized with enough lead time for committee N+1 to be selected (via VRF on `beacon_N+1`) and run DKG before the epoch boundary. The architectural target uses a threshold-signature primitive; v1 ships a FALCON-aggregate approximation (called out below).
+
+### Target design (threshold-sig — long-term)
 
 ```
-1. All 128 members sign known message "epoch_N_beacon" with threshold-share keys
-2. ≥85 shares combine into deterministic aggregated signature
-3. beacon_N = Hash(aggregated_signature) → 32 bytes
-4. Published in last wave of epoch N
+1. All 128 committee N members sign known message "epoch_N+1_beacon" with
+   threshold-share keys (DKG'd at the start of epoch N)
+2. ≥85 shares Lagrange-combine into ONE deterministic aggregated signature
+3. beacon_N+1 = Hash(aggregated_signature) → 32 bytes
+4. Finalized at T-30min (last 30 min of epoch N) — see §10 for why
 ```
 
-Properties:
-- **Deterministic** given the shares
+Properties of the target design:
+- **Deterministic** given any 85 of 128 shares (Lagrange invariance — same aggregated sig regardless of which 85 contribute)
 - **Unpredictable** until ≥85 shares combine (no single party knows it)
-- **Bias-resistant** (shares determined by DKG, can't be cherry-picked)
+- **Bias-resistant** — shares determined by DKG-derived keys, no individual member can grind by choosing whether to participate; the aggregated output doesn't depend on subset selection
+
+### v1 implementation (FALCON-aggregate approximation)
+
+`pyde-crypto` does not yet ship a post-quantum threshold-signature primitive — post-quantum threshold sigs are research-level (see WHITEPAPER §3 honest-tradeoffs section). v1 ships a `FalconBeaconScheme` that approximates the target by hash-concatenating individual FALCON sigs:
+
+```
+1. Each member i signs the epoch message with their own individual FALCON
+   beacon keypair (persisted on disk, separate from consensus FALCON keypair)
+2. Shares gossip via pyde/beacon-shares/1
+3. Combine: lowest-member-id 85 shares are sorted, concatenated, and
+   blake3-hashed → beacon_N+1
+```
+
+The v1 approximation deviates from the target design in two ways:
+
+- **Subset disagreement is structurally possible** because the hash depends on *which* 85 shares are included, not just *that* 85 contributed. v1 fixes this by hardcoding a canonical-subset rule (`combine` MUST use exactly the lowest-`member_id` 85 shares) so every validator deterministically agrees on the same 85.
+- **Last-signer grinding bias** (~1 bit per epoch): a member who signs late sees prior shares and could compute `beacon_if_I_sign` vs `beacon_if_I_withhold`. Bounded by the `prev_beacon` hash-chain (compounds against the adversary across epochs) and by the ≥85 honest sigs always inside the hash. Full elimination waits for true threshold sigs.
+
+When `pyde-crypto` ships threshold-FALCON or an equivalent post-quantum threshold-sig primitive, the `BeaconScheme` trait swaps cleanly to the target design without consensus-side changes.
 
 ## 10. DKG (Distributed Key Generation)
 
-Each epoch transition, the new committee runs DKG to produce a fresh threshold encryption key:
+Each epoch transition, the **new** committee runs DKG to produce a fresh threshold encryption key. The "old committee makes beacon, new committee runs DKG" split keeps key generation truly distributed (only the new committee members contribute their own per-member randomness to the new key) while the old committee handles the bootstrap randomness via the beacon.
 
 ```
 Pedersen DKG, multi-round protocol (~30-60s in background):
@@ -340,7 +364,33 @@ Result:
 
 Mathematical foundation: any 85 points on a degree-84 polynomial uniquely determine it (Lagrange interpolation). 84 points don't.
 
-DKG runs in **background** during the prior epoch's last minutes. New committee has threshold key ready at epoch start. Plaintext consensus continues during DKG (encryption is optional anyway).
+### Timing: ~30 min tail window of the prior epoch
+
+DKG runs during the **last ~30 minutes of epoch N** so committee N+1 has its threshold key ready by the epoch boundary. The full chicken-and-egg sequence:
+
+```
+T-30min (last 30 min of epoch N):
+  ├── beacon_N+1 finalized (see §9 — old committee's combine ceremony)
+  ├── every staked validator runs VRF(validator_sk, beacon_N+1)
+  ├── lowest 128 VRF outputs become committee N+1
+  ├── committee N+1 begins DKG IMMEDIATELY
+  │   (Pedersen-style rounds + complaint window propagate within minutes;
+  │    ~30 min leaves comfortable margin for stragglers and retries)
+  └── committee N continues serving consensus + threshold decryption
+
+EPOCH BOUNDARY (T=3hr):
+  ├── DKG complete → committee N+1 has threshold encryption key
+  ├── committee N hands over instantly
+  └── threshold decryption continuous — no downtime
+```
+
+**Important:** beacon production in v1 does NOT depend on DKG — each member signs beacon shares with their individual FALCON beacon keypair (the `BeaconKeypair`, distinct from the consensus FALCON keypair). DKG is purely for threshold *decryption*. So:
+
+- Consensus + beacon handover is instant at epoch boundary
+- DKG propagation delay only blocks threshold decryption (encrypted txs), never consensus
+- If DKG ever fails to complete in the tail window (network partition, complaint storm), encrypted txs queue until DKG finishes — plaintext consensus continues unaffected
+
+**Why ~30 min and not less:** DKG rounds + complaints + gossip diameter across a 128-member global committee land in the 30-60 second range under good conditions, but the complaint protocol can re-run if any member is contested. 30 min absorbs the worst-case retry path at the 3-hour epoch length.
 
 ## 11. Threshold Decryption Ceremony
 

@@ -893,28 +893,127 @@ should produce byte-identical `contract.wasm` and `manifest.json` (modulo `build
 
 ### 10.2 JSON output mode
 
-`--json` causes every subcommand to emit one JSON object per logical event, one per line (NDJSON-style):
+`--json` causes every subcommand to emit one JSON object per logical event, one per line (NDJSON-style). CI / scripting consumers parse this stream; human readers see a friendlier format by default (omit `--json`).
 
 ```json
-{"event": "build_start", "name": "my_token", "ts": "2026-05-23T16:42:00Z"}
-{"event": "validation_passed", "checks": ["wasm_well_formed", "imports_allowed", "abi_consistent"]}
-{"event": "abi_injected", "bytes_added": 1840}
-{"event": "bundle_written", "path": "./artifacts/my_token.bundle/"}
-{"event": "build_success", "duration_ms": 248}
+{"event":"build_start","config_path":"otigen.toml"}
+{"event":"config_validated","contract_name":"my-token","language":"rust"}
+{"event":"wasm_loaded","path":"target/wasm32-unknown-unknown/release/my_token.wasm","size_bytes":152384}
+{"event":"validation_passed","checks":["wasm_well_formed","imports_allowed","abi_consistent"]}
+{"event":"abi_built","function_count":6,"event_count":2}
+{"event":"abi_injected","bytes_added":1840}
+{"event":"bundle_written","path":"./artifacts/my-token.bundle"}
+{"event":"build_success","duration_ms":248}
 ```
 
-`otigen test --json` adds the test-suite stream:
+#### Stability contract (`otigen-events-v1`)
 
-```jsonl
-{"event":"test_suite_start","file":"tests/contract.test.toml","total":3}
-{"event":"test_start","name":"transfer_moves_balance"}
-{"event":"test_pass","name":"transfer_moves_balance","duration_ms":1.2}
-{"event":"test_start","name":"transfer_reverts_on_overspend"}
-{"event":"test_fail","name":"transfer_reverts_on_overspend","reason":"expected revert containing \"InsufficientBalance\", got: return value 0"}
-{"event":"test_suite_done","passed":1,"failed":1,"skipped":0}
-```
+This is `otigen-events-v1` — the JSON event surface as of `bundle_format_version = 1`. The stability guarantees:
 
-CI / scripting consumers parse this stream. Human readers see a friendlier format by default (omit `--json`).
+- **Existing event variants never disappear.** `build_start`, `test_pass`, `verify_result`, etc., emit forever with their existing required fields. Older parsers keep working.
+- **New fields may be added** to existing events. Parsers MUST tolerate unknown keys (the standard "don't break on additions" JSON discipline).
+- **Required fields keep their types.** A `duration_ms` that's `u64` today won't become a string. A `size_bytes` that's `usize` today won't go signed.
+- **New event variants may be added** in later toolchain releases. Parsers SHOULD tolerate unknown `event` values (typically by logging + skipping).
+- **Breaking changes** (renamed field, type change, removed variant) bump the schema to `otigen-events-v2`. The bundle's `bundle_format_version` bumps simultaneously so consumers can gate by either.
+
+`--quiet` × `--json` interaction: `--quiet` wins. Both flags together emit nothing on stdout (only structured errors go to stderr via the regular error path). Useful for CI that only cares about exit codes.
+
+#### Event catalog (v1, complete)
+
+Grouped by subcommand. Each row lists the `event` discriminant and the fields the variant carries.
+
+**`otigen init`**
+
+| Event | Fields |
+|---|---|
+| `init_start` | `name`, `lang`, `kind` |
+| `init_success` | `name`, `lang`, `path`, `files_written` |
+
+**`otigen new`**
+
+Currently piggy-backs on `init_start` (see [`commands/new.rs`](https://github.com/pyde-net/otigen/blob/main/crates/otigen-cli/src/commands/new.rs)) for parity with the canonical-template path. Dedicated `new_*` events land in a follow-up.
+
+**`otigen build` / `otigen build --compile`**
+
+| Event | Fields |
+|---|---|
+| `build_start` | `config_path` |
+| `config_validated` | `contract_name`, `language` |
+| `compile_start` | `language`, `command` (only with `--compile`) |
+| `compile_success` | `language`, `output` (only with `--compile`) |
+| `compile_failed` | `language` (only with `--compile`) |
+| `wasm_loaded` | `path`, `size_bytes` |
+| `validation_passed` | `checks` (array of check names) |
+| `abi_built` | `function_count`, `event_count` |
+| `abi_injected` | `bytes_added` |
+| `bundle_written` | `path` |
+| `build_success` | `duration_ms` |
+
+**`otigen check`**
+
+| Event | Fields |
+|---|---|
+| `check_start` | `config_path` |
+| `check_success` | `function_count`, `event_count`, `duration_ms` |
+| `check_failed` | `violations` (count) |
+
+**`otigen wallet`**
+
+| Event | Fields |
+|---|---|
+| `wallet_created` | `name`, `address`, `keystore` |
+| `wallet_imported` | `name`, `address`, `keystore` |
+| `wallet_listed` | `keystore`, `accounts` (array of `{name, address}`) |
+| `wallet_shown` | `name`, `address`, `keystore` |
+| `wallet_deleted` | `name`, `keystore` |
+| `wallet_password_rotated` | `name` |
+| `wallet_exported` | `name`, `path`, `keystore` |
+| `wallet_signed` | `name`, `tx_hash`, `signature` |
+
+**`otigen deploy`**
+
+| Event | Fields |
+|---|---|
+| `deploy_start` | `name`, `network`, `from`, `bundle` |
+| `deploy_dry_run` | `tx_hash`, `bytecode_hash`, … |
+| `deploy_submitted` | `tx_hash` |
+| `deploy_included` | `tx_hash`, `status` |
+| `deploy_failed` | `reason`, `detail` |
+
+**`otigen upgrade` / `pause` / `unpause` / `kill`** (lifecycle ops)
+
+| Event | Fields |
+|---|---|
+| `lifecycle_start` | `op`, `target`, `network`, `from` |
+| `lifecycle_submitted` | `op`, `tx_hash` |
+| `lifecycle_included` | `op`, `tx_hash`, `status` |
+| `lifecycle_failed` | `op`, `reason`, `detail` |
+
+**`otigen inspect`**
+
+| Event | Fields |
+|---|---|
+| `inspect_start` | `target`, `network` |
+| `inspect_result` | `target`, `address`, `account_type`, `balance`, `nonce`, `code_hash`, `code_size_bytes`, `state_root`, plus optional ABI summary fields |
+
+**`otigen test`**
+
+| Event | Fields |
+|---|---|
+| `test_suite_start` | `file`, `total` |
+| `test_start` | `name` |
+| `test_pass` | `name`, `duration_ms`, `gas_used` |
+| `test_fail` | `name`, `duration_ms`, `gas_used`, `reason` |
+| `test_suite_done` | `passed`, `failed`, `skipped` |
+
+**`otigen verify`**
+
+| Event | Fields |
+|---|---|
+| `verify_start` | `target`, `network`, `bundle` |
+| `verify_result` | `target`, `network`, `address`, `local_wasm_size`, `chain_wasm_size`, `local_wasm_hash`, `chain_wasm_hash`, `matches`, optional `first_diff_offset`, `bundle` |
+
+Authoritative source is the `Event` enum in [`crates/otigen-cli/src/events.rs`](https://github.com/pyde-net/otigen/blob/main/crates/otigen-cli/src/events.rs); if the table above ever disagrees with the enum, the enum wins (and the spec is the bug).
 
 ### 10.3 Exit codes
 

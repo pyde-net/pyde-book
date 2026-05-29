@@ -389,7 +389,7 @@ The key headline figures, with their sources:
 
 The Pyde codebase is licensed under Apache 2.0 (workspace-wide, in
 `Cargo.toml`). Contributions go through the PR process at
-`github.com/zarah-s/...`. Substantive protocol changes go through a PIP
+`github.com/pyde-net/...`. Substantive protocol changes go through a PIP
 first (see Chapter 15).
 
 This book is part of the project repository. Corrections and additions

@@ -5,7 +5,7 @@
 <h1 align="center">The Pyde Book</h1>
 
 <p align="center">
-  <em>Post-quantum · MEV-free · Sub-second · Commodity-decentralized</em>
+  <em>Post-quantum · MEV-resistant · Sub-second · Commodity-decentralized</em>
 </p>
 
 ---
@@ -65,7 +65,7 @@ The chapters cross-link to these stand-alone specs:
 | [STATE_SYNC.md](src/companion/STATE_SYNC.md) | Snapshot manifest format, chunk download, verification |
 | [CHAIN_HALT.md](src/companion/CHAIN_HALT.md) | Three halt types, recovery paths, drill plan |
 | [NETWORK_PROTOCOL.md](src/companion/NETWORK_PROTOCOL.md) | QUIC + libp2p, discovery, DoS, sentry pattern |
-| [PERFORMANCE_HARNESS.md](src/companion/PERFORMANCE_HARNESS.md) | Multi-region test infra, workload generators, "claim 1/3 of peak" rule |
+| [PERFORMANCE_HARNESS.md](src/companion/PERFORMANCE_HARNESS.md) | Multi-region test infra, workload generators, publishing discipline |
 | [THREAT_MODEL.md](src/companion/THREAT_MODEL.md) | ~50 threats across 7 layers, mitigation mapping |
 | [FAILURE_SCENARIOS.md](src/companion/FAILURE_SCENARIOS.md) | 12 operational scenarios with runbooks |
 | [HOST_FN_ABI_SPEC.md](src/companion/HOST_FN_ABI_SPEC.md) | The chain-facing ABI contracts compile against |
@@ -109,8 +109,8 @@ specifications the narrative chapters summarize.
 | Network protocol | Existing; libp2p + QUIC migration in flight |
 | Performance harness (multi-region, chain-throughput) | Not yet built (mandatory before TPS claims) |
 
-No external performance number is published without harness evidence
-under the **"claim 1/3 of measured peak"** rule.
+No external performance number is published without harness evidence —
+publish only what the harness measures, never lab extrapolations.
 
 ## Contributing
 

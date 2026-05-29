@@ -129,8 +129,8 @@ State the runner installs before EVERY test, overridable per-test in `[tests.che
 
 ```toml
 [cheats]
-now       = 1700000000       # pyde::now() returns this (unix seconds)
-wave_id   = 100              # pyde::current_wave() returns this
+now       = 1700000000       # pyde::wave_timestamp() returns this (unix seconds)
+wave_id   = 100              # pyde::wave_id() returns this
 chain_id  = 31337            # pyde::chain_id() returns this
 gas_limit = 10_000_000       # gas budget the runner advances per call
 ```
@@ -139,16 +139,15 @@ Cheatcode catalog (v1):
 
 | Cheat | Type | Host fn affected | Notes |
 |---|---|---|---|
-| `now` | unix-seconds (u64) | `pyde::now()` | Default `0`. Tests that depend on time should set this explicitly. |
-| `wave_id` | u64 | `pyde::current_wave()` | Default `1`. |
-| `chain_id` | u64 | `pyde::chain_id()` | Default `31337` (devnet). |
-| `gas_limit` | u64 | `pyde::gas_remaining()` | Default `10_000_000`. Decremented per host call by the same constants the chain uses (see [HOST_FN_ABI_SPEC §gas-table](./HOST_FN_ABI_SPEC.md)). Tests that exhaust gas will see the wasm trap. |
+| `now` | unix-seconds (u64) | `pyde::wave_timestamp()` | Default `0`. Tests that depend on time should set this explicitly. |
+| `wave_id` | u64 | `pyde::wave_id()` | Default `1`. |
+| `chain_id` | u64 | `pyde::chain_id()` | Default `31337` (devnet sentinel). |
+| `gas_limit` | u64 | Runner-side fuel budget | Default `10_000_000`. Translated to wasmtime fuel via the chain's `FUEL_PER_GAS=1000` constant. Decremented per host call by the same gas constants the engine charges (see [`HOST_FN_ABI_SPEC §10`](./HOST_FN_ABI_SPEC.md)). Tests that exhaust gas trap with `out of fuel`. |
 
-Cheats reserved for v2 (parsed but currently a no-op with a warning):
+Cheats reserved for later releases (parsed but currently a no-op):
 
-- `cheats.expect_emit` — pre-declare an expected event before a call sequence.
-- `cheats.prank_origin` — separate `tx.origin` from `caller` (Pyde currently has no `origin`; reserved for forward-compatibility).
-- `cheats.assume_balance` — assume an account has at least N quanta (fuzzing constraint).
+- `cheats.expect_emit` — pre-declare an expected event before a call sequence. Today the same effect is achieved via `expect.events` on individual `[[tests.calls]]` entries (see §4.5 + §6.5).
+- `cheats.assume_balance` — assume an account has at least N quanta (fuzzing constraint, lands with Phase 6 fuzz/invariant modes).
 
 **Per-call overrides.** `now`, `wave_id`, `chain_id`, `gas` can also be set on individual `[[tests.calls]]` entries — see §4.5. The per-call values use **sticky semantics**: once a call sets `now = X`, X persists into subsequent calls in the same test until another override fires. This models a real chain's monotonically-advancing clock and avoids the per-call-restore footgun.
 
@@ -190,7 +189,7 @@ Coming from Solidity / Foundry? `vm.xxx()` imperative cheats map to declarative 
 | `vm.label(addr, "name")` | `[accounts].alice = {}` — names are always used in traces |
 | `vm.snapshot / vm.revertTo` | not needed — each test starts from fresh state |
 | `vm.recordLogs` | not needed — events are always recorded for matching |
-| `console.log(...)` | not supported in v1 (queued — test-only `debug_log` host fn) |
+| `console.log(...)` | `pyde::debug_log(label_ptr, label_len, data_ptr, data_len)` — test-only host fn captured by the runner. Surfaced in the `-vvvv` output ladder; chain-side hard-rejected via `otigen build --strict`. |
 
 ### 4.3 `[[tests]]` — test case array
 
@@ -242,11 +241,11 @@ Each call executes a contract function in order, with its own caller / value / e
 |---|---|---|---|
 | `function` | string | yes | Exported function name. MUST match `[functions.<name>]` in the contract's `otigen.toml`. |
 | `from` | account name or `0x`-hex | no | Caller address. Defaults to `__zero__` (all-zeros). |
-| `args` | array of strings | no | Positional args. v1 supports `i32` / `i64` literals (decimal or `0x`-hex). Complex types deferred to v2. |
+| `args` | array of strings | no | Positional args. Decimal / `0x`-hex literals for `i32` / `i64`; named-account / hex / `@pubkey:NAME` / `@pubkey_hash:NAME` / `@sig:NAME:args.IDX` for typed args (`address`, `uint128`, `bytes32`, `bytes`, `pubkey`, `sig`) declared in `[functions.<name>].inputs`. See §5.5 for the DSL catalog. |
 | `value` | hex / decimal | no | Quanta attached to the call (visible via `pyde::value()`). Default `"0"`. |
 | `gas` | u64 | no | Per-call gas budget override. Default uses `[cheats].gas_limit`. |
 | `now` | u64 (unix seconds) | no | Per-call `wave_timestamp()` override. **Sticky:** the new value persists into subsequent calls in the same test until another override fires. Models a real chain's monotonically-advancing clock. |
-| `wave_id` | u64 | no | Per-call `current_wave()` override. Sticky, same semantics as `now`. |
+| `wave_id` | u64 | no | Per-call `pyde::wave_id()` override. Sticky, same semantics as `now`. |
 | `chain_id` | u64 | no | Per-call `chain_id()` override. Sticky. Rare in practice (chain_id doesn't change across a chain's lifetime) — exists for symmetry + future cross-chain replay-protection testing. |
 | `expect.return_value` | hex / decimal / negative decimal | no | Asserted return value. Unsigned decimal and `0x`-hex compare numerically (so `"42"` and `"0x2a"` match the same return). **Negative decimal literals** (e.g. `"-10"`) parse as i64 and compare against the wasm result's sign-extended i64 view — useful for asserting error codes returned by host fns like `pyde::cross_call` (which surfaces `ERR_CROSS_CALL_FAILED = -10` when its sub-call traps). |
 | `expect.events` | array of event matchers | no | Each entry MUST appear in this call's emitted events. See §6 for matching rules. |
@@ -586,7 +585,7 @@ Each file's `[[tests]]` array contributes to the total test count.
 ### 7.2 Flags
 
 ```
-otigen test [--filter <pattern>] [--bundle <path>] [--no-color] [--show-output]
+otigen test [-v|-vv|-vvv|-vvvv] [--filter <pattern>] [--bundle <path>] [--no-color] [--show-output]
 ```
 
 | Flag | Default | Description |
@@ -596,6 +595,7 @@ otigen test [--filter <pattern>] [--bundle <path>] [--no-color] [--show-output]
 | `--no-color` | off | Disable terminal colour escape sequences (for CI logs). |
 | `--show-output` | off | Print captured stdout / stderr from each test (mainly useful for debugging mock host fns). |
 | `--json` (global) | off | Emit NDJSON events per test, one per line. CI consumes. |
+| `-v` / `-vv` / `-vvv` / `-vvvv` | off | Foundry-style verbosity ladder. Each level surfaces strictly more: `-v` gas per test, `-vv` events emitted, `-vvv` per-call traces (function args + return), `-vvvv` per-call storage diffs (slot → before / after) + captured `pyde::debug_log` entries. Mirrors `forge test -vvvv` output for cross-toolchain mental-model portability. |
 
 ### 7.3 Output
 
@@ -741,25 +741,25 @@ $ otigen test
 
 ## 9. Limitations (explicit)
 
-What `otigen test` v1 deliberately does NOT do:
+What `otigen test` v1 (Phases 1–4) deliberately does NOT do:
 
 | Limitation | Reason | Workaround / future |
 |---|---|---|
-| **No cross-contract calls.** Each test runs ONE contract. `pyde::call(other_addr, ...)` traps. | Multi-contract simulation needs a wasmtime instance per address + a calling-convention layer. | v2: `setup.code.<account> = "./other-bundle.wasm"` pre-deploys other contracts. |
 | **No parallel-execution simulation.** Tests run sequentially. | The chain runs txs in parallel under access-list scheduling; the test framework doesn't. Tests are deterministic single-thread. | Real concurrency bugs caught at the chain integration layer (devnet). |
-| **No fuzzing / property testing.** Tests are example-based only. | Adding fuzzing needs a shrinker + generator + `proptest`-style integration. | v2: `[[tests.property]]` with `forall.<arg> = { type = "uint128", in = "0..=1000" }`. |
-| **No gas accounting.** Calls don't fail on out-of-gas in v1. | Wasmtime metering is configurable but not free; v1 skips. | v2: `gas` field on each call + traps on overflow. |
-| **Pointer-arg encoding is awkward.** Complex types need manual setup. | v1 only handles wasmtime-native primitives. | v2: typed `args = [{type = "address", value = "alice"}]`. |
-| **u128 narrowed to i64 in `pyde::value()`.** | Wasmtime can't directly return u128 in a single result slot. | v2: switches to `value_out_ptr: u32` writing the u128 LE into memory. |
-| **No `tx.origin` distinction from `caller`.** | Pyde doesn't expose `origin` as a host fn. | Likely permanent — Pyde rejects the `tx.origin` footgun by design. |
-| **No simulating chain-side validators.** `expect.revert` matches the contract's own revert; it doesn't simulate "this tx would be rejected at mempool". | Mempool validation runs on a real node; out of scope for behaviour tests. | Devnet integration tests. |
-| **Test files can't share helpers.** Every `.test.toml` is standalone. | TOML is data, not code. | Authors who need shared setup can copy the `[accounts]` + `[cheats]` blocks between files. v2 may add `[include]`. |
+| **No fuzzing / property testing.** Tests are example-based only. | Adding fuzzing needs a shrinker + generator + `proptest`-style integration. | Phase 6: `[[tests.property]]` with `forall.<arg> = { type = "uint128", in = "0..=1000" }`. |
+| **No multi-tx context.** Each test starts from fresh state; no "deploy contract in tx1, then call from a different sender in tx2" within a single test. | Tx-level isolation kept the v1 model simple. | Phase 6: `[[tests.tx]]` blocks for explicit tx boundaries. |
+| **No simulating chain-side validators.** `expect.revert` matches the contract's own revert; it doesn't simulate "this tx would be rejected at mempool / by the access-list check / by the nonce window". | Mempool + admit-tx validation runs on a real node; out of scope for behaviour tests. | Devnet integration tests; `otigen test --fork <RPC>` (Phase 6) for real-chain-state context. |
+| **Test files can't share helpers.** Every `.test.toml` is standalone. | TOML is data, not code. | Authors who need shared setup can copy the `[accounts]` + `[cheats]` blocks between files. Phase 6 may add `[include]`. |
+| **No mock for DKG / threshold-encryption host fns.** | Real DKG state is committee-derived; v1 runner has no committee. | Phase 6: cheat-controlled DKG output for protocols that exercise threshold crypto in contract code. |
+| **No mock for `beacon_get`, `consume_gas`, `cross_call_static`, `hash_keccak256`, `tx_hash`, `tx_gas_remaining`, `calldata_*`.** Calls trap with `UnsupportedHostFn`. | Either no canonical example exercises them yet, or the host fn depends on chain-derived state the runner doesn't model. | Subsequent Phase 4/5 releases add them as canonical examples surface real-world need. |
 
 What `otigen test` is NOT trying to be:
 
 - An audit replacement. It catches what authors think to test for. It doesn't prove the absence of bugs.
-- A devnet substitute. Final correctness signal is a real chain integration test.
+- A devnet substitute. Final correctness signal is a real chain integration test. Pair with `otigen deploy --network devnet` (devnet binary in flight per [task #233](https://github.com/pyde-net/otigen/issues)) for end-to-end verification.
 - A proof system. No formal verification, no symbolic execution. Concrete example execution only.
+
+**Shipped surface** (no longer limitations): cross-contract calls (cross_call + delegate_call + `[[contracts]]`), in-contract FALCON verification, gas accounting + `expect.gas` / `expect.gas_max`, typed-arg marshalling (address / uint128 / bytes32 / bytes), the FALCON DSL (`@pubkey:` / `@pubkey_hash:` / `@sig:`), schema-aware encoding, per-call cheats with sticky semantics, `pyde::debug_log`, four-level verbosity ladder, parachain §8 host fn surface (`parachain_storage_*` + `parachain_id` + `parachain_version` + `parachain_emit_event`).
 
 ---
 
@@ -808,7 +808,7 @@ v2 may add `[invariants]` declared once at the file level, auto-asserted after e
 
 ## 11. Implementation phases
 
-This spec lands incrementally. Phases 1–3 ship the core surface; Phase 4 adds typed-arg marshalling; later phases add cross-contract, fuzzing, invariants, gas metering.
+This spec landed incrementally. Phases 1–4 are fully shipped; Phase 5 is in flight; Phase 6 covers post-v1 expansion.
 
 ### Phase 1: parser + name resolution + spec validation ✅ shipped (PR [otigen#30](https://github.com/pyde-net/otigen/pull/30))
 
@@ -840,17 +840,25 @@ This spec lands incrementally. Phases 1–3 ship the core surface; Phase 4 adds 
 
 The `examples/counter-token` realistic-contract reference (PR [otigen#43](https://github.com/pyde-net/otigen/pull/43)) exercises every Phase 3 feature end-to-end: multi-call sequences, named events, expect.revert with rollback, per-test cheats, final-state storage assertions.
 
-### Phase 4: typed-arg marshalling (planned)
+### Phase 4: typed-arg marshalling + DSL + cross-call + parachain ✅ shipped
 
-- Runner-side encoding of declared `inputs` (e.g. `["address", "uint128"]`) so authors can pass `args = ["alice", "100"]` against contract signatures that take pointer-args without writing two-i64-half boilerplate.
-- For `address`: resolve account name, allocate 32 bytes at a safe linear-memory offset, write the bytes, pass the offset as i32. Requires parsing the contract's WASM data segments to find the data-end watermark and use a higher offset.
-- For `uint128`: allocate 16 bytes, write LE bytes, pass the offset.
+- **Typed-arg marshalling.** Runner-side encoding of declared `inputs` (e.g. `["address", "uint128", "bytes32", "bytes"]`) so authors pass `args = ["alice", "100"]` against contract signatures taking pointer-args without two-i64-half boilerplate. Address → 32B blake3, uint128 → 16B LE, bytes32 → 32B raw, bytes → ptr + len at the data-segment watermark.
+- **Cross-contract calls.** `pyde::cross_call` + `pyde::delegate_call` with multi-contract topology via `[[contracts]]` (§4.7). Sibling-contract registry maps logical names → `.bundle/` paths; each gets its own Instance + storage namespace.
+- **Parachain host fn surface.** Six §8 fns mocked: `parachain_storage_{read,write,delete}` (variable-length kv with the spec's pre-write-buffer-cap convention), `parachain_id` (active address), `parachain_version` (cheat-controllable), `parachain_emit_event` (delegates to core emit_event).
+- **In-contract FALCON verification.** `pyde::falcon_verify` mocked via real `pyde_crypto::falcon::falcon_verify` — sigs that pass `otigen test` pass on-chain.
+- **Typed-arg DSL.** `@pubkey:NAME` / `@pubkey_hash:NAME` / `@sig:NAME:args.IDX` substitution before contract invocation; runner generates real FALCON keypairs at plan time so tests never paste kilobyte-hex signatures.
+- **Schema-aware encoding.** `storage.counter = "3"` against `counter: uint64` encodes to 8 BE bytes; framework reads `[state] schema` and respects declared widths.
+- **Per-call cheats.** `now`, `wave_id`, `chain_id` on `[[tests.calls]]` with sticky semantics; lets a single test walk propose → vote → execute at different timestamps.
+- **`pyde::debug_log`.** Test-only printf-style host fn. Captured per call; chain-side hard-rejected via `otigen build --strict`.
+- **Foundry verbosity ladder.** `-v` per-test result + gas; `-vv` events; `-vvv` per-call traces; `-vvvv` storage diffs.
 
-Until Phase 4 ships, contracts that take pointer-args must use `caller()` to sidestep the staging gap (e.g. `counter-token`'s `mint() / balance_of_caller()` pattern), or accept the two-i64-halves convention for u128 values.
+### Phase 5: engine wasm-exec integration ⏳ in flight (PR [otigen#232](https://github.com/pyde-net/otigen/pulls))
 
-### Beyond Phase 4
+Replaces the parallel host-fn mock surface with direct consumption of `engine::wasm-exec`. Goal: every contract `otigen test` executes goes through the same wasmtime engine + same host-fn impls as the production chain. Eliminates the entire mock-vs-real drift class permanently. Foundation + EngineRunner skeleton + dispatch_call + commit-on-success have landed; the full `runner.rs` migration is gated on one engine ask (alignment of `pyde::self_address` / `caller` / `origin` return types to spec).
 
-Later releases add `cross_call*` mocks (and a sibling-contract registry so cross-contract tests resolve to other `.bundle/` artifacts), gas metering, fuzz / invariant test modes, and the full parachain host-fn surface (`parachain_storage_*`, `send_xparachain_message`, `threshold_*`).
+### Phase 6: post-v1 expansion (planned)
+
+Fuzz / invariant test modes, multi-tx context (deploy in tx1, call in tx2 from a different sender), parallel test execution, full DKG / threshold-encryption / cross-parachain host-fn mocks. Pair with the engine devnet binary for the `otigen test --fork <RPC>` flow that loads mainnet state at a snapshot height (Anvil parity).
 
 ---
 

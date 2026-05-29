@@ -830,17 +830,17 @@ All owner-only. Submitted as simple txs (`PauseContractTx`, `UnpauseContractTx`,
 
 ```json
 {
-  "version": 1,
+  "bundle_format_version": 1,
   "name": "my-token",
   "contract_type": "contract",
   "build_timestamp": "2026-05-23T16:42:00Z",
   "otigen_version": "1.0.0",
-  "pyde_abi_version": "1.0.0",
+  "pyde_abi_version": 1,
   "target_chain_id": 1,
   "wasm_hash_blake3": "0xabcd...",
   "wasm_size_bytes": 152384,
-  "wasm_size_bytes_uncompressed": 152384,
   "pyde_abi_hash_blake3": "0x1234...",
+  "pyde_abi_size_bytes": 1840,
   "language": "rust",
   "language_toolchain": {
     "rust_channel": "stable",
@@ -849,11 +849,31 @@ All owner-only. Submitted as simple txs (`PauseContractTx`, `UnpauseContractTx`,
 }
 ```
 
-### 9.3 `abi.json`
+Field semantics — three distinct version fields, separately governed:
+
+| Field | What it versions | Authoritative source |
+|---|---|---|
+| `bundle_format_version` | On-disk layout of `<contract>.bundle/` (directory structure, file names, field shapes inside `manifest.json` / `abi.json`). | §9.3 below + `otigen_abi::BUNDLE_FORMAT_VERSION` constant |
+| `pyde_abi_version` | Chain-facing `pyde.abi` custom section embedded inside the WASM. Bumped on every breaking schema change to `ContractAbi`. | [`HOST_FN_ABI_SPEC.md`](./HOST_FN_ABI_SPEC.md) §3 + `otigen_abi::PYDE_ABI_VERSION_V1` constant |
+| `otigen_version` | Toolchain build that produced the bundle. SemVer; informational (used by `otigen verify` diagnostics, not by gating). | `Cargo.toml` `[package].version` of the `otigen-cli` crate |
+
+The contract's own semantic version lives in `[contract].version` in the source `otigen.toml`; it's not in `manifest.json` because it's already in the verbatim-copied `otigen.toml` shipped alongside.
+
+### 9.3 Bundle format version + forward-compat
+
+`bundle_format_version` is a monotonic integer stamp on the bundle layout. Frozen at v1 mainnet under a one-way ratchet:
+
+- **`otigen verify` rejects unknown bundles.** A bundle declaring `bundle_format_version > BUNDLE_FORMAT_VERSION` (the constant this otigen build was compiled against) is rejected with `BundleFormatTooNew` + an "upgrade your otigen" diagnostic + exit code 2 (`RESOURCE_FAILURE`). Mirrors the chain's `MAX_SUPPORTED_ABI_VERSION` gate for `pyde_abi_version`.
+- **Older bundles never break.** Every prior `bundle_format_version` is accepted forever. Subsequent toolchain releases that change the bundle layout bump the constant and document the delta here.
+- **Legacy bundles read cleanly.** Bundles built before the `version` → `bundle_format_version` rename (manifest still has `"version": 1`) are accepted; verify falls back to reading the unnamed field with the same semantics. Both decode to `bundle_format_version = 1`.
+
+The constant lives in `otigen-abi`, re-exported as `otigen_abi::BUNDLE_FORMAT_VERSION`. Tooling that wants to introspect bundles without depending on the full toolchain reads the JSON field directly.
+
+### 9.4 `abi.json`
 
 The same `ContractAbi` data structure as the embedded `pyde.abi` custom section, but serialized as JSON for human inspection and IDE / explorer tooling. Authoritative source is the embedded custom section; `abi.json` is a mirror.
 
-### 9.4 Reproducibility
+### 9.5 Reproducibility
 
 Two builders running `otigen build` from the same:
 - Source code

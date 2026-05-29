@@ -174,9 +174,9 @@ The protocol-level surface (`cross_call!` macro, `HardFinalityCert` primitive, u
 
 | Tier | Stake | Committee Role | Earns |
 |---|---|---|---|
-| Committee validator | Yes, large | Active (1 of 128) | Activity rewards + pool yield + inflation |
-| Non-committee validator | Yes, smaller | Stake-only, waiting selection | Pool yield + inflation |
-| RPC node | No | None | Off-chain RPC fees (market-set) |
+| Committee validator | ≥10K PYDE (single-tier min) | Active (1 of 128) | Activity rewards + pool yield + inflation |
+| Non-committee validator | ≥10K PYDE (single-tier min — same floor) | Stake-only, waiting selection | Pool yield + inflation |
+| RPC node | None | None | Off-chain RPC fees (market-set) |
 
 RPC providers (Infura/Alchemy analog) fit Tier 3 — no stake, no slashing risk.
 

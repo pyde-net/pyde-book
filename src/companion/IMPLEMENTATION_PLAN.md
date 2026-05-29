@@ -377,8 +377,8 @@ implementation streams are running concurrently; you own Stream α
 Post-quantum L1 (FALCON-512 sigs, Kyber-768 threshold encryption,
 Poseidon2+Blake3 hashing). Mysticeti DAG consensus with 128/85 quorum
 and sub-second commits. WASM execution via wasmtime. MEV-resistant
-by structure. Pre-mainnet, solo-founder-led (zarah). Workspace at
-/Users/victorsamuel/Documents/zarah/systems/rust/pyde-net/.
+by structure. Pre-mainnet, solo-founder-led (zarah). Workspace at the
+`pyde-net/` polyrepo root.
 
 ## Your stream
 
@@ -477,8 +477,8 @@ implementation streams are running concurrently; you own Stream β
 Post-quantum L1 (FALCON-512 sigs, Kyber-768 threshold encryption,
 Poseidon2+Blake3 hashing). Mysticeti DAG consensus with 128/85 quorum
 and sub-second commits. WASM execution via wasmtime. MEV-resistant
-by structure. Pre-mainnet, solo-founder-led (zarah). Workspace at
-/Users/victorsamuel/Documents/zarah/systems/rust/pyde-net/.
+by structure. Pre-mainnet, solo-founder-led (zarah). Workspace at the
+`pyde-net/` polyrepo root.
 
 ## Your stream
 
@@ -587,8 +587,8 @@ implementation streams are running concurrently; you own Stream γ
 Post-quantum L1 (FALCON-512 sigs, Kyber-768 threshold encryption,
 Poseidon2+Blake3 hashing). Mysticeti DAG consensus with 128/85 quorum
 and sub-second commits. WASM execution via wasmtime. MEV-resistant
-by structure. Pre-mainnet, solo-founder-led (zarah). Workspace at
-/Users/victorsamuel/Documents/zarah/systems/rust/pyde-net/.
+by structure. Pre-mainnet, solo-founder-led (zarah). Workspace at the
+`pyde-net/` polyrepo root.
 
 ## Your stream
 

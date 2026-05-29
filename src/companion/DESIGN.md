@@ -480,7 +480,7 @@ Consensus orders encrypted transactions before decryption shares are released. B
 
 Pyde's DAG consensus has no single party empowered to choose which transactions enter a commit or in what order. The canonical order emerges deterministically from the DAG; no member can selectively reorder, exclude, or front-run.
 
-**Combined effect:** sandwich attacks, front-running, proposer extraction are structurally impossible — not policed, not auctioned, not made more efficient, but eliminated.
+**Combined effect:** sandwich attacks, front-running, proposer extraction are structurally impossible — not policed, not auctioned, not made more efficient. The ordering primitive itself doesn't admit them.
 
 ### Encryption is Optional
 

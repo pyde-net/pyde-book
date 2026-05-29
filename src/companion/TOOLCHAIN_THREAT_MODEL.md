@@ -161,10 +161,16 @@ Each threat ID prefixed `T-` (toolchain). Numbered for cross-reference. Severity
 
 **Description:** An attacker with read access to `~/.pyde/keystore.json` attempts to extract the FALCON-512 secret key without the author's password.
 
-**Mitigations:**
+**Mitigations (shipped in `otigen-wallet`):**
 - Each keystore entry's secret key is AES-256-GCM encrypted; the key is derived via Argon2id over the user's password with a per-entry random salt + tunable memory / iterations / parallelism parameters (`OTIGEN_BINARY_SPEC.md` §7.1).
-- Argon2id parameters default to 64 MiB memory + 3 iterations + parallelism 4 — current-good 2024 OWASP recommendations.
-- The decrypted secret key lives in process memory only for the duration of one signing call, then zeroed (`zeroize` crate).
+- Argon2id parameters: 64 MiB memory + 3 iterations + parallelism 4 — matches OWASP 2024/2025 guidance. Constants asserted via `kdf::tests::parameters_are_owasp_2024_recommended` so a future PR can't silently weaken them.
+- Per-entry fresh 16-byte salt + fresh 12-byte AES-GCM nonce, both generated via `rand::thread_rng()` (ChaCha12 seeded from `getrandom` — OS CSPRNG). 96 bits of nonce randomness leaves an effective 2^48 safety margin before birthday collision risk; AES-GCM nonce reuse only matters within the same key, which here is per-entry.
+- Decrypted AES-256-GCM session key wrapped in `zeroize::Zeroizing` — scrubbed when the wrapper drops; lives for one encrypt / decrypt call.
+- `FalconSecretKey` (in `pyde-crypto`) derives `Zeroize + ZeroizeOnDrop` — the FALCON-512 secret key bytes are also scrubbed when the in-memory value drops, not just left in freed heap pages where a swap-out or core dump could read them.
+- Decrypt failures collapse into one `Error::DecryptionFailed` variant regardless of cause (wrong key vs tampered ciphertext) — closes the timing-oracle that would otherwise distinguish "wrong password" from "tampered keystore" via per-call latency.
+- AES-GCM's authentication tag check uses `aes-gcm` crate's constant-time comparison; the cipher rejects any tampered ciphertext before producing plaintext.
+
+**Coverage:** `crates/otigen-wallet/src/` ships 43 tests covering: KDF determinism + parameter pins, encrypt / decrypt round-trip, wrong-key + tampered-ciphertext rejection, freshness of salt + nonce, end-to-end create / load / rotate-password / delete, FALCON signature round-trip through `falcon_verify`, multi-account isolation.
 
 **Residual risk:** Password is weak. The toolchain does not enforce password complexity (out of scope); guidance lives in the user docs.
 
@@ -266,7 +272,7 @@ Each threat ID prefixed `T-` (toolchain). Numbered for cross-reference. Severity
 | T-03 inject corrupts code section | ✅ RawSection pass-through + property test + chain-side re-extract |
 | T-04 substituted .wasm | ⏳ `otigen verify` lands post-MC-2 |
 | T-05 RPC MITM | ⏳ enforce HTTPS-or-localhost when otigen-rpc lands |
-| T-06 keystore tampering | ⏳ Argon2id + AES-256-GCM design locked; impl lands when otigen-wallet ports from wright |
+| T-06 keystore tampering | ✅ Argon2id (64 MiB / 3 / 4 — OWASP 2024) + AES-256-GCM with fresh per-entry salt + nonce + zeroize on both AES session key and `FalconSecretKey` + constant-time decrypt + single error variant (no timing oracle). 43 tests in `crates/otigen-wallet/src/`. Per-entry crypto details: §3 above |
 | T-07 phished password | ⏳ signed binary releases (α.qual.release) |
 | T-08 malicious cargo dep | ⏳ cargo-audit + cargo-deny in CI (α.qual.ci) |
 | T-09 dependency confusion | ✅ documentation only |

@@ -75,7 +75,7 @@ All host functions are registered under the WASM module name **`pyde`**. A contr
 ```wat
 (import "pyde" "sload" (func (param i32 i32 i32) (result i32)))
 (import "pyde" "sstore" (func (param i32 i32 i32)))
-(import "pyde" "emit_event" (func (param i32 i32 i32 i32)))
+(import "pyde" "emit_event" (func (param i32 i32 i32 i32) (result i32)))
 ```
 
 Parachain-only host functions are also registered under `pyde`; they are gated at deploy time by the validator rejecting them for non-parachain contracts (§9.2).
@@ -118,8 +118,8 @@ Convention summary:
 
 | Return shape | Function category |
 |---|---|
-| `-> i32` (error code only) | Mutating ops without return data (`transfer`) |
-| `-> ()` (no return) | Mutating ops that trap on failure (`sstore`, `sdelete`, `emit_event`) |
+| `-> i32` (error code only) | Mutating ops without return data (`transfer`, `emit_event`). Returns `0` for success; reserved slot lets v2 carry information (event ordinal, byte count, etc.) without a hard fork. |
+| `-> ()` (no return) | Mutating ops that trap on failure (`sstore`, `sdelete`) |
 | `-> i32` + writes to out_ptr | Returns fixed-size data (`caller`, `balance`) — writes a known byte width into `out_ptr` |
 | `-> i32` (actual_len) + writes to out_ptr (up to `out_max_len`) | **Variable-size storage reads** (`sload`) — caller passes a max length, host writes `min(actual, max)` and returns the true length. `-1` for missing. |
 | `-> i32` + writes to out_ptr + out_len_ptr | Returns variable-size data with separate length out-param (`calldata_copy`, `parachain_storage_read`) |

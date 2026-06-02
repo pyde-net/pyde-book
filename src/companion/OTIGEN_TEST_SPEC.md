@@ -858,7 +858,7 @@ Replaces the parallel host-fn mock surface with direct consumption of `engine::w
 
 ### Phase 6: post-v1 expansion (planned)
 
-Fuzz / invariant test modes, multi-tx context (deploy in tx1, call in tx2 from a different sender), parallel test execution, full DKG / threshold-encryption / cross-parachain host-fn mocks. Pair with the engine devnet binary for the `otigen test --fork <RPC>` flow that loads mainnet state at a snapshot height (Anvil parity).
+Fuzz / invariant test modes, multi-tx context (deploy in tx1, call in tx2 from a different sender), parallel test execution, full DKG / threshold-encryption / cross-parachain host-fn mocks. Pair with the engine devnet binary for the `otigen test --fork <RPC>` flow that loads mainnet state at a snapshot height.
 
 ---
 

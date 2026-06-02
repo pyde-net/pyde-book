@@ -22,7 +22,7 @@ For deep documentation on the primary developer-facing tool (the `otigen` binary
 
 ## 17.1 `otigen` — the developer toolchain
 
-The Foundry / Hardhat / Cargo-equivalent for Pyde. Replaces the earlier `wright` toolchain that targeted the now-retired Otigen smart-contract language.
+The Cargo-equivalent build-and-deploy toolchain for Pyde. Replaces the earlier `wright` toolchain that targeted the now-retired Otigen smart-contract language.
 
 `otigen` is **language-agnostic**: the same binary handles projects authored in Rust, AssemblyScript, Go (via TinyGo), or C/C++. Authors declare their language in `otigen.toml`; `otigen` invokes the correct compiler with the correct WASM target and packages the resulting artifact for deployment.
 

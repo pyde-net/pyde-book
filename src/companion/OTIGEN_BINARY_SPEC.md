@@ -789,26 +789,57 @@ Chain handling on `DeployContractTx`:
 6. If a constructor is declared, instantiate the WASM and invoke the constructor with `init_calldata`.
 7. Emit a `ContractDeployed` event.
 
-### 8.2 Upgrade transaction
+### 8.2 Upgrade transaction — **v2-deferred; v1 uses the proxy pattern**
 
-For contracts (single-signer):
+v1 does NOT ship a chain-side `UpgradeContractTx` tx type or an `Account::Contract.owner` field. The frozen `TxType` enum has 14 variants (`crates/types/src/tx.rs`); none of them are contract upgrade.
 
+The v1 upgrade story is the proxy / `delegate_call` pattern, demonstrated by the `upgradeable-proxy` acceptance contract:
+
+- Deploy a thin `proxy` contract that holds `logic: Address` + `admin: Address` in its state.
+- Every entry on the proxy is `forward(function: String, calldata: Vec<u8>)` which `delegate_call`s into `logic` — the delegated code runs in the proxy's frame, so state writes land in the proxy's slots.
+- Admin-gated `upgrade_to(new_logic)` swaps `logic` on the proxy. State survives the swap because it lives at the proxy's address; the new logic's code is unchanged code at its own address.
+
+Why deferred rather than shipped:
+
+- Chain-blessed contract ownership (an `Account::Contract.owner` field) competes with the deliberately-ownerless [`address-naming-collision`](../chapters/11-account-model.md) model — addresses are `Poseidon2(name)`, ownership is contract-internal.
+- Chain-level upgrade is less flexible than the proxy pattern: the proxy can hold multiple logic versions, time-lock swaps, gate them on governance, expose multi-sig admin, etc. — all expressible in contract code.
+- Versioning, code-cf GC, owner-rotation semantics, and parachain-governance-cert-gated upgrades all hang off the chain-side variant; none of them earn their keep before v1 mainnet.
+
+For parachains: governance-cert-gated runtime upgrades remain documented in [PARACHAIN_DESIGN §6.2](./PARACHAIN_DESIGN.md) as a v2 deliverable; v1 parachains are pinned to a fixed runtime.
+
+### 8.3 Pause / Unpause / Kill — **contract-internal in v1; no chain-side tx types**
+
+v1 does NOT ship `PauseContractTx`, `UnpauseContractTx`, or `KillContractTx`. Contract-level pause / kill are not protocol surface; any author can declare a `paused: bool` (or `killed: bool`) field in `[state]` and gate their entry points on it:
+
+```toml
+[state]
+paused = { type = "bool" }
+admin  = { type = "address" }
 ```
-UpgradeContractTx {
-    sender:         [u8; 32],         // must be the contract owner
-    contract_addr:  [u8; 32],
-    new_wasm:       Vec<u8>,
-    nonce, gas_limit, gas_price, sig, pubkey,
+
+```rust
+#[pyde::entry]
+pub fn do_thing(...) {
+    if storage::paused_get() {
+        pyde::revert("contract paused");
+    }
+    // ...
+}
+
+#[pyde::entry]
+pub fn pause() {
+    if pyde::ctx::caller() != storage::admin_get() {
+        pyde::revert("not admin");
+    }
+    storage::paused_set(true);
 }
 ```
 
-Chain validates owner authorization, re-runs ABI parsing/validation against `new_wasm`, stores it, and bumps `current_version`.
+Note that `TxType::EmergencyPause` / `TxType::EmergencyResume` (`0x0B` / `0x0C`) are chain-wide — they freeze block production via the treasury multisig per Chapter 15 governance. They are NOT per-contract.
 
-For parachains: the upgrade requires governance certs (per [PARACHAIN_DESIGN §6.2](./PARACHAIN_DESIGN.md)). The full proposal → vote → finalize flow is documented there.
+#### Migration note for `otigen-cli`
 
-### 8.3 Pause / Unpause / Kill transactions
-
-All owner-only. Submitted as simple txs (`PauseContractTx`, `UnpauseContractTx`, `KillContractTx`). No special governance required.
+The `otigen pause / unpause / kill / upgrade` CLI subcommands currently build a `Standard` tx with `data = borsh(LifecyclePayload::{Pause, Unpause, Kill, Upgrade})`. The chain decodes contract-call `data` as `CallPayload { function, calldata }` and reverts on the unrecognised envelope. These CLI subcommands need to be rewritten (or removed) in a separate otigen ticket so contract authors aren't pointed at a broken path. The replacement story for upgrade is the proxy contract pattern documented above; pause / kill are author-defined entries the CLI can call generically via `otigen call <contract> pause`.
 
 ---
 

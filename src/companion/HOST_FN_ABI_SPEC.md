@@ -68,6 +68,43 @@ Example: `0x0001_0000` = ABI v1.0.
 
 ## 3. WASM import module + calling conventions
 
+### 3.0 Entry-point WASM signature
+
+Every function a contract exports to the chain has the WASM-level signature:
+
+```wat
+(func (export "function_name"))
+```
+
+That is: **zero params, zero results.** The chain looks up the function by name in the deployed `pyde.abi` section (§3.7), invokes the exported `() -> ()` WASM function, and exchanges all data through host-function calls — calldata flows in via `calldata_size` + `calldata_copy` (§7.4), the return value flows out via `pyde::return` (§7.7).
+
+Why void-void at the boundary:
+
+1. **WASM's value-type vocabulary is too narrow for chain semantics.** WASM functions can only pass `i32`/`i64`/`f32`/`f64` directly. Pyde transports addresses (32 bytes), `u128` amounts (16 bytes), variable-length bytes/strings, structs, and `Vec` — none fit a single WASM value-type slot. A multi-arg signature would force the chain to invent a per-function ABI marshalling layer at the WASM boundary, doubling the surface for ABI divergence. Going through linear memory + host fns keeps a single canonical transport (the `calldata_*` family) for every entry on every contract.
+
+2. **Decouples chain ABI from language ABI.** Languages disagree on how to lay out structs at function boundaries (Rust's `extern "C"`, Go's calling convention, AssemblyScript's, etc.). At the void-void boundary the chain doesn't see any of that — each language emits the same `() -> ()` shape and decodes calldata internally with its own decoder.
+
+3. **Per-call dispatch stays a single linker entry point.** Wasmtime's `Instance::get_typed_func::<(), ()>` looks up every entry the same way, with no per-function type construction. This is what makes the dispatch flow in §3.5.2 a single code path regardless of the contract's surface area.
+
+4. **Cross-contract calls (§13) share the same shape.** A `cross_call` from contract A to contract B re-enters the same `() -> ()` dispatch path that a top-level tx uses. There is no separate "internal call" ABI.
+
+What this means for SDK authors:
+
+A language SDK's `entry`-equivalent macro / code generator must produce a WASM export with signature `() -> ()`. The macro is responsible for:
+
+- decoding calldata (via `calldata_size` + `calldata_copy`) into the author's declared argument types,
+- invoking the author's function body,
+- encoding the return value (if any) and surfacing it via `pyde::return`.
+
+The reference implementation in Rust is the `#[pyde::entry]` proc macro in the `pyde-host` crate. See the [SDK Author Guide](SDK_AUTHOR_GUIDE.md) for the complete contract every SDK must hold up to.
+
+**Forbidden export signatures.** The deploy validator rejects any exported function whose WASM type isn't `() -> ()`. Two consequences worth flagging:
+
+- A contract cannot expose a "fast path" entry with primitive params (e.g., `(export "set_value") (func (param i64))`). That export would deploy nothing; it must go through `calldata_copy` like every other entry.
+- A contract cannot return data directly via the WASM result type. `pyde::return` is the only return-data path the engine reads.
+
+`fallback` is the one exception to the name-based dispatch rule (see §3.5 attribute table) — it's triggered by a name miss, not a name match — but it still has the `() -> ()` WASM signature and reads the unparsed calldata blob via `calldata_copy`. `receive` likewise: void-void, with the attached value visible via `tx_value` (§7.4).
+
 ### 3.1 Import module name
 
 All host functions are registered under the WASM module name **`pyde`**. A contract imports functions like:
@@ -145,7 +182,7 @@ The attribute set:
 | `reentrant` | Function opts in to being called while already on the call stack. Default is non-reentrant | Engine tracks `(contract_addr, fn_name)` active set; rejects re-entry of non-`reentrant` fn with `ERR_REENTRANCY_BLOCKED` |
 | `sponsored` | Gas costs charged to the contract's gas tank instead of the caller | Engine routes gas accounting to contract's tank balance before invocation |
 | `constructor` | Callable only at contract deploy time. Subsequent calls are rejected | Deploy validator allows; engine rejects post-deploy with `ERR_CONSTRUCTOR_REENTRANT` (re-using the reentrancy code is incorrect; treat constructor lockout as a distinct conceptual error category in implementation) |
-| `fallback` | Invoked when a call's function selector matches no declared function. At most one per contract. Function signature: `(calldata_ptr: i32, calldata_len: i32) -> i32`. Default if absent: unmatched selector returns `ERR_INVALID_FUNCTION_NAME` | Engine dispatches to fallback after selector-table miss |
+| `fallback` | Invoked when a call's function name matches no declared function. At most one per contract. Like every other entry, its WASM signature is `() -> ()` (§3.0); it reads the full unparsed calldata via `calldata_copy`. Default if absent: unmatched name returns `ERR_INVALID_FUNCTION_NAME` | Engine dispatches to fallback after name-table miss |
 | `receive` | Invoked on bare PYDE transfers (no selector, value > 0). At most one per contract. Function takes no arguments. **Must also be `payable`** (otherwise it would reject the value it's meant to accept). Default if absent: bare value transfers return `ERR_VALUE_TRANSFER_NOT_PAYABLE` | Engine dispatches to receive on bare-value tx |
 | `entry` | Declares the function is callable from outside the contract (top-level tx or cross_call). Required for any function not marked with another dispatch attribute (constructor, fallback, receive). Internal helpers omit this and are not exposed | Deploy validator strips non-`entry` non-dispatch fns from the public selector table |
 

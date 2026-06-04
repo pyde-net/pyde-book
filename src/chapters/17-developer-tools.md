@@ -119,6 +119,19 @@ Surface area:
 - Threshold-encryption shares (where used by client-side encrypted-tx submission)
 - Poseidon2 and Blake3 hashing
 
+### Contract-side SDKs (community)
+
+The SDKs above are **client-side** — they let backends, scripts, and front-ends talk to a Pyde node. Writing the **contract itself** is the other side of the boundary, and that's where the per-language community SDKs come in.
+
+Pyde Network ships **one canonical contract-side SDK** — the Rust stack in [pyde-net/otigen](https://github.com/pyde-net/otigen) (`pyde-host`, `pyde-storage-macros`, `pyde-entry-macros`). Bringing your language to that surface is a community pathway: the chain holds a stable WASM ABI ([HOST_FN_ABI_SPEC](../companion/HOST_FN_ABI_SPEC.md)) and a stable bundle format ([OTIGEN_BINARY_SPEC](../companion/OTIGEN_BINARY_SPEC.md)); everything above is open to any language that targets `wasm32-unknown-unknown`.
+
+If you're maintaining or proposing a language SDK, the contract you must satisfy lives in:
+
+- [**SDK Author Guide**](../companion/SDK_AUTHOR_GUIDE.md) — the four invariants every SDK must hold (void-void entry signature, borsh-canonical calldata, host-fn signature parity, `pyde.abi` custom section), the reference implementation's surface, and the quality bar to ship.
+- [`examples/storage-stress`](https://github.com/pyde-net/otigen/tree/main/examples/storage-stress) in otigen — the canonical acceptance contract. A community SDK is "ready" when its port of the 28-assertion `tests/stress_e2e.py` passes end-to-end against `pyde devnet`.
+
+Community SDKs publish under their own org (e.g., `pyde-go/`, `pyde-ts-contracts/`) and are listed back here by PR against [pyde-net/pyde-book](https://github.com/pyde-net/pyde-book). No SDK is currently in the listing — this section will fill in as language communities ship.
+
 ---
 
 ## 17.4 JSON-RPC

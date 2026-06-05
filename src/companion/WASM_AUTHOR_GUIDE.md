@@ -20,6 +20,24 @@ That design keeps the chain's surface minimal and audit-friendly, but it pushes 
 
 If you only read one section: §5 (host-fn declarations), §7 (field-keyed storage), §8 (cross-contract calls), §9 (FALCON-512 verification), and §10 (upgradeable proxy pattern) cover 90% of the patterns a real contract needs.
 
+### Rust authors: the macro substrate
+
+For Rust contracts, the `pyde-host` crate ships every host fn declared in this guide, and the function-like macros `#[pyde::entry]`, `pyde::declare_storage!()`, and `pyde::declare_events!()` collapse the boilerplate every section below walks through:
+
+- **`#[pyde::entry]`** wraps a user fn with the calldata-decode + return-encode shim required by Pyde's `() -> ()` entry-point ABI ([HOST_FN_ABI_SPEC §3.0](./HOST_FN_ABI_SPEC.md)). Authors write `fn transfer(to: Address, amount: u128) -> bool { ... }`; the macro emits the sibling `extern "C" fn transfer()` plus the wasm-side calldata marshalling.
+- **`pyde::declare_storage!()`** reads `[state]` from `otigen.toml` at compile time and emits typed accessors (`storage::balances().read(&owner)`, `storage::balances().write(&owner, amount)`) that delegate to the chain's typed-storage host fns (`sstore_scalar` / `sload_scalar` / `sstore_map1`…`map3`). Field-type vocabulary: `u8`…`u128`, `i8`…`i128`, `bool`, `address`, `hash32`, `bytes`, `string`, `vec(<fixed-width-inner>)`, `struct(<Name>)` — see [`OTIGEN_BINARY_SPEC §4.6`](./OTIGEN_BINARY_SPEC.md#46-state-table) for the full table.
+- **`pyde::declare_events!()`** reads `[events.*]` blocks, computes `Blake3(canonical_signature)` for topic-0 at expansion time, emits typed structs with `.emit()` — no manual topic buffer arithmetic.
+
+Rust contracts on the macro substrate (the default since the substrate batch — see [`examples/erc20-token/`](https://github.com/pyde-net/otigen/tree/main/examples/erc20-token) for a canonical reference) skip §5 (host-fn declarations), §6 (staging buffers), and most of §7 (slot derivation) — the macros generate all of it. The patterns in §8 / §9 / §10 still apply because cross-contract calls / FALCON-verify / `delegate_call` proxies have author-side logic that no macro can ship.
+
+**This guide describes the raw WASM-ABI pattern.** The raw pattern stays fully supported and is the right shape for:
+
+- Non-Rust contract authors (TinyGo, AssemblyScript, C — the macros are Rust-only).
+- Community SDK porters targeting other languages — see [`SDK_AUTHOR_GUIDE.md`](./SDK_AUTHOR_GUIDE.md) for the bar a community SDK needs to clear.
+- Rust authors who need full control over slot derivation (e.g. matching another chain's layout) or who want to understand what the macros emit before depending on them.
+
+Read this guide top-to-bottom to learn the WASM ABI at the metal. Then, if you're writing Rust, drop into the macro substrate via [`examples/counter-rust/`](https://github.com/pyde-net/otigen/tree/main/examples/counter-rust) and the substrate batch's other Rust examples.
+
 ---
 
 ## 1. The WASM type model
@@ -311,6 +329,8 @@ Big-endian encoding would require the host to byte-swap on every read/write — 
 A "host function import" is the contract telling the WASM runtime: *"I want to call a function named `foo` from module `pyde`; here is the signature I expect it to have."* The toolchain emits a WASM `(import "pyde" "foo" (func ...))` declaration. At instantiation time, wasmtime binds each import to the Rust function the host registered with the linker. If the contract declares an import the host doesn't recognize, instantiation fails and the deploy is rejected.
 
 ### 5.1 Rust
+
+> **`pyde-host`** ships every host fn declared in [HOST_FN_ABI_SPEC §7](./HOST_FN_ABI_SPEC.md) under `pyde::raw::*`, plus ergonomic wrappers under `pyde::ctx::*` / `pyde::calldata::*` / `pyde::hash::*` / `pyde::call::*`. Rust contracts add `pyde-host` to their `Cargo.toml`, drop `use pyde_host as pyde;`, and skip writing the `extern "C"` block below entirely. The walkthrough that follows is the *under-the-hood shape* `pyde-host` emits — useful to understand even if you never write one by hand.
 
 ```rust
 // Tell the Rust compiler that the FFI function `sload` is provided by the
@@ -2079,7 +2099,7 @@ Run `otigen test -v` and watch stderr for `[debug] <fn>: alice_balance=100`. Str
 - [WebAssembly Core Specification](https://webassembly.github.io/spec/core/) — the upstream WASM spec for value types, linear memory, instruction semantics.
 - **Examples catalog**: [`pyde-book/otigen/examples`](../otigen/examples.md) — full table of every canonical example with what each demonstrates, host fns exercised, and per-language test counts.
 - [`otigen/examples/counter-token`](https://github.com/pyde-net/otigen/tree/main/examples/counter-token) — a canonical Rust contract demonstrating §2.3, §6.1, §6.2 patterns end-to-end. **Also available in TinyGo / AssemblyScript / C** at [`counter-token-go`](https://github.com/pyde-net/otigen/tree/main/examples/counter-token-go), [`counter-token-as`](https://github.com/pyde-net/otigen/tree/main/examples/counter-token-as), [`counter-token-c`](https://github.com/pyde-net/otigen/tree/main/examples/counter-token-c) — same TOML test suite runs against all four ports.
-- [`otigen/examples/erc20-token`](https://github.com/pyde-net/otigen/tree/main/examples/erc20-token) — full ERC20-style fungible token. Exercises Phase 4 typed-arg marshalling (`address` / `uint128`), three storage layouts (scalar / mapping / composite-key), multi-topic events, and the `transfer_from` allowance flow.
+- [`otigen/examples/erc20-token`](https://github.com/pyde-net/otigen/tree/main/examples/erc20-token) — full ERC20-style fungible token on the macro substrate. Canonical real-contract reference: exercises typed-arg marshalling (`address` / `uint128`) via `#[pyde::entry]`, three storage layouts (scalar / mapping / composite-key) via `pyde::declare_storage!()`, multi-topic events via `pyde::declare_events!()`, and the `transfer_from` allowance flow.
 - [`otigen/examples/simple-multisig`](https://github.com/pyde-net/otigen/tree/main/examples/simple-multisig) — 3-signer FALCON-512 multisig (§9 canonical example).
 - [`otigen/examples/upgradeable-proxy`](https://github.com/pyde-net/otigen/tree/main/examples/upgradeable-proxy) — upgradeable proxy via `delegate_call` (§10 canonical example).
 - [`otigen/examples/merkle-claim-airdrop`](https://github.com/pyde-net/otigen/tree/main/examples/merkle-claim-airdrop) — Merkle-tree airdrop claim with `hash_blake3` host fn (§11 canonical example).

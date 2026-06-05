@@ -287,15 +287,18 @@ Run contract behaviour tests declared in TOML against the built `.wasm`.
 
 ```
 otigen test [--filter <pattern>] [--bundle <path>] [--no-color] [--show-output]
-            [-v|-vv|-vvv|-vvvv]
+            [--watch] [--no-engine] [-v|-vv|-vvv|-vvvv]
 ```
 
 | Flag | Default | Description |
 |---|---|---|
 | `--filter <pattern>` | none | Run only tests whose name contains the pattern (substring). Multiple `--filter` flags OR together. |
-| `--bundle <path>` | `./artifacts/<name>.bundle/` | Bundle whose `contract.wasm` is executed. |
+| `--bundle <path>` | `./artifacts/<name>.bundle/` (resolved against `--config`) | Bundle whose `contract.wasm` is executed. |
+| `--watch` | off | Re-run on every file change. Watches the project directory recursively; ignores `target/`, `artifacts/`, `.git/`, `node_modules/`, `build/`, `dist/`. Debounces rapid keystrokes within a 300 ms window. Foundry parity with `forge test --watch`; Ctrl-C to exit. |
+| `--no-engine` | off | Opt OUT of the engine path and fall back to the legacy in-process mock host-fn surface. See "Runtime selection" below. |
 | `--no-color` | off | Disable terminal colour escapes (CI logs). |
 | `--show-output` | off | Print captured stdout / stderr per test (for mock-host debugging). |
+| `--json` (global) | off | Emit NDJSON test events (`test_suite_start` / `test_start` / `test_pass` / `test_fail` / `test_suite_done`) instead of plain text. For CI / scripting consumers. |
 | `-v` (global) | off | Append gas-used + duration to each pass/fail line. |
 | `-vv` (global) | off | Above, plus per-test list of emitted events (topic-0 + topic count + data length). |
 | `-vvv` (global) | off | Above, plus per-call trace: function name, args, return value / revert reason, gas. |
@@ -303,42 +306,48 @@ otigen test [--filter <pattern>] [--bundle <path>] [--no-color] [--show-output]
 
 Verbosity follows Foundry's `forge test -vvvv` ladder. Each level surfaces strictly more information; consumers paging through `forge` output will find the same mental model.
 
+**Runtime selection.** `otigen test` runs through `pyde-engine-wasm-exec::WasmExecutor` by default — the same execution code path mainnet uses. Per the project principle "same crypto / same VM everywhere across mainnet / testnet / devnet" the engine path is the source of truth; the legacy in-process mock surface still ships behind `--no-engine` for two cases:
+
+- **Parachain contracts** (`contract.type = "parachain"`) — parachain host fns live behind engine v2; until then `otigen test` against a parachain bundle requires `--no-engine` and gets the legacy mock surface with `parachain_*` mocks (see "Legacy mock surface" below). `otigen test --engine` against a parachain pre-flights with `ParachainEngineUnsupported` pointing at `--no-engine`.
+- **Bisection / debugging** — running both paths against the same test and comparing surfaces which side is misbehaving.
+
 Discovery order:
 1. `tests/*.test.toml` (canonical)
 2. `tests/*.toml`
 3. `./contract.test.toml` (single-file projects)
 
-Each file's `[[tests]]` array contributes to the total count. Tests run sequentially; each starts from a fresh `TestEnv` (no state leaks between cases). A wasmtime engine is created once per file.
+Each file's `[[tests]]` array contributes to the total count. Tests run sequentially; each starts from a fresh state store backed by a tempdir — no state leaks between cases. The engine path builds a fresh `EngineRunner` per test case; the legacy path builds a fresh in-process `TestEnv` per case.
 
-Per-test pipeline:
+Per-test pipeline (engine path):
 
 1. Apply `[cheats]` (and per-test `[tests.cheats]` overrides).
-2. Resolve account names → 32-byte Blake3 addresses; resolve storage field names → Poseidon2 slot hashes per the contract's `[state]` schema + PIP-2.
-3. Pre-populate storage from `[tests.setup].storage`.
+2. Resolve account names → 32-byte Blake3 addresses; resolve storage field names → slot hashes per the contract's `[state]` schema (the chain derives `Blake3(self_address || field_name || keys...)` host-side for the typed-storage path; Poseidon2 host-side for the legacy raw-host-fn path).
+3. Pre-populate storage from `[tests.setup].storage` + balances from `[tests.setup].balances`.
 4. Record start time.
-5. For each `[[tests.calls]]` entry: parse args, invoke the WASM export, capture the return value + emitted events + revert reason. On trap, roll back the per-call state overlay. Check per-call `expect`.
-6. After the call sequence, check `[tests.expect]` (final-state assertions).
+5. For each `[[tests.calls]]` entry: marshal typed args (`address` / `uint128` / `int128` / `bytes32` / `bytes` / primitive ints) into wasm linear memory + params, invoke the WASM export through the engine's `WasmExecutor::execute_call`, capture the return value + emitted events + revert reason. On trap, the per-call `TxOverlay` discards (so a reverting call mid-test doesn't roll back state from earlier successful calls — matching mainnet semantics). Check per-call `expect`.
+6. After the call sequence, check `[tests.expect]` (final-state assertions: storage values, balances, event totals).
 7. Record end time; compute `duration_ms`.
 8. Emit pass / fail (with `duration_ms` included in the NDJSON event under `--json`).
 
-Mock host fns (v1) — canonical names per [`HOST_FN_ABI_SPEC §7`](./HOST_FN_ABI_SPEC.md):
+**Engine path host-fn surface.** The engine path links the **real** `pyde::*` ABI — same host fns mainnet runs (HOST_FN_ABI_SPEC §7). The runner stubs nothing beyond the test-only `debug_log` (printf-style; not registered chain-side, see "Test-only host fns" below). Authors writing contracts that hit `tx_hash`, `calldata_copy`, `consume_gas`, `cross_call_static`, `return`, `hash_keccak256`, `beacon_get`, or `origin` get them at chain-fidelity behaviour.
+
+**Legacy mock surface (`--no-engine` only).** The legacy path runs each contract in an in-process wasmtime instance wired to test-runner mocks. Useful for parachain contracts (whose chain runtime ships in v2) and for runner-side debugging. Mocked host fns:
 
 - **Storage** (variable-length): `sload`, `sstore`, `sdelete`
 - **Account & balance**: `balance`, `transfer`
 - **Execution context**: `caller`, `self_address`, `wave_id`, `wave_timestamp`, `chain_id`
 - **Transaction context**: `tx_value`
 - **Events + halt**: `emit_event`, `revert`
-- **Hashing**: `hash_blake3`, `hash_poseidon2`
-- **Post-quantum crypto**: `falcon_verify` (real verification via the runner's bundled `pyde-crypto`; pairs with the `@sig:NAME:args.IDX` DSL — see [`OTIGEN_TEST_SPEC §6`](./OTIGEN_TEST_SPEC.md))
-- **Cross-contract**: `cross_call`, `delegate_call` (multi-contract topology declared via `[[contracts]]`; each secondary instance gets its own Store + storage namespace)
+- **Hashing**: `hash_blake3`, `hash_poseidon2`, `hash_keccak256`
+- **Post-quantum crypto**: `falcon_verify` — real verification via the runner's bundled `pyde-crypto`; pairs with the `@sig:NAME:args.IDX` DSL (see [`OTIGEN_TEST_SPEC §6`](./OTIGEN_TEST_SPEC.md))
+- **Cross-contract**: `cross_call`, `delegate_call` — multi-contract topology declared via `[[contracts]]`; each secondary instance gets its own Store + storage namespace
 - **Parachain §8** (when `[contract].type = "parachain"`): `parachain_id`, `parachain_version`, `parachain_storage_read`, `parachain_storage_write`, `parachain_storage_delete`, `parachain_emit_event`
-- **Test-only**: `debug_log` (printf-style; not registered chain-side. `otigen build --strict` and `otigen deploy` reject contracts that import it. See [`OTIGEN_TEST_SPEC §7`](./OTIGEN_TEST_SPEC.md).)
 
-Trap with `UnsupportedHostFn`: every other `pyde::*` import — `origin`, `tx_hash`, `tx_gas_remaining`, `calldata_size`, `calldata_copy`, `hash_keccak256`, `beacon_get`, `consume_gas`, `cross_call_static`, `return`. These trap-rather-than-mock either because the test framework can't model them faithfully (`beacon_get` needs DKG output; `consume_gas` would conflict with the runner's wasmtime fuel accounting) or because no canonical example exercises them yet (post-v1 ladder).
+**Test-only host fns (both paths).** `debug_log(msg_ptr, len) -> ()` — printf-style; writes `[debug] <fn_name>: <msg>` to stderr and captures into the test report's `debug_logs`. Not registered chain-side; `otigen build` and `otigen deploy` reject contracts that import it (HOST_FN_ABI_SPEC §9.1).
 
-Exit codes: `0` all-pass; `1` any failure; `2` resource failure (test file unreadable, bundle missing); `4` schema error (malformed TOML, reference to undeclared `[state]` field).
+Exit codes: `0` all-pass; `1` any failure; `2` resource failure (test file unreadable, bundle missing); `4` schema error (malformed TOML, reference to undeclared `[state]` field, parachain contract attempted on engine path).
 
-**Gas tracking.** The runner enables wasmtime's `consume_fuel(true)` and seeds each call with the test's `cheats.gas_limit` (default 1,000,000,000 fuel). Per-call gas usage is `fuel_cap - remaining_fuel` after the call returns. Total gas per test is the sum across calls.
+**Gas tracking.** Both paths enable wasmtime's `consume_fuel(true)` and seed each call with the test's `cheats.gas_limit` (default 1,000,000,000 fuel). Per-call gas usage is `fuel_cap - remaining_fuel` after the call returns. Total gas per test is the sum across calls.
 
   - Reported in the NDJSON `test_pass` / `test_fail` events as `gas_used`.
   - Surfaced at `-v` and above in the plain-text output.
@@ -346,7 +355,7 @@ Exit codes: `0` all-pass; `1` any failure; `2` resource failure (test file unrea
 
 Note: the runner's fuel units correlate to but are not bit-identical with on-chain Pyde gas. Foundry has the same caveat — gas reports under `forge test` are estimates, not chain billing.
 
-The full TOML schema, name resolution rules, cheatcode catalogue, mock host-function behaviour, and limitations are documented in [`OTIGEN_TEST_SPEC.md`](./OTIGEN_TEST_SPEC.md). That spec is authoritative.
+The full TOML schema, name resolution rules, cheatcode catalogue, host-function behaviour, and limitations are documented in [`OTIGEN_TEST_SPEC.md`](./OTIGEN_TEST_SPEC.md). That spec is authoritative.
 
 ### 3.11 `otigen new`
 

@@ -91,7 +91,7 @@ Side effects:
 
 1. Creates `<dir>/`.
 2. Writes `<dir>/otigen.toml` from the language template (see §4 for schema).
-3. Writes `<dir>/src/` containing a hello-world contract with `extern "C"` declarations for one host function and one exported function.
+3. Writes `<dir>/src/` containing a hello-world contract. The Rust scaffold uses the macro substrate (`#[pyde::entry]` + `pyde::declare_storage!()`) so authors get typed accessors + a `() -> ()` ABI shim with zero hand-written `extern "C"` boilerplate. Non-Rust scaffolds (`--lang as|go|c`) ship the raw `extern "C"` host-fn pattern — the macro substrate is Rust-only; community SDK authors targeting other languages reference `examples/counter-{as,go,c}/` and the `SDK_AUTHOR_GUIDE`.
 4. Writes language-specific config (e.g., `Cargo.toml` for Rust, `package.json` for AS, `go.mod` for Go).
 5. Writes `.gitignore` excluding `target/`, `node_modules/`, `build/`.
 
@@ -236,22 +236,38 @@ Keystore format: see §6.
 
 ### 3.8 `otigen console`
 
-Interactive REPL against a Pyde node.
+Interactive REPL against a Pyde node. Foundry-`cast` shape;
+line-edited via rustyline with persisted history at
+`~/.otigen_console_history` and Ctrl-C / Ctrl-D handling that
+matches every other shell.
 
 ```
-otigen console [--network <name>] [--from <key>]
+otigen console [--network <name>] [--from <key>] [--password-stdin]
 ```
 
-REPL commands:
-- `call <addr> <fn> <args...>` — invoke a view function (free, off-chain)
-- `tx <addr> <fn> <args...>` — submit a state-changing tx
-- `events <addr> [--topic <hash>] [--from <wave>]` — query event history
-- `balance <addr>` — query balance
-- `state <addr> <field>` — query a state field (type-safe via ABI)
-- `subscribe <addr> --logs --topic <hash>` — open a live event subscription
-- `help`, `exit`
+Session-scoped: `--network` and `--from` bind once at REPL
+startup, every per-command call reuses the same `RpcClient`.
+Wallet unlock is lazy — views never prompt; the first `tx` asks
+for the password once (or reads it from stdin with
+`--password-stdin` for CI / scripted flows) and the unlocked
+signer is cached for the rest of the session.
 
-The console caches the contract ABI on first contact so subsequent calls are type-checked locally.
+REPL commands (MVP — shipping today):
+- `help` / `?` — list the catalog
+- `balance <addr>` — query native PYDE balance
+- `nonce <addr>` — query next-acceptable nonce
+- `call <addr> <fn> [hex]` — invoke a `view` function (free, off-chain via `pyde_call`)
+- `tx <addr> <fn> [hex] [--value <decimal>]` — sign + submit + receipt poll
+- `exit` / `quit` — leave the console
+
+Address inputs accept either a `0x`-prefixed 32-byte hex address
+or a registered name resolved via `pyde_resolveName`.
+
+Deferred (each 2-3× MVP scope, follow-up PRs):
+- `events <addr> [--topic <hash>] [--from <wave>]` — needs `pyde_getLogs` typing + filter wiring.
+- `state <addr> <field>` — needs ABI-aware decoding from the contract's `pyde.abi` section.
+- `subscribe <addr> --logs --topic <hash>` — needs websocket / long-poll plumbing the devnet doesn't currently expose.
+- ABI-aware calldata typing (Foundry's `cast send --json-abi` shape).
 
 ### 3.9 `otigen verify`
 
@@ -348,18 +364,27 @@ otigen new --list
 | `--list` | no | List available templates and exit. Mutually exclusive with `<name>`, `--from`, and `--dir`. |
 | `--dir` | no | Target directory (default: `./<name>`). |
 
-Canonical templates (frozen at v1):
+Canonical templates (frozen at v1). Templates on the macro substrate (`#[pyde::entry]` + `pyde::declare_storage!()` + `pyde::declare_events!()`) are flagged; the remainder ship the raw host-fn pattern (still supported; the right shape for contracts that want full control over slot derivation).
 
-| Template | Highlights |
-|---|---|
-| `counter` | Minimum viable contract — single u64 + variable-length storage + `derive_slot` helper. |
-| `erc20-token` | ERC20-style fungible token. Phase 4 typed-arg marshalling + composite-key mapping for allowances. |
-| `erc721-token` | ERC721-shape NFT. Per-token ownership + balance_of + single-spender approval. |
-| `simple-multisig` | 3-signer FALCON-512 multisig. `falcon_verify` + signer-ID lookup + action-hash anti-replay. |
-| `upgradeable-proxy` | Upgradeable proxy via `delegate_call`. Admin-controlled implementation slot. |
-| `merkle-claim-airdrop` | Off-chain Merkle commitment + on-chain inclusion verification. |
-| `vesting` | Linear vesting with cliff. Time-locked allocation using `wave_timestamp`. |
-| `dao-governance` | Composed example. FALCON-signed votes + time-phased state machine + hash_blake3-committed execution. |
+| Template | Substrate | Highlights |
+|---|---|---|
+| `counter-rust` | macro | Minimum viable contract — single `u64` slot via typed `storage::counter()` accessor. |
+| `erc20-token` | macro | Canonical real-contract reference. Scalar + map + 2-key-map storage shapes, indexed-field event encoding, typed-arg calldata. |
+| `erc721-token` | macro | ERC721-shape NFT. Per-token ownership + balance_of + single-spender approval. |
+| `nft-marketplace` | macro | `pyde::call::execute<T>` cross-calls into ERC721; per-frame `caller_address` semantics. |
+| `dao-governance` | macro | Proposal lifecycle + cross-call execution + categorized `CallError` propagation. |
+| `escrow` | macro | `#[payable]` + `tx_value` + `wave_timestamp`-gated release / claim / refund. |
+| `upgradeable-proxy` | macro | `delegate_call`-based upgrade; state survives v1→v2; logic-contract state untouched. |
+| `payment-channel` | macro | Metered withdrawal + per-call cap + cumulative cap + close-on-deadline. |
+| `multisig-wallet` | macro | M-of-N owner approvals + value-forwarding cross-call (on-chain approval bookkeeping). |
+| `storage-stress` | macro | Every `ScalarType` × every arity round-tripped. The substrate-coverage stress reference. |
+| `struct-storage` | macro | `struct(<Name>)` storage values via borsh round-trip (scalar + map<addr,struct>). |
+| `borsh-coverage` | macro | `#[pyde::entry]` calldata + return marshalling for `Vec<T>`, `Option<T>`, tuples, nested vecs, custom struct, unit enum. |
+| `counter-{as,go,c}` | raw | Alt-language counter contracts demonstrating the raw `sload` / `sstore` pattern. The macro substrate is Rust-only; community SDK authors targeting other languages reference these + `SDK_AUTHOR_GUIDE`. |
+| `simple-multisig` | raw | 3-signer FALCON-512 multisig demonstrating the in-contract PQ-verify + off-chain-signed-claim pattern (complements `multisig-wallet`'s on-chain approval bookkeeping). |
+| `merkle-claim-airdrop` | raw | Off-chain Merkle commitment + on-chain inclusion verification via `hash_blake3`. |
+| `vesting` | raw | Linear vesting with cliff. Time-locked allocation using `wave_timestamp`. |
+| `profile-registry` | raw | Parachain example. Parachain runtime ships in v2; scaffolds the surface for authors to start exploring early. |
 
 Side effects:
 
@@ -369,7 +394,33 @@ Side effects:
 
 Exit codes: `0` on success, `1` if `<dir>` already exists, `2` if the template is unknown (run with `--list` to see the catalogue).
 
-### 3.12 `otigen check`
+### 3.12 `otigen devnet`
+
+Run a local devnet (thin wrapper around the engine's `pyde devnet` binary so authors drive devnet bootstrapping from one toolchain entry point instead of remembering the engine binary path).
+
+```
+otigen devnet [--fork <FILE_OR_URL>] [--rpc-listen <ADDR>]
+              [--prefund-count <N>] [--prefund-amount <QUANTA>]
+              [--chain-id <ID>] [--tick-ms <MS>] [--engine-bin <PATH>]
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--fork <FILE_OR_URL>` | none | Fork the devnet's state from an existing snapshot. Accepts either a local borsh snapshot file (`./snapshot.bin`, produced by the engine's `Snapshotter::build`) OR an HTTP(S) URL pointing at a running validator's `pyde_getSnapshot` RPC endpoint (e.g. `http://127.0.0.1:9933`; once they ship, mainnet / testnet validator URLs). Mutually exclusive with `--prefund-count` and `--prefund-amount`. |
+| `--rpc-listen <ADDR>` | engine default (banner-only mode) | JSON-RPC server bind address. Pass `127.0.0.1:9933` to enable RPC. Forwarded as-is to `pyde devnet --rpc-listen`. |
+| `--prefund-count <N>` | engine default (10) | Number of pre-funded accounts the banner enumerates. Each is derived deterministically from the canonical devnet seed. Cannot be combined with `--fork`. |
+| `--prefund-amount <QUANTA>` | engine default | Per-account genesis balance in quanta. Cannot be combined with `--fork`. |
+| `--chain-id <ID>` | engine default (31337) | Chain id this devnet signs against. |
+| `--tick-ms <MS>` | engine default (1000) | Idle-wave tick interval in milliseconds. Even with no pending txs the devnet commits an empty wave every `--tick-ms` so `wave_id` advances. |
+| `--engine-bin <PATH>` | `PYDE_BIN` env → `pyde` on `PATH` | Path to the `pyde` binary to run. Useful for running against a locally-built engine: `--engine-bin ../engine/target/release/pyde`. |
+
+stdin/stdout/stderr inherit from the parent so the engine's startup banner + any `RUST_LOG=info` traces flow straight through; Ctrl-C from the terminal hits both processes (same fg pgrp) and the engine handles its own graceful shutdown.
+
+Mutual-exclusion check between `--fork` and the `--prefund-*` flags fires before spawning the engine so authors get a fast clear error instead of mid-startup engine-side rejection.
+
+Exit codes: forwarded from the underlying `pyde devnet` process.
+
+### 3.13 `otigen check`
 
 Validate the project without packaging. Same checks as `otigen build` steps 1–7 (read + schema-validate `otigen.toml`, locate `.wasm`, every WASM-level validator, ABI build) minus the bundle write. Intended for pre-commit hooks, IDE integrations, and tight iteration loops where the bundle write is wasted I/O.
 
@@ -532,9 +583,33 @@ Rules (validated at `otigen build`):
 
 ### 4.6 `[state]` table
 
-Declares the contract's storage schema. The toolchain doesn't generate accessor code (that's the author's job per the [no-SDK approach](./PARACHAIN_DESIGN.md)) — but the schema is embedded in the bundle and used for type-safe inspection (`otigen inspect --field`), for explorer UI rendering, and for the `state_schema_hash` value in the deployed ABI.
+Declares the contract's storage schema. Embedded in the bundle and used for type-safe inspection (`otigen inspect --field`), explorer UI rendering, the `state_schema_hash` value in the deployed ABI, AND — for Rust contracts on the macro substrate — by `pyde::declare_storage!()` at compile time to generate typed accessors. Non-Rust contracts call the chain's typed-storage host fns (`sstore_scalar` / `sload_scalar` / `sstore_map1`…`map3`) directly; the chain derives the slot internally as `Blake3(self_address || field_name || keys...)`.
 
-`schema` is an ordered array of `{ name, type }` entries. Types follow the Solidity-token convention used in event signatures (§4.5).
+`schema` is an ordered array of `{ name, type, ... }` entries.
+
+Field type vocabulary:
+
+| Token | Width | Notes |
+|---|---|---|
+| `u8` / `u16` / `u32` / `u64` / `u128` | 1 / 2 / 4 / 8 / 16 | Little-endian. Aliases `uint8`…`uint128` accepted. |
+| `i8` / `i16` / `i32` / `i64` / `i128` | 1 / 2 / 4 / 8 / 16 | Two's-complement LE. Aliases `int8`…`int128` accepted. |
+| `bool` | 1 | 0 = false, anything non-zero = true. |
+| `address` / `hash32` | 32 | Raw 32-byte array. `bytes32` is an alias for `hash32` (Solidity migration ergonomics). |
+| `bytes` | variable | u32-len-prefix + bytes. |
+| `string` | variable | u32-len-prefix + UTF-8 bytes. |
+| `vec(<inner>)` | variable | u32-len-prefix + N × fixed-width inner. Inner must be fixed-width — `vec(bytes)` / `vec(string)` / `vec(vec(...))` rejected at parse time. |
+| `struct(<Name>)` | variable | Borsh round-trip. Author declares `#[derive(BorshSerialize, BorshDeserialize)]` on `<Name>`; the macro emits typed accessors that borsh-encode/decode through the chain's variable-length storage host fns. Chain-side maps to `ScalarType::Bytes`. |
+
+Map shape (replaces the single `type = "..."` form for keyed slots):
+
+```toml
+{ name = "balances",   type = "map", keys = ["address"], value = "uint128" }
+{ name = "allowances", type = "map", keys = ["address", "address"], value = "uint128" }
+```
+
+Map keys: up to 3, each a fixed-width scalar (primitives / `address` / `hash32`) or a variable-length scalar (`bytes` / `string`). `vec(...)` and `struct(...)` keys are rejected up-front to avoid slot collisions on variable-length encodings.
+
+Map values: any scalar type from the vocabulary above, including `struct(<Name>)`.
 
 ### 4.7 `[deploy]` table
 

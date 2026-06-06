@@ -60,11 +60,11 @@ Every row links to its canonical [`OTIGEN_BINARY_SPEC`](../companion/OTIGEN_BINA
 | `otigen upgrade <target>` | Submit an upgrade transaction. Same pipeline as deploy but `TxType::Standard` with `LifecyclePayload::Upgrade { new_wasm }`. ⏳ Parachain governance flow (`--parachain` / `--finalize <proposal-id>`) deferred to the parachain rollout post-mainnet. | [§3.4](../companion/OTIGEN_BINARY_SPEC.md#34-otigen-upgrade) |
 | `otigen pause` / `unpause` / `kill` | Operational lifecycle. Owner-signed `LifecyclePayload::{Pause, Unpause, Kill}`. `kill --yes` skips the retype-the-target confirmation. | [§3.5](../companion/OTIGEN_BINARY_SPEC.md#35-otigen-pause--otigen-unpause--otigen-kill) |
 | `otigen call <target> <fn>` | Sign and submit a contract call (`TxType::Standard` with `data = borsh(CallPayload { function, calldata })`). Routes through the chain's `WasmExecutor::execute_call` for `entry`-attributed functions; view functions skip submission and go through `pyde_call` (free, no tx, no gas) when otigen recognises the `view` attribute from a local `otigen.toml`. `--args <hex>` for raw pre-encoded calldata; `--value <decimal>` for native-token transfers alongside the call. | [§3.3](../companion/OTIGEN_BINARY_SPEC.md#33-otigen-deploy) (shared tx envelope path) |
-| `otigen inspect <target>` | Read deployed contract state via the rpc client. Surfaces address, account type, balance, nonce, code hash, code size, state root, and (when the wasm carries a `pyde.abi` custom section) the full ABI summary: version, function count, constructor / fallback / receive bindings, state schema hash, per-function selector + attribute labels. `--field <name>` queries the chain-derived slot (`Blake3(self_address \|\| field_name \|\| keys...)` for the typed-storage path; `Poseidon2(self_address \|\| field_name \|\| key_bytes)` for contracts on the raw `sload`/`sstore` host fns). `--at-wave <id>` is forwarded for archive nodes. ⏳ Owner / version history land when the RPC catalog grows the corresponding endpoints. | [§3.6](../companion/OTIGEN_BINARY_SPEC.md#36-otigen-inspect) |
+| `otigen inspect <target>` | Read deployed contract state via the rpc client. Default mode surfaces address, account type, balance, nonce, code hash, code size, state root, and (when the wasm carries a `pyde.abi` custom section) the full ABI summary: version, function count, constructor / fallback / receive bindings, state schema hash, per-function selector + attribute labels. `--state-field <name>` reads a substrate-typed scalar field — derives the slot `Blake3(self_address \|\| field_name)` (the chain's `sstore_scalar` convention), pulls the bytes, and decodes per the type token in `[state].schema`; renders contract / field / slot / raw / decoded value. `--field <name>` reads a legacy raw-storage slot via `Poseidon2(name)` — used by contracts that call `sstore` / `sload` directly; mutually exclusive with `--state-field`. `--at-wave <id>` is forwarded for archive nodes. ⏳ Owner / version history land when the RPC catalog grows the corresponding endpoints. | [§3.6](../companion/OTIGEN_BINARY_SPEC.md#36-otigen-inspect) |
 | `otigen verify <target>` | Reproducibility check: compares the local bundle's `contract.wasm` against the chain-stored bytes from `pyde_getContractCode`. Exit 0 on match, 1 on mismatch with blake3 hashes + size delta + first-diff offset. Two clean local builds of the canonical hello-rust produce byte-identical `contract.wasm` + `abi.json` (modulo `manifest.build_timestamp`) — the `make reproducibility` gate locks the invariant. | [§3.9](../companion/OTIGEN_BINARY_SPEC.md#39-otigen-verify) |
 | `otigen wallet` | FALCON-512 keystore management. Subcommands: `new <name>`, `list`, `show <name>`, `import <name> [--from-file <path> \| --from-devnet]`, `delete <name> [--yes]`, `password <name>`, `export <name> [--out <path>]`, `sign <name> <hex>`. `import --from-devnet` re-derives the 10 deterministic prefunded `pyde devnet` accounts locally (no network call). ⏳ Only the chain-side `rotate` (`KeyRotationTx`) is deferred — it needs the chain to accept that tx variant. | [§3.7](../companion/OTIGEN_BINARY_SPEC.md#37-otigen-wallet) |
 | `otigen test` | Run contract behaviour tests declared in `tests/*.test.toml`. Executes through `pyde-engine-wasm-exec::WasmExecutor` by default — same code path mainnet uses — so authors get every `pyde::*` host fn at chain fidelity. `--no-engine` falls back to the legacy in-process mock surface for parachain contracts (parachain runtime ships in engine v2) and runner-side bisection. Named-account + named-slot + cheatcode model, multi-call sequences with per-call and final-state assertions, typed-arg marshalling (`address` / `uint128` / `int128` / `bytes32` / `bytes` / primitive ints), FALCON DSL (`@pubkey:NAME` / `@sig:NAME:args.IDX`), `pyde::debug_log` test-only host fn, schema-aware encoding (incl. `struct(<Name>)` via `pyde::declare_storage!()`), `--watch` for Foundry parity, `--json` NDJSON event stream, Foundry-style verbosity ladder (`-v` through `-vvvv`). | [§3.10](../companion/OTIGEN_BINARY_SPEC.md#310-otigen-test) + [OTIGEN_TEST_SPEC](../companion/OTIGEN_TEST_SPEC.md) |
-| `otigen console` | Interactive REPL against a Pyde node. MVP surface: `help`, `balance <addr>`, `nonce <addr>`, `call <addr> <fn> [hex]` (view, free), `tx <addr> <fn> [hex] [--value <decimal>]` (sign + submit + receipt poll), `exit` / `quit`. Session-scoped `--network` / `--from` bind once at startup; wallet unlock is lazy (views never prompt, first `tx` asks for password once). Line-edited via rustyline with persisted history at `~/.otigen_console_history`. | [§3.8](../companion/OTIGEN_BINARY_SPEC.md#38-otigen-console) |
+| `otigen console` | Interactive REPL against a Pyde node. Shipping surface: `help`, `balance <addr>`, `nonce <addr>`, `call <addr> <fn> [hex]` (view, free), `tx <addr> <fn> [hex] [--value <decimal>]` (sign + submit + receipt poll), `state <addr> <field>` (substrate-typed scalar read; same `Blake3(self_address \|\| field_name)` derivation + `[state].schema` decoder `inspect --state-field` uses), `exit` / `quit`. Session-scoped `--network` / `--from` bind once at startup; wallet unlock is lazy (views never prompt, first `tx` asks for password once). Line-edited via rustyline with persisted history at `~/.otigen_console_history`. | [§3.8](../companion/OTIGEN_BINARY_SPEC.md#38-otigen-console) |
 | `otigen devnet` | Thin wrapper around the engine's `pyde devnet` binary so authors drive devnet bootstrapping from one toolchain entry point. Headliner is `--fork <FILE_OR_URL>`: accepts either a local borsh snapshot file (`./snapshot.bin`, produced by the engine's `Snapshotter::build`) or an HTTP(S) URL pointing at a running validator's `pyde_getSnapshot` RPC endpoint. Other pass-through flags: `--rpc-listen`, `--prefund-count`, `--prefund-amount`, `--chain-id`, `--tick-ms`. Binary resolution: `--engine-bin` → `PYDE_BIN` env → `pyde` on `PATH`. stdin/stdout/stderr inherited from the parent so the engine's startup banner + `RUST_LOG=info` traces flow straight through. | [§3.12](../companion/OTIGEN_BINARY_SPEC.md#312-otigen-devnet) |
 
 There is no `otigen compile`. Authors use their language's native compiler (`cargo build --target wasm32-unknown-unknown --release`, `asc`, `tinygo build -target=wasi`, `clang --target=wasm32`). The `--compile` flag on `otigen build` is an opt-in convenience that invokes the language's default command — not a separate `compile` subcommand.
@@ -639,9 +639,45 @@ Hardware-wallet bridges and HSM-backed signing (spec §7.4) are post-mainnet; no
 
 ## 5.9 The Console
 
-`otigen console` is reserved by spec §3.8 as an interactive REPL against a Pyde node — useful for exploration and ad-hoc debugging.
+`otigen console` is an interactive REPL against a Pyde node — the natural shape for exploration and ad-hoc debugging once a contract is deployed and you want to poke at it without re-typing connection info on every command.
 
-Status: **deferred until the engine's devnet binary lands.** The REPL pairs with `pyde-node --devnet` (engine task, in flight) — once authors can spin up a local single-validator devnet with prefunded accounts, the REPL becomes the natural way to poke at deployed contracts. Until then, every read / write surface the REPL would expose is already scriptable via the other subcommands (`inspect`, `verify`, `deploy`, the wallet commands), and `otigen-rpc::Client` is a small enough crate to embed directly in a one-off Rust script when something more dynamic is needed.
+Pair it with `pyde devnet` for the canonical local loop: one terminal runs the devnet, another runs `otigen console` against it. Session-scoped `--network` + `--from` bind once at startup so every command in the session reuses the same RPC URL + sender; wallet unlock is lazy (view-only commands never prompt, first `tx` asks for the password once).
+
+### Shipping commands
+
+| Command | What it does |
+|---|---|
+| `help` | Lists the full command catalog with one-line descriptions. |
+| `balance <addr>` | Calls `pyde_getBalance`; renders raw quanta + pretty-printed PYDE. |
+| `nonce <addr>` | Calls `pyde_getTransactionCount`; shows the next-acceptable nonce. |
+| `call <addr> <fn> [hex]` | View-mode `pyde_call` — free, no nonce, no receipt. Returns the contract's `return_data` bytes. |
+| `tx <addr> <fn> [hex] [--value <decimal>]` | Builds a `Standard` tx, FALCON-signs it, submits via `pyde_sendRawTransaction`, polls the receipt. |
+| `state <addr> <field>` | Reads a substrate-typed scalar storage field — derives the slot `Blake3(self_address ‖ field_name)` (the chain's `sstore_scalar` convention), pulls the bytes, decodes per the type token in `[state].schema`. Map fields print a clear "scalar-only MVP scope" message rather than truncating. |
+| `exit` / `quit` | Leaves the REPL with status 0. |
+
+Address arguments accept either `0x`-hex or a registered name (when [`pyde_resolveName`](../companion/HOST_FN_ABI_SPEC.md) lands; today only hex resolves).
+
+### How `state` compares to `inspect --state-field`
+
+Both use the same Blake3 slot derivation and the same primitive-type decoder. The difference is the workflow:
+
+- `inspect --state-field` is the **scriptable** path — one-shot, `--json`-able, designed for CI / deploy scripts that want to assert a single value after a deploy.
+- `console state` is the **interactive** path — drop into a REPL, poke at multiple fields across multiple contracts without re-typing the RPC URL or sender, exit when you're done.
+
+Implementation lives in a single `otigen-cli::state_decode` module both surfaces consume, so the decoder vocabulary stays in lockstep.
+
+### History and editing
+
+Line-edited via [rustyline](https://docs.rs/rustyline) with persisted history at `~/.otigen_console_history`. Up-arrow recalls prior commands across sessions.
+
+### Deferred surface
+
+Two REPL commands are reserved by spec but blocked on engine work:
+
+- `events <addr> [--from N] [--to N]` — historical event-log query. Needs `pyde_getLogs` (filtered + cursor-paginated). Ask filed.
+- `subscribe <addr>` — live event tail. Needs both `pyde_getLogs` and a websocket transport on the devnet.
+
+Both will land in a follow-up once the chain-side methods ship.
 
 ---
 

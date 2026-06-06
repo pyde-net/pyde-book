@@ -1260,82 +1260,135 @@ The proxy owns two reserved slots plus whatever the impl logic uses:
 1. **Field-keyed storage (§7).** Slots are derived from `Poseidon2(self_address ‖ field ‖ key)`. Two impls using the same field-name strings for the same data type collide cleanly; mismatched naming surfaces as obvious "fresh slot" reads.
 2. **Append-only impl evolution.** New impls may add fields (new names) but must never repurpose an existing name. Document the slot-name vocabulary explicitly.
 
-### 10.3 The proxy entry points (Rust)
+### 10.3 The proxy entry points (Rust, macro substrate)
+
+`otigen.toml` declares the proxy's two reserved slots; the macro substrate generates typed accessors for both:
+
+```toml
+[state]
+schema = [
+    { name = "admin",  type = "address" },
+    { name = "logic",  type = "address" },
+]
+
+[functions.init]
+attributes = ["entry", "constructor"]
+inputs     = ["address"]
+
+[functions.upgrade_to]
+attributes = ["entry"]
+inputs     = ["address"]
+
+[functions.forward]
+attributes = ["entry"]
+inputs     = ["string", "bytes"]
+outputs    = ["bytes"]
+```
+
+The contract:
 
 ```rust
-const FIELD_ADMIN: &[u8] = b"admin";
-const FIELD_IMPL:  &[u8] = b"impl";
-const INNER_SET:   &[u8] = b"_inner_set_value";
+#![no_std]
+extern crate alloc;
 
-/// One-shot constructor.
-#[no_mangle]
-pub extern "C" fn init(impl_addr_ptr: *const u8) -> i32 {
-    let impl_addr = unsafe { read_32(impl_addr_ptr) };
-    write_slot(FIELD_ADMIN, &[], &caller_addr());
-    write_slot(FIELD_IMPL,  &[], &impl_addr);
-    0
+use alloc::string::String;
+use alloc::vec::Vec;
+use pyde_host as pyde;
+use pyde_host::call::CallError;
+use pyde_host::Address;
+
+pyde::declare_storage!();
+pyde::declare_events!();
+
+/// One-shot constructor. The deployer is recorded as admin.
+#[pyde::entry]
+fn init(initial_logic: Address) {
+    storage::admin().write(pyde::ctx::caller());
+    storage::logic().write(initial_logic);
 }
 
-/// Admin-only impl pointer swap.
-#[no_mangle]
-pub extern "C" fn upgrade(new_impl_ptr: *const u8) -> i32 {
-    if read_slot(FIELD_ADMIN, &[]) != caller_addr() { fail(b"NotAdmin"); }
-    let new_impl = unsafe { read_32(new_impl_ptr) };
-    write_slot(FIELD_IMPL, &[], &new_impl);
-    0
+/// Admin-only logic-pointer swap. The proxy's storage is untouched
+/// — that's the whole point of the pattern.
+#[pyde::entry]
+fn upgrade_to(new_logic: Address) {
+    if pyde::ctx::caller() != storage::admin().read() {
+        pyde::revert("proxy: caller is not admin");
+    }
+    let old_logic = storage::logic().read();
+    storage::logic().write(new_logic);
+    events::Upgraded { old_logic, new_logic }.emit();
 }
 
-/// Forwarded write — calls the impl's inner export in this proxy's
-/// storage context. The impl's sstore lands on the proxy's `value`
-/// slot.
-#[no_mangle]
-pub extern "C" fn set_value(value_ptr: *const u8) -> i32 {
-    let impl_addr = read_slot(FIELD_IMPL, &[]);
-    let mut ret_data = [0u8; 32];
-    let mut ret_len: i32 = 0;
-    let rc = unsafe {
-        host_fns::delegate_call(
-            impl_addr.as_ptr(),
-            INNER_SET.as_ptr(), INNER_SET.len() as i32,
-            value_ptr, 16,           // pass through caller's 16-byte u128
-            i64::MAX,                // gas — chain-side enforces real limits
-            ret_data.as_mut_ptr(),
-            &mut ret_len as *mut i32,
-        )
-    };
-    if rc != 0 { fail(b"DelegateFailed"); }
-    0
+/// Dispatcher. Delegate-calls `logic.function(calldata)` and hands
+/// the bytes back verbatim. The proxy can't borsh-decode the logic's
+/// return into a typed `T` because different logic functions return
+/// different shapes — so it uses `execute_delegate_raw` instead of
+/// the typed `execute_delegate<T>` wrapper.
+#[pyde::entry]
+fn forward(function: String, calldata: Vec<u8>) -> Vec<u8> {
+    let logic = storage::logic().read();
+    match pyde::call::execute_delegate_raw(&logic, &function, &calldata) {
+        Ok(bytes) => bytes,
+        Err(CallError::Reverted(payload)) => {
+            // Pass the logic's revert string straight through so the
+            // caller sees exactly what the logic said.
+            let msg = core::str::from_utf8(&payload)
+                .unwrap_or("proxy: delegate-call failed");
+            pyde::revert(msg);
+        }
+        Err(CallError::InvalidFunction) => {
+            pyde::revert("proxy: logic has no such function");
+        }
+        Err(_) => pyde::revert("proxy: delegate-call failed"),
+    }
 }
 ```
 
-### 10.4 The impl side
+### 10.4 The logic side
 
-The impl exports functions that take `(calldata_ptr: i32, calldata_len: i32) -> i32` — calldata-driven dispatch, matching how the engine's real `delegate_call` will route. The impl decodes its own args from the calldata buffer:
+Logic contracts look like any other contract — `#[pyde::entry]` functions with typed args, `storage::*` accessors, the works. They don't have to know they'll be delegate-called. Their `sstore` writes land on the **proxy's** slots automatically because `pyde::ctx::self_address()` resolves to the proxy under delegate semantics:
 
 ```rust
-/// Called via delegate_call from the proxy's `set_value`.
-#[no_mangle]
-pub extern "C" fn _inner_set_value(calldata_ptr: *const u8, calldata_len: i32) -> i32 {
-    if calldata_len < 16 { return -1; }  // malformed input
-    let v = unsafe { read_u128(calldata_ptr) };  // 16-byte LE u128
-    let mut slot_value = [0u8; 32];
-    slot_value[16..].copy_from_slice(&v.to_be_bytes());  // BE u128 in upper 16 bytes
-    write_slot(b"value", &[], &slot_value);  // lands on PROXY's slot (delegate_call!)
-    0
+#![no_std]
+extern crate alloc;
+use pyde_host as pyde;
+
+pyde::declare_storage!();   // [state] declares `value: u64`
+
+#[pyde::entry]
+fn set_value(v: u64) {
+    storage::value().write(v);   // writes to the PROXY's `value` slot
+}
+
+#[pyde::entry]
+fn get_value() -> u64 {
+    storage::value().read()      // reads from the PROXY's `value` slot
 }
 ```
 
-### 10.5 Auth pitfalls
+The proxy's `forward("set_value", borsh::to_vec(&42_u64))` ends up writing `42` to the proxy's `value` slot. Upgrading `logic` to a new contract that uses the same `value` slot preserves the value across the upgrade.
 
-- **`caller()` semantics across delegate_call**: the impl's `caller()` returns whoever called the PROXY, not the proxy. If the impl gates a function on a specific caller, that gate triggers against the user — not what proxies want. Workaround: gate at the proxy layer (`upgrade` is admin-only), and treat the impl as logic-only.
-- **Re-entrancy under upgrade**: if the impl is mid-execution when `upgrade()` swaps the slot, the still-running impl reads the OLD code (`delegate_call` is per-invocation, not a permanent binding). New calls run the NEW impl. Practical implication: don't make the upgrade behaviour depend on state half-touched by the old impl.
-- **`init()` re-execution**: on chain, the `constructor` attribute prevents post-deploy calls. In tests, each test starts from fresh state so re-running `init` is a clean overwrite; treat it the same way in your test design.
+### 10.5 Typed vs raw delegate-call: when to use which
 
-### 10.6 Testing under the v1 runner
+The substrate exposes two wrappers — pick by whether the call site knows the return shape at compile time:
 
-The runner's `delegate_call` mock requires `target == self_address` (single-wasm v1 limitation). For tests this means the proxy + impl live in the SAME wasm — both exported, the proxy `delegate_call`s into its own module. Functionally identical to delegate-to-different-contract because the storage context is what matters, not the code source.
+| Wrapper | Return shape | When |
+|---|---|---|
+| `pyde::call::execute_delegate::<T>` | `Result<T: BorshDeserialize, CallError>` | The call site **knows** the return type. E.g. a proxy method that always calls one specific logic function: `let v: u64 = pyde::call::execute_delegate(&logic, "get_value", &[])?;`. |
+| `pyde::call::execute_delegate_raw` | `Result<Vec<u8>, CallError>` | The call site is a **type-erased forwarder**. E.g. the proxy's `forward(function, calldata) -> Vec<u8>` dispatcher above — it doesn't know what `function` returns and must hand the bytes back to its own caller verbatim. |
 
-The full live example — including 7 behaviour tests covering admin-only upgrade, slot updates via delegate, multi-call overwrite, and a round-trip after upgrade — is in [`otigen/examples/upgradeable-proxy/`](https://github.com/pyde-net/otigen/tree/main/examples/upgradeable-proxy).
+Both share the same `CallError` taxonomy and the same buffer / status / revert-payload handling; only the final borsh-decode differs.
+
+### 10.6 Auth pitfalls
+
+- **`caller()` semantics across delegate_call**: the logic's `pyde::ctx::caller()` returns whoever called the **proxy**, not the proxy itself. If logic code gates a function on a specific caller, that gate triggers against the user — usually not what proxies want. Workaround: gate at the proxy layer (`upgrade_to` is admin-only above), and treat the logic as pure behaviour.
+- **Re-entrancy under upgrade**: if the logic is mid-execution when `upgrade_to()` swaps the pointer, the still-running frame reads the **old** code (`delegate_call` is per-invocation, not a permanent binding). New top-level calls run the new logic. Practical implication: don't make the upgrade behaviour depend on state half-touched by the old logic.
+- **Storage-layout compatibility**: two logic versions using the same field-name string for the same data type collide cleanly under `Blake3(self_address ‖ field_name)` derivation; **mismatched naming silently corrupts state.** New logic versions may add fields (new names) but must never repurpose an existing name. Document the field-name vocabulary explicitly.
+- **`init()` re-execution**: the `constructor` attribute prevents post-deploy calls on chain. In tests, each test starts from fresh state so re-running `init` is a clean overwrite.
+
+### 10.7 The full live example
+
+The canonical end-to-end implementation is at [`otigen/examples/upgradeable-proxy/`](https://github.com/pyde-net/otigen/tree/main/examples/upgradeable-proxy) — three contracts (proxy + logic-v1 + logic-v2), the Python e2e harness that drives a fresh devnet through an admin-gated upgrade, and assertions that the proxy's `value` slot survives the logic swap end-to-end while both logic contracts' own storage stays untouched.
 
 ---
 

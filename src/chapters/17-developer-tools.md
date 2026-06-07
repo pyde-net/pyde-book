@@ -35,11 +35,11 @@ otigen check                            Validate without packaging (fast CI gate
 otigen deploy                           Sign and submit a deploy transaction
 otigen upgrade                          Submit an upgrade proposal
 otigen pause / unpause / kill           Operational lifecycle (owner-signed)
-otigen inspect <address-or-name>        Read deployed contract state, ABI, version history
+otigen inspect <address-or-name>        Read account snapshot + ABI summary; --state-field reads typed scalar storage; --field reads legacy raw slots
 otigen verify <address-or-name>         Compare local bundle against chain-stored bytes
-otigen wallet                           Wallet management subcommands
-otigen test                             Run contract behaviour tests (tests/*.test.toml)
-otigen console                          REPL against a local or remote node (post-v1)
+otigen wallet                           Wallet management subcommands (new / list / show / import / delete / password / export / sign)
+otigen test                             Run contract behaviour tests (tests/*.test.toml) — engine-by-default runtime
+otigen console                          REPL against a Pyde node — balance / nonce / state / events / call / tx
 ```
 
 The two test layers complement each other:
@@ -69,10 +69,13 @@ The node binary that any full node or validator runs. Contains:
 - Validator-mode flags for committee participation, stake management, key rotation
 
 ```
-pyde init                  Initialize a new node (creates keystore, config)
-pyde start                 Run the node (validator if configured for committee participation, full node otherwise)
-pyde config show           Print effective config
+pyde devnet                One-command local devnet — single validator, 10 prefunded accounts, no config
+pyde full                  Run as a full node (synced + RPC + mempool; no consensus participation)
+pyde light                 Run as a light client (weak-subjectivity checkpoint + light-client mode)
+pyde init                  Initialize a node (creates keystore, config)
+pyde keys generate         Generate a new FALCON-512 validator keypair (--password-stdin encrypts at rest)
 pyde keys rotate           Rotate FALCON keypair (validator-only)
+pyde config show           Print effective config
 pyde admin <subcommand>    Operational commands (drain, halt, recover)
 ```
 

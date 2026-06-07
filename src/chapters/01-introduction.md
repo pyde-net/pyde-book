@@ -56,14 +56,15 @@ This book describes **designed architecture**, with implementation in various st
 | Component | Status |
 |---|---|
 | Architecture design | Complete |
-| WASM execution layer (wasmtime + Cranelift) | Design locked 2026-05-21; wasmtime integration next |
-| State layer (JMT, dual-hash, PIP-2 clustering) | Single-hash JMT in place; PIP-2/3/4 + dual-hash in progress |
+| WASM execution layer (wasmtime + Cranelift) | Functional — substrate macros (`#[pyde::entry]` + typed storage + events) + cross-contract calls + typed-storage host fns all shipped |
+| State layer (JMT, hybrid Blake3 + Poseidon2 hashing) | In place; hybrid hashing wired |
 | Mysticeti DAG consensus | Rebuild in progress post-pivot |
 | Post-quantum cryptography (`pyde-crypto`) | Functional; threshold-decryption path is research-grade |
 | Network protocol (libp2p + QUIC + Gossipsub) | In place; layered peer discovery (no DHT) in flight |
-| `otigen` developer toolchain (WASM-era) | Specification complete; scaffold in progress |
+| Devnet binary (`pyde devnet`) | Shipped — one-command local devnet, 10 prefunded accounts |
+| `otigen` developer toolchain (WASM-era) | Shipped — scaffold / build / test / deploy / inspect / verify / console / wallet across Rust / TinyGo / AssemblyScript / C |
 | Parachain framework | Designed; implementation deferred to a later phase |
-| Performance harness | Not yet built (mandatory before any TPS claim) |
+| Performance harness (multi-region, chain-throughput) | Not yet built (mandatory before any TPS claim) |
 
 **Mainnet ships when the implementation is complete, audited, and validated by an incentivized testnet** — no public schedule. See the [Roadmap](../roadmap.md) for the sequenced plan.
 

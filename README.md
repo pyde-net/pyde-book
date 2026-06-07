@@ -50,24 +50,30 @@ with full specifications for the parts the chapters summarize.
 Pivot reference: [MIGRATION_NOTES.md](src/MIGRATION_NOTES.md) — what
 changed in the May 2026 HotStuff → Mysticeti DAG rewrite.
 
-## Companion Specifications (`docs/`)
+## Companion Specifications (`src/companion/`)
 
 The chapters cross-link to these stand-alone specs:
 
 | File | Purpose |
 |------|---------|
-| [WHITEPAPER.md](docs/WHITEPAPER.md) | High-level technical paper |
-| [DESIGN.md](docs/DESIGN.md) | Full implementation-level design |
-| [PITCH_DECK.md](docs/PITCH_DECK.md) | Short-form pitch with differentiation table |
-| [TOKENOMICS.md](docs/TOKENOMICS.md) | Supply schedule, fee distribution math |
-| [SLASHING.md](docs/SLASHING.md) | 10-offense slashing catalog with evidence flow |
-| [VALIDATOR_LIFECYCLE.md](docs/VALIDATOR_LIFECYCLE.md) | Register / unbond / jail / unjail state machine |
-| [STATE_SYNC.md](docs/STATE_SYNC.md) | Snapshot manifest format, chunk download, verification |
-| [CHAIN_HALT.md](docs/CHAIN_HALT.md) | Three halt types, recovery paths, drill plan |
-| [NETWORK_PROTOCOL.md](docs/NETWORK_PROTOCOL.md) | QUIC + libp2p, discovery, DoS, sentry pattern |
-| [PERFORMANCE_HARNESS.md](docs/PERFORMANCE_HARNESS.md) | Multi-region test infra, workload generators, "claim 1/3 of peak" rule |
-| [THREAT_MODEL.md](docs/THREAT_MODEL.md) | ~50 threats across 7 layers, mitigation mapping |
-| [FAILURE_SCENARIOS.md](docs/FAILURE_SCENARIOS.md) | 12 operational scenarios with runbooks |
+| [WHITEPAPER.md](src/companion/WHITEPAPER.md) | High-level technical paper |
+| [DESIGN.md](src/companion/DESIGN.md) | Full implementation-level design |
+| [PITCH_DECK.md](src/companion/PITCH_DECK.md) | Short-form pitch with differentiation table |
+| [TOKENOMICS.md](src/companion/TOKENOMICS.md) | Supply schedule, fee distribution math |
+| [SLASHING.md](src/companion/SLASHING.md) | 10-offense slashing catalog with evidence flow |
+| [VALIDATOR_LIFECYCLE.md](src/companion/VALIDATOR_LIFECYCLE.md) | Register / unbond / jail / unjail state machine |
+| [STATE_SYNC.md](src/companion/STATE_SYNC.md) | Snapshot manifest format, chunk download, verification |
+| [CHAIN_HALT.md](src/companion/CHAIN_HALT.md) | Three halt types, recovery paths, drill plan |
+| [NETWORK_PROTOCOL.md](src/companion/NETWORK_PROTOCOL.md) | QUIC + libp2p, discovery, DoS, sentry pattern |
+| [PERFORMANCE_HARNESS.md](src/companion/PERFORMANCE_HARNESS.md) | Multi-region test infra, workload generators, "claim 1/3 of peak" rule |
+| [THREAT_MODEL.md](src/companion/THREAT_MODEL.md) | ~50 threats across 7 layers, mitigation mapping |
+| [FAILURE_SCENARIOS.md](src/companion/FAILURE_SCENARIOS.md) | 12 operational scenarios with runbooks |
+| [HOST_FN_ABI_SPEC.md](src/companion/HOST_FN_ABI_SPEC.md) | The chain-facing ABI contracts compile against |
+| [OTIGEN_BINARY_SPEC.md](src/companion/OTIGEN_BINARY_SPEC.md) | Authoritative spec for the `otigen` toolchain |
+| [OTIGEN_TEST_SPEC.md](src/companion/OTIGEN_TEST_SPEC.md) | Test-framework spec (cheats, DSL, expectations, mocking model) |
+| [WASM_AUTHOR_GUIDE.md](src/companion/WASM_AUTHOR_GUIDE.md) | Pattern guide for contract authors |
+| [PARACHAIN_DESIGN.md](src/companion/PARACHAIN_DESIGN.md) | v2 parachain operator layer |
+| [SDK_AUTHOR_GUIDE.md](src/companion/SDK_AUTHOR_GUIDE.md) | Pattern guide for community-language SDK ports |
 
 ## Building Locally
 
@@ -84,21 +90,24 @@ mdbook build
 mdbook serve --open
 ```
 
-The `docs/` markdown files are plain markdown — readable as-is or via any
-viewer. They are **not** part of the mdBook output; they live alongside
-it as authoritative specs.
+The `src/companion/` markdown files are plain markdown — readable as-is
+or via any viewer. They are part of the mdBook output (linked from the
+chapters via `../companion/`) and serve as the authoritative
+specifications the narrative chapters summarize.
 
 ## Status of the Project
 
 | Area | State |
 |------|-------|
-| Architecture design | Complete |
-| WASM execution layer (wasmtime) | Functional; extensions in flight |
-| State (JMT) | In place; hybrid hashing wiring in flight |
+| Architecture design | Complete (chapters + companion specs frozen-ish; PIP-track for revisions) |
+| WASM execution layer (wasmtime) | Functional; substrate macros + typed storage + cross-contract calls shipped |
+| State (JMT) | In place; hybrid Blake3 + Poseidon2 hashing wired |
+| Devnet binary (`pyde devnet`) | Shipped — one-command local devnet, 10 prefunded accounts |
+| Developer toolchain (`otigen`) | Shipped — scaffold / build / test / deploy / inspect / verify / console / wallet; engine-by-default test runtime |
 | Mysticeti DAG consensus | Rebuild in flight post-pivot |
 | Threshold cryptography (PQ) | Research-grade — bleeding edge |
 | Network protocol | Existing; libp2p + QUIC migration in flight |
-| Performance harness | Not yet built (mandatory before TPS claims) |
+| Performance harness (multi-region, chain-throughput) | Not yet built (mandatory before TPS claims) |
 
 No external performance number is published without harness evidence
 under the **"claim 1/3 of measured peak"** rule.

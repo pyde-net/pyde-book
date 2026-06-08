@@ -445,6 +445,49 @@ Exit codes: `0` on clean validation, `1` on validation failure (with per-violati
 
 Coverage parity with `otigen build`: any contract that passes `otigen check` will pass `otigen build`'s validators identically (steps 8+ are I/O-only). Likewise any contract that fails `otigen build` validation fails `otigen check` with the same diagnostic. The two commands share the validation core; `check` is `build` with the writer disabled.
 
+### 3.14 `otigen validator`
+
+Read-only validator-introspection over the engine's
+`pyde_getValidator` + `pyde_getOperatorValidators` RPCs.
+Backs explorers, off-chain indexers, and operator dashboards
+without scripting raw JSON-RPC. **Registration / stake /
+unbond / unjail / key-rotation are out of scope** — those tx
+flows live on the `pyde stake` CLI shipped with the engine
+binary.
+
+```
+otigen validator show <address>
+otigen validator by-operator <operator-address>
+```
+
+| Subcommand | Description |
+|---|---|
+| `show <address>` | Fetch one validator's full chain-side record: operator + pubkey + stake (u128 hex) + status (`active` / `unbonding` / `exited` / `jailed`) + `unbond_at_wave` (only when `unbonding`) + `jail_until_wave` (only when `jailed`) + `last_claimed_rps` (u128 hex reward checkpoint) + `uptime_bps` (basis points). |
+| `by-operator <addr>` | List every validator the queried operator runs, in registration-order. Empty list for unknown operators. |
+
+Both subcommands accept a 32-byte `0x`-prefixed hex address.
+Address validation is local — typos don't burn an RPC round
+trip.
+
+**Wire shapes** match the engine handlers landed in
+`pyde-net/engine#255`:
+
+  - `pyde_getValidator(addr) → ValidatorRecord | null`
+  - `pyde_getOperatorValidators(addr) → [address]`
+
+`--json` (per [§10.2](#102-json-event-stream)) emits one
+NDJSON event per invocation (`validator_show` or
+`validator_by_operator`).
+
+Exit codes:
+
+| Code | Cause |
+|---|---|
+| `0` | Success: `show` rendered a record; `by-operator` rendered the (possibly empty) list. |
+| `1` | `show` only — the queried address is not a registered validator (engine returned `null`). Diagnostic on stderr: `NotAValidator: 0x… is not registered as a validator`. Scripts can branch on this without parsing stdout. |
+| `2` | Validation failure: malformed address, missing `[network.<name>]`, RPC client construction failed. |
+| `4` | RPC transport / decode failure (chain unreachable, response shape didn't decode). |
+
 ---
 
 ## 4. `otigen.toml` schema

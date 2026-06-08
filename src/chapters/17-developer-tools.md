@@ -37,6 +37,7 @@ otigen upgrade                          Submit an upgrade proposal
 otigen pause / unpause / kill           Operational lifecycle (owner-signed)
 otigen inspect <address-or-name>        Read account snapshot + ABI summary; --state-field reads typed scalar storage; --field reads legacy raw slots
 otigen verify <address-or-name>         Compare local bundle against chain-stored bytes
+otigen validator <subcmd>               Read-only validator-introspection: `show <addr>` (full record) / `by-operator <addr>` (list)
 otigen wallet                           Wallet management subcommands (new / list / show / import / delete / password / export / sign)
 otigen test                             Run contract behaviour tests (tests/*.test.toml) — engine-by-default runtime
 otigen console                          REPL against a Pyde node — balance / nonce / state / events / call / tx

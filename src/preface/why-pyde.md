@@ -1,6 +1,6 @@
 # Why Pyde
 
-Pyde is the chain you'd build if you started today — with the post-quantum cryptography NIST standardized in 2024, the DAG consensus Mysten Labs proved in production in 2024, and the WebAssembly runtime Fastly and Microsoft ship at scale. Nothing here is exotic. **The combination is.**
+Pyde is the chain you'd build if you started today — with the post-quantum cryptography NIST standardized in 2024, the Mysticeti consensus Mysten Labs proved in production in 2024, and the WebAssembly runtime Fastly and Microsoft ship at scale. Nothing here is exotic. **The combination is.**
 
 Most production chains had to pick which properties to ship first and migrate the rest later. Pyde was built greenfield to ship all of them at once — which is why this page is organized by the people who'll feel the difference, not by the layers of the stack.
 
@@ -23,7 +23,7 @@ Every other production Layer 1 — Bitcoin, Ethereum, Solana, Cardano, Sui, Apto
 Other chains' answer to MEV is a third-party relayer — Flashbots on Ethereum, Jito on Solana — a service businesses must opt into and trust to behave. On Pyde, MEV-sensitive transactions are encrypted under a threshold key held jointly by 128 validators. The committee commits to a canonical order *before* any decryption share is released. The information asymmetry MEV needs to exist on simply doesn't. Your users keep what they paid; you don't owe anyone a trust assumption you can't independently verify.
 
 **Settlement in ~500 milliseconds.**
-Mysticeti DAG consensus reaches finality at roughly half a second median. Your customer's payment confirms before their hand leaves the mouse. On Ethereum that's 12 seconds — long enough for users to refresh, retry, or abandon. Checkout abandonment drops. Cash flow accelerates. Customer-support tickets stop being about "I paid but it didn't go through."
+Mysticeti-style consensus reaches finality at roughly half a second median. Your customer's payment confirms before their hand leaves the mouse. On Ethereum that's 12 seconds — long enough for users to refresh, retry, or abandon. Checkout abandonment drops. Cash flow accelerates. Customer-support tickets stop being about "I paid but it didn't go through."
 
 **Predictable fees under load.**
 EIP-1559 base fee. No tips. No MEV race driving gas competition during popular drops. When an NFT mints on Ethereum, gas can 10x in 30 seconds and your unit economics break. Pyde's structural absence of MEV competition combined with the no-tip fee model keeps cost predictable. You can quote your operations team a number that's true tomorrow.

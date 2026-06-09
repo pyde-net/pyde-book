@@ -62,7 +62,7 @@ For the full reference — `otigen.toml` schema, per-language workflows, state b
 
 The node binary that any full node or validator runs. Contains:
 
-- The Mysticeti DAG consensus layer
+- The Mysticeti-style consensus layer
 - The WASM execution layer (wasmtime + Cranelift AOT)
 - The JMT state layer (with PIP-2 clustering, dual-hash, PIP-3 prefetch, PIP-4 write-back cache)
 - The libp2p + QUIC + Gossipsub network layer

@@ -1,4 +1,4 @@
-# Pyde: A Post-Quantum, MEV-Resistant Layer 1 with DAG Consensus
+# Pyde: A Post-Quantum, MEV-Resistant Layer 1 with Mysticeti-style Consensus
 
 **Version 0.2 — May 2026**
 Pyde Network · Apache-2.0
@@ -11,9 +11,9 @@ Pyde is a Layer 1 blockchain built greenfield to ship four properties as default
 
 1. **Post-quantum cryptography by default.** FALCON-512 signatures, Kyber-768 threshold encryption, Poseidon2 + Blake3 hybrid hashing. No pre-quantum primitive on any consensus or account path. For businesses, long-tail agreements — insurance policies, multi-year escrows, intellectual-property registries, legal records — remain cryptographically valid into the quantum era without a coordinated migration to budget for. For users, funds remain secure as quantum computing matures.
 
-2. **MEV resistance at the protocol layer, not via a trusted relayer.** Threshold-encrypted mempool + commit-before-reveal ordering + DAG consensus. Sandwich attacks, front-running, and proposer extraction are not policed or auctioned; they are structurally impossible. For users, this means trades execute at the price signed; for businesses, no invisible tax on customer transactions and no third-party relayer to opt into and trust.
+2. **MEV resistance at the protocol layer, not via a trusted relayer.** Threshold-encrypted mempool + commit-before-reveal ordering. Sandwich attacks, front-running, and proposer extraction are not policed or auctioned; they are structurally impossible. For users, this means trades execute at the price signed; for businesses, no invisible tax on customer transactions and no third-party relayer to opt into and trust.
 
-3. **Sub-second finality.** Mysticeti-style DAG consensus, ~500 ms median commit finality, an 85-of-128 FALCON quorum certificate. For users, transactions confirm immediately rather than after a 12-second spinner; for businesses, settlement completes before checkout abandonment kicks in, and every confirmed transaction carries a portable cryptographic receipt that compliance teams verify offline.
+3. **Sub-second finality.** Mysticeti-style consensus, ~500 ms median commit finality, an 85-of-128 FALCON quorum certificate. For users, transactions confirm immediately rather than after a 12-second spinner; for businesses, settlement completes before checkout abandonment kicks in, and every confirmed transaction carries a portable cryptographic receipt that compliance teams verify offline.
 
 4. **Commodity-hardware decentralization.** Full nodes and validators awaiting committee selection run on 8 cores / 16 GB RAM. Validators on the active committee at production throughput require a 500 Mbps – 1 Gbps NIC; every committee seat carries one vote regardless of stake. Enterprises that want to verify the chain independently can do so at hardware costs measured in thousands per year — not the $20K+/month that production-grade validators on the highest-throughput chains run.
 

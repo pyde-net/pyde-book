@@ -547,7 +547,7 @@ This documentation reflects **designed architecture**, not shipped implementatio
 | Architecture design | ✅ Complete |
 | WASM execution layer (wasmtime + Cranelift AOT) | 🟡 Foundation in place; integration in progress; programmable-accounts hooks + hybrid scheduler integration pending |
 | State layer (JMT) | 🟡 In place, needs hybrid hashing |
-| Consensus (Mysticeti DAG) | 🔴 Not yet — rebuild post-pivot |
+| Consensus (Mysticeti-style) | 🔴 Not yet — rebuild post-pivot |
 | Threshold cryptography | 🔴 Research-grade (PQ threshold is bleeding-edge) |
 | Network protocol (libp2p) | 🟡 Existing in archive, needs migration |
 | Performance harness | 🔴 Not yet built |

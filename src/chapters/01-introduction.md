@@ -5,8 +5,8 @@
 Pyde is a Layer 1 blockchain built greenfield to deliver four properties no chain in production combines today:
 
 1. **Post-quantum cryptography by default** — FALCON-512 signatures, Kyber-768 threshold encryption, Poseidon2 hashing
-2. **MEV resistance by structure** — threshold-encrypted mempool + commit-before-reveal ordering + DAG consensus eliminates proposer extraction
-3. **Sub-second finality** — Mysticeti-style DAG consensus, ~500ms median finality
+2. **MEV resistance by structure** — threshold-encrypted mempool + commit-before-reveal ordering eliminates proposer extraction
+3. **Sub-second finality** — Mysticeti-style consensus, ~500ms median finality
 4. **Commodity decentralization** — modest hardware for validators not currently on the active committee; equal voting power within the active committee
 
 The execution layer is **WebAssembly via wasmtime**, with Cranelift ahead-of-time compilation and a hybrid parallel scheduler combining Solana-style declared access lists with Aptos-style Block-STM speculation. Smart contracts can be authored in **Rust, AssemblyScript, Go (TinyGo), or C/C++** — whatever language the team already uses — and bundled by the `otigen` developer toolchain.
@@ -30,7 +30,7 @@ Every major Layer 1 in production today — Bitcoin, Ethereum, Solana, Cardano, 
 
 ### The MEV Problem
 
-Maximum Extractable Value has hardened into a multi-billion-dollar tax paid by retail users to validator-builder coalitions. Sandwich attacks, front-running, and proposer extraction are not bugs — they are structural consequences of public mempools and single-proposer block production. **Pyde eliminates the structural conditions** via threshold encryption + commit-before-reveal + DAG consensus (no single proposer to exploit).
+Maximum Extractable Value has hardened into a multi-billion-dollar tax paid by retail users to validator-builder coalitions. Sandwich attacks, front-running, and proposer extraction are not bugs — they are structural consequences of public mempools and single-proposer block production. **Pyde eliminates the structural conditions** via threshold encryption + commit-before-reveal ordering with no single proposer to exploit.
 
 ### The Decentralization Problem
 
@@ -58,7 +58,7 @@ This book describes **designed architecture**, with implementation in various st
 | Architecture design | Complete |
 | WASM execution layer (wasmtime + Cranelift) | Functional — substrate macros (`#[pyde::entry]` + typed storage + events) + cross-contract calls + typed-storage host fns all shipped |
 | State layer (JMT, hybrid Blake3 + Poseidon2 hashing) | In place; hybrid hashing wired |
-| Mysticeti DAG consensus | Rebuild in progress post-pivot |
+| Mysticeti-style consensus | Rebuild in progress post-pivot |
 | Post-quantum cryptography (`pyde-crypto`) | Functional; threshold-decryption path is research-grade |
 | Network protocol (libp2p + QUIC + Gossipsub) | In place; layered peer discovery (no DHT) in flight |
 | Devnet binary (`pyde devnet`) | Shipped — one-command local devnet, 10 prefunded accounts |

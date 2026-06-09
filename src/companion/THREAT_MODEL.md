@@ -215,7 +215,7 @@ Session keys ship at v2. The threats below are catalogued now so the v2 implemen
 
 | Mitigation | Specification |
 |---|---|
-| BFT 85/128 quorum + DAG consensus | See WHITEPAPER §5 |
+| BFT 85/128 quorum + Mysticeti-style consensus | See WHITEPAPER §5 |
 | Slashing | See SLASHING.md |
 | Threshold encryption + commit-before-reveal | See WHITEPAPER §4, §8 |
 | Anti-Sybil (operator identity binding) | See VALIDATOR_LIFECYCLE.md |

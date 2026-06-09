@@ -27,10 +27,10 @@ A Layer 1 chain built from scratch with all four properties as defaults:
 2. **MEV resistance by structure, not policy**
    - Threshold-encrypted mempool: content invisible until ordered
    - Commit-before-reveal: ordering finalized before decryption
-   - DAG consensus: no single proposer to exploit
+   - Mysticeti-style consensus: no single proposer to exploit
 
-3. **Sub-second finality via DAG consensus**
-   - Mysticeti-style DAG (Sui's production consensus)
+3. **Sub-second finality via Mysticeti-style consensus**
+   - Mysticeti-style (Sui's production consensus)
    - ~500ms median finality target
    - No view changes (eliminates HotStuff's bug class)
 
@@ -54,7 +54,7 @@ A Layer 1 chain built from scratch with all four properties as defaults:
 
 ## Architecture Highlights
 
-- **Consensus:** Mysticeti DAG with 128-validator committee, FALCON sigs, Kyber threshold encryption integrated at the order boundary
+- **Consensus:** Mysticeti-style consensus with 128-validator committee, FALCON sigs, Kyber threshold encryption integrated at the order boundary
 - **Execution:** WebAssembly via wasmtime, with Cranelift AOT and hybrid Block-STM + access list scheduling
 - **State:** Jellyfish Merkle Tree (JMT) with dual Blake3 + Poseidon2 root commitment
 - **Language:** Pyde safety attributes (reentrancy off by default, checked arithmetic, typed storage, no tx.origin, compile-time access lists) preserved as language-native attributes across Rust, AssemblyScript, Go, C
@@ -68,7 +68,7 @@ A Layer 1 chain built from scratch with all four properties as defaults:
 **Implementation: in progress.**
 - Execution layer (WASM via wasmtime, JMT with dual-hash and PIP-2 clustering): functional, needs extensions
 - Cryptography (FALCON, Kyber base): in place; threshold variant in research
-- Consensus (Mysticeti DAG): rebuild post-pivot
+- Consensus (Mysticeti-style): rebuild post-pivot
 - Network (libp2p migration): planned
 
 **Mainnet ships when the work above is complete and the external audit passes.** No public schedule.
@@ -101,7 +101,7 @@ Pyde is currently a **solo project**, with vision-first development → publish 
 
 Looking for:
 1. **Cryptography collaborators** — particularly post-quantum threshold encryption (the hardest piece)
-2. **Consensus reviewers** — Mysticeti DAG specialists for safety/liveness analysis
+2. **Consensus reviewers** — Mysticeti specialists for safety/liveness analysis
 3. **Audit budget** — $500K–$1M projected for v1 mainnet audit
 4. **Grant funding** — Ethereum Foundation, NIST, Polkadot for threshold PQ research
 5. **Early ecosystem builders** — wallets, block explorers, dApp developers willing to build on a pre-mainnet testnet

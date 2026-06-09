@@ -402,13 +402,13 @@ are welcomed via PR.
 Pyde is a sovereign post-quantum L1. Mainnet ships:
 
 - **No elliptic curves** — FALCON-512, Kyber-768, Blake3, Poseidon2, lattice VRF.
-- **DAG consensus, no proposers** — Mysticeti-style; each round every committee member produces a vertex; canonical order is structural.
+- **Mysticeti-style consensus, no proposers** — each round every committee member produces a vertex; canonical order is structural.
 - **Hybrid execution scheduler** — static access lists + Block-STM speculation.
 - **Optional threshold encryption** — opt in per-tx for MEV protection; plaintext supported at lower cost.
 - **No tip mechanism** — fees are exactly `gas_used × base_fee`.
 - **No on-chain stake-weighted vote** — governance is PIPs + on-chain multisig.
 - **No bridge at v1** — `cross_call!` macro stable; parachain operator layer ships post-mainnet.
-- **Structural MEV protection** — commit-before-reveal + DAG ordering + no tips = unexpressible MEV.
+- **Structural MEV protection** — commit-before-reveal + structural ordering + no tips = unexpressible MEV.
 
 Everything that doesn't ship at mainnet is tracked, scoped, and
 prioritized for post-launch work. Honesty about what's in vs out is the

@@ -23,7 +23,7 @@ the post-mainnet hardening list rather than live, the chapter says so.
 
 | Attack class                | Severity  | Primary defense                                           |
 | --------------------------- | --------- | --------------------------------------------------------- |
-| 51% / Byzantine takeover    | Critical  | BFT `f < n/3` with equal-vote committee, Mysticeti DAG safety|
+| 51% / Byzantine takeover    | Critical  | BFT `f < n/3` with equal-vote committee, Mysticeti-style safety|
 | Long-range attack           | High      | Weak-subjectivity checkpoints; hard-finality irreversibility|
 | Sybil attack                | High      | Layered: threshold encryption removes attack incentive + operator-identity cap (max 3/operator) + slashing + minimum stake floor |
 | Eclipse attack              | High      | Layered discovery (no DHT) + FALCON peer auth + sentry pattern |

@@ -71,13 +71,19 @@ The node binary that any full node or validator runs. Contains:
 
 ```
 pyde devnet                One-command local devnet — single validator, 10 prefunded accounts, no config
+pyde validator             Run the long-lived validator process (libp2p + FALCON + consensus participation)
 pyde full                  Run as a full node (synced + RPC + mempool; no consensus participation)
-pyde light                 Run as a light client (weak-subjectivity checkpoint + light-client mode)
-pyde init                  Initialize a node (creates keystore, config)
-pyde keys generate         Generate a new FALCON-512 validator keypair (--password-stdin encrypts at rest)
-pyde keys rotate           Rotate FALCON keypair (validator-only)
-pyde config show           Print effective config
-pyde admin <subcommand>    Operational commands (drain, halt, recover)
+pyde light                 Run as a light client (weak-subjectivity checkpoint + HardFinalityCert verification)
+pyde keys generate         Generate a fresh FALCON-512 validator keypair (--password-stdin encrypts at rest under Argon2id + ChaCha20-Poly1305)
+pyde keys inspect          Print a keypair file's pubkey + derived address
+pyde keys export-pubkey    Export just the public half (for inclusion in a genesis committee)
+pyde stake status          Query an on-chain ValidatorRecord by address or keypair
+pyde stake register        Register a new validator (signs + submits the registration tx)
+pyde stake unbond          Begin unbonding (escrows stake until `unbond_at_wave`)
+pyde stake claim           Claim accumulated rewards
+pyde stake unjail          Re-enter the committee after a jail expiry
+pyde stake rotate          Rotate the FALCON consensus keypair (TxType::RotateValidatorKeys)
+pyde genesis               Genesis-manifest utilities (write template, validate file, print chain-identity hash)
 ```
 
 A full operational reference for validators is published as a separate document (see Validator Operating Guide, post-public-testnet).

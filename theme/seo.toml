@@ -34,7 +34,7 @@ description = "The Pyde core protocol: execution layer (WebAssembly via wasmtime
 
 [sections."otigen"]
 title = "Otigen — Pyde's Smart Contract Toolchain"
-description = "Otigen is Pyde's WebAssembly-targeted smart contract toolchain. Compile Pyde contracts in any wasm32-compatible language (Rust, AssemblyScript, TinyGo); deploy via the wright CLI; standard ABI per HOST_FN_ABI v1.0."
+description = "Otigen is Pyde's WebAssembly-targeted smart contract toolchain. Compile Pyde contracts in any wasm32-compatible language (Rust, AssemblyScript, TinyGo); deploy via the otigen CLI; standard ABI per HOST_FN_ABI v1.0."
 
 [sections."companion"]
 title = "Pyde — Authoritative Spec Documents"

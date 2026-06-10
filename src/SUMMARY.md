@@ -59,6 +59,7 @@
 
 - [Overview](otigen/README.md)
 - [Installation](otigen/installation.md)
+- [Commands reference](otigen/commands.md)
 - [Your First Contract](otigen/first-contract.md)
 - [Shipping](otigen/shipping.md)
 - [Inspect & Verify](otigen/inspecting.md)

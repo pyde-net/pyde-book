@@ -89,6 +89,7 @@
 - [Network Protocol](companion/NETWORK_PROTOCOL.md)
 - [Performance Harness](companion/PERFORMANCE_HARNESS.md)
 - [Parachain Design](companion/PARACHAIN_DESIGN.md)
+- [Block-STM Execution Layer](companion/BLOCK_STM_EXECUTION.md)
 - [Host Function ABI v1.0](companion/HOST_FN_ABI_SPEC.md)
 - [WASM Contract Author Guide](companion/WASM_AUTHOR_GUIDE.md)
 - [SDK Author Guide](companion/SDK_AUTHOR_GUIDE.md)

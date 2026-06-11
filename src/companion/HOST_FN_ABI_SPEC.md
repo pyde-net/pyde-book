@@ -514,6 +514,8 @@ fn derive_slot(field: &[u8], key: &[u8]) -> [u8; 32] {
 
 This was previously offered as a host-side convenience trio (`sload_by_field` / `sstore_by_field` / `sdelete_by_field`) — dropped in the variable-length storage migration to keep the storage host fn surface minimal and uniform with the engine's executor. The 5-line helper recovers the ergonomics without adding host fns.
 
+The macro-substrate typed-storage host fns (`sstore_scalar` / `sload_scalar` / `sstore_map<N>` / `sload_map<N>`) derive slots host-side using the **same** Poseidon2 preimage as the raw path above: `Poseidon2(self_address || field_name_bytes [|| key_bytes ...])`. Authors using `#[pyde::entry]` + `declare_storage!()` get this derivation transparently; raw + typed paths share one canonical slot per `(contract, field, keys)` triple, so any tooling that resolves a slot from a schema (e.g., `otigen test`'s `[tests.expect].storage.<field>` resolver) reads the same slot the contract writes regardless of which host-fn surface the contract used.
+
 ### 7.2 Account & balance
 
 #### `balance`

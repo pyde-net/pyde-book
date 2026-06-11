@@ -6,6 +6,54 @@ This is the operator path. Contract authors want the [Otigen Toolchain Guide](..
 
 ---
 
+## TL;DR — see it work locally first
+
+If you just want to confirm Pyde's multi-validator path works on your machine before committing to a real testnet setup, build the binary and run:
+
+```bash
+pyde validator-cluster --n 4
+```
+
+That spins up a 4-validator devnet in one process — generates the FALCON + libp2p keypairs, writes a genesis manifest, full-mesh-dials every pair, applies the BFT producer quorum, and runs real FALCON beacons + the real DKG ceremony. The cluster commits waves within ~45 seconds; Ctrl+C cleanly shuts everything down and prints each validator's final `waves_committed` count.
+
+```text
+═══════════════════════════════════════════════════════════════
+  Pyde validator cluster — 4 validators, BFT quorum 3
+═══════════════════════════════════════════════════════════════
+
+Chain id:           31337
+Producer tick:      50 ms
+Committer tick:     50 ms
+Epoch length:       5 waves
+Cluster data dir:   /tmp/pyde-validator-cluster-12345-1781178157
+
+Ctrl-C to shut down all validators.
+═══════════════════════════════════════════════════════════════
+…
+^C
+pyde validator-cluster: shutdown signal received
+v0: clean exit, waves_committed=12
+v1: clean exit, waves_committed=12
+v2: clean exit, waves_committed=12
+v3: clean exit, waves_committed=11
+```
+
+That's the full multi-validator pipeline running locally. No genesis manifest to write, no peers to dial, no funding to arrange. Useful when you want to know everything boots before walking the production-shape steps below.
+
+Flags worth knowing:
+
+| Flag | Default | What it does |
+|---|---|---|
+| `--n <N>` | 4 | Number of validators. Uses `bft_quorum_for(N)` for both the producer and support quorum. |
+| `--producer-tick-ms <MS>` | 50 | Per-validator tick rate. Lower = faster wave commits. |
+| `--committer-tick-ms <MS>` | 50 | Wave-committer tick rate. |
+| `--epoch-length-waves <N>` | 5 | Waves per epoch. Production is 100; clusters use 5 so epoch boundaries arrive in seconds. |
+| `--chain-id <N>` | 31337 | Chain id baked into the generated genesis. |
+
+The rest of this guide walks the production-shape setup — separate processes, real keypair management, on-chain registration — that you'd use for a real soft testnet.
+
+---
+
 ## 0. Prerequisites
 
 You need a Rust toolchain, ~4 GB free disk, and inbound network reachability (a public IP or a forwarded port — Pyde is libp2p-based, peers need to dial you back).
@@ -42,7 +90,7 @@ Pyde uses post-quantum FALCON-512 signatures. Generate yours off-validator on a 
 
 ```bash
 pyde keys generate \
-  --falcon-keypair ./falcon.keypair \
+  --out ./falcon.keypair \
   --password-stdin <<< 'change-me-to-a-real-passphrase'
 ```
 
@@ -51,7 +99,7 @@ This writes an Argon2id + ChaCha20-Poly1305 encrypted FALCON keypair. Treat it t
 To inspect the public material (no password required):
 
 ```bash
-pyde keys inspect --falcon-keypair ./falcon.keypair
+pyde keys inspect ./falcon.keypair
 ```
 
 ```text

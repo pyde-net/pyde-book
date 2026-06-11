@@ -6,26 +6,128 @@ Two halves: the `otigen` binary itself, then the language toolchain for whicheve
 
 ## 1. The otigen binary
 
-### macOS / Linux (signed release)
+### Install (curl one-liner)
+
+The canonical install path is a single command that detects your platform, downloads the latest signed release, verifies the sha256, drops the binary into `~/.otigen/bin`, and appends a marker-wrapped `export PATH=…` block to your shell rc:
 
 ```bash
-# Replace v1.0.0 with the current release tag.
-curl -L https://github.com/pyde-net/otigen/releases/download/v1.0.0/otigen-aarch64-apple-darwin.tar.gz -o otigen.tar.gz
-tar -xzf otigen.tar.gz
-sudo mv otigen /usr/local/bin/
+curl -fsSL https://raw.githubusercontent.com/pyde-net/otigen/main/install.sh | bash
 ```
 
-For Linux x86_64 / Linux aarch64 / Windows x86_64, swap the target triple in the URL. Every release publishes binaries for all four platforms, each accompanied by a `.sha256` checksum and a `sigstore-keyless` signature (verifiable via `cosign` — see [`OTIGEN_BINARY_SPEC §11.4`](../companion/OTIGEN_BINARY_SPEC.md)).
+Supported targets: macOS arm64, Linux x86_64, Linux aarch64. Windows users run the same script from Git Bash or WSL.
+
+Open a new terminal afterwards (so the PATH update takes effect), then confirm:
+
+```bash
+otigen --version
+```
+
+```text
+otigen 0.1.0 (sha a3f2b8c, release)
+```
+
+The version line carries the git SHA + build profile so two contributors can compare binaries when something looks wrong.
+
+### Pin a specific version
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/pyde-net/otigen/main/install.sh \
+  | bash -s -- --version v0.1.0-alpha.0
+```
+
+Useful for testing, rollback, or reproducibility — pre-release tags work too.
+
+### Update
+
+Re-run the canonical one-liner. The script detects the existing install at `~/.otigen/bin/otigen` and replaces it with the latest release (same shape as `rustup-init` / `deno install` — no separate manager binary needed):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/pyde-net/otigen/main/install.sh | bash
+```
+
+Idempotent — re-running over an up-to-date install is a no-op on the shell rc.
+
+### Uninstall
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/pyde-net/otigen/main/install.sh \
+  | bash -s -- --uninstall
+```
+
+Removes the binary, strips the marker-wrapped PATH block from every shell rc that has it (`~/.zshrc`, `~/.bashrc`, `~/.bash_profile`, `~/.config/fish/config.fish` are all scanned), and `rmdir`s `~/.otigen/bin` if empty.
+
+### Install-script flags
+
+Pass any of these via `bash -s -- <FLAGS>`:
+
+| Flag | What it does |
+|---|---|
+| `--update` | Explicit alias for the default install-or-replace behavior. |
+| `--uninstall` | Remove binary + clean shell rc + drop empty install dir. |
+| `--version <TAG>` | Pin a specific release tag instead of the latest. |
+| `--prefix <DIR>` | Install location override. Default `~/.otigen/bin`; also honours `OTIGEN_INSTALL_DIR` env var. |
+| `--no-modify-path` | Skip the shell-rc PATH edit. For users with managed dotfile repos. |
+| `--check-only` | Dry run — print what the script would do and exit. Works with any mode. |
+| `-h` / `--help` | Full catalog. |
+
+### Auth (private repos only)
+
+While the otigen repo is private, the installer needs auth. The script picks one of two paths automatically:
+
+- **`gh` CLI** (if installed AND authenticated via `gh auth login`). No env var needed.
+- **`GITHUB_TOKEN`** env var with a personal access token scoped to `Contents: read` on `pyde-net/otigen`. Required if `gh` isn't around.
+
+```bash
+# Option 1 — gh-authenticated
+gh api /repos/pyde-net/otigen/contents/install.sh \
+  -H "Accept: application/vnd.github.raw" | bash
+
+# Option 2 — explicit PAT
+GITHUB_TOKEN=ghp_xxx bash -c \
+  'curl -fsSL -H "Authorization: token $GITHUB_TOKEN" \
+   https://raw.githubusercontent.com/pyde-net/otigen/main/install.sh | bash'
+```
+
+When the repo flips public, the canonical one-liner Just Works without credentials.
+
+### Manual download
+
+If you'd rather skip the script, grab the per-platform tarball directly from the release page:
+
+```bash
+# Replace v0.1.0-alpha.0 with the current release tag, and the target triple
+# (aarch64-apple-darwin / x86_64-unknown-linux-gnu / aarch64-unknown-linux-gnu /
+#  x86_64-pc-windows-msvc) with your platform.
+gh release download v0.1.0-alpha.0 --repo pyde-net/otigen \
+  --pattern 'otigen-v0.1.0-alpha.0-aarch64-apple-darwin.tar.gz' \
+  --pattern 'otigen-v0.1.0-alpha.0-aarch64-apple-darwin.tar.gz.sha256'
+
+shasum -a 256 -c otigen-v0.1.0-alpha.0-aarch64-apple-darwin.tar.gz.sha256
+tar xzf otigen-v0.1.0-alpha.0-aarch64-apple-darwin.tar.gz
+sudo install -m 0755 \
+  otigen-v0.1.0-alpha.0-aarch64-apple-darwin/otigen \
+  /usr/local/bin/
+```
+
+Every release publishes binaries for all four platforms, each accompanied by:
+
+- `.sha256` — checksum
+- `.sig` + `.pem` — sigstore-keyless OIDC signature + certificate (verifiable via `cosign verify-blob` — see [`OTIGEN_BINARY_SPEC §11.4`](../companion/OTIGEN_BINARY_SPEC.md)).
 
 ### Build from source
 
+For contributors and bleeding-edge users:
+
 ```bash
 git clone https://github.com/pyde-net/otigen
+git clone https://github.com/pyde-net/engine          # sibling — path-dep'd by otigen-cli
+git clone https://github.com/pyde-net/pyde-crypto    # sibling — also path-dep'd
 cd otigen
-cargo install --path crates/otigen-cli
+cargo build --release -p otigen-cli
+sudo install target/release/otigen /usr/local/bin/
 ```
 
-Installs to `~/.cargo/bin/otigen`. Requires Rust ≥ 1.87.
+Installs to `/usr/local/bin/otigen`. Requires Rust ≥ 1.93 (cranelift transitive dep). The three sibling repos are needed because the otigen workspace path-deps into both `engine/` and `pyde-crypto/`.
 
 ### Verify
 

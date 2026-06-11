@@ -55,6 +55,13 @@
 
 ---
 
+# Validator Operator Guide
+
+- [Overview](validator/README.md)
+- [Soft Testnet Quickstart](validator/quickstart.md)
+
+---
+
 # Otigen Toolchain Guide
 
 - [Overview](otigen/README.md)

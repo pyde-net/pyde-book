@@ -28,8 +28,9 @@ Pyde is a monolithic blockchain (consensus + execution + state in single binary)
 │ WASM smart contracts, dApps, wallets, RPC       │
 ├─────────────────────────────────────────────┤
 │ Execution                                   │
-│ WebAssembly (wasmtime + Cranelift AOT), Block-STM,         │
-│ hybrid access-list scheduler                │
+│ WebAssembly (wasmtime + Cranelift AOT),     │
+│ Block-STM scheduler, MVCC, access-list      │
+│ prefetch (PIP-3)                            │
 ├─────────────────────────────────────────────┤
 │ State                                       │
 │ Jellyfish Merkle Tree (JMT)                 │
@@ -243,17 +244,15 @@ Pyde safety attributes (preserved from Otigen-language era):
 
 Build output: `.wasm` artifact + JSON ABI + deploy bundle.
 
-### Hybrid Parallel Scheduler
+### Block-STM Parallel Scheduler
 
-Combines two parallel-execution paradigms:
+Pyde uses **uniform Block-STM** (Aptos-style) as the v1 execution model. Every tx in a committed wave runs optimistically in parallel through an MVCC layer, with conflicts caught at validation and losers re-executing until fixpoint. Full algorithm + determinism contract: [`BLOCK_STM_EXECUTION.md`](BLOCK_STM_EXECUTION.md).
 
-**Static access lists (Solana-style):** for functions where access can be inferred at compile time, the scheduler partitions transactions into parallel groups by their declared access sets. Deterministic, no speculation overhead.
+**Access lists from `pyde_simulateTransaction` are prefetch hints only** — the scheduler unions every declared `(addr, slot)` pair across the wave and issues one batched `state_cf.multi_get` (PIP-3) into the dashmap (PIP-4) before Block-STM workers start. Lists are never used to partition the wave or affect correctness; if a list is wrong, the missed slots just miss the warm-cache fast path, Block-STM still produces the correct deterministic result.
 
-**Block-STM (Aptos-style):** for functions with dynamic access patterns, transactions execute optimistically with read/write set tracking; conflicts trigger re-execution in canonical order.
+Why uniform Block-STM over a static-list / Block-STM hybrid for v1: single execution path means single test surface, single determinism contract, single bug class. Aptos's measured production numbers (10-30K real-world TPS) match Pyde's v1 target. The access-list-driven scheduling fast path stays available as a v2 throughput lever — see "Path Beyond v1" in BLOCK_STM_EXECUTION.md.
 
-**The hybrid:** Build-time state binding generator emits both `declared_access_set` (static) and `dynamic_access_regions` (runtime). Runtime scheduler uses static info for partition planning, falls back to Block-STM for dynamic regions.
-
-Pyde-specific opportunity: controls compiler, runtime, language, and protocol — enabling this hybrid where most chains commit to one approach.
+Pyde-specific opportunity: controls compiler, runtime, language, and protocol — the wallet's `pyde_simulateTransaction` round-trip means the chain is the only one where every tx already arrives with an accurate access list, making prefetch coverage near-100% in steady state.
 
 ### Preflight Execution
 
@@ -545,7 +544,7 @@ This documentation reflects **designed architecture**, not shipped implementatio
 | Component | Status |
 |---|---|
 | Architecture design | ✅ Complete |
-| WASM execution layer (wasmtime + Cranelift AOT) | 🟡 Foundation in place; integration in progress; programmable-accounts hooks + hybrid scheduler integration pending |
+| WASM execution layer (wasmtime + Cranelift AOT) | 🟡 Foundation in place; integration in progress; programmable-accounts hooks + Block-STM scheduler + access-list prefetch integration pending |
 | State layer (JMT) | 🟡 In place, needs hybrid hashing |
 | Consensus (Mysticeti-style) | 🔴 Not yet — rebuild post-pivot |
 | Threshold cryptography | 🔴 Research-grade (PQ threshold is bleeding-edge) |

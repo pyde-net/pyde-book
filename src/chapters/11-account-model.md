@@ -632,9 +632,11 @@ Step 5 — Commit (round R+3, ~500 ms after submission)
 Step 6 — Threshold decryption (rounds R+4 to R+5)
   85+ Kyber shares -> shared_secret -> AES decrypt payload.
 
-Step 7 — Execution (hybrid scheduler)
+Step 7 — Execution (Block-STM)
   - Gas charged from DEX.gas_tank (FeePayer::GasTank); accounted via wasmtime fuel.
-  - Conflict graph built from access list; parallel groups execute.
+  - Access list drives PIP-3 multiget prefetch into dashmap before workers start.
+  - Block-STM runs every tx in the wave optimistically in parallel; MVCC
+    catches conflicts at validation; losers re-execute until fixpoint.
   - DEX swap logic runs: SLOAD reserves, SLOAD/SSTORE Alice's USDC,
     transfer PYDE to Alice.
   - Total gas used: 87,400.

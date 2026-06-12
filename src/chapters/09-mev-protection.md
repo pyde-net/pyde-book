@@ -407,11 +407,17 @@ Step 5 — THRESHOLD DECRYPTION (rounds R+4 to R+5)
   - Any honest node collects ≥ 85 shares per ciphertext, interpolates,
     decrypts with AES-256-GCM. ~10-15 ms once 85th share arrives.
 
-Step 6 — EXECUTION (hybrid scheduler)
-  - For each decrypted tx, build conflict graph from access lists.
-  - Functions with static access lists: parallel groups (Solana-style).
-  - Functions with dynamic access: Block-STM speculation (Aptos-style).
-  - Execute against pre_state_root; new post_state_root.
+Step 6 — EXECUTION (Block-STM)
+  - Prefetch the union of declared access lists in one batched
+    state_cf.multi_get (PIP-3) into the dashmap (PIP-4). Lists are
+    hints; they never partition the wave or affect correctness.
+  - Run every decrypted tx in parallel via the Block-STM scheduler:
+    optimistic execute through an MVCC layer + validate against
+    canonical tx_index order + cascade-invalidate + re-incarnate on
+    conflict + fixpoint. Full algorithm in
+    companion/BLOCK_STM_EXECUTION.md.
+  - Final state derived from the fixpoint: highest-tx_index's last
+    write per slot. Execute against pre_state_root → new post_state_root.
   - Distribute fees: 70% burn, 20% to current epoch's reward pool, 10% treasury.
     (Layer 4: no tip is paid because no tip field exists in the wire format.)
 

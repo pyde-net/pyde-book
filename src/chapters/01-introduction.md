@@ -9,7 +9,7 @@ Pyde is a Layer 1 blockchain built greenfield to deliver four properties no chai
 3. **Sub-second finality** — Mysticeti-style consensus, ~500ms median finality
 4. **Commodity decentralization** — modest hardware for validators not currently on the active committee; equal voting power within the active committee
 
-The execution layer is **WebAssembly via wasmtime**, with Cranelift ahead-of-time compilation and a hybrid parallel scheduler combining Solana-style declared access lists with Aptos-style Block-STM speculation. Smart contracts can be authored in **Rust, AssemblyScript, Go (TinyGo), or C/C++** — whatever language the team already uses — and bundled by the `otigen` developer toolchain.
+The execution layer is **WebAssembly via wasmtime**, with Cranelift ahead-of-time compilation and a **uniform Block-STM scheduler** — every tx runs optimistically in parallel through an MVCC layer, conflicts are detected at runtime, losers re-execute until fixpoint. Wallet-attached access lists from `pyde_simulateTransaction` drive PIP-3 multiget prefetch into the dashmap cache before execution starts; the lists are performance hints, not scheduling decisions. Smart contracts can be authored in **Rust, AssemblyScript, Go (TinyGo), or C/C++** — whatever language the team already uses — and bundled by the `otigen` developer toolchain.
 
 Cross-chain interactions — calling functions on other chains, querying oracles, off-chain compute — happen through a permissionless **parachain layer** (post-mainnet) with operators who stake PYDE and earn gas fees from contracts that call them. No custodial multisigs, no auctioned slots.
 
@@ -41,7 +41,7 @@ Chains optimizing for throughput have ended up requiring datacenter-class valida
 - **Mysticeti DAG consensus** replaces HotStuff. No view changes, no single proposer, sub-second commit latency targeted (implementation in progress)
 - **WebAssembly execution** via wasmtime, with Cranelift AOT. Smart contracts written in Rust, AssemblyScript, Go, or C/C++ — same language ecosystem authors already work in
 - **Worker / Primary split** (Narwhal pattern) for data dissemination separate from consensus
-- **Hybrid execution scheduler** — static access lists for known patterns, Block-STM for dynamic
+- **Uniform Block-STM scheduler** — optimistic parallel execution + MVCC validation; access lists from `pyde_simulateTransaction` drive PIP-3 prefetch into the dashmap cache before workers start
 - **JMT state tree** (Jellyfish Merkle Tree, radix-16) replaces fixed-depth SMT — with dual Blake3 + Poseidon2 roots so standard light clients and future ZK light clients verify against the same tree
 - **PIP-2 clustered slot keys + PIP-3 prefetch + PIP-4 write-back cache** — three-layer state performance stack
 - **Encryption opt-in** per-tx — MEV protection where needed, no overhead where not

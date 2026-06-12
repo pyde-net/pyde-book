@@ -635,7 +635,7 @@ mainnet:
 | Audit scope                                                                       |
 | --------------------------------------------------------------------------------- |
 | Consensus layer (Mysticeti DAG, anchor selection, finality, slashing)             |
-| Execution layer (Pyde's host-function ABI, the `wasm-exec` integration, fuel-to-gas mapping, hybrid scheduler) |
+| Execution layer (Pyde's host-function ABI, the `wasm-exec` integration, fuel-to-gas mapping, Block-STM scheduler + MVCC layer + determinism contract) |
 | Crypto implementations (FALCON, Kyber, Blake3, Poseidon2, threshold, PSS) — in `pyde-crypto` polyrepo |
 | Networking layer (libp2p config, gossipsub, layered discovery, sentry pattern, DDoS) |
 | `otigen` developer toolchain (binding generators, ABI extraction, deploy flow, wallet) |

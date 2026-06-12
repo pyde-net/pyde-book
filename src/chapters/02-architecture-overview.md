@@ -11,7 +11,8 @@ Pyde is a monolithic Layer 1 — consensus, execution, and state in a single bin
 ├─────────────────────────────────────────────┤
 │ Execution Layer                             │
 │ WebAssembly (wasmtime + Cranelift AOT),     │
-│ Block-STM, hybrid access-list scheduler     │
+│ Block-STM scheduler, MVCC, access-list      │
+│ prefetch                                    │
 ├─────────────────────────────────────────────┤
 │ State Layer                                 │
 │ Jellyfish Merkle Tree (JMT), dual-hash      │
@@ -78,18 +79,17 @@ When the anchor vertex collects sufficient support from later rounds (Mysticeti 
 
 End-to-end commit latency: **~500ms median**.
 
-## Execution: WebAssembly + Hybrid Scheduler
+## Execution: WebAssembly + Block-STM
 
 After consensus commits a wave (canonical ordered transactions), the execution layer:
 
-1. **Threshold decryption** for encrypted transactions (≥85 partials combined)
-2. **Hybrid scheduler** partitions decrypted transactions into parallel groups:
-   - **Static access lists** (Solana-style) for functions with compile-time-known accesses, derived from each contract's declared state schema
-   - **Block-STM speculation** (Aptos-style) for functions with dynamic accesses
-3. **wasmtime executes** WASM modules in canonical order, applying state diffs in parallel where safe. Smart contracts compile from Rust, AssemblyScript, Go, or C/C++ to WASM; runtime is wasmtime with Cranelift AOT and fuel-based gas metering.
-4. **State root computed** — dual-hash (Blake3 + Poseidon2) per JMT node
-5. **Committee FALCON-signs state root** (piggybacked on next vertices)
-6. **Finality** when ≥85 state root signatures collected
+1. **Threshold decryption** for encrypted transactions (≥85 partials combined per tx)
+2. **Access-list prefetch** — one batched `state_cf.multi_get` (PIP-3) over the union of every tx's declared `(addr, slot)` pairs lands warm values in the dashmap (PIP-4) before workers start. The lists are hints only; they never partition the wave or affect correctness.
+3. **Block-STM scheduler** runs every tx in parallel on a `rayon` pool: optimistic execute against an MVCC layer + validate against canonical tx_index order + cascade-invalidate + re-incarnate on conflict + fixpoint. Final state per slot is the highest-tx_index's last write. Full algorithm in [companion/BLOCK_STM_EXECUTION.md](../companion/BLOCK_STM_EXECUTION.md).
+4. **wasmtime executes** each tx with Cranelift AOT and fuel-based gas metering. Smart contracts compile from Rust, AssemblyScript, Go, or C/C++ to WASM.
+5. **State root computed** — dual-hash (Blake3 + Poseidon2) per JMT node
+6. **Committee FALCON-signs state root** (piggybacked on next vertices)
+7. **Finality** when ≥85 state root signatures collected
 
 ## State: Jellyfish Merkle Tree
 

@@ -42,7 +42,7 @@ and the post-mainnet roadmap.
 | **MEV**              | Maximal Extractable Value. The MEV class is structurally closed in Pyde.    |
 | **Encrypted mempool**| Optional Kyber-encrypted submission. Decryption deferred until after DAG anchor commit. |
 | **Commit-before-reveal**| DAG anchor commits canonical ordering before threshold-decryption shares are released. |
-| **Hybrid scheduler** | Execution model: static access lists (Solana-style) + Block-STM speculation (Aptos-style). |
+| **Block-STM scheduler** | Execution model: uniform optimistic parallel execution through an MVCC layer; conflicts detected at validation, losers re-execute until fixpoint. Access lists from `pyde_simulateTransaction` drive PIP-3 multiget prefetch but never partition the wave. |
 | **Sentry node**      | Public-facing proxy in front of a committee validator. Hides validator's real IP. |
 | **Treasury**         | The system account at `Poseidon2("pyde-treasury")`. Spent via on-chain multisig.|
 | **PIP**              | Pyde Improvement Proposal. Off-chain documents that drive code changes.     |
@@ -403,7 +403,7 @@ Pyde is a sovereign post-quantum L1. Mainnet ships:
 
 - **No elliptic curves** — FALCON-512, Kyber-768, Blake3, Poseidon2, lattice VRF.
 - **Mysticeti-style consensus, no proposers** — each round every committee member produces a vertex; canonical order is structural.
-- **Hybrid execution scheduler** — static access lists + Block-STM speculation.
+- **Uniform Block-STM execution** — optimistic parallel exec + MVCC validation; access lists from `pyde_simulateTransaction` drive PIP-3 multiget prefetch into the dashmap cache, never partition the wave.
 - **Optional threshold encryption** — opt in per-tx for MEV protection; plaintext supported at lower cost.
 - **No tip mechanism** — fees are exactly `gas_used × base_fee`.
 - **No on-chain stake-weighted vote** — governance is PIPs + on-chain multisig.

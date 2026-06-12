@@ -412,26 +412,21 @@ itself; on restart, a validator can rebuild any missing state from blocks.
 
 ---
 
-## 4.7 The Block-Application Pipeline
+## 4.7 The Wave-Application Pipeline
 
-When a block is executed, the state pipeline runs in this order:
+When a wave commits, the state pipeline runs in this order:
 
-1. Open a batch against the current JMT.
-2. Execute each parallel group from the conflict graph (see Chapter 9 for
-   how the access-list scheduler builds groups).
-3. Within a group, transactions execute sequentially in order; across
-   groups, in parallel against the same `pre_state_root`.
-4. Apply state writes to the batch.
+1. Open a batch against the current JMT (the wave's `pre_state_root`).
+2. **Prefetch** every `(addr, slot)` pair declared across the wave's tx access lists in one batched `state_cf.multi_get` (PIP-3). Returned values land in the dashmap (PIP-4) marked Clean. Access lists are prefetch hints only — they never partition the wave or affect correctness.
+3. **Execute** every tx in parallel via the [Block-STM scheduler](../companion/BLOCK_STM_EXECUTION.md): optimistic execute through an MVCC layer → validate against canonical tx_index order → cascade-invalidate + re-incarnate on conflict → fixpoint. The final state per slot is the highest-tx_index's last write.
+4. Apply the Block-STM finalize output to the batch as one ordered slot-write set.
 5. Distribute fees: 70% to the burn counter (`TOTAL_BURNED` discriminator),
    20% to the epoch reward pool (distributed at epoch end by stake × uptime),
    10% to the treasury account.
 6. Commit the batch with `update_all`. The new root is `post_state_root`.
-7. Set `witness.post_state_root` and stamp the block header.
+7. Set the WaveCommitRecord's `state_root` and emit the per-wave `WaveCommitInputs` for the wave-committer.
 
-The "execute then commit" ordering means the post-root is a function of the
-exact transaction set, the exact ordering, and the exact starting state — so
-two honest validators given the same encrypted block always agree on the
-post-root. Disagreement is a slashing-grade safety violation.
+The Block-STM correctness contract guarantees that two honest validators given the same canonical tx list + same `pre_state_root` produce **bit-identical** `post_state_root` and receipts, regardless of how many re-execution attempts each validator's scheduler needed to reach fixpoint. Attempt order, thread interleaving, and wall-clock duration can all differ; the final state cannot. Disagreement on `post_state_root` is a slashing-grade safety violation per Chapter 6 §12.
 
 ---
 

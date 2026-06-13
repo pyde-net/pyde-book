@@ -1,8 +1,34 @@
-# How Pyde Works
+# What is Pyde
 
 <img src="../assets/logo.png" alt="The Pyde mark" class="pyde-logo-hero" />
 
-_The whole protocol in one tour — tide, atom, factory — so the spec chapters land on intuition, not acronyms._
+_What Pyde is, what it removes, and how it operates — so the spec chapters land on intuition, not acronyms._
+
+---
+
+## Pyde, in one paragraph
+
+Pyde is a Layer 1 blockchain network. Post-quantum from day one, MEV-resistant by construction, and cross-chain by certificate. It removes the two trust problems crypto-native businesses cannot solve today — front-running that taxes users 1–5% per trade, and bridges that have lost over $3 billion since 2021 — both fixed at the protocol level, not by policy. It is the chain you build on when execution has to be fair, finality has to mean final, and verification has to outlive the cryptography it was built with.
+
+## What Pyde removes
+
+Two structural taxes vanish at the protocol layer:
+
+**Front-running.** Transactions are encrypted in the mempool until after the network commits to their order. No validator, sequencer, or searcher can read a transaction before its place in line is locked. Sandwich attacks, JIT liquidity, and proposer extraction are not auctioned or mitigated — they are structurally impossible. Users keep the price they signed.
+
+**Bridge custody risk.** Any chain — Ethereum, Solana, a parachain, an L1 not built yet — can verify a Pyde transaction directly using its FALCON-signed finality certificate. No multisig, no custodian, no third party to trust. Value crossing chains never sits in a contract someone else controls.
+
+## What makes Pyde different
+
+Three properties ship as defaults at genesis. No production chain combines them today.
+
+**Post-quantum cryptography.** FALCON-512 signatures, Kyber-768 (ML-KEM) threshold encryption, Poseidon2 + Blake3 hybrid hashing. No pre-quantum primitive on any consensus or account path. The network still settles after a working quantum computer breaks what today's chains run on.
+
+**Structural MEV resistance.** Threshold-encrypted mempool with commit-before-reveal ordering. Fairness is not enforced by policy or auctioned to the highest bidder — it is a property of the protocol.
+
+**Portable cross-chain certificate.** A Pyde finality certificate verifies anywhere it lands. Cross-chain interop is cryptography, not a multisig.
+
+Other chains can add any one of these. None can add all three without a hard fork that breaks every deployed app. Pyde ships them as one architecture, day one.
 
 ---
 
@@ -50,7 +76,7 @@ One core. Many orbits. Bound by physics, not by trust.
 
 ---
 
-## Pyde is a factory
+## How Pyde operates
 
 Most blockchain explanations start with cryptography and end with consensus, leaving the reader holding a bag of acronyms. We are going to do this differently.
 

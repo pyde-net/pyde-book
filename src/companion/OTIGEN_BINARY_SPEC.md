@@ -1250,7 +1250,7 @@ When `otigen` introduces a *required* new key, that's a MAJOR bump; `otigen migr
 3. `cargo build --release --target <triple>` → produces `target/<triple>/release/otigen[.exe]`.
 4. `tar -czf` (or `zip` on Windows) → produces the tarball above.
 5. `sha256sum` → produces `otigen-{version}-{triple}.tar.gz.sha256` alongside.
-6. Upload to the GitHub Release for the tag.
+6. Upload to the GitHub Release for the tag. Releases are published cross-repo to the public mirror at [`pyde-net/test-releases`](https://github.com/pyde-net/test-releases) under a product-prefixed tag (`otigen-vX.Y.Z`) so the same mirror can host every Pyde toolchain release (`engine-vX.Y.Z`, …) anonymously without per-product asset name collisions. Authors install via the canonical `curl -fsSL https://raw.githubusercontent.com/pyde-net/test-releases/main/otigen/install.sh | bash` one-liner.
 
 **Signing:**
 

@@ -8,13 +8,15 @@ Two halves: the `otigen` binary itself, then the language toolchain for whicheve
 
 ### Install (curl one-liner)
 
-The canonical install path is a single command that detects your platform, downloads the latest signed release, verifies the sha256, drops the binary into `~/.otigen/bin`, and appends a marker-wrapped `export PATH=…` block to your shell rc:
+The canonical install path is a single command. It detects your platform, downloads the latest signed release from the public mirror, verifies the sha256, drops the binary into `~/.otigen/bin`, and appends a marker-wrapped `export PATH=…` block to your shell rc:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/pyde-net/otigen/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/pyde-net/test-releases/main/otigen/install.sh | bash
 ```
 
-Supported targets: macOS arm64, Linux x86_64, Linux aarch64. Windows users run the same script from Git Bash or WSL.
+No `gh` CLI required, no `GITHUB_TOKEN` setup, no auth dance — the release mirror at [`pyde-net/test-releases`](https://github.com/pyde-net/test-releases) is public and the install script fetches anonymously over plain curl + the GitHub CDN.
+
+Supported targets: macOS arm64, Linux x86_64, Linux aarch64, Windows x86_64. Windows users run the same script from Git Bash or WSL.
 
 Open a new terminal afterwards (so the PATH update takes effect), then confirm:
 
@@ -23,7 +25,7 @@ otigen --version
 ```
 
 ```text
-otigen 0.1.0 (sha a3f2b8c, release)
+otigen 0.1.0 (sha be73970a, release)
 ```
 
 The version line carries the git SHA + build profile so two contributors can compare binaries when something looks wrong.
@@ -31,18 +33,18 @@ The version line carries the git SHA + build profile so two contributors can com
 ### Pin a specific version
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/pyde-net/otigen/main/install.sh \
-  | bash -s -- --version v0.1.0-alpha.0
+curl -fsSL https://raw.githubusercontent.com/pyde-net/test-releases/main/otigen/install.sh \
+  | bash -s -- --version v0.1.0-alpha.1
 ```
 
-Useful for testing, rollback, or reproducibility — pre-release tags work too.
+Pass either the bare version (`v0.1.0-alpha.1`) or the full mirror tag (`otigen-v0.1.0-alpha.1`) — both are accepted. Useful for testing, rollback, or reproducibility; pre-release tags work too.
 
 ### Update
 
 Re-run the canonical one-liner. The script detects the existing install at `~/.otigen/bin/otigen` and replaces it with the latest release (same shape as `rustup-init` / `deno install` — no separate manager binary needed):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/pyde-net/otigen/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/pyde-net/test-releases/main/otigen/install.sh | bash
 ```
 
 Idempotent — re-running over an up-to-date install is a no-op on the shell rc.
@@ -50,7 +52,7 @@ Idempotent — re-running over an up-to-date install is a no-op on the shell rc.
 ### Uninstall
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/pyde-net/otigen/main/install.sh \
+curl -fsSL https://raw.githubusercontent.com/pyde-net/test-releases/main/otigen/install.sh \
   | bash -s -- --uninstall
 ```
 
@@ -64,59 +66,42 @@ Pass any of these via `bash -s -- <FLAGS>`:
 |---|---|
 | `--update` | Explicit alias for the default install-or-replace behavior. |
 | `--uninstall` | Remove binary + clean shell rc + drop empty install dir. |
-| `--version <TAG>` | Pin a specific release tag instead of the latest. |
+| `--version <TAG>` | Pin a specific release tag instead of the latest. Accepts `vX.Y.Z` or `otigen-vX.Y.Z`. |
 | `--prefix <DIR>` | Install location override. Default `~/.otigen/bin`; also honours `OTIGEN_INSTALL_DIR` env var. |
 | `--no-modify-path` | Skip the shell-rc PATH edit. For users with managed dotfile repos. |
 | `--check-only` | Dry run — print what the script would do and exit. Works with any mode. |
 | `-h` / `--help` | Full catalog. |
 
-### Auth (private repos only)
-
-While the otigen repo is private, the installer needs auth. The script picks one of two paths automatically:
-
-- **`gh` CLI** (if installed AND authenticated via `gh auth login`). No env var needed.
-- **`GITHUB_TOKEN`** env var with a personal access token scoped to `Contents: read` on `pyde-net/otigen`. Required if `gh` isn't around.
-
-```bash
-# Option 1 — gh-authenticated
-gh api /repos/pyde-net/otigen/contents/install.sh \
-  -H "Accept: application/vnd.github.raw" | bash
-
-# Option 2 — explicit PAT
-GITHUB_TOKEN=ghp_xxx bash -c \
-  'curl -fsSL -H "Authorization: token $GITHUB_TOKEN" \
-   https://raw.githubusercontent.com/pyde-net/otigen/main/install.sh | bash'
-```
-
-When the repo flips public, the canonical one-liner Just Works without credentials.
-
 ### Manual download
 
-If you'd rather skip the script, grab the per-platform tarball directly from the release page:
+If you'd rather skip the script, grab the per-platform tarball directly from the public mirror's release page:
 
 ```bash
-# Replace v0.1.0-alpha.0 with the current release tag, and the target triple
+# Replace v0.1.0-alpha.1 with the current release tag, and the target triple
 # (aarch64-apple-darwin / x86_64-unknown-linux-gnu / aarch64-unknown-linux-gnu /
-#  x86_64-pc-windows-msvc) with your platform.
-gh release download v0.1.0-alpha.0 --repo pyde-net/otigen \
-  --pattern 'otigen-v0.1.0-alpha.0-aarch64-apple-darwin.tar.gz' \
-  --pattern 'otigen-v0.1.0-alpha.0-aarch64-apple-darwin.tar.gz.sha256'
+#  x86_64-pc-windows-msvc) with your platform. The mirror prefixes every
+# otigen release tag with `otigen-`, so the lookup is `otigen-<tag>`.
+gh release download otigen-v0.1.0-alpha.1 --repo pyde-net/test-releases \
+  --pattern 'otigen-v0.1.0-alpha.1-aarch64-apple-darwin.tar.gz' \
+  --pattern 'otigen-v0.1.0-alpha.1-aarch64-apple-darwin.tar.gz.sha256'
 
-shasum -a 256 -c otigen-v0.1.0-alpha.0-aarch64-apple-darwin.tar.gz.sha256
-tar xzf otigen-v0.1.0-alpha.0-aarch64-apple-darwin.tar.gz
+shasum -a 256 -c otigen-v0.1.0-alpha.1-aarch64-apple-darwin.tar.gz.sha256
+tar xzf otigen-v0.1.0-alpha.1-aarch64-apple-darwin.tar.gz
 sudo install -m 0755 \
-  otigen-v0.1.0-alpha.0-aarch64-apple-darwin/otigen \
+  otigen-v0.1.0-alpha.1-aarch64-apple-darwin/otigen \
   /usr/local/bin/
 ```
 
+Anonymous `curl -L` against the asset's `browser_download_url` works the same way for users without `gh` installed.
+
 Every release publishes binaries for all four platforms, each accompanied by:
 
-- `.sha256` — checksum
-- `.sig` + `.pem` — sigstore-keyless OIDC signature + certificate (verifiable via `cosign verify-blob` — see [`OTIGEN_BINARY_SPEC §11.4`](../companion/OTIGEN_BINARY_SPEC.md)).
+- `.sha256` — checksum (auto-verified by the install script).
+- `.sig` + `.pem` — sigstore-keyless OIDC signature + certificate. The install script doesn't currently verify these (cosign is an optional install on the user side); manual verification flow lives in the [mirror README](https://github.com/pyde-net/test-releases#verifying-a-download-manually) and is normatively specified in [`OTIGEN_BINARY_SPEC §11.4`](../companion/OTIGEN_BINARY_SPEC.md).
 
 ### Build from source
 
-For contributors and bleeding-edge users:
+For contributors and bleeding-edge users. While the source repos are private during pre-mainnet engineering, sibling-clone access requires Contents:read on each:
 
 ```bash
 git clone https://github.com/pyde-net/otigen
@@ -129,17 +114,7 @@ sudo install target/release/otigen /usr/local/bin/
 
 Installs to `/usr/local/bin/otigen`. Requires Rust ≥ 1.93 (cranelift transitive dep). The three sibling repos are needed because the otigen workspace path-deps into both `engine/` and `pyde-crypto/`.
 
-### Verify
-
-```bash
-otigen --version
-```
-
-```text
-otigen 0.1.0 (commit:a3f2b8c, release)
-```
-
-The version line carries the git SHA + build profile so two contributors can compare binaries when something looks wrong.
+Once the source repo flips public for v1, the same `make install` (or `cargo install --path crates/otigen-cli`) flow works from a public clone with no auth.
 
 ---
 
@@ -260,13 +235,12 @@ which wasm-ld
 
 ## 3. Verify everything together
 
-The fastest end-to-end smoke test:
+The fastest end-to-end smoke test — `otigen test` auto-invokes the per-language compiler before running the suite, so a single command covers build + test:
 
 ```bash
 otigen init smoke --lang rust
 cd smoke
-make build
-make test
+otigen test
 ```
 
 ```text
@@ -286,3 +260,4 @@ If you get that output, you're ready for the [next chapter](./first-contract.md)
 - Full per-language install gotchas with troubleshooting steps: [Debugging — installation errors](./debugging.md#installation-errors).
 - Toolchain pinning for reproducible builds: each project's `otigen.toml` records `rust_channel` / `tinygo_version` / `asc_version` / `clang_version`. The chain doesn't enforce these, but your team should.
 - The `make check-tools` target inside each scaffolded project verifies all four prerequisites are present + correct.
+- Public release mirror: [`pyde-net/test-releases`](https://github.com/pyde-net/test-releases) — README covers the tag convention, manual sigstore verification, and the canonical surfaces for every Pyde toolchain.

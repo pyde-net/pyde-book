@@ -184,7 +184,7 @@ Each threat ID prefixed `T-` (toolchain). Numbered for cross-reference. Severity
 
 **Mitigations:**
 - Signed binary releases (`α.qual.release` roadmap item) ship with sigstore signatures + sha256sums; the user can verify the binary before running.
-- Documentation directs users to install from the official `pyde-net/otigen` release page or via `cargo install --git`.
+- Documentation directs users to install via the canonical curl one-liner against the public release mirror at [`pyde-net/test-releases`](https://github.com/pyde-net/test-releases) — anonymous fetch over the GitHub CDN, sha256 verified before extraction — or via `cargo install --git` from the source repo for contributors.
 - No telemetry; no password ever leaves the local process.
 
 **Residual risk:** User installs from an untrusted source. Operational responsibility.
@@ -215,7 +215,7 @@ Each threat ID prefixed `T-` (toolchain). Numbered for cross-reference. Severity
 **Description:** A typo in `cargo install otigen-cli` (e.g., `otigan-cli`) lands on a typosquatted crate.
 
 **Mitigations:**
-- Official install instructions in `README.md` use the verbatim `pyde-net/otigen` GitHub URL or the exact crate name.
+- Official install instructions in `README.md` use the verbatim mirror URL `https://raw.githubusercontent.com/pyde-net/test-releases/main/otigen/install.sh` or the exact crate name.
 - The `pyde-net` GitHub org name is unique enough that typo-distance attacks are visible.
 
 **Residual risk:** User copy-pastes from a phishing site. Documentation-only mitigation.

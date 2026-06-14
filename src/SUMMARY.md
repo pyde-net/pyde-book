@@ -59,6 +59,7 @@
 
 - [Overview](validator/README.md)
 - [Soft Testnet Quickstart](validator/quickstart.md)
+- [Public Testnet Bootstrap Runbook](validator/bootstrap-runbook.md)
 - [Joining a Public Testnet](validator/joining-testnet.md)
 - [Day-2 Operations](validator/operations.md)
 

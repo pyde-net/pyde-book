@@ -56,23 +56,15 @@ The rest of this guide walks the production-shape setup — separate processes, 
 
 ## 0. Prerequisites
 
-You need a Rust toolchain, ~4 GB free disk, and inbound network reachability (a public IP or a forwarded port — Pyde is libp2p-based, peers need to dial you back).
+You need ~4 GB free disk and inbound network reachability (a public IP or a forwarded port — Pyde is libp2p-based, peers need to dial you back). Pyde ships as a prebuilt binary; no Rust toolchain required.
+
+Install the `pyde` binary from the public release mirror:
 
 ```bash
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-source "$HOME/.cargo/env"
-rustc --version  # expect 1.85+ stable
+curl -fsSL https://raw.githubusercontent.com/pyde-net/test-releases/main/engine/install.sh | bash
 ```
 
-Pyde is currently distributed as source. Clone + build:
-
-```bash
-git clone https://github.com/pyde-net/engine.git pyde-engine
-cd pyde-engine
-cargo build --release --bin pyde
-```
-
-The binary lands at `target/release/pyde`. Add it to your PATH or invoke it via the full path. Every subsequent command in this guide assumes `pyde` resolves.
+The installer probes the GitHub API anonymously — no token needed. It downloads the latest `engine-vX.Y.Z` release for your platform, verifies the SHA-256 checksum, places `pyde` at `~/.pyde/bin/pyde`, and adds that directory to your shell rc. Open a new shell (or `source` your rc) and:
 
 ```bash
 pyde --version
@@ -81,6 +73,14 @@ pyde --version
 ```text
 pyde 0.1.0
 ```
+
+Supported platforms: macOS arm64, Linux x86_64, Linux aarch64. Windows operators run the install script from Git Bash or WSL. To pin a specific release:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/pyde-net/test-releases/main/engine/install.sh | bash -s -- --version v0.1.0-testnet.1
+```
+
+Optional: independently verify the release with the sigstore-keyless signature attached to every artifact. See the [Joining a Public Testnet](joining-testnet.md) chapter for the full verification flow.
 
 ---
 

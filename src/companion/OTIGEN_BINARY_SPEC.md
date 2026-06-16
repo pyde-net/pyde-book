@@ -155,8 +155,9 @@ otigen deploy [--network <name>] [--from <addr-or-keyname>] [--bundle <path>] [-
 
 Pipeline:
 
-1. Load bundle. Re-validate WASM + ABI consistency (defense in depth).
-2. Construct a `DeployTx`:
+1. Load bundle. **Re-validate both the project's `otigen.toml` and the bundle's copy of `otigen.toml` against the schema** — same `validate()` pass that `otigen build` runs. Defense-in-depth: catches hand-edits between build and deploy, bundles produced by a forked toolchain that skipped validation, and bundles built before charset rules existed. The `[contract].name` from the bundle's `otigen.toml` is hashed into the deployed address by the chain, so a malformed name reaching this step would persist on-chain.
+2. Re-validate WASM + ABI consistency (`otigen-abi::validate_all` in strict mode — same checks the chain-side validator runs).
+3. Construct a `DeployTx`:
    ```
    DeployTx {
        sender,
@@ -169,9 +170,9 @@ Pipeline:
        gas_price,
    }
    ```
-3. Compute canonical tx hash. FALCON-sign with the sender's key (prompts for keystore password unless cached).
-4. Submit via `pyde_sendRawTransaction`. Print the tx hash.
-5. (Optional) Wait for inclusion: poll `pyde_getTransactionReceipt` until included. Report success / revert.
+4. Compute canonical tx hash. FALCON-sign with the sender's key (prompts for keystore password unless cached).
+5. Submit via `pyde_sendRawTransaction`. Print the tx hash.
+6. (Optional) Wait for inclusion: poll `pyde_getTransactionReceipt` until included. Report success / revert.
 
 Exit codes: `0` on inclusion + success, `1` on validation failure, `2` on network error, `3` on revert.
 
@@ -588,7 +589,7 @@ fields = [
 
 | Key | Type | Required | Default | Validation |
 |---|---|---|---|---|
-| `name` | string | ✅ | — | 1-32 chars, lowercase alphanumeric + `-`; matches ENS-style naming (see [Chapter 11](../chapters/11-account-model.md)) |
+| `name` | string | ✅ | — | 1-32 chars, **lowercase ASCII + digits + `-`**, no leading / trailing / consecutive dashes. Matches ENS-style naming (see [Chapter 11](../chapters/11-account-model.md)). This is the chain-level identifier that resolves to the deployed address; if `[metadata].name` is also set, the two must use the same charset (see §4.12). |
 | `version` | string | ✅ | — | semver |
 | `description` | string | ❌ | empty | ≤ 200 chars |
 | `type` | enum | ❌ | `"contract"` | `"contract"` or `"parachain"` |
@@ -733,6 +734,44 @@ cache     = ".otigen/cache"     # reserved for future module / manifest cache
 | `cache` | `".otigen/cache"` | reserved for v1.1+ (module cache + manifest replay) |
 
 Foundry parity. Authors moving Solidity projects to Pyde recognise the shape from `foundry.toml`'s `[profile.default] src / out / libs / test / cache_path`. The defaults assume the conventional layout (everything where a `cargo new` would put it); the table is purely for overrides.
+
+### 4.12 `[metadata]` table (contract-level display info)
+
+Optional. Every field is optional and validated at `otigen build` so a bundle that builds clean is also accepted by the explorer's verify endpoint without surprise. The whole section can be omitted — defaults are "no metadata declared." Lives bundle-side only; the deployed WASM never carries these bytes.
+
+```toml
+[metadata]
+name              = "pyde-usd"             # display name, ENS-style charset
+description       = "Pyde's native stable."
+website           = "https://pyde.network"
+logo_url          = "https://pyde.network/usd.svg"
+repository_url    = "https://github.com/pyde-net/pyde-usd"
+documentation_url = "https://docs.pyde.network/usd"
+license           = "Apache-2.0"
+authors           = ["Pyde Network"]
+tags              = ["defi", "stablecoin"]
+declared_category = "token"
+twitter           = "pydenet"
+github            = "pyde-net"
+telegram          = "pydenet"
+discord           = "pyde"
+```
+
+| Key | Type | Validation |
+|---|---|---|
+| `name` | string | **1-64 chars, lowercase ASCII + digits + `-`, must start with a letter or digit.** Same charset as `[contract].name`. Dots specifically reserved — the explorer composes the display form `<name>.<category>` itself (e.g. `pyde.oracle`, `usdt.token`), so user-supplied dots collide with the join character. No uppercase, no underscores, no spaces, no symbols, no emoji. |
+| `description` | string | ≤ 280 chars on the explorer surface, ≤ 1000 at `otigen build` (the explorer cap is stricter; bundles that pass otigen but exceed 280 chars are rejected at verify). Free text — emoji are fine here. |
+| `website` / `logo_url` / `repository_url` / `documentation_url` | string | ≤ 256 chars, must start with `https://` or `ipfs://`. `http://` is rejected (no non-TLS links on verified records), as are `javascript:` / `data:` / `file:` (XSS / phishing vectors). |
+| `license` | string | Must be a known SPDX identifier (`MIT`, `Apache-2.0`, `GPL-3.0-only`, `BUSL-1.1`, …). The accepted list lives in [OTIGEN_BINARY_SPEC §4.12.1](#4121-license-spdx-list) (TODO) and the `validate_contract_metadata` source. |
+| `authors` | array of strings | ≤ 5 entries, each ≤ 64 chars. |
+| `tags` | array of strings | ≤ 4 entries, each ≤ 32 chars; each must be slug-shaped (`[a-z0-9-]+`). |
+| `declared_category` | string | Reserved for the category enum (token / dex / nft / dao / oracle / bridge / multisig / staking / proxy / escrow / app — final list pending). The explorer composes the display form `<name>.<category>` from this field. |
+| `twitter` / `telegram` / `discord` | string | Handle only, no `@` prefix, no URL. ≤ 32 chars. |
+| `github` | string | Handle or `org/repo` shape, ≤ 64 chars. |
+
+Two caps are intentionally stricter on the explorer side (280 vs 1000 for description; 4 vs 32 for tags; 5 vs 32 for authors). The explorer ones are the binding limit — they're what the verify endpoint actually enforces and what the verified-card UI is sized for. Plan to converge otigen-toml down to the explorer values in a follow-up.
+
+`[contract].name` and `[metadata].name` are independent fields but must share a charset (lowercase ENS-style) so a bundle that builds also verifies. The chain-level identifier (`[contract].name`) is what derives the deployed address; `[metadata].name` is purely display.
 
 ---
 

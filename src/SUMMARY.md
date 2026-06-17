@@ -67,15 +67,15 @@
 
 # Otigen Toolchain Guide
 
-- [Overview](otigen/README.md)
-- [Installation](otigen/installation.md)
-- [Commands reference](otigen/commands.md)
+- [Otigen Overview](otigen/README.md)
+- [Otigen Installation](otigen/installation.md)
+- [Otigen Commands](otigen/commands.md)
 - [Your First Contract](otigen/first-contract.md)
-- [Shipping](otigen/shipping.md)
+- [Shipping Contracts](otigen/shipping.md)
 - [Inspect & Verify](otigen/inspecting.md)
-- [Lifecycle](otigen/lifecycle.md)
-- [Debugging](otigen/debugging.md)
-- [Examples](otigen/examples.md)
+- [Contract Lifecycle](otigen/lifecycle.md)
+- [Debugging Contracts](otigen/debugging.md)
+- [Otigen Examples](otigen/examples.md)
 
 ---
 

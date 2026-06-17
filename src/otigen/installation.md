@@ -153,7 +153,9 @@ apt install tinygo golang
 
 TinyGo bundles its own Go compiler fork but **also** needs a standard Go install for module resolution. Without it, `tinygo version` reports `(using go version <unknown>)` and module resolution misbehaves silently.
 
-**Required versions:** TinyGo ≥ 0.31 (for the `wasm-unknown` target), Go ≥ 1.21 (for `//go:wasmimport`).
+**Required versions:** TinyGo ≥ 0.41, Go ≥ 1.21 (for `//go:wasmimport`).
+
+The `wasm-unknown` target landed in TinyGo 0.31, but the otigen Go scaffold + canonical examples are tested against the 0.41 series — earlier versions hit `//go:wasmexport` codegen bugs that landed fixes in 0.34 / 0.36 / 0.41. The scaffold's `otigen.toml` pins `tinygo_version = "0.41.0"`; older toolchains aren't supported.
 
 **Verify:**
 

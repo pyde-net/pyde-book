@@ -638,11 +638,11 @@ Gas: 2 base.
 #### `tx_hash`
 
 ```text
-pyde::tx_hash(hash_out_ptr: i32) -> i32
+pyde::tx_hash(hash_out_ptr: i32) -> ()
 
 hash_out_ptr — pointer to 32-byte buffer
 
-Returns: 0 always; writes the current transaction's Blake3 hash.
+Writes the current transaction's Blake3 hash to `hash_out_ptr`.
 
 Gas: 5 base.
 ```
@@ -650,11 +650,11 @@ Gas: 5 base.
 #### `tx_value`
 
 ```text
-pyde::tx_value(value_out_ptr: i32) -> i32
+pyde::tx_value(value_out_ptr: i32) -> ()
 
 value_out_ptr — pointer to 16-byte buffer (u128, LE)
 
-Returns: 0 always; writes the PYDE value attached to the current call.
+Writes the PYDE value attached to the current call to `value_out_ptr`.
 For non-payable functions this is always zero; for payable functions, it is the
 amount passed in by the caller (top-level tx.value or cross_call's value argument).
 
@@ -747,9 +747,9 @@ All three accept variable-length input and write a 32-byte output.
 #### `hash_blake3`
 
 ```text
-pyde::hash_blake3(in_ptr: i32, in_len: i32, out_ptr: i32) -> i32
+pyde::hash_blake3(in_ptr: i32, in_len: i32, out_ptr: i32) -> ()
 
-Returns: 0 always.
+Reads `in_len` bytes from `in_ptr`, writes the 32-byte Blake3 digest to `out_ptr`.
 
 Gas: 15 base + 3 per word (8 bytes), rounded up.
 ```
@@ -757,9 +757,9 @@ Gas: 15 base + 3 per word (8 bytes), rounded up.
 #### `hash_poseidon2`
 
 ```text
-pyde::hash_poseidon2(in_ptr: i32, in_len: i32, out_ptr: i32) -> i32
+pyde::hash_poseidon2(in_ptr: i32, in_len: i32, out_ptr: i32) -> ()
 
-Returns: 0 always.
+Reads `in_len` bytes from `in_ptr`, writes the 32-byte Poseidon2 digest to `out_ptr`.
 
 Gas: 100 base + 30 per word (8 bytes), rounded up.
 
@@ -771,9 +771,9 @@ derivation). Use Blake3 everywhere else.
 #### `hash_keccak256`
 
 ```text
-pyde::hash_keccak256(in_ptr: i32, in_len: i32, out_ptr: i32) -> i32
+pyde::hash_keccak256(in_ptr: i32, in_len: i32, out_ptr: i32) -> ()
 
-Returns: 0 always.
+Reads `in_len` bytes from `in_ptr`, writes the 32-byte Keccak-256 digest to `out_ptr`.
 
 Gas: 30 base + 6 per word (8 bytes), rounded up.
 

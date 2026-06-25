@@ -12,7 +12,7 @@ A complete language SDK gives an author three things:
 
 1. **Host-fn import wrappers** — typed in the language's idiom (e.g., a Go `package pyde` exposing `Sstore(...)`, an AS `class Pyde { static sload(...) }`, a Zig `pub fn sload(...)`).
 2. **An `entry` decorator / macro** — wraps the author's function in the `() -> ()` shim required by [§3.0 of HOST_FN_ABI_SPEC](HOST_FN_ABI_SPEC.md). Decodes calldata into the author's declared params; encodes the return value into a `pyde::return` call.
-3. **A `declare_storage` decorator / macro** — generates typed accessors from the `[state]` schema in `otigen.toml`, so authors write `storage.balances().write(&from, amount)` instead of `pyde::sstore_map1(...)` directly.
+3. **A `declare_storage` decorator / macro** — generates typed accessors from the `[state]` schema in `otigen.toml`, so authors write `storage::balances().write(&from, amount)` instead of `pyde::sstore_map1(...)` directly.
 
 A *minimal* SDK can ship just (1) — authors will hand-write the entry shim and call host fns directly. Most language communities will want (2) at least; (3) is the polish that makes day-to-day development feel native.
 
@@ -66,7 +66,7 @@ If your SDK *must* use a different encoding (e.g., a language where borsh isn't 
 
 ### 2.3 Host-fn import declarations match HOST_FN_ABI_SPEC exactly
 
-The deploy validator (in `otigen-abi/src/host_fns.rs`) checks that every imported host function matches its declared signature exactly. A wrong arity, wrong param type, or wrong result type fails the deploy with `WrongHostFnSig`.
+The deploy validator (in `otigen-abi/src/host_fns.rs`) checks that every imported host function matches its declared signature. Name-mismatched imports fail at deploy time with `DeployError::ForbiddenImport` (engine/crates/wasm-exec/src/deploy.rs); arity / type mismatches surface as wasmtime instantiate-time link errors rather than a dedicated deploy-validator variant.
 
 The canonical signature table is in [HOST_FN_ABI_SPEC §7 + §10](HOST_FN_ABI_SPEC.md). Mirror it precisely in your SDK's import declarations.
 
@@ -102,7 +102,7 @@ Key files:
 | Storage codegen | `crates/pyde-storage-macros/src/lib.rs` | How `declare_storage!()` reads `otigen.toml` at compile time + emits typed accessors |
 | Host-fn extern decls | `crates/pyde-host/src/lib.rs` | All 40+ host-fn signatures Rust-side, matching HOST_FN_ABI_SPEC §7 |
 | Bundle assembly | `crates/otigen-abi/src/build.rs` | How `ContractAbi` is built from `otigen.toml` |
-| Custom section insertion | `crates/otigen-abi/src/embed.rs` | How the `pyde.abi` section is appended to the `.wasm` |
+| Custom section insertion | `crates/otigen-abi/src/section.rs` | How the `pyde.abi` section is appended to the `.wasm` (`inject` / `extract` / `extract_required`) |
 | Reference contract | `examples/storage-stress/` | Exercises every storage type, every map arity, complex multi-slot logic, delete ops |
 
 A reasonable porting strategy:
@@ -116,7 +116,7 @@ A reasonable porting strategy:
 
 A community SDK should pass the following before being recommended publicly:
 
-- **All 28 storage-stress assertions** round-trip end-to-end against `pyde devnet`. The reference suite is at `examples/storage-stress/tests/stress_e2e.py`. Port the assertions to your language's test harness; the asserted shapes are language-neutral.
+- **All 30 storage-stress assertions** round-trip end-to-end against `otigen devnet`. The reference suite is at `examples/storage-stress/tests/stress_e2e.py`. Port the assertions to your language's test harness; the asserted shapes are language-neutral.
 - **`otigen verify <bundle>` passes** for every example you ship. This re-validates the WASM features, the import allowlist, the `pyde.abi` custom section, and the bundle manifest.
 - **Cross-call interop with the Rust SDK.** Author a two-contract example: contract A (your SDK) calls contract B (Rust SDK) via `cross_call`. If borsh-canonical encoding is correct, both decode each other's calldata cleanly.
 - **Forbidden imports are absent.** The deploy validator rejects any import outside the allowlist (`crates/otigen-abi/src/host_fns.rs`). Use `wasm-objdump -j Import` or equivalent to confirm your bundles don't accidentally drag in `wasi_snapshot_preview1`, `env`, or any other non-`pyde` import.

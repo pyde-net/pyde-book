@@ -130,7 +130,7 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 rustup target add wasm32-unknown-unknown
 ```
 
-**Required version:** Rust ≥ 1.87. Earlier versions miss intrinsics our dependency chain uses.
+**Required version:** Rust ≥ 1.93 (matches the `rust-version` floor in the workspace `Cargo.toml`; raised from 1.87 when wasmtime 45's cranelift transitive deps pushed the MSRV up).
 
 **Verify:**
 
@@ -240,18 +240,25 @@ which wasm-ld
 The fastest end-to-end smoke test — `otigen test` auto-invokes the per-language compiler before running the suite, so a single command covers build + test:
 
 ```bash
-otigen init smoke --lang rust
+otigen new smoke --from counter
 cd smoke
 otigen test
 ```
 
 ```text
-✓ get_returns_zero_initially (0.1 ms)
-✓ increment_advances_by_one (0.03 ms)
-✓ three_increments_yield_three (0.03 ms)
+→ Compiling (rust) — cargo build --target wasm32-unknown-unknown --release
+    Finished `release` profile [optimized] target(s) in 11.28s
+✓ Compiled → ./target/wasm32-unknown-unknown/release/smoke.wasm
 
-test result: ok. 3 passed; 0 failed; 0 skipped (3 ran)
+  Running 3 tests in ./tests/contract.test.toml (via engine)
+    ✓ get_returns_zero_initially (29.55 ms)
+    ✓ increment_advances_by_one (7.72 ms)
+    ✓ three_increments_yield_three (6.82 ms)
+
+  test result: ok. 3 passed; 0 failed; 0 skipped (3 ran)
 ```
+
+First-run timings include the full release compile (~10–30 s on a small Rust contract); subsequent runs hit cargo's incremental cache and finish in <1 s.
 
 If you get that output, you're ready for the [next chapter](./first-contract.md). If not, the error message tells you which piece is missing — most install issues route to a `command not found` or a clear missing-target message; cross-check against the per-language notes above.
 

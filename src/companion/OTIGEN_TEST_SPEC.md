@@ -1,6 +1,6 @@
 # `otigen test` — Contract Behaviour Test Spec
 
-**Status:** v1 design — not yet implemented. The schema, semantics, and CLI surface defined here are the contract; implementation lands across three follow-up PRs (parser → runner → cheatcodes) per the `OTIGEN_TEST` track in [`roadmap.md`](../roadmap.md).
+**Status:** v1 — shipped. The framework runs through `pyde-engine-wasm-exec::WasmExecutor` by default (same code path mainnet uses); the legacy in-process mock surface remains behind `--no-engine` for parachain contracts (parachain runtime ships in engine v2) and runner-side bisection.
 
 This spec describes how Pyde contract authors write **behaviour-level tests** — assertions about state changes, return values, emitted events, and reverts — declaratively in a TOML file. The `otigen test` command instantiates the contract's `.wasm` in a wasmtime sandbox, runs the declared scenarios with mock host functions, and reports pass / fail per case.
 
@@ -142,7 +142,7 @@ Cheatcode catalog (v1):
 | `now` | unix-seconds (u64) | `pyde::wave_timestamp()` | Default `0`. Tests that depend on time should set this explicitly. |
 | `wave_id` | u64 | `pyde::wave_id()` | Default `1`. |
 | `chain_id` | u64 | `pyde::chain_id()` | Default `31337` (devnet sentinel). |
-| `gas_limit` | u64 | Runner-side fuel budget | Default `10_000_000`. Translated to wasmtime fuel via the chain's `FUEL_PER_GAS=1000` constant. Decremented per host call by the same gas constants the engine charges (see [`HOST_FN_ABI_SPEC §10`](./HOST_FN_ABI_SPEC.md)). Tests that exhaust gas trap with `out of fuel`. |
+| `gas_limit` | u64 | Runner-side fuel budget | Default `10_000_000`. Translated to wasmtime fuel 1:1 (runner default `1_000_000_000`). Decremented per host call by the same gas constants the engine charges (see [`HOST_FN_ABI_SPEC §10`](./HOST_FN_ABI_SPEC.md)). Tests that exhaust gas trap with `out of fuel`. |
 
 Cheats reserved for later releases (parsed but currently a no-op):
 
@@ -189,7 +189,7 @@ Coming from Solidity / Foundry? `vm.xxx()` imperative cheats map to declarative 
 | `vm.label(addr, "name")` | `[accounts].alice = {}` — names are always used in traces |
 | `vm.snapshot / vm.revertTo` | not needed — each test starts from fresh state |
 | `vm.recordLogs` | not needed — events are always recorded for matching |
-| `console.log(...)` | `pyde::debug_log(label_ptr, label_len, data_ptr, data_len)` — test-only host fn captured by the runner. Surfaced in the `-vvvv` output ladder; chain-side hard-rejected via `otigen build --strict`. |
+| `console.log(...)` | `pyde::debug_log(label_ptr, label_len, data_ptr, data_len)` — test-only host fn captured by the runner. Surfaced at `-vv` verbosity; `otigen build` rejects it by default (strict-by-default) and `otigen deploy` always rejects it. Use `otigen build --no-strict` for local inspection only. |
 
 ### 4.3 `[[tests]]` — test case array
 
@@ -324,22 +324,22 @@ schema = [
 For a scalar field (`owner`, `total_supply`):
 
 ```
-slot = Poseidon2(contract_addr ++ disc_byte ++ field_name_bytes)
+slot = Poseidon2(self_address ‖ field_name_bytes)
 ```
 
 For a single-level mapping (`balances`):
 
 ```
-slot = Poseidon2(contract_addr ++ disc_byte ++ field_name_bytes ++ key_addr)
+slot = Poseidon2(self_address ‖ field_name_bytes ‖ key_addr)
 ```
 
 For a nested mapping (`allowances`):
 
 ```
-slot = Poseidon2(contract_addr ++ disc_byte ++ field_name_bytes ++ outer_key ++ inner_key)
+slot = Poseidon2(self_address ‖ field_name_bytes ‖ outer_key ‖ inner_key)
 ```
 
-This is the **same** derivation the contract source uses when reading / writing slots via `pyde::poseidon2()`. The author and the test framework compute identical hashes.
+This is the **same** derivation the chain's typed-storage host fns (`sstore_scalar` / `sstore_map<N>`) use — the macro substrate emits the same slot from `pyde::declare_storage!()` field access. Author and test framework compute identical hashes.
 
 ### 5.3 Usage examples
 
@@ -456,13 +456,15 @@ For each test case:
 
 ### 6.2 Arg parsing
 
-v1 supports scalar types: `i32`, `i64`, `f32`, `f64`. The runner uses the function's wasmtime signature to decide how to parse each `args[i]`:
+The runner reads each declared input from `[functions.<name>].inputs` and marshals `args[i]` accordingly:
 
-- `i32` / `i64`: decimal (`"42"`) or `0x`-hex (`"0x2a"`).
-- `f32` / `f64`: decimal (`"3.14"`).
-- Account names resolved via `[accounts]`: `"alice"` → 32-byte address as a `*const u8` pointing into a runtime-allocated scratch region of WASM memory.
+- Primitive ints (`uint8` / `int8` / … / `uint64` / `int64`): decimal (`"42"`) or `0x`-hex (`"0x2a"`).
+- `uint128` / `int128`: same numeric forms, written as 16-byte LE into a runtime-allocated scratch region; the entry receives a pointer.
+- `address`: named-account reference (`"alice"`) or `0x`-hex address — 32 bytes written into scratch, entry receives a pointer.
+- `bytes32`: 64 hex chars (`"0x..."`) — 32 bytes written into scratch, entry receives a pointer.
+- `bytes`: arbitrary even-length hex literal or one of the DSL forms (`@pubkey:NAME` / `@sig:NAME:args.IDX`) — written into scratch and the entry receives `(ptr, len)`.
 
-**Pointer args (complex types):** v2. Today the runner can pass primitive scalars. For `transfer(addr_ptr: u32, amount: u128)`, the author would set up the address bytes manually via storage / cheat code and pass the ptr as an i32; this is awkward but possible. v2 will accept `args = [{ type = "address", value = "alice" }, { type = "uint128", value = "10" }]` and write the address bytes into memory automatically.
+For spec-compliant void-void entries (`HOST_FN_ABI §3.5.2`), the runner writes a single borsh-encoded calldata blob of `[functions.<name>].inputs` values into scratch and exposes it via `pyde::calldata_size` + `pyde::calldata_copy` — the `#[pyde::entry]` macro decodes it into typed Rust arguments. For legacy `extern "C"` entries the runner falls back to direct wasm function parameters (ptr/len pairs for variable bytes, scalars for ints).
 
 ### 6.3 Host functions
 
@@ -481,7 +483,7 @@ v1 supports scalar types: `i32`, `i64`, `f32`, `f64`. The runner uses the functi
 | `self_address(addr_out_ptr)` | Writes `env.contract_address` (32 bytes) into wasm memory. |
 | `tx_value(value_out_ptr)` | Writes `env.value` as 16-byte little-endian u128. |
 | `balance(addr_ptr, out_ptr)` | Reads `env.balances[addr]`; writes 16-byte LE u128. |
-| `transfer(to_ptr, amount_lo, amount_hi)` | Decrements `env.balances[caller]`, increments `env.balances[to]`; reverts on underflow. (v1 takes amount as two i64 halves; v2 will take a single 16-byte LE u128 ptr to match HOST_FN_ABI_SPEC §7.2.) |
+| `transfer(to_ptr, amount_ptr)` | Decrements `env.balances[caller]`, increments `env.balances[to]`; reverts on underflow. `amount_ptr` references a 16-byte LE u128 per `HOST_FN_ABI_SPEC §7.2`. |
 | `wave_id()` | Returns `cheats.wave_id` as i64. |
 | `wave_timestamp()` | Returns `cheats.now` as i64. |
 | `chain_id()` | Returns `cheats.chain_id` as i64. |
@@ -500,7 +502,7 @@ v1 supports scalar types: `i32`, `i64`, `f32`, `f64`. The runner uses the functi
 | `parachain_emit_event(topics_ptr, topics_count, data_ptr, data_len)` | Delegates to the core `emit_event` mock. The §8.3 difference — event record carries the parachain ID as `contract_addr` — is implicit because the active address IS the parachain's at call time. |
 | Other host fns (`origin`, `tx_hash`, `tx_gas_remaining`, `calldata_*`, `hash_keccak256`, `cross_call_static`, `consume_gas`, `beacon_get`, DKG, `send_xparachain_message`, `threshold_encrypt`, `threshold_decrypt`) | **Not mocked on the legacy path.** Calls trap with `UnsupportedHostFn`. Use the default engine path (drop `--no-engine`) — it implements all of these at chain fidelity. |
 
-**Slot-derivation invariant (legacy path).** The by-field mocks compute the slot via `pyde_crypto::poseidon2_hash(env.contract_address ‖ field ‖ key)` exactly the way the production engine derives slots for the legacy raw `sload` / `sstore` host fns. The macro-substrate path (`pyde::declare_storage!()` + chain's typed-storage host fns `sstore_scalar` / `sload_scalar` / `sstore_map1`…`map3`) uses `Blake3(self_address ‖ field_name ‖ keys...)` for slot derivation, which the engine path exercises end-to-end without going through this mock layer.
+**Slot-derivation invariant.** Both the legacy raw `sload` / `sstore` host fns and the typed-storage family (`sstore_scalar` / `sload_scalar` / `sstore_map1`…`map3`) derive slots via `Poseidon2(self_address ‖ field_name ‖ keys...)`. The macro substrate (`pyde::declare_storage!()` field access) emits the same hash. The engine path exercises the typed family end-to-end; the legacy mock above stubs it for `--no-engine` runs.
 
 ### 6.4 Revert semantics
 
@@ -565,8 +567,8 @@ What the runner records per test (the `TestReport` returned alongside `TestOutco
 |---|---|---|
 | `gas_used` | Sum of per-call fuel deltas | `otigen test -v` (and above); NDJSON `test_pass`/`test_fail` events |
 | `events` | `TestEnv.events` at test end | `otigen test -vv` |
-| `call_traces` | One per `[[tests.calls]]` (function, args, return, revert, gas) | `otigen test -vvv` |
-| `storage_diffs` | Slot-by-slot before/after | `otigen test -vvvv` |
+| `call_traces` | One per `[[tests.calls]]` (function, args, return, revert, gas) | Reserved — surfaced only on NDJSON today |
+| `storage_diffs` | Slot-by-slot before/after | Reserved — surfaced only on NDJSON today |
 
 The runner's fuel units correlate to but are not bit-identical with on-chain Pyde gas. Foundry has the same caveat — its gas reports are estimates, not chain billing. For ground-truth gas, deploy to a devnet and pull the receipt.
 
@@ -589,17 +591,19 @@ Each file's `[[tests]]` array contributes to the total test count.
 ### 7.2 Flags
 
 ```
-otigen test [-v|-vv|-vvv|-vvvv] [--filter <pattern>] [--bundle <path>] [--no-color] [--show-output]
+otigen test [-v|-vv] [--filter <pattern>] [--bundle <path>] [--dry-run] [--watch] [--no-engine] [--no-compile]
 ```
 
 | Flag | Default | Description |
 |---|---|---|
 | `--filter <pattern>` | none | Run only tests whose name contains the pattern (substring match). Multiple `--filter` flags are OR'd. |
 | `--bundle <path>` | `./artifacts/<name>.bundle/` | Path to the deploy bundle whose `contract.wasm` should be executed. Defaults to what `otigen build` produces. |
-| `--no-color` | off | Disable terminal colour escape sequences (for CI logs). |
-| `--show-output` | off | Print captured stdout / stderr from each test (mainly useful for debugging mock host fns). |
+| `--dry-run` | off | Parse + plan the test scenarios; print the plan without invoking wasmtime. Useful for catching schema errors fast. |
+| `--watch` | off | Re-run the suite on source / TOML change. Foundry-parity. |
+| `--no-engine` | off | Run through the legacy in-process mock surface instead of the chain's `WasmExecutor`. Reserved for parachain contracts (engine v2) and runner-side bisection. |
+| `--no-compile` | off | Skip the per-language compile step; reuse the existing `.wasm` on disk. |
 | `--json` (global) | off | Emit NDJSON events per test, one per line. CI consumes. |
-| `-v` / `-vv` / `-vvv` / `-vvvv` | off | Foundry-style verbosity ladder. Each level surfaces strictly more: `-v` gas per test, `-vv` events emitted, `-vvv` per-call traces (function args + return), `-vvvv` per-call storage diffs (slot → before / after) + captured `pyde::debug_log` entries. Mirrors `forge test -vvvv` output for cross-toolchain mental-model portability. |
+| `-v` / `-vv` | off | Standard clap verbosity counting. `-v` enables gas-per-test on the human formatter; `-vv` adds events + captured `pyde::debug_log` entries. Per-call trace + storage-diff verbosity tiers are reserved (parsed but no-op today). |
 
 ### 7.3 Output
 

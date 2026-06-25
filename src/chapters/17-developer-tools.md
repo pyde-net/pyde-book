@@ -6,11 +6,12 @@ For deep documentation on the primary developer-facing tool (the `otigen` binary
 
 ## What's in scope
 
-- **`otigen`** — the developer toolchain binary. Handles project scaffolding, builds in any supported language, state binding generation, deployments, wallet management, REPL access. The single tool most contract developers use day-to-day.
-- **`pyde`** — the node binary (validator + full node) with JSON-RPC, libp2p networking, and the WASM execution layer.
+- **`otigen`** — the developer toolchain binary. Handles project scaffolding, builds in any supported language, state binding generation, deployments, wallet management, REPL access, *and* an embedded chain runtime for one-command local devnets. The single tool most contract developers use day-to-day.
 - **`pyde-rust-sdk`** — the Rust client SDK for talking to a Pyde node programmatically.
 - **`pyde-ts-sdk`** — the TypeScript / JavaScript client SDK.
 - **`pyde-crypto-wasm`** — WASM bindings exposing post-quantum cryptography (FALCON signing, Kyber encryption, Poseidon2/Blake3 hashing) to browser and Node.js environments.
+
+A standalone `pyde` node binary (light / full / validator profiles) is planned post-public-testnet. For v1, the chain runtime lives inside `otigen` and is reached via `otigen devnet`.
 
 ## What's **not** in scope at launch (tracked later)
 
@@ -29,17 +30,26 @@ The Cargo-equivalent build-and-deploy toolchain for Pyde. Replaces the earlier `
 ### Subcommand summary
 
 ```
-otigen init <name> --lang <language>   Scaffold a new project from the language template
+otigen new <name> --from <template>     Clone a canonical template (8 ship: counter, erc20-token, erc721-token,
+                                        simple-multisig, upgradeable-proxy, merkle-claim-airdrop, vesting,
+                                        dao-governance). `otigen new --list` enumerates them.
+otigen init <name> --lang <language>    Scaffold a new project (--type contract|parachain selects the surface)
 otigen build                            Build the WASM module + ABI + bundle artifact
 otigen check                            Validate without packaging (fast CI gate)
-otigen deploy                           Sign and submit a deploy transaction
-otigen upgrade                          Submit an upgrade proposal
-otigen pause / unpause / kill           Operational lifecycle (owner-signed)
-otigen inspect <address-or-name>        Read account snapshot + ABI summary; --state-field reads typed scalar storage; --field reads legacy raw slots
-otigen verify <address-or-name>         Compare local bundle against chain-stored bytes
-otigen validator <subcmd>               Read-only validator-introspection: `show <addr>` (full record) / `by-operator <addr>` (list)
-otigen wallet                           Wallet management subcommands (new / list / show / import / delete / password / export / sign)
-otigen test                             Run contract behaviour tests (tests/*.test.toml) — engine-by-default runtime
+otigen deploy                           Sign and submit a deploy transaction (--rpc-url + --chain-id one-shot override)
+otigen upgrade                          Lifecycle ladder — refused at the CLI in v1 (EngineNotReady; chain has no
+                                        TxType::Lifecycle handler). Bypass for stub-engine testing: --i-know-engine-rejects.
+                                        v1 pattern: proxy + delegate_call.
+otigen pause / unpause / kill           Same lifecycle gate. v1 pattern: author-declared `paused`/`killed` booleans in [state].
+otigen call <addr-or-name> <fn>         Invoke a function (view mode is free; --from switches to signed state-mutating tx)
+otigen inspect <addr-or-name>           Read account snapshot + ABI summary; --state-field reads typed scalar storage;
+                                        --field reads legacy raw slots; --rpc-url one-shot override; --at-wave on archive nodes
+otigen verify <addr-or-name>            Compare local bundle against chain-stored bytes
+otigen validator <subcmd>               Read-only validator-introspection: `show <addr>` / `by-operator <addr>`
+otigen wallet                           Wallet management (new / list / show / import / delete / password / export / sign / verify)
+otigen test                             Run contract behaviour tests (tests/*.test.toml) — wasmtime sandbox per test with
+                                        mocked `pyde::*` host fns by default; --no-engine for the legacy in-process mock
+otigen devnet                           Run a local devnet — chain runtime is embedded in `otigen` (no separate `pyde` download)
 otigen console                          REPL against a Pyde node — balance / nonce / state / events / call / tx
 ```
 
@@ -58,35 +68,19 @@ For the full reference — `otigen.toml` schema, per-language workflows, state b
 
 ---
 
-## 17.2 `pyde` — the node binary
+## 17.2 The engine workspace and `otigen devnet`
 
-The node binary that any full node or validator runs. Contains:
-
-- The Mysticeti-style consensus layer
-- The WASM execution layer (wasmtime + Cranelift AOT)
-- The JMT state layer (with PIP-2 clustering, dual-hash, PIP-3 prefetch, PIP-4 write-back cache)
-- The libp2p + QUIC + Gossipsub network layer
-- A JSON-RPC server for client interaction
-- Validator-mode flags for committee participation, stake management, key rotation
+There is no separate `pyde` node binary at v1. The chain runtime — the execution layer (wasmtime + Cranelift AOT), the JMT state layer (PIP-2 clustering, dual-hash, PIP-3 prefetch, PIP-4 write-back cache), the mempool, and the JSON-RPC server — lives in the `pyde-net/engine` workspace as a library, and ships embedded inside the `otigen` binary so authors get a one-command devnet:
 
 ```
-pyde devnet                One-command local devnet — single validator, 10 prefunded accounts, no config
-pyde validator             Run the long-lived validator process (libp2p + FALCON + consensus participation)
-pyde full                  Run as a full node (synced + RPC + mempool; no consensus participation)
-pyde light                 Run as a light client (weak-subjectivity checkpoint + HardFinalityCert verification)
-pyde keys generate         Generate a fresh FALCON-512 validator keypair (--password-stdin encrypts at rest under Argon2id + ChaCha20-Poly1305)
-pyde keys inspect          Print a keypair file's pubkey + derived address
-pyde keys export-pubkey    Export just the public half (for inclusion in a genesis committee)
-pyde stake status          Query an on-chain ValidatorRecord by address or keypair
-pyde stake register        Register a new validator (signs + submits the registration tx)
-pyde stake unbond          Begin unbonding (escrows stake until `unbond_at_wave`)
-pyde stake claim           Claim accumulated rewards
-pyde stake unjail          Re-enter the committee after a jail expiry
-pyde stake rotate          Rotate the FALCON consensus keypair (TxType::RotateValidatorKeys)
-pyde genesis               Genesis-manifest utilities (write template, validate file, print chain-identity hash)
+otigen devnet              One-command local devnet. Spins up the embedded engine, pre-funds 10 deterministic accounts
+                           (`Blake3("pyde-devnet-v1/" || i)`), exposes JSON-RPC on 127.0.0.1:9933 (and `/ws` for
+                           subscriptions). On Ctrl-C, all state is wiped. No config, no separate download.
 ```
 
-A full operational reference for validators is published as a separate document (see Validator Operating Guide, post-public-testnet).
+`otigen validator show <addr>` and `otigen validator by-operator <addr>` provide read-only introspection over the chain-side ValidatorRecord; they're operator queries, not validator-mode flags.
+
+The standalone validator surface — long-lived validator process, light/full/validator profiles, key rotation, stake management, genesis-manifest tooling — is post-public-testnet roadmap and will ship as a separate `pyde` binary. v1 does not exercise those code paths from a CLI; they're library entry points in the engine workspace today. A full operational reference for validators is published separately (see Validator Operating Guide, post-public-testnet).
 
 ---
 
@@ -104,9 +98,9 @@ Idiomatic Rust client for Pyde nodes. Use cases:
 Surface area:
 - Transaction construction + signing
 - RPC client (JSON-RPC over HTTP and WebSocket)
-- Streaming subscriptions (new blocks, account changes, event filters)
+- Streaming subscriptions (new waves, account changes, event filters)
 - ABI encoding/decoding helpers
-- Wallet integration (load keys from `~/.pyde/wallets/`, hardware wallets via external signer protocol)
+- Wallet integration (load keys from `~/.pyde/keystore.json`, hardware wallets via external signer protocol)
 
 ### `pyde-ts-sdk`
 
@@ -116,8 +110,9 @@ Surface area:
 - Same primitives as `pyde-rust-sdk` but idiomatic TS
 - Browser-friendly via tree-shaking + WASM crypto bridge
 - Type-safe ABI generation from `abi.json` artifacts
-- React hooks for common patterns (account, balance, contract calls)
 - Wallet adapter pattern for browser-wallet integration
+
+Pure-language SDK like ethers v6 — no React / Vue / Svelte / wagmi-style hooks. Framework adapters are out of scope for this package and ship (if at all) as separate companion packages so the core SDK stays small and framework-neutral.
 
 ### `pyde-crypto-wasm`
 
@@ -148,20 +143,18 @@ Community SDKs publish under their own org (e.g., `pyde-go/`, `pyde-ts-contracts
 
 The node exposes a JSON-RPC interface over HTTP and WebSocket. Method surface includes:
 
-- Standard query methods — `pyde_getAccount`, `pyde_getBalance`, `pyde_getNonce`, `pyde_getContractCode`, `pyde_getContractState`, `pyde_resolveName`
+- Standard query methods — `pyde_getAccount`, `pyde_getBalance`, `pyde_getTransactionCount`, `pyde_getContractCode`, `pyde_getStorageSlot`, `pyde_resolveName`
 - Transaction submission — `pyde_sendRawTransaction`, `pyde_sendRawEncryptedTransaction`, `pyde_estimateAccess`
 - View-function calls — `pyde_call(contract, fn, calldata)` — **free**, off-chain execution against current state; no tx, no gas, no consensus. Mirrors EVM's `eth_call`. Bounded by RPC-layer rate limits + per-call instruction cap.
-- Subscription methods (WebSocket) — `pyde_subscribe`:
+- Archival reads (full + archive nodes) — `pyde_getTx(hash)`, `pyde_getReceipt(hash)`
+- Subscription methods (WebSocket on `/ws`) — `pyde_subscribe`:
   - `newHeads` — wave commits as they finalize
   - `accountChanges` — state changes to a specific account
   - `logs` — events matching an AND+OR filter (topic OR-list + optional contract); at-least-once delivery; each event carries `(wave_id, tx_index, event_index)` cursor for dedup; `pyde_resubscribe({from: cursor})` resumes after disconnect. Full mechanics: [Host Function ABI Spec §15.5](../companion/HOST_FN_ABI_SPEC.md).
 - Historical event queries — `pyde_getLogs({from_wave, to_wave, topics, contract, cursor, limit})` — 5,000-wave cap per request, cursor pagination, ascending wave order. Per-wave bloom filter prefilters; three RocksDB indexes resolve exact matches. Full spec: [Host Function ABI Spec §15.4](../companion/HOST_FN_ABI_SPEC.md).
-- Snapshot queries — `pyde_getSnapshotManifest(wave_id)` (light-client state sync)
 - Gas / fee estimation — `pyde_estimateGas`, `pyde_getBaseFee`
-- Wave + state-root queries (for light clients) — `pyde_getWave`, `pyde_getHardFinalityCert`
-- Validator-specific methods — committee status, attestations, under an authorized-only namespace
 
-The full method catalog is published as the JSON-RPC reference (lives alongside the node binary documentation).
+Wire-shape quirks the SDK tolerates (transaction-type strings, byte-array addresses on archival reads, `getTransactionCount` snapshot lag, devnet rate-limiting) are catalogued in the SDK companion guide. The canonical method catalog is published as the JSON-RPC reference alongside the engine workspace.
 
 ---
 
@@ -265,8 +258,8 @@ The `otigen` *name* survives, repurposed for the developer toolchain. See [The P
 
 | Tool | Repo |
 |------|------|
-| `otigen` developer toolchain | `pyde-net/otigen` |
-| `pyde` node binary + engine | `pyde-net/engine` |
+| `otigen` developer toolchain (includes embedded chain runtime via `otigen devnet`) | `pyde-net/otigen` |
+| Engine workspace (execution layer, JMT state, mempool, JSON-RPC) | `pyde-net/engine` |
 | `pyde-rust-sdk` | `pyde-net/pyde-rust-sdk` |
 | `pyde-ts-sdk` | `pyde-net/pyde-ts-sdk` |
 | `pyde-crypto-wasm` | `pyde-net/pyde-crypto-wasm` |

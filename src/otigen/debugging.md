@@ -2,7 +2,7 @@
 
 Errors you'll hit, in the order you typically hit them. Each entry has the symptom (verbatim error message), the cause, and the fix.
 
-If your error isn't here, the `-vvvv` verbosity ladder ([§3](#3-the-verbosity-ladder)) usually exposes the root cause.
+If your error isn't here, raise the global verbosity (`-v` / `-vv`) — every subcommand emits INFO + DEBUG level logs that usually expose the root cause.
 
 ---
 
@@ -45,28 +45,26 @@ brew install tinygo
 
 ### `(using go version <unknown>...)` when running `tinygo version`
 
-**Cause:** Go isn't installed alongside TinyGo. TinyGo bundles its own compiler fork but still needs Go for module resolution + stdlib path resolution.
+**Cause:** Go isn't installed alongside TinyGo.
 
-**Fix:** `brew install go`. Then `tinygo version` should report the Go version inline.
+**Fix:** `brew install go`.
 
 ### `error obtaining VCS status: exit status 128` when running `tinygo build`
 
 **Cause:** TinyGo's underlying Go compiler stamps the binary with VCS info and refuses to build outside a git repo.
 
-**Fix:** `git init -q` in the project directory. The next revision of the generated `Makefile` does this automatically.
+**Fix:** `git init -q` in the project directory.
 
 ### `asc: command not found` after `npm install -g assemblyscript`
 
 **Cause:** npm's global bin directory isn't on `$PATH`.
 
-**Fix:** add `<npm prefix>/bin` to `PATH`:
+**Fix:**
 
 ```bash
 echo "export PATH=\"$(npm config get prefix)/bin:\$PATH\"" >> ~/.zshrc
 source ~/.zshrc
 ```
-
-Or skip the global install — use the local install via `npm run build` (each scaffolded AS project lists `assemblyscript` in its `devDependencies`).
 
 ### `error[E0463]: can't find crate for std` (Rust)
 
@@ -82,72 +80,73 @@ rustup target add wasm32-unknown-unknown
 
 ## 2. Build errors
 
-### `BuildRejected: ForbiddenImport(<module>.<name>)`
+`otigen build` and `otigen check` print `otigen [ERROR] BuildRejected: <N> validation issue(s)` followed by bullets — one bullet per violated rule. The variants below match the `Display` of the engine's [`ValidationError`](https://github.com/pyde-net/otigen/blob/main/crates/otigen-abi/src/validate.rs) enum.
+
+### `import "<module>"."<name>" is forbidden; the only allowed module is "pyde"`
 
 **Cause:** the WASM imports a function outside `pyde::*`. Common offenders:
 
 | Import | Cause |
-|---|---|
-| `env.abort` | AssemblyScript's default panic handler. See [§4 AssemblyScript aborts](#4-assemblyscript-aborts). |
-| `wasi_snapshot_preview1.fd_write` | Compiling with `-target=wasi` instead of `-target=wasm-unknown` (TinyGo) or `--target=wasi` instead of `--target=wasm32` (C). Use the WASI-free target. |
+| --- | --- |
+| `env.abort` | AssemblyScript's default panic handler. See [§4](#4-assemblyscript-aborts) below. |
+| `wasi_snapshot_preview1.fd_write` | Compiling with `-target=wasi` instead of `-target=wasm-unknown` (TinyGo) or `--target=wasi` instead of `--target=wasm32` (C). |
 | `env.<libc-fn>` | Linking against libc. C contracts must use `-nostdlib`. |
 
-**Fix:** track down which language toolchain emitted the offending import and disable / substitute the source.
+**Fix:** disable the source that emits the offending import.
 
-### `BuildRejected: ExportedButNotDeclared("<name>")`
+### `import pyde.<name> is not in the host function allowlist`
+
+**Cause:** the contract imports a `pyde::*` function not yet in the chain's host-fn surface (typo in the import name, or a v2-only fn).
+
+**Fix:** check spelling against [`HOST_FN_ABI_SPEC §7`](../companion/HOST_FN_ABI_SPEC.md). If the fn is legitimately missing from v1, find an alternative pattern.
+
+### `import pyde.<name> is parachain-only; this contract is not declared as a parachain`
+
+**Cause:** the contract calls a §8 parachain-only host fn (`parachain_storage_*`, `parachain_id`, etc.) but `otigen.toml` has `[contract] type = "contract"`.
+
+**Fix:** either drop the parachain-only call, or set `type = "parachain"` in `otigen.toml`.
+
+### `function "<name>" exports the WASM signature ... but the spec requires () -> () for every entry point`
+
+**Cause:** the entry point's WASM signature isn't void-void. Either a hand-rolled `#[no_mangle] pub extern "C" fn foo(args, ...) -> ret` (pre-spec shape), or your macro substrate didn't fire.
+
+**Fix:** use `#[pyde::entry]` from `pyde-entry-macros`. The macro generates the spec's `() -> ()` shim that reads args from `pyde::calldata_*` and returns via `pyde::return`.
+
+### `ExportedButNotDeclared("<name>")`
 
 **Cause:** the WASM exports a function not declared in `otigen.toml`'s `[functions.<name>]` table.
 
-**Fix:** either declare it (add a `[functions.<name>]` entry with appropriate `attributes`), or rename the symbol to start with `_` (the convention for internal helpers — they're excluded from the export-declaration check).
+**Fix:** declare it (add a `[functions.<name>]` entry), or rename the symbol to start with `_` (internal helpers are excluded from the check).
 
-### `BuildRejected: DeclaredButNotExported("<name>")`
+### `DeclaredButNotExported("<name>")`
 
 **Cause:** the inverse — `otigen.toml` declares a function but the WASM doesn't export it.
 
-**Fix:** in your source, mark the function with the language's WASM-export attribute:
+**Fix:** in your source, mark the function with the language's WASM-export attribute. For Rust, `#[pyde::entry] fn <name>(...)` is the canonical shape (the macro adds `#[no_mangle] pub extern "C"` for you).
 
-| Language | Attribute |
-|---|---|
-| Rust | `#[no_mangle] pub extern "C" fn <name>(...)` |
-| TinyGo | `//go:wasmexport <name>` above the function |
-| AssemblyScript | `export function <name>(...)` |
-| C | `__attribute__((export_name("<name>")))` |
+### `WASM module uses a forbidden feature outside Pyde's deterministic subset`
 
-### `BuildRejected: ForbiddenFeature(<wasmparser diagnostic>)`
+**Cause:** the WASM uses a feature outside the deterministic subset (threads, SIMD, GC, reference types, multi-memory, memory64, component model).
 
-**Cause:** the WASM uses a feature outside Pyde's deterministic subset (threads, SIMD, GC, reference types, multi-memory, memory64, component model).
-
-**Fix:** find the language compiler flag that disables the feature. Most languages don't emit these by default, so this typically means a non-default flag got added. For AssemblyScript, check `asconfig.json` — `simd: false`, `threads: false`.
-
-### `BuildRejected: DebugBuildRejected`
-
-**Cause:** you forgot the `--release` flag in your language build command.
-
-**Fix:** rebuild with the release profile:
-
-```bash
-cargo build --target wasm32-unknown-unknown --release   # Rust
-asc <args> --target release                              # AssemblyScript
-tinygo build -target=wasm-unknown -o build/contract.wasm .  # TinyGo (uses release by default)
-clang --target=wasm32 -nostdlib -O3 ...                  # C
-```
+**Fix:** find the language compiler flag that disables the feature. For AssemblyScript, check `asconfig.json` — `simd: false`, `threads: false`.
 
 ---
 
-## 3. The verbosity ladder
+## 3. Increasing verbosity
 
-When a test fails, raise the verbosity:
+The standard global `-v` flag, repeated:
 
 ```bash
-make test           # default        ✗ failed_test (0.04 ms)
-make test-v         # + gas+duration ✗ failed_test (0.04 ms, 8,234 gas)
-make test-vv        # + events       Events: [0] topic0=0x... topics=2 data=8 bytes
-make test-vvv       # + per-call     Calls:  [0] increment() -> 1 [292 gas]
-                    #                        [1] decrement() revert("CounterAtZero")
-make test-vvvv      # + storage diff Storage diff: 0x385c70...: 0x...01 → <unset>
+otigen test           # default — per-test pass/fail + duration
+otigen test -v        # + INFO logs from the runner
+otigen test -vv       # + DEBUG logs (host-fn calls, slot derivations)
+otigen test --json    # NDJSON event stream for CI / scripting
+otigen test --dry-run # parse + resolve only, no execution
 ```
 
-For most test failures, `-vvv` reveals the cause: which call traps, what the return value was, what reason the revert carried. `-vvvv` adds storage diffs for state-mutation bugs.
+The same `-v` works on every subcommand. There is no Foundry-style four-level trace ladder today; failing assertions print expected-vs-actual; storage diffs live in `expect.storage.*` declarations in the test TOML.
+
+For runtime-engine vs legacy-mock-runner bisection, `otigen test --no-engine` falls back to the legacy in-process mock host-fn surface (useful when you need parity to confirm an engine-runner-side issue).
 
 ---
 
@@ -158,12 +157,13 @@ The single most common AS issue.
 ### Symptom
 
 ```text
-BuildRejected: ForbiddenImport(env.abort)
+otigen [ERROR] BuildRejected: 1 validation issue(s)
+  - import "env"."abort" is forbidden; the only allowed module is "pyde"
 ```
 
 ### Cause
 
-AssemblyScript's compiler emits `env.abort` calls for runtime checks (array bounds, integer overflow, `unreachable()`). The default is to import an `abort` function from the host environment. Pyde rejects non-`pyde::*` imports.
+AssemblyScript's compiler emits `env.abort` calls for runtime checks (array bounds, integer overflow, `unreachable()`). The default is to import an `abort` function from the host environment. Pyde rejects non-`pyde` imports.
 
 ### Fix
 
@@ -188,7 +188,7 @@ function abort(
 }
 ```
 
-This substitutes the default `env.abort` with our in-contract `abort()` which traps via `unreachable()`. No env import, deterministic crash.
+This substitutes the default `env.abort` with an in-contract `abort()` that traps via `unreachable()`. No env import, deterministic crash.
 
 The function must NOT be `export`'d — exporting it makes it a public dispatch surface that Pyde then rejects as `ExportedButNotDeclared`.
 
@@ -202,72 +202,101 @@ The function must NOT be `export`'d — exporting it makes it a public dispatch 
 
 **Fix:**
 
-- Increase the per-test fuel cap in the test's `[cheats]`:
+- Raise the per-test fuel ceiling in the test's `[cheats]`:
 
   ```toml
   [cheats]
-  gas_limit = 5_000_000_000   # 5B fuel — generous
+  gas_limit = 5_000_000_000   # 5B fuel (~ 5M gas at the 1000 fuel/gas conversion)
   ```
+
+  Pyde maps gas → fuel at `FUEL_PER_GAS = 1000`. Default per-test gas cap is 10 M gas = 10 B fuel; the wasmtime print is in fuel units so a 5B cap is 5 M gas equivalent.
 
 - Or find + fix the infinite loop in the contract. Common cause: a loop with a wrong termination condition that never trips.
 
-### `wasm trap: error while executing at wasm backtrace: 0: 0x123 - <unknown>!<wasm function N>`
+### `wasm trap: error while executing at wasm backtrace: ...`
 
-**Cause:** a WASM trap during a call. Specific cause varies; the backtrace is usually unhelpful (no symbol info in release builds).
+**Cause:** a WASM trap during a call. Specific cause varies; the backtrace is usually unhelpful in release builds (stripped symbols).
 
-**Fix:** raise verbosity to `-vvv` to see which contract function was active. Then check that function's code:
+**Fix:** raise verbosity to `-vv` to see the host-fn call sequence that preceded the trap. Then check the contract code for:
 
-- Array out-of-bounds (panics → trap)
-- Integer overflow on a checked operation (in debug builds)
+- Array out-of-bounds (panic → trap)
 - `unreachable!()` or `core::arch::wasm32::unreachable()` called
 - Stack overflow in deeply-nested calls
 
-If you genuinely can't figure it out, compile with debug info (`--profile dev` or equivalent), re-run the test — the backtrace will carry function names.
-
-### `instantiate: error while executing at wasm backtrace: ...`
-
-**Cause:** the WASM's `start` section (if any) trapped during instantiation. Most often AS-related — the bump-allocator runtime's `~start` ran out of fuel because the test didn't seed fuel before instantiation.
-
-**Fix:** updated runners (post-otigen#47) seed fuel before instantiation automatically. If you see this on an old version, upgrade `otigen`.
+If you can't figure it out, compile with debug info (`--profile dev` or equivalent), re-run — backtraces will then carry function names. Deploy validation rejects debug builds, so don't ship them.
 
 ---
 
-## 6. Deploy errors
+## 6. Deploy + tx submission errors
 
-### `ERR_NAME_TAKEN`
+### `EngineNotReady: <op> lifecycle ops are not yet wired on the chain side`
 
-**Cause:** another contract on this network already deployed under this name.
+**Cause:** you ran `otigen upgrade` / `pause` / `unpause` / `kill`. The chain has no `TxType::Lifecycle` handler yet; the CLI refuses to submit a tx that's guaranteed to revert.
 
-**Fix:** pick a different name, or coordinate with whoever deployed the existing one. Note: contract names are global per chain (one mainnet "USDT" possible).
+**Fix:** for v1 use the patterns in [Lifecycle](./lifecycle.md):
 
-### `ERR_INSUFFICIENT_BALANCE`
+- **Upgrade**: the proxy pattern with `delegate_call` (see the `upgradeable-proxy` template).
+- **Pause / Kill**: author-declared `paused: bool` / `killed: bool` in `[state]` + guard every entrypoint.
 
-**Cause:** the deployer wallet's PYDE balance < deploy fee.
+To exercise the CLI signing path against a stub engine (CI / development), pass `--i-know-engine-rejects` — the tx WILL revert on chain and burn gas, by design.
 
-**Fix:** fund the wallet (devnet faucet or testnet faucet or exchange withdraw, depending on network).
+### `InvalidArgs: --rpc-url for deploy requires --chain-id`
 
-### `ERR_NONCE_TOO_LOW` / `ERR_NONCE_TOO_HIGH`
+**Cause:** you passed `--rpc-url` without `--chain-id`. The resolver returns `chain_id = 0` on the raw-URL path, which silently bricks the FALCON signature against the chain's tx-hash domain.
 
-**Cause:** a stale tx is in the mempool; or your local nonce cache is out of sync with the chain.
+**Fix:** pair them. Match `--chain-id` to what the running RPC reports via `pyde_chainId`:
+
+```bash
+otigen deploy --rpc-url http://127.0.0.1:29933 --chain-id 31337 --from devnet-0 --password-stdin <<< pw
+```
+
+### `RpcError(submitting deploy tx): storage backend: insufficient balance: have <N> need <M>`
+
+**Cause:** the signing wallet's balance is below the deploy fee.
+
+**Fix:** fund the wallet. On devnet, the canonical path is `otigen wallet import --from-devnet` — that imports the 10 prefunded devnet-0..devnet-9 accounts the embedded `otigen devnet` bootstraps at genesis. There is no `POST /faucet` HTTP endpoint on the devnet RPC; the prefund-at-genesis path is the only auto-funding the binary provides.
+
+### `RpcError(submitting <op> tx): nonce out of window`
+
+**Cause:** Pyde uses a 16-slot sliding nonce window per account. The tx's nonce is below `nonce_window.base` or ≥ `base + 16`. Either a stale tx is in the mempool, or your local nonce cache is out of sync with the chain.
+
+**Fix:** wait for the in-flight tx to commit or expire, then retry. The CLI re-queries the nonce on each submission, so a retry after a few seconds usually unsticks it. There is no `--nonce` override flag today.
+
+### `InclusionTimeout: tx 0x... not included after 60s`
+
+**Cause:** the receipt poll exceeded the 60-second timeout (constant — not CLI-configurable). The tx may still commit later.
+
+**Fix:** re-query via `pyde_getTransactionReceipt` directly (or `otigen call <hash>` if you're checking a call). For chains under stress, this is informational; for an idle devnet it usually means the tx was rejected silently — check the devnet log.
+
+### `RpcError(...): connection refused` / `connect timeout`
+
+**Cause:** the RPC endpoint isn't reachable.
 
 **Fix:**
 
-- `--nonce <N>` flag to override.
-- Or wait — once the in-flight tx commits or expires, your next deploy proceeds.
-
-### `RPC timeout`
-
-**Cause:** the RPC endpoint didn't respond within the configured timeout.
-
-**Fix:**
-
-- Try a different RPC: `otigen deploy --rpc-url <url>` to override.
-- If you're on devnet, check the local node is running.
-- For testnet / mainnet, the canonical RPC URL is `https://rpc.<network>.pyde.network`.
+- For devnet: confirm `otigen devnet --rpc-listen 127.0.0.1:9933` is running and listening on the port you're hitting.
+- For testnet / mainnet: the canonical RPC URL is `https://rpc.<network>.pyde.network`. Use `--rpc-url` + `--chain-id` to override the project config.
 
 ---
 
-## 7. Verify mismatches
+## 7. View-call debugging via `--json`
+
+For programmatic consumers (CI, integration harnesses), `otigen call --json` emits NDJSON. View-mode calls include the contract's return value as `return_data` (hex):
+
+```bash
+otigen call <addr> get --json
+```
+
+```jsonc
+{"event": "call_start", "target": "<addr>", "function": "get", "network": "devnet", "chain_id": 31337}
+{"event": "call_included", "tx_hash": "", "status": "success", "return_data": "0x0300000000000000"}
+```
+
+Write-mode calls (with `--from`) omit `return_data` today — the receipt poll-helper doesn't surface success-path return data yet. The human-readable `Return: 0x...` line is view-mode only.
+
+---
+
+## 8. Verify mismatches
 
 ### `verification failed — bytes differ`
 
@@ -275,17 +304,23 @@ If you genuinely can't figure it out, compile with debug info (`--profile dev` o
 
 **Possible causes:**
 
-1. **Contract was upgraded** between your build and the verify. Re-pull the latest source, re-build, re-verify.
+1. **Contract was redeployed** between your build and the verify. Re-pull the latest source, re-build, re-verify.
 2. **Build is non-deterministic.** Common cause: `Cargo.lock` differs (you didn't commit one). Run `cargo build --locked` to enforce the lock file.
-3. **Toolchain version differs.** Your `otigen.toml` records the toolchain pin; if your local toolchain doesn't match, the build is reproducible-different. Verify with `rustup show` / `tinygo version` / etc.
+3. **Toolchain version differs.** Your `otigen.toml` records the toolchain pin; if your local toolchain doesn't match, the build is reproducible-different. Verify with `rustup show` / `tinygo version` / etc., or add `--strict-toolchain` to fail loudly on mismatch.
 
 If none of those apply, file an issue — reproducibility is a load-bearing property of the toolchain; a real divergence is a real bug.
 
+### `StrictToolchainMismatch: bundle declared rust_toolchain="X"; host has "Y"`
+
+**Cause:** you passed `--strict-toolchain` and your host's rustc / TinyGo / asc / clang version doesn't match what the bundle's `manifest.json` recorded.
+
+**Fix:** install + activate the matching toolchain, or rebuild without `--strict-toolchain` if you're knowingly working at a different pin.
+
 ---
 
-## 8. Where to get help
+## 9. Where to get help
 
 - **Inline:** every `otigen <command> --help` gives subcommand-specific usage.
-- **Spec docs:** [OTIGEN_BINARY_SPEC](../companion/OTIGEN_BINARY_SPEC.md) + [OTIGEN_TEST_SPEC](../companion/OTIGEN_TEST_SPEC.md) + [HOST_FN_ABI_SPEC](../companion/HOST_FN_ABI_SPEC.md). Normative; canonical when this guide and the spec disagree.
-- **Examples:** [`pyde-net/otigen/examples/`](https://github.com/pyde-net/otigen/tree/main/examples) — every committed example works end-to-end via `make verify-examples` in the workspace.
+- **Spec docs:** [OTIGEN_BINARY_SPEC](../companion/OTIGEN_BINARY_SPEC.md) + [OTIGEN_TEST_SPEC](../companion/OTIGEN_TEST_SPEC.md) + [HOST_FN_ABI_SPEC](../companion/HOST_FN_ABI_SPEC.md). The spec is authoritative on documented behavior; the binary's `--help` is authoritative on shipped behavior. Where they disagree, the binary wins for "what runs today" and the spec describes the target.
+- **Examples:** [`pyde-net/otigen/examples/`](https://github.com/pyde-net/otigen/tree/main/examples). The 5 scaffold-able templates that build cleanly today are listed in [Examples](./examples.md); the broader on-disk catalog is browsable via `git`.
 - **Issues:** <https://github.com/pyde-net/otigen/issues> for toolchain bugs, <https://github.com/pyde-net/pyde-book/issues> for doc gaps.

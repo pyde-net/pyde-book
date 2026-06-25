@@ -63,10 +63,13 @@ That is the entire universe of types that can appear in the parameter list or re
 Inside the body of a function, between the open and close braces, the WASM-primitive restriction does **not** apply. The compiler is free to use whatever the source language supports:
 
 ```rust
-// EXPORT — the function signature crosses the boundary, so each parameter
-// and the return type must be a WASM primitive.
-#[no_mangle]
-pub extern "C" fn example_export() -> i64 {
+// EXPORT — Pyde mandates void-void entries (HOST_FN_ABI §3.5.2). The
+// function signature that crosses the boundary takes no parameters and
+// returns nothing; inputs are pulled from the calldata host fns
+// (`pyde::calldata_size` + `pyde::calldata_copy`), outputs go through
+// `pyde::return`. The `#[pyde::entry]` macro emits this shim automatically.
+#[pyde::entry]
+fn example_export() -> u128 {
 
     // INSIDE the function body — arbitrary Rust. The compiler will lower
     // these to WASM stack manipulation, linear-memory loads/stores, and
@@ -74,8 +77,10 @@ pub extern "C" fn example_export() -> i64 {
     let nums: [u128; 10] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
     let sum: u128 = nums.iter().sum();
 
-    // Narrow back to a WASM primitive at the return site.
-    sum as i64
+    // The macro's emitted shim borsh-encodes the return value and writes
+    // it via `pyde::return(out_ptr, out_len)`. The WASM-visible export
+    // is still `() -> ()`.
+    sum
 }
 ```
 
@@ -148,8 +153,8 @@ use alloc::string::String;
 //         - `wee_alloc`   (~1 KB, smallest, slowest)
 //         - `talc`        (~3 KB, modern dlmalloc alternative)
 //       If you skip this, `alloc::*` types are compile errors. That's
-//       fine if you never allocate (counter-token uses static slot
-//       buffers and stack-allocated calldata only).
+//       fine for contracts that hold to static slot buffers and stack-allocated
+//       calldata only.
 #[global_allocator]
 static ALLOCATOR: dlmalloc::GlobalDlmalloc = dlmalloc::GlobalDlmalloc;
 
@@ -1101,7 +1106,7 @@ When a primary contract calls `pyde::cross_call(target, fn_name, calldata, value
 3. **Value transfer.** The `value` parameter debits the caller's native-PYDE balance and credits the target's. Inside the callee, `tx_value()` returns the same `value`. The transfer happens in the parent's frame, so even if the sub-call reverts (and the runner snapshots state), the transfer rolls back too.
 4. **Revert rollback.** Sub-call trap (revert / unreachable / out-of-fuel / etc.) does NOT propagate to the parent. Instead the host fn returns `ERR_CROSS_CALL_FAILED = -10` and rolls back all of the sub-call's storage / balance / event mutations. The parent observes the rc and decides whether to handle the failure or revert further.
 
-The [`counter-pair`](https://github.com/pyde-net/otigen/tree/main/examples/counter-pair-a) example pair (counter-pair-a + counter-pair-b) exercises all four invariants in a six-test suite. counter-pair-a's `bump_via_b(b, n)` cross_calls counter-pair-b's `bump_remote` (storage + caller-shift); `send_value_to_b(b, n)` cross_calls with `value = n` (value transfer); `bump_via_b_revert(b)` triggers a sub-call revert (rollback). One composition test runs success → revert → success and asserts the parent survived every revert without trapping. Read the contracts side-by-side as a calibration point for any cross-contract design.
+The four invariants land cleanly in any caller / callee pair where the caller drives a `cross_call` into the callee — `erc20-token` (transfer paths) and `upgradeable-proxy` (`delegate_call`) ship as the canonical reference templates that exercise the storage-namespace + caller-shift + value-transfer + revert-rollback rules end-to-end. The proxy's `forward(fn, calldata)` dispatcher is the readable cross-contract harness; the ERC-20 transfer is the readable payable + state-mutation harness. Read them side-by-side as a calibration point for any cross-contract design.
 
 #### Sub-call dispatch convention
 
@@ -1226,7 +1231,7 @@ args = [
 ]
 ```
 
-The full live example — including replay protection, duplicate-signer rejection, and malformed-sig handling — is in [`otigen/examples/simple-multisig/`](https://github.com/pyde-net/otigen/tree/main/examples/simple-multisig).
+The full live example — including replay protection, duplicate-signer rejection, and malformed-sig handling — is in [`otigen/examples/simple-multisig/`](https://github.com/pyde-net/otigen/tree/main/examples/simple-multisig), on the `#[pyde::entry]` macro substrate with 9 passing behaviour tests.
 
 ---
 
@@ -1383,7 +1388,7 @@ Both share the same `CallError` taxonomy and the same buffer / status / revert-p
 
 - **`caller()` semantics across delegate_call**: the logic's `pyde::ctx::caller()` returns whoever called the **proxy**, not the proxy itself. If logic code gates a function on a specific caller, that gate triggers against the user — usually not what proxies want. Workaround: gate at the proxy layer (`upgrade_to` is admin-only above), and treat the logic as pure behaviour.
 - **Re-entrancy under upgrade**: if the logic is mid-execution when `upgrade_to()` swaps the pointer, the still-running frame reads the **old** code (`delegate_call` is per-invocation, not a permanent binding). New top-level calls run the new logic. Practical implication: don't make the upgrade behaviour depend on state half-touched by the old logic.
-- **Storage-layout compatibility**: two logic versions using the same field-name string for the same data type collide cleanly under `Blake3(self_address ‖ field_name)` derivation; **mismatched naming silently corrupts state.** New logic versions may add fields (new names) but must never repurpose an existing name. Document the field-name vocabulary explicitly.
+- **Storage-layout compatibility**: two logic versions using the same field-name string for the same data type collide cleanly under `Poseidon2(self_address ‖ field [‖ key])` derivation (the chain's typed-storage slot hash, see HOST_FN_ABI_SPEC §7.1); **mismatched naming silently corrupts state.** New logic versions may add fields (new names) but must never repurpose an existing name. Document the field-name vocabulary explicitly.
 - **`init()` re-execution**: the `constructor` attribute prevents post-deploy calls on chain. In tests, each test starts from fresh state so re-running `init` is a clean overwrite.
 
 ### 10.7 The full live example
@@ -1511,31 +1516,23 @@ fn walk_proof(leaf: [u8; 32], proof: &[u8]) -> [u8; 32] {
     hash
 }
 
-#[no_mangle]
-pub extern "C" fn claim(amount_ptr: *const u8, proof_ptr: *const u8, proof_len: i32) -> i32 {
-    // SAFETY: typed-arg marshalling guarantees readable bytes.
-    let amount = unsafe { read_u128_arg(amount_ptr) };
-
+#[pyde::entry]
+fn claim(amount: u128, proof: Vec<u8>) {
     // Sanity-check proof length BEFORE hashing — saves gas on garbage input.
-    if (proof_len as usize) % 33 != 0 { revert(b"MalformedProof"); }
+    if proof.len() % 33 != 0 { pyde::revert("MalformedProof"); }
+    if proof.len() > 33 * 32 { pyde::revert("ProofTooLong"); }   // cap at 32 levels = 2^32 leaves
 
-    let mut buf = [0u8; 33 * 32];                     // cap at 32 levels = 2^32 leaves
-    let plen = proof_len as usize;
-    if plen > buf.len() { revert(b"ProofTooLong"); }
-    if plen > 0 {
-        unsafe { core::ptr::copy_nonoverlapping(proof_ptr, buf.as_mut_ptr(), plen); }
-    }
-
-    let claimant = caller_addr();
+    let claimant = pyde::caller();
     let leaf = leaf_hash(&claimant, amount);
-    let computed = walk_proof(leaf, &buf[..plen]);
+    let computed = walk_proof(leaf, &proof);
 
-    if computed != stored_root() { revert(b"InvalidProof"); }
+    if computed != stored_root() { pyde::revert("InvalidProof"); }
 
     // ... mark claimed, emit event, etc.
-    0
 }
 ```
+
+The `#[pyde::entry]` macro emits the void-void shim that reads the borsh-encoded calldata via `pyde::calldata_*`, decodes `amount: u128` + `proof: Vec<u8>`, and dispatches into this body. No hand-rolled `extern "C"` + pointer-math.
 
 The `caller_addr()` binding is the trick that makes this safe: the leaf commits to whoever's *actually calling*, not an address arg. An attacker who steals alice's path can't replay it because their `caller_addr()` would be different, so the leaf hashes wouldn't match.
 
@@ -1551,7 +1548,7 @@ Gas cost is `15 base + 3/word` per `hash_blake3` invocation, times `depth` per `
 
 ### 11.7 Live example
 
-The full pattern — domain-separated hashing, 33-byte step encoding, proof verification, double-claim protection, all-error-path tests — lives in [`otigen/examples/merkle-claim-airdrop/`](https://github.com/pyde-net/otigen/tree/main/examples/merkle-claim-airdrop). 10 behaviour tests cover the happy path, every revert path, and the off-by-one edge cases (zero-length proofs, max-depth proofs, malformed lengths).
+The full pattern — domain-separated hashing, 33-byte step encoding, proof verification, double-claim protection, all-error-path tests — lives in [`otigen/examples/merkle-claim-airdrop/`](https://github.com/pyde-net/otigen/tree/main/examples/merkle-claim-airdrop) on the `#[pyde::entry]` macro substrate with 10 passing behaviour tests.
 
 ---
 
@@ -2151,7 +2148,7 @@ Run `otigen test -v` and watch stderr for `[debug] <fn>: alice_balance=100`. Str
 - [OTIGEN_TEST_SPEC](./OTIGEN_TEST_SPEC.md) — test framework that runs contracts under the same wasmtime configuration the chain uses.
 - [WebAssembly Core Specification](https://webassembly.github.io/spec/core/) — the upstream WASM spec for value types, linear memory, instruction semantics.
 - **Examples catalog**: [`pyde-book/otigen/examples`](../otigen/examples.md) — full table of every canonical example with what each demonstrates, host fns exercised, and per-language test counts.
-- [`otigen/examples/counter-token`](https://github.com/pyde-net/otigen/tree/main/examples/counter-token) — a canonical Rust contract demonstrating §2.3, §6.1, §6.2 patterns end-to-end. **Also available in TinyGo / AssemblyScript / C** at [`counter-token-go`](https://github.com/pyde-net/otigen/tree/main/examples/counter-token-go), [`counter-token-as`](https://github.com/pyde-net/otigen/tree/main/examples/counter-token-as), [`counter-token-c`](https://github.com/pyde-net/otigen/tree/main/examples/counter-token-c) — same TOML test suite runs against all four ports.
+- [`otigen/examples/counter`](https://github.com/pyde-net/otigen/tree/main/examples/counter) — the canonical minimal-viable Rust template demonstrating §2.3, §6.1, §6.2 patterns end-to-end. Per-language `counter-{go,as,c}` siblings live under [`examples/`](https://github.com/pyde-net/otigen/tree/main/examples) and run the same TOML test suite against each port; the four ports stay aligned by hand (no shared scaffold today).
 - [`otigen/examples/erc20-token`](https://github.com/pyde-net/otigen/tree/main/examples/erc20-token) — full ERC20-style fungible token on the macro substrate. Canonical real-contract reference: exercises typed-arg marshalling (`address` / `uint128`) via `#[pyde::entry]`, three storage layouts (scalar / mapping / composite-key) via `pyde::declare_storage!()`, multi-topic events via `pyde::declare_events!()`, and the `transfer_from` allowance flow.
 - [`otigen/examples/simple-multisig`](https://github.com/pyde-net/otigen/tree/main/examples/simple-multisig) — 3-signer FALCON-512 multisig (§9 canonical example).
 - [`otigen/examples/upgradeable-proxy`](https://github.com/pyde-net/otigen/tree/main/examples/upgradeable-proxy) — upgradeable proxy via `delegate_call` (§10 canonical example).

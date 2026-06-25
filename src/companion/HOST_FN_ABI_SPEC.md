@@ -1216,17 +1216,17 @@ fn in any module shipped to mainnet or testnet.
 
 Use cases: ad-hoc value dumps, breadcrumb traces, asserting intermediate state in tests without polluting events. Bridges the gap that previously forced devs to call `revert(b"value=42")` to surface intermediate values.
 
-**Stripping for deploy:** `otigen build --strict` rejects any bundle that imports `pyde::debug_log`, surfacing `ValidationError::TestOnlyHostFn`. `otigen deploy` runs the same gate implicitly — so authors who skip the explicit `--strict` step still get the production check before anything reaches the network. The chain's deploy validator hard-rejects modules whose import section names `debug_log` regardless of how they were bundled.
+**Stripping for deploy:** `otigen build` is strict by default and rejects any bundle that imports `pyde::debug_log`, surfacing `ValidationError::TestOnlyHostFn`. Pass `--no-strict` to opt out for local inspection — `otigen deploy` always runs the strict gate and ignores `--no-strict`, so the chain never sees a `debug_log` import. The chain's deploy validator also hard-rejects modules whose import section names `debug_log` regardless of how they were bundled (defence in depth).
 
 | Path | Test-only fns accepted? |
 |---|---|
-| `otigen build` (default) | yes — dev loop unobstructed |
-| `otigen build --strict` | **no** — production gate |
+| `otigen build` (default) | **no** — strict is default |
+| `otigen build --no-strict` | yes — local-only escape hatch |
 | `otigen check` | yes |
-| `otigen deploy` | **no** — implicit `--strict` |
+| `otigen deploy` | **no** — strict, not opt-out-able |
 | `otigen test` runner | mocked (writes to stderr) |
 
-The honour-system rule is therefore: drop `debug_log` calls (or guard them behind `#[cfg(feature = "debug")]`) before pushing. A grep over the source tree (`grep -rn debug_log src/`) is a fast pre-flight check.
+The honour-system rule is therefore: drop `debug_log` calls (or guard them behind `#[cfg(feature = "debug")]`) before shipping. A grep over the source tree (`grep -rn debug_log src/`) is a fast pre-flight check, but the build gate catches anything that slips.
 
 ### 9.4 WASM features rejected at instantiation time
 
@@ -1297,12 +1297,15 @@ Several transaction types **bypass the WASM execution layer entirely** and run a
 
 | Transaction type | Cost | Path |
 |---|---|---|
-| `Transfer` (account-to-account) | ~21,000 gas | Native handler; no wasmtime instantiation |
-| `ValidatorRegister` | Native | |
-| `ValidatorUnbond` | Native | |
-| `Stake` / `Unstake` | Native | |
-| `RotateKeys` (account key rotation) | Native | |
-| `NameRegister` (system contract) | Native (via system contract) | |
+| `Standard` with `value > 0` and empty `data` | ~21,000 gas | Native fast path inside the `Standard` handler — no wasmtime instantiation |
+| `StakeDeposit` (`0x03`) | Native | |
+| `StakeWithdraw` (`0x04`) | Native | |
+| `Slash` (`0x05`) | Native | |
+| `ClaimReward` (`0x06`) | Native | |
+| `ClaimAirdrop` (`0x07`) | Native | |
+| `SweepAirdrop` (`0x08`) | Native | |
+| `MultisigTx` (`0x09`) | Native | Dispatches into native multisig handler before optional inner-call routing |
+| `MultisigSignerRotate` (`0x0A`) | Native | |
 
 See [Chapter 3 §3.9b](../chapters/03-virtual-machine.md) for the dispatch logic.
 
@@ -2267,7 +2270,12 @@ Functions known to be useful but requiring substantial design work (e.g., a stre
 
 ### 17.4 Per-language SDK alignment
 
-Pyde does not ship per-language SDKs (see [PARACHAIN_DESIGN §10](./PARACHAIN_DESIGN.md)). Community-maintained Rust, AssemblyScript, Go (TinyGo), and C/C++ bindings against this spec are encouraged. Each binding library is responsible for translating this spec's WAT signatures into idiomatic language-native function declarations; the canonical example projects shipped with `otigen` demonstrate the expected wrapping for each language.
+Pyde ships two first-party SDKs:
+
+- **`pyde-rust-sdk`** — host-side authoring substrate, used by `#[pyde::entry]` / `pyde::declare_storage!()` / `pyde::declare_events!()` to hide this ABI from contract authors. Vendored via `pyde-host`.
+- **`pyde-ts-sdk`** — client-side (browser / Node) for talking to a Pyde node. Pure-language SDK like ethers v6; not a contract-author surface.
+
+Contract-side bindings for AssemblyScript, Go (TinyGo), and C/C++ are community-maintained against this spec. Each binding library translates this spec's WAT signatures into idiomatic language-native function declarations; the canonical example projects under [`otigen/examples/counter-{go,as,c}/`](https://github.com/pyde-net/otigen/tree/main/examples) demonstrate the expected wrapping for each language.
 
 ---
 

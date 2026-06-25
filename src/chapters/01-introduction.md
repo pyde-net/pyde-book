@@ -9,7 +9,7 @@ Pyde is a Layer 1 blockchain built greenfield to deliver four properties no chai
 3. **Sub-second finality** — Mysticeti-style consensus, ~500ms median finality
 4. **Commodity decentralization** — modest hardware for validators not currently on the active committee; equal voting power within the active committee
 
-The execution layer is **WebAssembly via wasmtime**, with Cranelift ahead-of-time compilation and a **uniform Block-STM scheduler** — every tx runs optimistically in parallel through an MVCC layer, conflicts are detected at runtime, losers re-execute until fixpoint. Wallet-attached access lists from `pyde_simulateTransaction` drive PIP-3 multiget prefetch into the dashmap cache before execution starts; the lists are performance hints, not scheduling decisions. Smart contracts can be authored in **Rust, AssemblyScript, Go (TinyGo), or C/C++** — whatever language the team already uses — and bundled by the `otigen` developer toolchain.
+The execution layer is **WebAssembly via wasmtime**, with Cranelift ahead-of-time compilation and a **uniform Block-STM scheduler** — every tx runs optimistically in parallel through an MVCC layer, conflicts are detected at runtime, losers re-execute until fixpoint. Wallet-attached access lists from `pyde_simulateTransaction` drive PIP-3 multiget prefetch into the dashmap cache before execution starts; the lists are performance hints, not scheduling decisions. Smart contracts can be authored in **Rust, AssemblyScript, Go (TinyGo), or C** — whatever language the team already uses — and bundled by the `otigen` developer toolchain.
 
 Cross-chain interactions — calling functions on other chains, querying oracles, off-chain compute — happen through a permissionless **parachain layer** (post-mainnet) with operators who stake PYDE and earn gas fees from contracts that call them. No custodial multisigs, no auctioned slots.
 
@@ -61,8 +61,8 @@ This book describes **designed architecture**, with implementation in various st
 | Mysticeti-style consensus | Rebuild in progress post-pivot |
 | Post-quantum cryptography (`pyde-crypto`) | Functional; threshold-decryption path is research-grade |
 | Network protocol (libp2p + QUIC + Gossipsub) | In place; layered peer discovery (no DHT) in flight |
-| Devnet binary (`pyde devnet`) | Shipped — one-command local devnet, 10 prefunded accounts |
-| `otigen` developer toolchain (WASM-era) | Shipped — scaffold / build / test / deploy / inspect / verify / console / wallet across Rust / TinyGo / AssemblyScript / C |
+| Devnet (`otigen devnet`) | Shipped — chain runtime embedded in the `otigen` binary (no separate `pyde` download), one-command local devnet, 10 prefunded accounts |
+| `otigen` developer toolchain (WASM-era) | Shipped — scaffold / build / check / test / deploy / call / inspect / verify / wallet / console / validator across Rust / TinyGo / AssemblyScript / C; lifecycle commands (`upgrade` / `pause` / `unpause` / `kill`) scaffold a signed tx but refuse to submit (`EngineNotReady`) until the chain-side `TxType::Lifecycle` handler lands — v1 ships the proxy-pattern + author-declared paused/killed booleans |
 | Parachain framework | Designed; implementation deferred to a later phase |
 | Performance harness (multi-region, chain-throughput) | Not yet built (mandatory before any TPS claim) |
 

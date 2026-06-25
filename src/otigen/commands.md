@@ -1,64 +1,68 @@
 # Commands reference
 
-Every subcommand the `otigen` binary exposes — what it does, what it accepts, what it prints. For the formal contract on flag values, exit codes, and event streams, see [`OTIGEN_BINARY_SPEC.md`](../companion/OTIGEN_BINARY_SPEC.md).
+Every subcommand the `otigen` binary exposes — what it does, what it accepts, what it prints. For the formal contract on flag values, exit codes, and event streams, see [`OTIGEN_BINARY_SPEC.md`](../companion/OTIGEN_BINARY_SPEC.md). (The spec is the authoritative source; where this chapter and the spec disagree, the binary's `--help` output is the runtime truth and the spec is the one being chased.)
 
 Global flags apply to every subcommand:
 
 | Flag | Default | What it does |
-|---|---|---|
+| --- | --- | --- |
 | `-v` / `-vv` | off | Verbose / debug-level log output. `-v` enables `INFO`, `-vv` adds `DEBUG`. |
 | `-q` / `--quiet` | off | Suppress non-error output. |
 | `--json` | off | Emit structured NDJSON events to stdout (one event per line) — for CI / scripting consumers. |
-| `--network <NAME>` | `[network.default]` in `otigen.toml` | Override the network selected by the manifest (e.g. `--network devnet`). |
+| `--network <NAME>` | `[network.default]` in `otigen.toml` | Override the network selected by the manifest. |
 | `--keystore <PATH>` | `~/.pyde/keystore.json` | Override the default keystore path. |
 | `--config <PATH>` | `./otigen.toml` | Override the default config path. |
 
 ---
 
-## `otigen init`
+## `otigen new`
 
-Scaffold a new project from a language template.
+Scaffold a new project by cloning a canonical template. The fastest path from zero to a green test run.
 
 ```text
-otigen init [OPTIONS] --lang <LANG> <NAME>
+otigen new [OPTIONS] [NAME]
+otigen new --list           # show the template catalog
 ```
 
 | Argument / flag | Type | Default | What it does |
-|---|---|---|---|
-| `<NAME>` | string | required | Project name. Used for the directory and the contract identity. ENS-style: lowercase + hyphens, 1–32 chars. |
-| `--lang <LANG>` | enum | required | Target language. One of: `rust`, `as` (AssemblyScript), `go` (TinyGo), `c` (C / C++ via `clang --target=wasm32`). |
-| `--type <TYPE>` | enum | `contract` | `contract` or `parachain`. Parachain projects get the §8 parachain-only host fns added to the imports surface. |
-| `--dir <DIR>` | path | `./<name>` | Target directory. Created if missing; must be empty if it exists. |
-
-The scaffolded project ships a minimal counter contract (`increment` + `get`), a `Makefile` with the language-specific build commands, an `otigen.toml` manifest, and a `tests/contract.test.toml` with 3 behaviour tests. Run `otigen test` immediately to confirm the toolchain is wired.
+| --- | --- | --- | --- |
+| `[NAME]` | string | prompt on TTY | Project name (ENS-style: lowercase + hyphens, 1–32 chars). |
+| `--from <TEMPLATE>` | name | prompt on TTY | Canonical template to clone. `otigen new --list` shows what's available (currently 8: counter, erc20-token, erc721-token, simple-multisig, upgradeable-proxy, merkle-claim-airdrop, vesting, dao-governance). |
+| `--list` | — | — | Print the template catalog and exit. Mutually exclusive with `<NAME>` / `--from`. |
+| `--dir <DIR>` | path | `./<name>` | Target directory. Created if missing; refuses to overwrite an existing path. |
 
 ```bash
-otigen init --lang rust my-token
-otigen init --lang go --type parachain my-parachain
-otigen init --lang c --dir ~/projects/my-c-contract my-c-contract
+otigen new --list
+otigen new my-counter --from counter
+otigen new my-token --from erc20-token --dir ./projects/my-token
 ```
+
+The cloned scaffold preserves the template's full file tree (Cargo.toml, otigen.toml, src/, tests/, Makefile). For non-Rust language scaffolds, use `otigen init` below.
 
 ---
 
-## `otigen new`
+## `otigen init`
 
-Scaffold a new project by cloning a canonical example.
+Scaffold a new minimal project for a specific language. Use this when you want the canonical counter contract in TinyGo / AssemblyScript / C; for Rust prefer `otigen new --from counter`.
 
 ```text
-otigen new [OPTIONS] <TEMPLATE> [DIR]
+otigen init [OPTIONS] [NAME]
 ```
 
 | Argument / flag | Type | Default | What it does |
-|---|---|---|---|
-| `<TEMPLATE>` | name | required | Canonical example to copy. `erc20-token`, `erc721-token`, `amm-uniswap-v2`, `nft-marketplace`, etc. — anything under `pyde-net/otigen/examples/`. |
-| `[DIR]` | path | `./<template>` | Target directory. |
-
-Useful for starting from a working multi-file project instead of the minimal `init` scaffold. The clone preserves the example's full file tree, including tests + Makefile.
+| --- | --- | --- | --- |
+| `[NAME]` | string | prompt on TTY | Project name (ENS-style: lowercase + hyphens, 1–32 chars). |
+| `--lang <LANG>` | enum | prompt on TTY | Target language: `rust`, `as` (AssemblyScript), `go` (TinyGo), `c` (clang `--target=wasm32`). |
+| `--type <TYPE>` | enum | `contract` | `contract` or `parachain`. Parachain projects add the §8 parachain-only host fns to the imports surface. |
+| `--dir <DIR>` | path | `./<name>` | Target directory. Created if missing; refuses overwrite. |
 
 ```bash
-otigen new amm-uniswap-v2
-otigen new erc20-token ./my-token
+otigen init my-counter --lang rust
+otigen init my-parachain --lang go --type parachain
+otigen init my-c-contract --lang c --dir ~/projects/my-c-contract
 ```
+
+The scaffold ships a minimal counter (`increment` + `get`), a language-aware Makefile, an `otigen.toml`, and a `tests/contract.test.toml` with 3 behaviour tests. Run `otigen test` immediately to confirm the toolchain is wired.
 
 ---
 
@@ -70,10 +74,15 @@ Validate the project without packaging. Fast alternative to `otigen build` for p
 otigen check [OPTIONS]
 ```
 
-Runs the same `otigen.toml` parser + WASM validator + ABI extractor as `build`, but skips the bundle write. Typical latency on a small contract: a few tens of milliseconds.
+| Flag | Default | What it does |
+| --- | --- | --- |
+| `--no-compile` | off | Skip the language compiler invocation. Validates the existing `.wasm` as-is. |
+
+Runs the `otigen.toml` parser + WASM validator + ABI extractor. Skips the bundle write. Typical latency on a small contract: tens of milliseconds.
 
 ```bash
 otigen check
+otigen check --no-compile
 ```
 
 ---
@@ -86,16 +95,26 @@ Validate + package the compiled `.wasm` into a deploy bundle.
 otigen build [OPTIONS]
 ```
 
-Expects the language toolchain has already produced the `.wasm` at the path declared in `[contract.lang].output` (run `make build` first for go/as/c, or `cargo build --target wasm32-unknown-unknown --release` for Rust).
+| Flag | Default | What it does |
+| --- | --- | --- |
+| `--release` | on | Force a release-profile compile (the default for Rust). |
+| `--debug` | off | Compile with debug profile. Reject at deploy time, useful for inspection only. |
+| `--no-compile` | off | Skip the language compiler — package the existing `.wasm` as-is. |
+| `--no-strict` | off | Skip the toolchain-version pin check baked into the manifest. |
+| `--out <PATH>` | `./artifacts/<name>.bundle` | Override the bundle output directory. |
 
-Output bundle lands at `./artifacts/<name>.bundle/` with:
-- `contract.wasm` — the compiled binary (sigstore-checksummed via blake3)
-- `abi.json` — the contract's ABI extracted from `[functions.*]`
-- `manifest.json` — canonical manifest snapshot (`build_timestamp` is the only non-deterministic field — `make reproducibility` confirms byte-identity modulo this field)
+Output bundle lands at `--out` (default `./artifacts/<name>.bundle/`) with:
+
+- `contract.wasm` — the compiled binary (blake3-checksummed).
+- `abi.json` — the contract's ABI extracted from `[functions.*]`.
+- `manifest.json` — canonical manifest snapshot (build-deterministic apart from a `build_timestamp` field).
+
+Exits non-zero on validation failure (`VALIDATION_FAILURE` = 1). Scripts can rely on the exit code.
 
 ```bash
 otigen build
-otigen build --json     # NDJSON event stream for CI
+otigen build --json              # NDJSON event stream for CI
+otigen build --no-compile        # repackage existing wasm
 ```
 
 ---
@@ -109,18 +128,24 @@ otigen test [OPTIONS]
 ```
 
 | Flag | Default | What it does |
-|---|---|---|
-| `--watch` | off | Auto-rerun on file change. Useful for tight TDD loops. |
-| `-vv` / `-vvv` / `-vvvv` | off | Increase verbosity. `-vv` shows gas; `-vvv` adds events; `-vvvv` adds full traces + storage diffs. |
-| `--no-engine` | off | Run against the legacy mock executor instead of the embedded engine. For debugging executor drift; the engine is the default and the spec-compliant path. |
+| --- | --- | --- |
+| `--dry-run` | off | Parse + resolve only — no WASM execution. Useful for validating a `.test.toml` against the contract's `[state]` schema. |
+| `--filter <SUBSTR>` | none | Substring filter — only tests whose name contains this pattern run. Repeating the flag last-wins. |
+| `--bundle <DIR>` | `./artifacts/<name>.bundle/` | Override the bundle directory. Parity with `deploy --bundle` / `verify --bundle`. |
+| `--watch` | off | Re-run on file change. Debounced 300 ms; ignores `target/`, `artifacts/`, `.git/`, `node_modules/`, `build/`, `dist/`. |
+| `--no-engine` | off | Use the legacy in-process mock host-fn surface instead of `pyde-engine-wasm-exec::WasmExecutor`. The engine path is the default and source of truth. |
+| `--no-compile` | off | Skip the per-language compiler. Run the test suite against the existing `.wasm` as-is. |
 
-Tests execute through the same `WasmExecutor::execute_call` path the chain runs, so behaviour matches deployment exactly. See [`OTIGEN_TEST_SPEC.md`](../companion/OTIGEN_TEST_SPEC.md) for the test DSL.
+Verbosity is the standard global `-v` flag, repeated for more detail:
 
 ```bash
-otigen test
-otigen test -vvvv          # gas + events + traces + storage diffs
-otigen test --watch
+otigen test                # default — per-test pass/fail + duration
+otigen test -v             # + INFO logs
+otigen test -vv            # + DEBUG (host-fn calls, slot derivations)
+otigen test --json         # NDJSON event stream
 ```
+
+For per-call assertions + storage-diff rendering, declare them in `[tests.expect]` / `expect.*` in the test TOML; failures print the expected-vs-actual. See [`OTIGEN_TEST_SPEC.md`](../companion/OTIGEN_TEST_SPEC.md) for the test DSL.
 
 ---
 
@@ -132,95 +157,85 @@ Manage FALCON-512 signing accounts in `~/.pyde/keystore.json`.
 otigen wallet <ACTION> [OPTIONS]
 ```
 
-Subactions:
+Subactions: `new`, `import`, `list`, `show`, `delete`, `password`, `export`, `sign`, `verify`.
 
 ### `wallet new`
 
 Create a fresh keypair, prompt for a password, encrypt + store.
 
 ```text
-otigen wallet new <NAME>
+otigen wallet new [NAME] [--password-stdin]
 ```
+
+`[NAME]` is positional and optional — omitted prompts on a TTY (errors under `--json` or piped stdin). `--password-stdin` reads the encryption password from stdin (two consecutive lines: password + confirmation).
 
 ```bash
 otigen wallet new deployer
+printf 'pw\npw\n' | otigen wallet new alice --password-stdin
 ```
 
 ### `wallet import`
 
-Import an existing keypair into the keystore. Two paths:
+Import an existing keypair into the keystore. Three modes:
 
 ```text
-otigen wallet import <NAME>                                # interactive — pastes pubkey + secret key on the prompts
-otigen wallet import --from-file <PATH> <NAME>             # restore an exported backup
-otigen wallet import --from-devnet [--prefix <P>] [--count <N>]  # bulk-import the 10 deterministic prefunded devnet accounts
+otigen wallet import [NAME]                              # interactive: paste pubkey + secret key
+otigen wallet import --from-file <PATH> <NAME>           # restore a wallet export
+otigen wallet import --from-devnet [--prefix <P>] [--count <N>] [--password-stdin]
 ```
 
 | Flag | Default | What it does |
-|---|---|---|
-| `--from-file <PATH>` | none | Read backup JSON (`otigen wallet export` output) instead of prompting. |
-| `--from-devnet` | off | Import the 10 prefunded `pyde devnet` accounts. Their secrets are public (derived via `Blake3("pyde-devnet-v1/" \|\| i)`); good for tests, bad for anything real. |
-| `--prefix <PREFIX>` | `devnet-` | Name prefix when `--from-devnet` is set. |
-| `--count <N>` | `10` | Number of devnet accounts to import. |
-| `--password-stdin` | off | Read the wallet password from stdin instead of prompting. |
+| --- | --- | --- |
+| `--from-file <PATH>` | none | Read a backup JSON (`otigen wallet export` output). The original password still decrypts it. |
+| `--from-devnet` | off | Bulk-import the 10 deterministic prefunded `pyde devnet` accounts (`Blake3("pyde-devnet-v1/" \|\| i)`). Public secrets — good for tests, bad for real value. |
+| `--prefix <PREFIX>` | `devnet-` | Name prefix used when `--from-devnet` is set. Imports as `<prefix>0`..`<prefix>9`. |
+| `--count <N>` | `10` | Number of prefunded accounts to import under `--from-devnet`. |
+| `--password-stdin` | off | Read the encryption password from stdin. Currently honoured under `--from-devnet` only; interactive imports still use the rpassword prompt. |
 
 ```bash
-echo test123 | otigen wallet import --from-devnet --password-stdin
+printf 'pw\npw\n' | otigen wallet import --from-devnet --password-stdin
 otigen wallet import --from-file ./alice.backup.json alice
 ```
 
 ### `wallet list`
 
-Print every account name + address in the keystore.
-
 ```text
 otigen wallet list
 ```
 
-### `wallet show`
+Print every account name + address in the keystore. Touches no encrypted material.
 
-Print one account's address + public key. No password needed — the public material is unencrypted.
+### `wallet show`
 
 ```text
 otigen wallet show <NAME>
 ```
 
-```bash
-otigen wallet show devnet-0
-```
+Print one account's address + public key. No password needed.
 
 ### `wallet delete`
-
-Remove an account. Asks for confirmation (re-type the account name) unless `--yes`.
 
 ```text
 otigen wallet delete <NAME> [--yes]
 ```
 
-```bash
-otigen wallet delete alice
-otigen wallet delete alice --yes      # skip prompt
-```
+Remove an account. Asks for confirmation (re-type the account name) unless `--yes`.
 
 ### `wallet password`
-
-Re-encrypt an account under a new password. The keypair is unchanged.
 
 ```text
 otigen wallet password <NAME>
 ```
 
-### `wallet export`
+Re-encrypt the account under a new password. The keypair itself is unchanged. Password rotation requires a real PTY today — no `--password-stdin` on this subcommand yet.
 
-Export an account as a portable encrypted backup (same Argon2id + AES-256-GCM ciphertext as the in-keystore entry).
+### `wallet export`
 
 ```text
 otigen wallet export <NAME> [--out <PATH>]
 ```
 
-| Flag | Default | What it does |
-|---|---|---|
-| `--out <PATH>` | stdout | Write the backup JSON to a file. If omitted, prints to stdout so the file can be redirected. |
+Export the account as a portable encrypted backup. Same Argon2id + AES-256-GCM ciphertext as the in-keystore entry; the original password decrypts it. **No password prompt** — the export ciphers-as-is. Restore later with `wallet import --from-file`.
 
 ```bash
 otigen wallet export alice --out ./alice.backup.json
@@ -229,43 +244,42 @@ otigen wallet export alice > ./alice.backup.json
 
 ### `wallet sign`
 
-FALCON-512 sign arbitrary message bytes. Use for off-chain attestations.
+FALCON-512 sign arbitrary message bytes. For off-chain attestations / signing challenges. **Don't use for chain transactions** — `deploy` / `upgrade` / `call` sign the canonical Poseidon2 tx hash, which is what the chain verifier expects.
 
 ```text
-otigen wallet sign [OPTIONS] <NAME> <MESSAGE>
+otigen wallet sign [OPTIONS] --message <MESSAGE> [NAME]
 ```
 
 | Flag | Default | What it does |
-|---|---|---|
-| `--hex` | off | Decode `<MESSAGE>` as hex (`0x`-prefix optional) instead of treating it as UTF-8 text. |
+| --- | --- | --- |
+| `-m`, `--message <MSG>` | required | Message to sign. UTF-8 by default; with `--hex` decoded as hex. |
+| `--hex` | off | Decode `--message` as hex (`0x`-prefix optional). |
 | `--password-stdin` | off | Read the wallet password from stdin. |
 
-For chain transactions use `deploy` / `upgrade` / `call` instead — those sign the canonical Poseidon2 tx hash, which is what the chain verifier expects.
-
 ```bash
-otigen wallet sign devnet-0 "hello world"
-otigen wallet sign devnet-0 --hex 0xdeadbeef --password-stdin
+otigen wallet sign devnet-0 --message "hello world"
+otigen wallet sign devnet-0 --message 0xdeadbeef --hex --password-stdin <<< pw
 ```
 
 ### `wallet verify`
 
-FALCON-512 verify a signature against a message + public key. Exit code is the verdict: 0 on valid, 1 on invalid.
+Verify a signature against a message + public key. Exit code is the verdict: 0 on valid, 1 on invalid.
 
 ```text
-otigen wallet verify [<NAME>] [OPTIONS] --message <MSG> --signature <HEX>
+otigen wallet verify [OPTIONS] [NAME] --message <MSG> --signature <HEX>
 ```
 
 | Flag | Default | What it does |
-|---|---|---|
-| `<NAME>` | none | Wallet name whose public key signs. Mutually exclusive with `--pubkey`. |
-| `--pubkey <HEX>` | none | Verify against an arbitrary public key (e.g. a counterparty's). Mutually exclusive with `<NAME>`. |
-| `--message <MSG>` | required | The message that was signed. UTF-8 by default; pass `--hex` for binary. |
+| --- | --- | --- |
+| `[NAME]` | none | Wallet name whose public key signs. Mutually exclusive with `--pubkey`. |
+| `--pubkey <HEX>` | none | Verify against an arbitrary public key (e.g. a counterparty's). |
+| `--message <MSG>` | required | Message that was signed. UTF-8; pass `--hex` for binary. |
 | `--signature <HEX>` | required | The signature output by `wallet sign`. |
-| `--hex` | off | Decode `--message` as hex instead of UTF-8. |
+| `--hex` | off | Decode `--message` as hex. |
 
 ```bash
-otigen wallet verify devnet-0 --message "hello world" --signature 0x59...
-otigen wallet verify --pubkey 0x09... --message "hello world" --signature 0x59...
+otigen wallet verify devnet-0 --message "hello world" --signature 0x...
+otigen wallet verify --pubkey 0x09... --message 0xdeadbeef --hex --signature 0x...
 ```
 
 ---
@@ -279,141 +293,142 @@ otigen deploy [OPTIONS]
 ```
 
 | Flag | Default | What it does |
-|---|---|---|
-| `--from <WALLET>` | `[wallet.default_account]` from `otigen.toml` | Signing account. |
-| `--password-stdin` | off | Read wallet password from stdin. |
-| `--network <NAME>` | `[network.default]` | Target network. |
+| --- | --- | --- |
+| `--bundle <PATH>` | `./artifacts/<name>.bundle` | Bundle directory to deploy. |
+| `--from <WALLET>` | `[wallet.default_account]` | Signing account. |
 | `--init-arg <HEX>` | empty | Hex calldata for the constructor (`init`). |
-| `--bundle <PATH>` | `./artifacts/<name>.bundle` | Override the bundle path. |
 | `--dry-run` | off | Build + sign the tx but don't submit. Useful for inspecting the wire bytes. |
-| `--gas-limit <N>` | from `[deploy].gas_limit` | Override the gas limit. |
-| `--gas-price <N>` | from `[deploy].gas_price` | Override the gas price. |
+| `--no-wait` | off | Submit and exit without polling for the receipt. |
+| `--password-stdin` | off | Read wallet password from stdin. |
+| `--rpc-url <URL>` | from `otigen.toml` | One-shot RPC URL override. Bypasses the bundle's baked `[network.<name>]`. **REQUIRES `--chain-id`.** |
+| `--chain-id <N>` | from `otigen.toml` | Required when `--rpc-url` is set; the chain's tx-hash domain. The CLI refuses `--rpc-url` without `--chain-id` (signed tx against `chain_id = 0` silently bricks the FALCON signature). |
 
-Prints the tx hash on submission, then polls for the receipt (60s timeout). On success, the contract address is in the receipt's `return_data`.
+Receipt poll timeout is 60 s (constant, not CLI-configurable). On success the contract address appears in the receipt; the CLI prints it.
 
 ```bash
-echo test123 | otigen deploy --from devnet-0 --password-stdin --network devnet
+otigen deploy --from devnet-0 --password-stdin <<< pw
+otigen deploy --from devnet-0 \
+              --rpc-url http://127.0.0.1:29933 \
+              --chain-id 31337 \
+              --password-stdin <<< pw
 otigen deploy --dry-run     # print wire bytes, don't submit
 ```
+
+There is no `--gas-limit` / `--gas-price` flag today; values come from `[deploy]` in `otigen.toml` (`gas_limit = 10_000_000`, `gas_price = "auto"`).
 
 ---
 
 ## `otigen upgrade`
 
-Replace a contract's WASM via the upgrade flow (spec §3.4). Sender must be the contract owner.
+Replace a contract's WASM via the upgrade flow (spec §3.4).
+
+> **Status (v1):** The chain has no `TxType::Lifecycle` handler yet. The CLI refuses to submit by default (`EngineNotReady`). See [Lifecycle](./lifecycle.md) for the v1 proxy-pattern alternative and the `--i-know-engine-rejects` bypass.
 
 ```text
-otigen upgrade [OPTIONS] <ADDRESS>
+otigen upgrade [OPTIONS] <TARGET>
 ```
 
 | Flag | Default | What it does |
-|---|---|---|
-| `--bundle <PATH>` | `./artifacts/<name>.bundle` | New bundle to install. |
-| `--from <WALLET>` | manifest default | Signing account (must be the contract owner). |
-| `--password-stdin` | off | Read password from stdin. |
-
-```bash
-otigen upgrade 0xabc... --bundle ./artifacts/my-token.bundle --from devnet-0 --password-stdin
-```
+| --- | --- | --- |
+| `<TARGET>` | required | Contract name (registered) or `0x`-prefixed address. |
+| `--bundle <PATH>` | `./artifacts/<name>.bundle` | Bundle directory containing the new `contract.wasm`. Mutually exclusive with `--wasm`. |
+| `--wasm <PATH>` | none | Explicit path to the new `.wasm`. Overrides `--bundle`. |
+| `--from <WALLET>` | `[wallet.default_account]` | Signing account. |
+| `--no-wait` | off | Submit and exit without polling. |
+| `--password-stdin` | off | Read wallet password from stdin. |
+| `--i-know-engine-rejects` | off | Bypass the `EngineNotReady` gate. See `deploy --help`-style warning above. |
+| `--rpc-url <URL>` | from `otigen.toml` | One-shot RPC URL override. REQUIRES `--chain-id`. |
+| `--chain-id <N>` | from `otigen.toml` | Required when `--rpc-url` is set. |
 
 ---
 
 ## `otigen pause` / `unpause` / `kill`
 
-Lifecycle controls (spec §3.5).
+Lifecycle controls (spec §3.5). Same `EngineNotReady` gate as `upgrade`.
 
 ```text
-otigen pause   [OPTIONS] <ADDRESS>     # halt all entrypoints (reversible)
-otigen unpause [OPTIONS] <ADDRESS>     # re-enable a paused contract
-otigen kill    [OPTIONS] <ADDRESS> --yes   # irreversibly disable
+otigen pause   [OPTIONS] <TARGET>
+otigen unpause [OPTIONS] <TARGET>
+otigen kill    [OPTIONS] <TARGET> [--yes]
 ```
 
-`kill` requires `--yes` to confirm — future calls revert and the chain may garbage-collect the code slot.
+All three share the same flag surface as `upgrade`:
 
 | Flag | Default | What it does |
-|---|---|---|
-| `--from <WALLET>` | manifest default | Signing account (contract owner). |
-| `--password-stdin` | off | Read password from stdin. |
-| `--yes` (kill only) | required | Acknowledge the irreversibility. |
+| --- | --- | --- |
+| `<TARGET>` | required | Contract name or `0x`-prefixed address. |
+| `--from <WALLET>` | `[wallet.default_account]` | Signing account. |
+| `--no-wait` | off | Submit and exit without polling. |
+| `--password-stdin` | off | Read wallet password from stdin. |
+| `--i-know-engine-rejects` | off | Bypass the `EngineNotReady` gate. |
+| `--rpc-url <URL>` | from `otigen.toml` | RPC override. REQUIRES `--chain-id`. |
+| `--chain-id <N>` | from `otigen.toml` | Required when `--rpc-url` is set. |
+| `--yes` (kill only) | off | Skip the interactive "re-type the contract name" confirmation. |
 
 ```bash
-otigen pause   0xabc... --from devnet-0 --password-stdin
-otigen unpause 0xabc... --from devnet-0 --password-stdin
-otigen kill    0xabc... --from devnet-0 --password-stdin --yes
+otigen pause   my-counter --from devnet-0 --i-know-engine-rejects --password-stdin <<< pw
+otigen unpause my-counter --from devnet-0 --i-know-engine-rejects --password-stdin <<< pw
+otigen kill    my-counter --from devnet-0 --i-know-engine-rejects --yes --password-stdin <<< pw
 ```
 
 ---
 
 ## `otigen call`
 
-Invoke a function on a deployed contract. Auto-detects view-vs-mutating from the contract's ABI: views go through `pyde_call` (free, senderless when possible); mutating calls sign + submit a tx and poll the receipt.
+Invoke a function on a deployed contract. View vs mutating is decided by the presence of `--from`: with a signing wallet the call submits a tx; without one it runs in view mode via `pyde_call`.
 
 ```text
-otigen call [OPTIONS] <ADDRESS> <FUNCTION>
+otigen call [OPTIONS] <TARGET> <FUNCTION>
 ```
 
 | Flag | Default | What it does |
-|---|---|---|
+| --- | --- | --- |
+| `<TARGET>` | required | Contract name or `0x`-prefixed address. |
+| `<FUNCTION>` | required | Function name from the contract's ABI. |
 | `--args <HEX>` | empty | Borsh-encoded calldata, hex-encoded. |
-| `--from <WALLET>` | manifest default | Signing account for mutating calls. |
+| `--value <QUANTA>` | `0` | Native PYDE to attach to a mutating call (quanta = 10⁻⁹ PYDE). |
+| `--from <WALLET>` | none (view mode) | Signing account. Presence flips the call to a state-mutating signed tx. |
+| `--no-wait` | off | For mutating calls: submit + exit without polling. |
 | `--password-stdin` | off | Read wallet password from stdin. |
-| `--value <QUANTA>` | `0` | Native PYDE to attach to a mutating call (quanta = 10⁻¹⁰ PYDE). |
-| `--network <NAME>` | manifest default | Target network. |
+| `--rpc-url <URL>` | from `otigen.toml` | RPC override. View-mode `--rpc-url` does NOT require `--chain-id` (no tx signed). Mutating-mode usage WILL require `--chain-id` like deploy/upgrade. |
 
 ```bash
-otigen call 0xabc... balance_of --args 0xdeadbeef... --network devnet     # view
-echo test123 | otigen call 0xabc... transfer \
-  --args 0xfeedface... \
-  --from devnet-0 --password-stdin --network devnet
+# View mode (free, no tx, no gas, no signing):
+otigen call my-counter get
+otigen call my-token balance_of --args 0x9b8c... --rpc-url https://rpc.example
+
+# Mutating mode (signed tx):
+otigen call my-counter increment --from devnet-0 --password-stdin <<< pw
 ```
+
+`--json` mode emits a `call_included` NDJSON event; view calls include the `return_data` hex.
 
 ---
 
 ## `otigen inspect`
 
-Read contract / parachain metadata + storage (spec §3.6).
+Read contract / account metadata + storage (spec §3.6).
 
 ```text
-otigen inspect [OPTIONS] <ADDRESS_OR_NAME>
+otigen inspect [OPTIONS] <TARGET>
 ```
 
 | Flag | Default | What it does |
-|---|---|---|
-| `--state-field <FIELD>` | none | Read a single substrate-typed storage scalar by name. Slot derivation = `Blake3(self_address \|\| field_name)`. |
-| `--field <FIELD>` | none | Legacy raw-storage path. `Poseidon2(name)` derivation. Mutually exclusive with `--state-field`. |
-| `--network <NAME>` | manifest default | Target network. |
+| --- | --- | --- |
+| `<TARGET>` | required | Contract name or `0x`-prefixed address. |
+| `--state-field <NAME>` | none | Substrate-typed storage read. Slot = `Poseidon2(self_address ‖ field_name)`; decoded per the `[state].schema` type token. Use this for any contract built with `#[pyde::declare_storage]`. |
+| `--field <NAME>` | none | Legacy pre-substrate raw-slot read. Slot = `Poseidon2(name.as_bytes())`. Mutually exclusive with `--state-field`. |
+| `--at-wave <N>` | none | Read state as of a specific wave. Honored only by archive nodes. |
+| `--rpc-url <URL>` | from `otigen.toml` | One-shot RPC override. Skips `otigen.toml` network resolution entirely. |
 
-Default mode prints the account snapshot: address, account type (`eoa` / `contract`), nonce, balance, code size + hash. `--state-field` short-circuits to a focused storage read.
+Default mode prints the account snapshot: address, account type, balance, nonce, code hash, code size, state root. `--state-field` / `--field` short-circuit to a single-slot read.
 
 ```bash
 otigen inspect 0xabc...                            # full account snapshot
-otigen inspect 0xabc... --state-field total_supply
-otigen inspect my-token                            # resolve by registered name
+otigen inspect 0xabc... --state-field counter      # substrate field
+otigen inspect 0xabc... --field counter            # legacy raw-slot field
+otigen inspect my-token --rpc-url https://rpc.example
 ```
-
----
-
-## `otigen validator`
-
-Read-only queries over the chain-side validator registry.
-
-```text
-otigen validator <ACTION> [OPTIONS]
-```
-
-| Subaction | Usage | What it returns |
-|---|---|---|
-| `show <ADDR>` | `otigen validator show 0x…` | One validator's full record: operator, pubkey, stake, status, jail/unbond timeline, last-claimed rps, uptime. |
-| `by-operator <ADDR>` | `otigen validator by-operator 0x…` | Every validator an operator runs. |
-
-Exits non-zero with `NotAValidator` for unregistered addresses so scripts can branch on exit code without parsing stdout.
-
-```bash
-otigen validator show 0xabc...
-otigen validator by-operator 0xdef...
-```
-
-Registration / stake / unbond / unjail flows live on the engine binary's `pyde stake` CLI — those are tx submission, not introspection.
 
 ---
 
@@ -422,46 +437,48 @@ Registration / stake / unbond / unjail flows live on the engine binary's `pyde s
 Verify that a deployed contract's bytes match a local bundle (spec §3.9).
 
 ```text
-otigen verify [OPTIONS] <ADDRESS>
+otigen verify [OPTIONS] <TARGET>
 ```
 
 | Flag | Default | What it does |
-|---|---|---|
+| --- | --- | --- |
+| `<TARGET>` | required | Contract address or name. |
 | `--bundle <PATH>` | `./artifacts/<name>.bundle` | Local bundle to compare against. |
-| `--network <NAME>` | manifest default | Target network. |
-
-Useful for confirming reproducible builds: two builders running `otigen build` from the same source + toolchain pins should produce bundles that verify byte-identical against the same deployment.
+| `--strict-toolchain` | off | Also compare the toolchain version pin in `manifest.json` against the running rustc / TinyGo / asc / clang. Mismatch fails verify even when bytes match. |
+| `--explorer <URL>` | none | Submit the bundle to an external verifying explorer. Posts `(contract.wasm, manifest.json, metadata.json)` to `<URL>/api/v1/contracts/<addr>/verify`. |
+| `--api-key-env <VAR>` | none | Read the explorer API key from an env var (bearer token). |
+| `--api-key-stdin` | off | Read the explorer API key from stdin. |
 
 ```bash
 otigen verify 0xabc...
 otigen verify 0xabc... --bundle ./snapshot/my-token.bundle
+otigen verify 0xabc... --explorer https://explorer.pyde.network --api-key-env PYDE_EXPLORER_KEY
+otigen verify 0xabc... --strict-toolchain
 ```
 
 ---
 
 ## `otigen devnet`
 
-Run a local devnet.
+Run a local devnet. The chain runtime is embedded in the `otigen` binary — no separate `pyde` download. Single validator, deterministic genesis pre-fund, Ctrl-C for graceful shutdown.
 
 ```text
 otigen devnet [OPTIONS]
 ```
 
-The chain runtime is embedded in the `otigen` binary — no separate `pyde` download. Single validator, instant-wave, deterministic genesis pre-fund. Ctrl-C for graceful shutdown.
-
 | Flag | Default | What it does |
-|---|---|---|
+| --- | --- | --- |
 | `--rpc-listen <ADDR>` | none (banner-only) | JSON-RPC server bind address. Pass `127.0.0.1:9933` to enable RPC so `deploy` / `call` / `console` have a target. |
-| `--prefund-count <N>` | `10` | Number of pre-funded accounts the banner enumerates. |
+| `--prefund-count <N>` | `10` | Number of pre-funded accounts (`devnet-0`..`devnet-N-1`). |
 | `--prefund-amount <QUANTA>` | engine default | Per-account genesis balance. |
-| `--chain-id <ID>` | `31337` | Chain ID this devnet signs against. The canonical "dev chain, don't replay" sentinel. |
+| `--chain-id <ID>` | `31337` | Chain id this devnet signs against. |
 | `--tick-ms <MS>` | `1000` | Idle-wave tick interval. Empty waves still commit every `--tick-ms` so `wave_id` advances. |
-| `--fork <FILE_OR_URL>` | none | Bootstrap state from an existing chain snapshot. Local borsh file or HTTP(S) URL pointing at `pyde_getSnapshot`. Mutually exclusive with `--prefund-*`. |
+| `--fork <FILE_OR_URL>` | none | Bootstrap state from an existing chain snapshot. Local borsh file or HTTP(S) URL pointing at `pyde_getSnapshot`. Mutually exclusive with `--prefund-*`. *(See [Lifecycle](./lifecycle.md) — there is a known state-root-mismatch issue forking a live devnet; the file path is the more reliable mode today.)* |
 
 ```bash
 otigen devnet --rpc-listen 127.0.0.1:9933
 otigen devnet --rpc-listen 127.0.0.1:9933 --tick-ms 500
-otigen devnet --fork http://my-validator:9933 --rpc-listen 127.0.0.1:9934
+otigen devnet --fork ./snapshot.borsh --rpc-listen 127.0.0.1:9934
 ```
 
 Validator + full-node roles still ship via the engine's own `pyde` binary — operator concerns, not author concerns.
@@ -477,26 +494,51 @@ otigen console [OPTIONS]
 ```
 
 | Flag | Default | What it does |
-|---|---|---|
+| --- | --- | --- |
 | `--from <WALLET>` | `[wallet.default_account]` | Account name for `tx` commands. Views work without a sender bound. |
-| `--network <NAME>` | manifest default | Network to connect to. |
+| `--password-stdin` | off | Read wallet password from stdin (cached for the session after first `tx`). |
 
-Drops into a `pyde>` prompt with line editing, persistent history (`~/.otigen_console_history`), and per-session network + sender bindings. The MVP surface:
+Drops into a `pyde>` prompt with line editing and persistent history. The MVP surface today:
 
 | Command | What it does |
-|---|---|
+| --- | --- |
 | `help` | Show the catalog. |
 | `balance <ADDR>` | PYDE balance. |
 | `nonce <ADDR>` | Next nonce. |
 | `call <ADDR> <FN> [HEX]` | View call (free, no tx). |
-| `tx <ADDR> <FN> [HEX] [--value <DEC>]` | Sign + submit + receipt poll. Wallet unlocked once, cached for the session. |
+| `tx <ADDR> <FN> [HEX] [--value <DEC>]` | Sign + submit + receipt poll. Wallet unlocked once, cached. |
 | `state <ADDR> <FIELD>` | Substrate-typed scalar storage read. |
 | `events <ADDR> [--from N] [--to N] [--limit N]` | Pull `pyde_getLogs` with optional wave bounds. |
+| `subscribe <FILTER>` | WebSocket subscription to live events. |
 | `inspect <ADDR>` | Account snapshot. |
 | `exit` / `quit` | Leave. |
 
-Addresses accept either `0x…` hex or registered names (resolved via `pyde_resolveName`).
+Addresses accept either `0x...` hex or registered names (resolved via `pyde_resolveName`).
 
 ```bash
 otigen console --network devnet --from devnet-0
 ```
+
+---
+
+## `otigen validator`
+
+Read-only queries over the chain-side validator registry.
+
+```text
+otigen validator <ACTION> [OPTIONS]
+```
+
+| Subaction | Usage | What it returns |
+| --- | --- | --- |
+| `show <ADDR>` | `otigen validator show 0x...` | One validator's full record: operator, pubkey, stake, status, jail/unbond timeline, last-claimed rps, uptime. |
+| `by-operator <ADDR>` | `otigen validator by-operator 0x...` | Every validator an operator runs. |
+
+Exits non-zero with `NotAValidator` for unregistered addresses so scripts can branch on exit code without parsing stdout.
+
+```bash
+otigen validator show 0xabc...
+otigen validator by-operator 0xdef...
+```
+
+Registration / stake / unbond / unjail flows live on the engine's `pyde` binary — those are tx submission, not introspection.

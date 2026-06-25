@@ -109,7 +109,7 @@ otigen build [--release|--debug] [--compile] [--out <path>]
 |---|---|---|
 | `--release` | (default) | Validate against release-build expectations |
 | `--debug` | off | Allow debug-build artifacts (useful for local dev) |
-| `--compile` | off | Invoke the per-language build command first. Dispatch table: `rust` → `cargo build --target wasm32-unknown-unknown --release`, `as` → `npm install && npm run build`, `go` → `tinygo build -target=wasi -o <output> .`, `c` → `make`. Only the default invocation per language; authors with custom build flags continue to compile manually and run `otigen build` afterwards. After the compiler exits, otigen discovers the actual emit path from each language's native config (`Cargo.toml`'s `[package].name` for Rust, `asconfig.json`'s `targets.release.outFile` for AssemblyScript; Go uses our `-o` flag, C uses the Makefile-declared path) and copies the `.wasm` to `[contract.lang.output]` if they differ, with a `Reconciling emit path` notice. Discovery falls back to `[contract.lang.output]` on workspace `Cargo.toml`, missing / malformed configs, or features we don't parse (JSON5 in asconfig). Error codes: `ToolchainMissing` when the compiler isn't on `PATH`; resource failure on non-zero compiler exit; `CompileOutputMissing` when the compiler exited 0 but emitted nowhere we can find. |
+| `--compile` | off | Invoke the per-language build command first. Dispatch table: `rust` → `cargo build --target wasm32-unknown-unknown --release`, `as` → `npm install && npm run build`, `go` → `tinygo build -target=wasm-unknown -o <output> .`, `c` → `make`. (Important: TinyGo uses `wasm-unknown`, **not** `wasi` — the `wasi` target imports `wasi_snapshot_preview1.fd_write` which the build validator rejects.) Only the default invocation per language; authors with custom build flags continue to compile manually and run `otigen build` afterwards. After the compiler exits, otigen discovers the actual emit path from each language's native config (`Cargo.toml`'s `[package].name` for Rust, `asconfig.json`'s `targets.release.outFile` for AssemblyScript; Go uses our `-o` flag, C uses the Makefile-declared path) and copies the `.wasm` to `[contract.lang.output]` if they differ, with a `Reconciling emit path` notice. Discovery falls back to `[contract.lang.output]` on workspace `Cargo.toml`, missing / malformed configs, or features we don't parse (JSON5 in asconfig). Error codes: `ToolchainMissing` when the compiler isn't on `PATH`; resource failure on non-zero compiler exit; `CompileOutputMissing` when the compiler exited 0 but emitted nowhere we can find. |
 | `--out` | `./artifacts/` | Output directory for the deploy bundle |
 
 Pipeline:
@@ -143,15 +143,22 @@ Exit codes: `0` on success, `1` on validation failure, `2` if the `.wasm` was no
 Sign and submit a deploy transaction.
 
 ```
-otigen deploy [--network <name>] [--from <addr-or-keyname>] [--bundle <path>] [--dry-run]
+otigen deploy [--network <name>] [--from <addr-or-keyname>] [--bundle <path>] [--init-arg <hex>]
+              [--dry-run] [--no-wait] [--password-stdin]
+              [--rpc-url <URL> --chain-id <N>]
 ```
 
 | Flag | Default | Description |
 |---|---|---|
-| `--network` | from `otigen.toml` | Target network |
-| `--from` | from `otigen.toml` | Deploying address or named key |
-| `--bundle` | `./artifacts/<name>.bundle/` | Path to the deploy bundle |
-| `--dry-run` | off | Validate + simulate only; do not submit |
+| `--network` | from `otigen.toml` | Target network. |
+| `--from` | from `otigen.toml` `[wallet.default_account]` | Signing account in the keystore. |
+| `--bundle` | `./artifacts/<name>.bundle/` | Path to the deploy bundle. |
+| `--init-arg <HEX>` | empty | Hex calldata for the constructor (`init`). Empty for nullary constructors. |
+| `--dry-run` | off | Build + sign the tx but don't submit. Prints the wire bytes for inspection. |
+| `--no-wait` | off | Submit and exit without polling for the receipt. |
+| `--password-stdin` | off | Read the wallet password from stdin instead of prompting via rpassword. |
+| `--rpc-url <URL>` | none | One-shot RPC URL override. Bypasses the project's `[network.<name>]` for the RPC endpoint. **REQUIRES `--chain-id`** (see §3.3.1). |
+| `--chain-id <N>` | none | Required when `--rpc-url` is set; ignored otherwise. The chain id the signer commits to in the canonical tx-hash domain. |
 
 Pipeline:
 
@@ -168,23 +175,52 @@ Pipeline:
        nonce,
        gas_limit,
        gas_price,
+       chain_id,              // splices in --chain-id when --rpc-url is set
    }
    ```
-4. Compute canonical tx hash. FALCON-sign with the sender's key (prompts for keystore password unless cached).
+4. Compute canonical tx hash. FALCON-sign with the sender's key (prompts for keystore password unless cached or `--password-stdin` is set).
 5. Submit via `pyde_sendRawTransaction`. Print the tx hash.
-6. (Optional) Wait for inclusion: poll `pyde_getTransactionReceipt` until included. Report success / revert.
+6. Unless `--no-wait`: poll `pyde_getTransactionReceipt` until included. The receipt poll timeout is **60 seconds, constant** (not CLI-configurable). Report success / revert.
 
-Exit codes: `0` on inclusion + success, `1` on validation failure, `2` on network error, `3` on revert.
+Exit codes: `0` on inclusion + success, `1` on validation failure (including the `--rpc-url` without `--chain-id` guard in §3.3.1), `2` on network error, `3` on revert.
+
+#### 3.3.1 `--rpc-url` + `--chain-id` (signed-tx RPC override)
+
+The pair is **mutually load-bearing**: passing one without the other returns `InvalidArgs` with exit `1`. The resolver returns `chain_id = 0` on the raw-`--rpc-url` path (a raw URL doesn't advertise a chain id), and signing a tx against `chain_id = 0` silently bricks the FALCON signature against the chain's tx-hash domain — the engine rejects the tx but the cost is paid in gas before that revert.
+
+Use case: a CI worker spinning a devnet on a non-default port because `127.0.0.1:9933` is already taken by another instance (multi-validator cluster, parallel test runs). The override lets `deploy` target that instance without editing the bundle's baked `otigen.toml`:
+
+```
+otigen deploy --bundle <bundle> \
+              --rpc-url http://127.0.0.1:29933 \
+              --chain-id 31337 \
+              --from devnet-0 \
+              --password-stdin
+```
+
+Match `--chain-id` to what `pyde_chainId` reports on the target RPC. The same pair is required across §3.4 (`upgrade`), §3.5 (`pause` / `unpause` / `kill`), and §3.13's submitting variants — every CLI subcommand that signs a tx.
 
 ### 3.4 `otigen upgrade`
 
 Replace a contract's WASM via the upgrade flow.
 
 ```
-otigen upgrade <name-or-address> [--network <name>] [--bundle <path>]
+otigen upgrade <name-or-address> [--bundle <path> | --wasm <path>] [--from <key>]
+               [--no-wait] [--password-stdin] [--i-know-engine-rejects]
+               [--rpc-url <URL> --chain-id <N>]
 ```
 
-For contracts: submits an `UpgradeContractTx` signed by the contract owner.
+| Flag | Default | Description |
+|---|---|---|
+| `--bundle <PATH>` | `./artifacts/<name>.bundle/` | Bundle directory containing the new `contract.wasm`. Mutually exclusive with `--wasm`. |
+| `--wasm <PATH>` | none | Explicit path to the new `.wasm`. Overrides `--bundle`. |
+| `--from <KEY>` | from `otigen.toml` | Signing account (the contract's deployer / admin). |
+| `--no-wait` | off | Submit and exit without polling for the receipt. |
+| `--password-stdin` | off | Read wallet password from stdin. |
+| `--i-know-engine-rejects` | off | Bypass the engine-not-ready gate (see §3.5.1). |
+| `--rpc-url` / `--chain-id` | none | RPC override pair, same contract as §3.3.1. |
+
+For contracts: signs an `UpgradeContractTx` (`TxType::Lifecycle` / `LifecyclePayload::Upgrade { new_wasm }` per §8.3). **As of v1 the engine has no `TxType::Lifecycle` handler** — the tx is built and signed correctly by the CLI but refused at the engine. See §3.5.1.
 
 For parachains: requires governance certs collected separately (per [PARACHAIN_DESIGN §6.2](./PARACHAIN_DESIGN.md)). `otigen upgrade --parachain` runs the full vote flow if `[parachain.governance.auto_collect]` is true; otherwise the author submits the proposal, gathers votes externally, and runs `otigen upgrade --finalize <proposal-id>` to submit the activation tx.
 
@@ -193,45 +229,99 @@ For parachains: requires governance certs collected separately (per [PARACHAIN_D
 Operational lifecycle.
 
 ```
-otigen pause   <name-or-address> [--from <key>]
-otigen unpause <name-or-address> [--from <key>]
-otigen kill    <name-or-address> [--from <key>] [--yes]
+otigen pause   <name-or-address> [--from <key>] [--no-wait] [--password-stdin]
+                                 [--i-know-engine-rejects] [--rpc-url <URL> --chain-id <N>]
+otigen unpause <name-or-address> [...same flags as pause...]
+otigen kill    <name-or-address> [...same flags as pause...] [--yes]
 ```
 
-- `pause`: owner-only. Submits `PauseContractTx`. Reversible.
-- `unpause`: owner-only. Submits `UnpauseContractTx`.
-- `kill`: owner-only, irreversible. Requires `--yes` to confirm. Submits `KillContractTx`.
+| Flag | Default | Description |
+|---|---|---|
+| `--from <KEY>` | from `otigen.toml` | Signing account (contract deployer / admin). |
+| `--no-wait` | off | Submit and exit without polling for the receipt. |
+| `--password-stdin` | off | Read wallet password from stdin. |
+| `--i-know-engine-rejects` | off | Bypass the engine-not-ready gate (§3.5.1). |
+| `--rpc-url` / `--chain-id` | none | RPC override pair, same contract as §3.3.1. |
+| `--yes` (kill only) | off | Skip the interactive `re-type the contract name` confirmation. |
+
+- `pause`: signs `LifecyclePayload::Pause`. Reversible.
+- `unpause`: signs `LifecyclePayload::Unpause`.
+- `kill`: signs `LifecyclePayload::Kill`. Irreversible; the interactive confirmation prompts for the contract's name to be re-typed verbatim unless `--yes` is passed.
+
+#### 3.5.1 The engine-not-ready gate
+
+Per §8.2 + §8.3, v1 ships **no chain-side `TxType::Lifecycle` handler**. The CLI surface is committed in code so that when engine support lands the wire shape doesn't shift, but submitting any of the four lifecycle subcommands against current mainnet / devnet would revert at the engine with `decode CallPayload: Unexpected length of input` (the engine treats the Standard-shape tx as a contract call and tries to decode the borsh-encoded `LifecyclePayload` as a `CallPayload { function, calldata }`).
+
+To avoid burning gas on a guaranteed-failed tx, the CLI refuses to submit by default. The exact error:
+
+```
+otigen [ERROR] EngineNotReady: `<op>` lifecycle ops are not yet wired
+ on the chain side (no TxType::Lifecycle handler, no paused/killed
+ Account fields). Submitting this tx would revert with
+ `decode CallPayload: Unexpected length of input` and consume gas.
+```
+
+Exit code `1` (`VALIDATION_FAILURE`).
+
+`--i-know-engine-rejects` opts past the gate. The CLI then signs and submits the tx normally; the engine rejects it normally. This is for two narrow cases: (1) exercising the CLI signing path against a stub engine in CI / regression testing, (2) developing the engine-side handler against a real wire shape. Mainnet operators must not pass this flag.
+
+The v1 alternative patterns (proxy contracts for upgrade; author-declared `paused: bool` / `killed: bool` in `[state]` for pause/kill) are documented in §8.2 + §8.3.
 
 ### 3.6 `otigen inspect`
 
 Read contract / parachain state and metadata.
 
 ```
-otigen inspect <name-or-address> [--at-wave <wave_id>] [--field <name>]
+otigen inspect <name-or-address> [--state-field <NAME> | --field <NAME>]
+               [--at-wave <wave_id>] [--rpc-url <URL>]
 ```
 
-Outputs:
+| Flag | Default | Description |
+|---|---|---|
+| `--state-field <NAME>` | none | Substrate-typed storage read. Slot = `Poseidon2(self_address ‖ field_name)`, matching the chain's `sstore_scalar` / `sload_scalar` host fns. Decoded per the type token declared in `[state].schema`. Use this for any contract written with `#[pyde::declare_storage]` — the canonical path. |
+| `--field <NAME>` | none | Legacy raw-storage read for pre-substrate contracts. Slot = `Poseidon2(name.as_bytes())` — the convention hand-written examples used before the substrate macros existed. Mutually exclusive with `--state-field`. |
+| `--at-wave <N>` | none | State as of a historical wave. Honored only by archive nodes; v1 toolchain forwards the value but otherwise shows current state. |
+| `--rpc-url <URL>` | from `otigen.toml` | One-shot RPC URL override. Skips `otigen.toml` network resolution entirely. Unlike the signing subcommands, `inspect` is read-only and does NOT require `--chain-id`. |
 
-- Contract type, name, owner, current version, total versions
-- ABI summary (functions, events, state schema)
-- Code hash, WASM size, deployment wave
-- If `--field <name>` is given: the current value of that storage field (uses ABI for type-safe decoding)
-- If `--at-wave` is given: state as of that historical wave (archive nodes only)
+Default output (no `--state-field` / `--field`) — account snapshot per the chain's `pyde_getAccount` RPC:
+
+- `Target` / `Address` — the supplied name/address + the resolved 32-byte address.
+- `Account type` — `eoa`, `contract`, or `system` (chain's [`AccountType`](https://github.com/pyde-net/engine/blob/main/crates/types/src/account.rs) discriminant).
+- `Balance` — current balance in hex quanta.
+- `Nonce` — next acceptable nonce (`nonce_window.base + bitmap.trailing_ones()`).
+- `Code hash` — `Poseidon2(runtime_wasm)`. Zero for EOA / system accounts.
+- `Code size` — length of deployed bytecode in bytes.
+- `State root` — Blake3 summary of the contract's storage sub-trie. V1 keeps this all-zero (single global JMT).
+
+With `--state-field` or `--field`: focused single-slot read; prints the slot hash + raw bytes + decoded value (per `[state].schema` for `--state-field`).
+
+> **Note.** Earlier drafts of this spec listed `version` / `total_versions` / `owner` / `status` fields. None of these exist on the engine's `Account` in v1 — see §8.2/§8.3 for what v1 actually provides and the v2 plan. The v1 lifecycle story is author-declared booleans + proxy upgrades; chain-side support is deferred.
 
 ### 3.7 `otigen wallet`
 
-Wallet subcommands.
+Wallet subcommands. `<NAME>` is positional in every subcommand that takes one (no `--name` flag).
 
 ```
-otigen wallet new [--name <label>]              # generate a new FALCON keypair
-otigen wallet list                               # list keys in keystore
-otigen wallet show <name>                        # show address + public-key fingerprint
-otigen wallet rotate <name>                      # initiate key rotation (submits KeyRotationTx)
-otigen wallet import <path>                      # import an external keystore entry
-otigen wallet export <name>                      # export a keystore entry (prompts for password)
-otigen wallet password <name>                    # change a keystore entry's password
-otigen wallet sign <name> <hex-message>          # sign arbitrary bytes (for advanced use)
+otigen wallet new [NAME] [--password-stdin]                                  # generate a new FALCON-512 keypair
+otigen wallet import [NAME]                                                  # interactive: paste pubkey + secret key
+otigen wallet import --from-file <PATH> <NAME>                               # restore a `wallet export` backup
+otigen wallet import --from-devnet [--prefix <P>] [--count <N>] [--password-stdin]
+                                                                             # bulk-import 10 deterministic prefunded devnet accounts
+otigen wallet list                                                           # list every account name + address
+otigen wallet show <NAME>                                                    # print address + pubkey (no password needed)
+otigen wallet delete <NAME> [--yes]                                          # remove an account
+otigen wallet password <NAME>                                                # re-encrypt under a new password (TTY only — no --password-stdin)
+otigen wallet export <NAME> [--out <PATH>]                                   # write a portable encrypted backup (no password prompt)
+otigen wallet sign [NAME] --message <MSG> [--hex] [--password-stdin]         # FALCON-512 sign arbitrary bytes (NOT for chain txs)
+otigen wallet verify [NAME] --message <MSG> --signature <HEX> [--hex] [--pubkey <HEX>]
+                                                                             # verify a signature; exit 0 = valid, 1 = invalid
 ```
+
+`NAME` under `--from-devnet` is ignored — that mode generates names `<prefix>0`..`<prefix>N-1` (default `devnet-0`..`devnet-9`).
+
+`wallet export` does NOT prompt for a password: it ciphers the keystore entry as-is and writes the same Argon2id + AES-256-GCM ciphertext under a new filename. The original password still decrypts it.
+
+> **Note.** Earlier drafts of this spec listed `wallet rotate <name>` (submitting a `KeyRotationTx`). That subcommand is **not shipped** in the current binary — chain-side key rotation lives behind v2 engine work. If you need to rotate an account's encryption password (vs the underlying FALCON key), use `wallet password`.
 
 Keystore format: see §6.
 
@@ -253,59 +343,69 @@ for the password once (or reads it from stdin with
 `--password-stdin` for CI / scripted flows) and the unlocked
 signer is cached for the rest of the session.
 
-REPL commands (MVP — shipping today):
+REPL commands (shipping today):
 - `help` / `?` — list the catalog
 - `balance <addr>` — query native PYDE balance
 - `nonce <addr>` — query next-acceptable nonce
 - `call <addr> <fn> [hex]` — invoke a `view` function (free, off-chain via `pyde_call`)
 - `tx <addr> <fn> [hex] [--value <decimal>]` — sign + submit + receipt poll
+- `state <addr> <field>` — substrate-typed scalar storage read (uses `--state-field` derivation)
+- `events <addr> [--from N] [--to N] [--limit N]` — pull `pyde_getLogs` with optional wave bounds
+- `subscribe <filter>` — WebSocket subscription to live events
+- `inspect <addr>` — account snapshot (mirrors `otigen inspect`)
 - `exit` / `quit` — leave the console
 
 Address inputs accept either a `0x`-prefixed 32-byte hex address
 or a registered name resolved via `pyde_resolveName`.
 
-Deferred (each 2-3× MVP scope, follow-up PRs):
-- `events <addr> [--topic <hash>] [--from <wave>]` — needs `pyde_getLogs` typing + filter wiring.
-- `state <addr> <field>` — needs ABI-aware decoding from the contract's `pyde.abi` section.
-- `subscribe <addr> --logs --topic <hash>` — needs websocket / long-poll plumbing the devnet doesn't currently expose.
-- ABI-aware calldata typing (Foundry's `cast send --json-abi` shape).
+Deferred (follow-up PRs):
+- ABI-aware calldata typing (Foundry's `cast send --json-abi` shape) — currently calldata is supplied as raw hex.
 
 ### 3.9 `otigen verify`
 
 Verify that a published contract's bundled artifact matches its on-chain deployment.
 
 ```
-otigen verify <name-or-address> [--bundle <path>]
+otigen verify <name-or-address> [--bundle <path>] [--strict-toolchain]
+              [--explorer <URL>] [--api-key-env <VAR> | --api-key-stdin]
 ```
 
-Compares the local bundle's WASM bytes against the chain's stored bytes. Useful for confirming reproducible builds: if two builders run `otigen build` from the same source and toolchain versions, they should produce byte-identical bundles.
+| Flag | Default | Description |
+|---|---|---|
+| `--bundle <PATH>` | `./artifacts/<name>.bundle/` | Local bundle directory to compare against. |
+| `--strict-toolchain` | off | Also compare the toolchain version pin in `manifest.json` against the running rustc / TinyGo / asc / clang. Mismatch fails verify even when bytes match — useful for reproducing audited builds at the exact toolchain. |
+| `--explorer <URL>` | none | Submit the bundle to an external verifying explorer. Posts a multipart form `(contract.wasm, manifest.json, metadata.json)` to `<URL>/api/v1/contracts/<addr>/verify`. |
+| `--api-key-env <VAR>` | none | Read the explorer's bearer token from the named environment variable. |
+| `--api-key-stdin` | off | Read the explorer's bearer token from stdin. Mutually exclusive with `--api-key-env`. |
 
-Exit codes: `0` on match, `1` on mismatch (with a diff summary).
+Compares the local bundle's WASM bytes against the chain's `pyde_getContractCode(addr)` response. The CLI re-derives the Blake3 hash of the local `contract.wasm` and compares both byte length and hash.
+
+Exit codes: `0` on match, `1` on mismatch (with a diff summary including size delta and first-differing-byte offset). `2` on network or filesystem error.
+
+The `--explorer` path uploads independently of the local-vs-chain check. The CLI redacts the API key when echoing the endpoint in human-readable output.
 
 ### 3.10 `otigen test`
 
 Run contract behaviour tests declared in TOML against the built `.wasm`.
 
 ```
-otigen test [--filter <pattern>] [--bundle <path>] [--no-color] [--show-output]
-            [--watch] [--no-engine] [-v|-vv|-vvv|-vvvv]
+otigen test [--dry-run] [--filter <pattern>] [--bundle <path>] [--watch]
+            [--no-engine] [--no-compile] [--json] [-v|-vv]
 ```
 
 | Flag | Default | Description |
 |---|---|---|
-| `--filter <pattern>` | none | Run only tests whose name contains the pattern (substring). Multiple `--filter` flags OR together. |
-| `--bundle <path>` | `./artifacts/<name>.bundle/` (resolved against `--config`) | Bundle whose `contract.wasm` is executed. |
-| `--watch` | off | Re-run on every file change. Watches the project directory recursively; ignores `target/`, `artifacts/`, `.git/`, `node_modules/`, `build/`, `dist/`. Debounces rapid keystrokes within a 300 ms window. Foundry parity with `forge test --watch`; Ctrl-C to exit. |
+| `--dry-run` | off | Parse + resolve every `.test.toml` and print the resolved hashes (account names → addresses, storage field paths → slots) without executing the WASM. Useful for validating the canonical derivation lines up with the contract's slot-derivation logic. |
+| `--filter <PATTERN>` | none | Substring filter on test names. Repeating the flag is last-wins (handled at clap level for v1). |
+| `--bundle <PATH>` | `./artifacts/<name>.bundle/` | Bundle whose `contract.wasm` is executed. |
+| `--watch` | off | Re-run on every file change. Watches the project directory recursively; ignores `target/`, `artifacts/`, `.git/`, `node_modules/`, `build/`, `dist/`. Debounces within 300 ms. Ctrl-C to exit. |
 | `--no-engine` | off | Opt OUT of the engine path and fall back to the legacy in-process mock host-fn surface. See "Runtime selection" below. |
-| `--no-color` | off | Disable terminal colour escapes (CI logs). |
-| `--show-output` | off | Print captured stdout / stderr per test (for mock-host debugging). |
-| `--json` (global) | off | Emit NDJSON test events (`test_suite_start` / `test_start` / `test_pass` / `test_fail` / `test_suite_done`) instead of plain text. For CI / scripting consumers. |
-| `-v` (global) | off | Append gas-used + duration to each pass/fail line. |
-| `-vv` (global) | off | Above, plus per-test list of emitted events (topic-0 + topic count + data length). |
-| `-vvv` (global) | off | Above, plus per-call trace: function name, args, return value / revert reason, gas. |
-| `-vvvv` (global) | off | Above, plus per-test storage diff: every slot whose value changed (before → after). |
+| `--no-compile` | off | Skip the per-language compiler (`cargo` / `asc` / `tinygo` / `clang`) and run the suite against the existing `.wasm` as-is. Default behaviour invokes the compiler first so a single `otigen test` reflects the live contract source. |
+| `--json` (global) | off | Emit NDJSON test events (`test_suite_start` / `test_start` / `test_pass` / `test_fail` / `test_suite_done`) instead of plain text. |
+| `-v` (global) | off | INFO logs from the runner. |
+| `-vv` (global) | off | DEBUG logs (host-fn calls, slot derivations). |
 
-Verbosity follows Foundry's `forge test -vvvv` ladder. Each level surfaces strictly more information; consumers paging through `forge` output will find the same mental model.
+> **Note.** Earlier drafts of this spec listed `--no-color`, `--show-output`, and a four-level Foundry-style `-vvvv` verbosity ladder (per-call traces + storage diffs). The current binary rejects `--no-color` / `--show-output` and uses standard clap `-v` counting only. Per-call expectations + storage diffs are declared in `[tests.expect]` / `expect.*` in the test TOML; failures print the expected-vs-actual. A Foundry-shape trace renderer is tracked for a follow-up; until then declarative assertions are the surface.
 
 **Runtime selection.** `otigen test` runs through `pyde-engine-wasm-exec::WasmExecutor` by default — the same execution code path mainnet uses. Per the project principle "same crypto / same VM everywhere across mainnet / testnet / devnet" the engine path is the source of truth; the legacy in-process mock surface still ships behind `--no-engine` for two cases:
 
@@ -374,61 +474,55 @@ otigen new --list
 | `--list` | no | List available templates and exit. Mutually exclusive with `<name>`, `--from`, and `--dir`. |
 | `--dir` | no | Target directory (default: `./<name>`). |
 
-Canonical templates (frozen at v1). Templates on the macro substrate (`#[pyde::entry]` + `pyde::declare_storage!()` + `pyde::declare_events!()`) are flagged; the remainder ship the raw host-fn pattern (still supported; the right shape for contracts that want full control over slot derivation).
+Canonical templates exposed by `otigen new --list` — the binary's template registry. Every entry uses the `#[pyde::entry]` + `pyde::declare_storage!()` macro substrate per `HOST_FN_ABI_SPEC §3.5.2` (void-void entries) and builds + tests clean.
 
-| Template | Substrate | Highlights |
+| Template | Status | Highlights |
 |---|---|---|
-| `counter-rust` | macro | Minimum viable contract — single `u64` slot via typed `storage::counter()` accessor. |
-| `erc20-token` | macro | Canonical real-contract reference. Scalar + map + 2-key-map storage shapes, indexed-field event encoding, typed-arg calldata. |
-| `erc721-token` | macro | ERC721-shape NFT. Per-token ownership + balance_of + single-spender approval. |
-| `nft-marketplace` | macro | `pyde::call::execute<T>` cross-calls into ERC721; per-frame `caller_address` semantics. |
-| `dao-governance` | macro | Proposal lifecycle + cross-call execution + categorized `CallError` propagation. |
-| `escrow` | macro | `#[payable]` + `tx_value` + `wave_timestamp`-gated release / claim / refund. |
-| `upgradeable-proxy` | macro | `delegate_call`-based upgrade; state survives v1→v2; logic-contract state untouched. |
-| `payment-channel` | macro | Metered withdrawal + per-call cap + cumulative cap + close-on-deadline. |
-| `multisig-wallet` | macro | M-of-N owner approvals + value-forwarding cross-call (on-chain approval bookkeeping). |
-| `storage-stress` | macro | Every `ScalarType` × every arity round-tripped. The substrate-coverage stress reference. |
-| `struct-storage` | macro | `struct(<Name>)` storage values via borsh round-trip (scalar + map<addr,struct>). |
-| `borsh-coverage` | macro | `#[pyde::entry]` calldata + return marshalling for `Vec<T>`, `Option<T>`, tuples, nested vecs, custom struct, unit enum. |
-| `counter-{as,go,c}` | raw | Alt-language counter contracts demonstrating the raw `sload` / `sstore` pattern. The macro substrate is Rust-only; community SDK authors targeting other languages reference these + `SDK_AUTHOR_GUIDE`. |
-| `simple-multisig` | raw | 3-signer FALCON-512 multisig demonstrating the in-contract PQ-verify + off-chain-signed-claim pattern (complements `multisig-wallet`'s on-chain approval bookkeeping). |
-| `merkle-claim-airdrop` | raw | Off-chain Merkle commitment + on-chain inclusion verification via `hash_blake3`. |
-| `vesting` | raw | Linear vesting with cliff. Time-locked allocation using `wave_timestamp`. |
-| `profile-registry` | raw | Parachain example. Parachain runtime ships in v2; scaffolds the surface for authors to start exploring early. |
+| `counter` | ✅ builds + tests | Minimum viable contract. Single `u64` slot via typed `storage::counter()` accessor. Equivalent of `otigen init --lang rust`. |
+| `erc20-token` | ✅ builds + tests | Canonical real-contract reference. Scalar + 1-key + 2-key map storage shapes, indexed-field event encoding, typed-arg calldata. |
+| `erc721-token` | ✅ builds + tests | ERC721-shape NFT. Per-token ownership + balance_of + single-spender approval cleared atomically on `transfer_from`. |
+| `upgradeable-proxy` | ⚠️ builds, shipped tests broken | `delegate_call`-based upgrade pattern. Admin-controlled implementation slot. The shipped `tests/contract.test.toml` references entrypoint names that no longer match the source — tests fail 0/7 until the fixture is regenerated. The contract itself deploys + delegates fine. |
+| `dao-governance` | ✅ builds + tests | FALCON-signed votes + time phases + `hash_blake3`-committed execution. The most-composed v1 reference. |
+| `simple-multisig` | ✅ builds + tests | 3-signer FALCON-512 multisig via `pyde::raw::falcon_verify` + signer-ID lookup on typed-storage maps; `Hash32` (`bytes32` alias) keys + values. |
+| `merkle-claim-airdrop` | ✅ builds + tests | Merkle-tree airdrop claim via `pyde::hash::blake3`; `Vec<u8>`-typed proof argument decoded by the macro substrate. |
+| `vesting` | ✅ builds + tests | Linear vesting with cliff. Time-locked allocation via `pyde::ctx::wave_timestamp` + scalar `uint128` / `uint64` typed storage. |
+
+> **Note.** Earlier drafts of this spec listed ~17 templates including alt-language counter ports (`counter-go` / `counter-as` / `counter-c`), `payment-channel`, `multisig-wallet`, `nft-marketplace`, `borsh-coverage`, `struct-storage`, `storage-stress`, `escrow`, and `profile-registry`. Those reference contracts live on disk under `otigen/examples/` and can be cloned via `git`, but they are **not** in `otigen new`'s scaffold registry today. Promoting them requires §3.5.2-compliant entry shapes + a working test suite; track via the [examples guide chapter](../otigen/examples.md).
 
 Side effects:
 
 1. Creates `<dir>/` and copies every file from the template into it.
-2. Rewrites identity fields to `<name>` in `otigen.toml` (`[contract].name`), `Cargo.toml` / `package.json` / `go.mod` (per-language idiom), and the `Makefile`'s display strings.
-3. Preserves every other file byte-for-byte — `src/`, `tests/`, the per-template `README.md`, the build config — so `cd <name> && make test` produces an identical result to running the template in-tree.
+2. Rewrites identity fields to `<name>` in `otigen.toml` (`[contract].name`), `Cargo.toml` / `package.json` / `go.mod` (per-language idiom), and the `Makefile`'s display strings. The rewriter is word-boundary-safe — scaffolding `vesting-app` from `vesting` no longer produces the malformed `vesting_app-app` of earlier toolchain versions.
+3. Preserves every other file byte-for-byte — `src/`, `tests/`, the per-template `README.md`, the build config — so `cd <name> && otigen test` produces an identical result to running the template in-tree.
 
-Exit codes: `0` on success, `1` if `<dir>` already exists, `2` if the template is unknown (run with `--list` to see the catalogue).
+Exit codes: `0` on success, `1` if `<dir>` already exists or the template is unknown (`UnknownTemplate(name)` error → run with `--list` to see the catalogue).
 
 ### 3.12 `otigen devnet`
 
-Run a local devnet (thin wrapper around the engine's `pyde devnet` binary so authors drive devnet bootstrapping from one toolchain entry point instead of remembering the engine binary path).
+Run a local devnet. The chain runtime is **embedded in the `otigen` binary** — no separate `pyde` download or path resolution. The devnet's `ValidatorRuntime` builds on a tempdir-backed `StateStore`, applies the genesis prefund via a `ValidatorPreRunHook`, binds the JSON-RPC server, and runs until Ctrl-C. State is wiped on shutdown.
 
 ```
 otigen devnet [--fork <FILE_OR_URL>] [--rpc-listen <ADDR>]
               [--prefund-count <N>] [--prefund-amount <QUANTA>]
-              [--chain-id <ID>] [--tick-ms <MS>] [--engine-bin <PATH>]
+              [--chain-id <ID>] [--tick-ms <MS>]
 ```
 
 | Flag | Default | Description |
 |---|---|---|
-| `--fork <FILE_OR_URL>` | none | Fork the devnet's state from an existing snapshot. Accepts either a local borsh snapshot file (`./snapshot.bin`, produced by the engine's `Snapshotter::build`) OR an HTTP(S) URL pointing at a running validator's `pyde_getSnapshot` RPC endpoint (e.g. `http://127.0.0.1:9933`; once they ship, mainnet / testnet validator URLs). Mutually exclusive with `--prefund-count` and `--prefund-amount`. |
-| `--rpc-listen <ADDR>` | engine default (banner-only mode) | JSON-RPC server bind address. Pass `127.0.0.1:9933` to enable RPC. Forwarded as-is to `pyde devnet --rpc-listen`. |
-| `--prefund-count <N>` | engine default (10) | Number of pre-funded accounts the banner enumerates. Each is derived deterministically from the canonical devnet seed. Cannot be combined with `--fork`. |
-| `--prefund-amount <QUANTA>` | engine default | Per-account genesis balance in quanta. Cannot be combined with `--fork`. |
-| `--chain-id <ID>` | engine default (31337) | Chain id this devnet signs against. |
-| `--tick-ms <MS>` | engine default (1000) | Idle-wave tick interval in milliseconds. Even with no pending txs the devnet commits an empty wave every `--tick-ms` so `wave_id` advances. |
-| `--engine-bin <PATH>` | `PYDE_BIN` env → `pyde` on `PATH` | Path to the `pyde` binary to run. Useful for running against a locally-built engine: `--engine-bin ../engine/target/release/pyde`. |
+| `--fork <FILE_OR_URL>` | none | Fork the devnet's state from an existing snapshot. Accepts either a local borsh snapshot file (`./snapshot.bin`, produced by the engine's `Snapshotter::build`) OR an HTTP(S) URL pointing at a running validator's `pyde_getSnapshot` RPC endpoint. Mutually exclusive with `--prefund-*`. **Known limitation:** forking a *live* devnet currently fails the state-root re-derivation check; the file path is the more reliable mode today. |
+| `--rpc-listen <ADDR>` | none (banner-only) | JSON-RPC server bind address. Pass `127.0.0.1:9933` to enable RPC so `deploy` / `call` / `console` have a target. |
+| `--prefund-count <N>` | 10 | Number of pre-funded accounts the banner enumerates. Each is derived deterministically from `Blake3("pyde-devnet-v1/" \|\| i)` and the embedded prefund hook writes them at `wave_id = 0` before the validator main loop starts. Mutually exclusive with `--fork`. |
+| `--prefund-amount <QUANTA>` | 10_000_000_000 | Per-account genesis balance in quanta. Mutually exclusive with `--fork`. |
+| `--chain-id <ID>` | 31337 | Chain id this devnet signs against. The canonical "dev chain, don't replay" sentinel. |
+| `--tick-ms <MS>` | 1000 | Idle-wave tick interval in milliseconds. Even with no pending txs the devnet commits an empty wave every `--tick-ms` so `wave_id` advances. |
 
-stdin/stdout/stderr inherit from the parent so the engine's startup banner + any `RUST_LOG=info` traces flow straight through; Ctrl-C from the terminal hits both processes (same fg pgrp) and the engine handles its own graceful shutdown.
+> **Note.** Earlier drafts of this spec listed `--engine-bin <PATH>` (with `PYDE_BIN` env fallback). That flag is **not shipped** — the chain runtime is no longer a separate process. Validator + full-node roles still ship via the engine's own `pyde` binary; those are operator concerns, not author concerns.
 
-Mutual-exclusion check between `--fork` and the `--prefund-*` flags fires before spawning the engine so authors get a fast clear error instead of mid-startup engine-side rejection.
+stdin/stdout/stderr inherit from the parent so the embedded runtime's startup banner + any `RUST_LOG=info` traces flow straight through; Ctrl-C triggers graceful shutdown via the validator's signal handler.
 
-Exit codes: forwarded from the underlying `pyde devnet` process.
+Mutual-exclusion check between `--fork` and the `--prefund-*` flags fires up-front so authors get a fast clear error instead of mid-startup runtime rejection.
+
+Exit codes: `0` on graceful shutdown, `1` on validation failure (conflicting flags), `2` on runtime / chain-side error.
 
 ### 3.13 `otigen check`
 
@@ -510,10 +604,10 @@ output   = "target/wasm32-unknown-unknown/release/my_token.wasm"  # required; Ru
 
 [contract.lang.toolchain]
 rust_channel   = "stable"         # for rust
-rust_toolchain = "1.75.0"          # pinned toolchain
-asc_version    = "0.27.0"          # for AS
-tinygo_version = "0.30.0"          # for go
-clang_version  = "17"              # for c
+rust_toolchain = "1.93"            # pinned toolchain (matches the workspace floor; was 1.87 pre-wasmtime-45)
+asc_version    = "0.28.0"          # for AS
+tinygo_version = "0.41.0"          # for go
+clang_version  = "18"              # for c
 
 [deploy]
 gas_limit  = 10_000_000           # default per-deploy gas budget
@@ -653,16 +747,27 @@ Field type vocabulary:
 | `vec(<inner>)` | variable | u32-len-prefix + N × fixed-width inner. Inner must be fixed-width — `vec(bytes)` / `vec(string)` / `vec(vec(...))` rejected at parse time. |
 | `struct(<Name>)` | variable | Borsh round-trip. Author declares `#[derive(BorshSerialize, BorshDeserialize)]` on `<Name>`; the macro emits typed accessors that borsh-encode/decode through the chain's variable-length storage host fns. Chain-side maps to `ScalarType::Bytes`. |
 
-Map shape (replaces the single `type = "..."` form for keyed slots):
+Map shape — two equivalent surfaces. Either form may be used; the canonical-form keys/value path is the underlying representation and the sugar form is lowered to it at build time.
+
+**Canonical form** (`type = "map"` + explicit `keys` + `value`):
 
 ```toml
 { name = "balances",   type = "map", keys = ["address"], value = "uint128" }
 { name = "allowances", type = "map", keys = ["address", "address"], value = "uint128" }
 ```
 
-Map keys: up to 3, each a fixed-width scalar (primitives / `address` / `hash32`) or a variable-length scalar (`bytes` / `string`). `vec(...)` and `struct(...)` keys are rejected up-front to avoid slot collisions on variable-length encodings.
+**Solidity-style sugar** (`mapping(K => V)` / Pyde-style `mapping(K -> V)`):
 
-Map values: any scalar type from the vocabulary above, including `struct(<Name>)`.
+```toml
+{ name = "balances",   type = "mapping(address => uint128)" }
+{ name = "allowances", type = "mapping(address => mapping(address => uint128))" }
+```
+
+The parser accepts both `=>` (Solidity) and `->` (Pyde-arrow / the convention some hand-authored templates carry) as the key/value separator, plus the multi-key flat form `mapping(K1, K2 => V)`. Nested `mapping(K => mapping(K2 => V))` recursively flattens to the canonical multi-key form. Both forms produce identical `FieldKind::Map { keys, value }` post-build.
+
+Map keys: up to 3, each a fixed-width scalar (primitives / `address` / `hash32`) or a variable-length scalar (`bytes` / `string`). `vec(...)` and `struct(...)` keys are rejected up-front to avoid slot collisions on variable-length encodings. Sugar forms exceeding the 3-key cap reject with a clear "exceeds engine's 3-key host fn surface; compose two scalars into a single `bytes` key" diagnostic.
+
+Map values: any scalar type from the vocabulary above, including `struct(<Name>)`. Mixing forms in the same field (sugar `type` AND explicit `keys`/`value`) is rejected with "pick one form, not both".
 
 ### 4.7 `[deploy]` table
 
@@ -1003,9 +1108,16 @@ pub fn pause() {
 
 Note that `TxType::EmergencyPause` / `TxType::EmergencyResume` (`0x0B` / `0x0C`) are chain-wide — they freeze block production via the treasury multisig per Chapter 15 governance. They are NOT per-contract.
 
-#### Migration note for `otigen-cli`
+#### How `otigen-cli` handles this today
 
-The `otigen pause / unpause / kill / upgrade` CLI subcommands currently build a `Standard` tx with `data = borsh(LifecyclePayload::{Pause, Unpause, Kill, Upgrade})`. The chain decodes contract-call `data` as `CallPayload { function, calldata }` and reverts on the unrecognised envelope. These CLI subcommands need to be rewritten (or removed) in a separate otigen ticket so contract authors aren't pointed at a broken path. The replacement story for upgrade is the proxy contract pattern documented above; pause / kill are author-defined entries the CLI can call generically via `otigen call <contract> pause`.
+The `otigen pause / unpause / kill / upgrade` CLI subcommands build a `Standard` tx with `data = borsh(LifecyclePayload::{Pause, Unpause, Kill, Upgrade})`. The chain decodes contract-call `data` as `CallPayload { function, calldata }` and reverts on the unrecognised envelope.
+
+To avoid users pointing live txs at this broken path, the CLI refuses to submit by default — see §3.5.1 (the `EngineNotReady` gate). The four subcommands return exit `1` with a clear error pointing at the v1 alternatives (proxy upgrades, author-declared pause/kill booleans). `--i-know-engine-rejects` opts past the gate for CI / engine-side handler development.
+
+The replacement story going forward:
+
+- **Upgrade**: the proxy / `delegate_call` pattern above is the v1 surface. The `otigen upgrade` CLI subcommand stays around for the day chain-side `TxType::Lifecycle` ships; until then it refuses to submit.
+- **Pause / Unpause / Kill**: author-defined entries (the `pause()` / `unpause()` / `kill()` functions in your contract's `[functions.*]`). Call them generically via `otigen call <contract> pause --from <admin>`. The dedicated `otigen pause / unpause / kill` subcommands also stay around behind the engine gate for the eventual chain-side variant.
 
 ---
 
@@ -1041,7 +1153,7 @@ The `otigen pause / unpause / kill / upgrade` CLI subcommands currently build a 
   "language": "rust",
   "language_toolchain": {
     "rust_channel": "stable",
-    "rust_toolchain": "1.75.0"
+    "rust_toolchain": "1.93"
   }
 }
 ```

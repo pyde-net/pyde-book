@@ -177,17 +177,18 @@ What v1 does **not** include (deferred to v2 or later):
 Authors deploy a parachain the same way they deploy a smart contract — via the `otigen` toolchain:
 
 ```bash
-otigen init my_parachain --lang rust --type parachain
-# ... author writes parachain logic in src/main.rs ...
+otigen init chainlink --lang rust --type parachain
+# ... author writes parachain logic in src/lib.rs ...
 # ... declares state schema, consensus preset, slashing preset in otigen.toml ...
 otigen build
-otigen deploy --network testnet --name "chainlink"
+otigen deploy --network testnet
 ```
 
-`otigen.toml` for a parachain extends the smart-contract schema with parachain-specific fields:
+The name is taken from `[contract].name` in `otigen.toml` (set at `otigen init` time); `otigen deploy` has no `--name` flag. `otigen.toml` for a parachain extends the smart-contract schema with parachain-specific fields:
 
 ```toml
 [contract]
+name = "chainlink"
 type = "parachain"
 
 [parachain]
@@ -195,15 +196,11 @@ consensus_preset = "simple_bft"      # or "threshold" or "optimistic"
 min_validators   = 7
 quorum_threshold = "2/3"
 
-[slashing]
+[parachain.slashing]
 preset = "standard"                  # minimal / standard / strict
 
-[hosts]
-allowed = [
-  "storage_read", "storage_write", "emit_event",
-  "send_xparachain_message", "threshold_decrypt",
-  # ... full parachain-extension allowlist
-]
+# parachain host fns (send_xparachain_message, threshold_decrypt, etc.) are
+# auto-allowed by `type = "parachain"`; no per-import declaration needed.
 ```
 
 ### Parachain governance

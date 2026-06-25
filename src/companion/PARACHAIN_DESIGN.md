@@ -16,7 +16,7 @@ The word "parachain" is overloaded in the L1 ecosystem. In Pyde:
 | Parachain | A WASM module deployed via `otigen` with `type = "parachain"`, granted: (a) its own state subtree partitioned under PIP-2 clustering by `parachain_id[..16]`, (b) extended host-function access (cross-parachain messaging, threshold-crypto access, governance hooks), (c) its own validator committee (a subset of Pyde's main committee that opts in at deploy time), and (d) its own upgrade governance. |
 | Cross-chain bridge | Infrastructure that ferries proofs between Pyde and a foreign L1 (Ethereum, Bitcoin). Out of scope here — see Chapter 13 §13.2-§13.3, §13.6. |
 
-The parachain framework **ships at v1**: registration, deployment, lifecycle, upgrade governance, state partitioning, cross-parachain messaging, version history retention, and the host-function ABI surface are all part of mainnet.
+**What ships at v1:** registration, deployment, state partitioning, cross-parachain messaging, version history retention, and the host-function ABI surface. **Deferred to v2** (per [`OTIGEN_BINARY_SPEC §8.2` / §8.3](./OTIGEN_BINARY_SPEC.md)): governance-cert-gated runtime upgrades (v1 parachains are pinned to a fixed runtime) and chain-side pause / unpause / kill tx types. v1 parachains use the same patterns as v1 contracts for those operations — the proxy + `delegate_call` pattern for upgrade, and author-declared `paused`/`killed` booleans in `[state]` for pause / kill.
 
 ## 2. Why this model
 
@@ -24,7 +24,7 @@ Three design choices distinguish Pyde's parachains from the alternatives:
 
 1. **No slot auctions.** Slot auctions concentrate parachain rights in deep-pocketed operators, creating political and centralization risk. Pyde parachains are deployed by name registration (ENS-style, see §4) with predictable costs.
 2. **Equal-power validator voting.** Each registered parachain validator gets one vote on upgrades, NOT stake-weighted (see §7). This is consistent with Pyde's "uniform random + min stake, no stake weighting" committee philosophy and prevents large-stake validators from dominating parachain decisions.
-3. **No maintained per-language SDK.** Pyde provides the Host Function ABI specification, a bundling CLI (`otigen`), and canonical example projects. Authors compile their own WASM in any wasm32-target language and declare host imports manually. See §11.
+3. **No maintained per-language SDK.** Pyde provides the Host Function ABI specification, the `otigen` CLI (top-level `init / build / deploy / upgrade / pause / unpause / kill / call / inspect / test / verify / console / devnet`), and canonical example projects. Parachains use `--type parachain` at `otigen init` time and the same deploy / lifecycle commands as contracts, with parachain-specific behavior gated on the `contract_type` carried in the deploy tx data. Authors compile their own WASM in any wasm32-target language and declare host imports manually. See §11.
 
 ## 3. Architecture overview
 
@@ -170,6 +170,10 @@ On success: `parachain_id` is derived (§4), the parachain account is initialize
 
 ### 6.2 Upgrade
 
+**v1 (proxy pattern).** v1 parachains are pinned to a fixed runtime; chain-side runtime upgrades are deferred to v2 per [OTIGEN_BINARY_SPEC §8.2](./OTIGEN_BINARY_SPEC.md). v1 authors compose upgradability into the parachain itself the same way contracts do: deploy a proxy module that `delegate_call`s into a concrete implementation, then deploy a new implementation and re-point the proxy. The proxy pattern lives in user-space WASM, so the chain's runtime image stays fixed.
+
+**v2 (chain-side `UpgradeParachainTx` + governance certs).** The target shape is a chain-side tx the parachain's validator committee threshold-signs after a §7 vote passes:
+
 ```text
 UpgradeParachainTx {
   parachain_id:      [u8; 32]
@@ -181,25 +185,24 @@ UpgradeParachainTx {
 }
 ```
 
-See §7 for the governance vote that produces these certs. On successful submission:
+On successful submission (v2):
 1. The transaction includes the upgrade in the next wave's commit.
 2. A `ParachainVersionRecord` is appended to `versions` with `activated_at_wave = current_wave + grace_period` (default 100 waves ≈ 50s at 500ms/wave).
 3. The parachain's `current_version` is bumped at the activation wave.
 4. ALL parachain peers + relay nodes simultaneously swap the wasmtime `Module` instance. Old instance is discarded, new active. Module is pre-compiled and cached so the swap is sub-millisecond.
 5. First N waves post-activation: nodes verify their local execution matches consensus. Mismatch = halt + alert (indicates corrupted upgrade or compile-time variation).
 
-### 6.3 Pause / Unpause (owner-only)
+### 6.3 Pause / Unpause
 
-Owner can pause the parachain via `PauseParachainTx`. While paused:
-- New transactions targeting the parachain are rejected at ingress.
-- Existing in-flight transactions complete normally.
-- State is preserved; the subtree continues to exist.
+**v1 (author-declared booleans).** Same pattern as v1 contracts per [OTIGEN_BINARY_SPEC §8.3](./OTIGEN_BINARY_SPEC.md): authors declare `paused: bool` in `[state]` and gate sensitive entry-point bodies on it. Owner toggles the flag with an `entry`-attributed setter. No chain-side `PauseParachainTx` tx variant exists in v1.
 
-Owner can resume via `UnpauseParachainTx`. No governance vote needed for pause/unpause — this is operational lifecycle, not a protocol-level decision.
+**v2 (`PauseParachainTx` / `UnpauseParachainTx`).** Chain-side pause flips `ParachainStatus` to `Paused`; ingress rejects new transactions while in-flight transactions complete, and state is preserved. Owner can resume via `UnpauseParachainTx`. No governance vote needed for pause/unpause — operational lifecycle, not a protocol-level decision.
 
-### 6.4 Kill (owner-only, irreversible)
+### 6.4 Kill
 
-`KillParachainTx` marks the parachain `Killed`. After kill:
+**v1 (author-declared boolean).** Same pattern as pause: `killed: bool` in `[state]`, entry-point bodies revert when set. No chain-side `KillParachainTx` in v1; the owner deposit return + state pruning + name-reuse grace are v2 mechanics.
+
+**v2 (`KillParachainTx`, irreversible).** Marks the parachain `Killed`. After kill:
 - New transactions are rejected.
 - The owner deposit is returned to the owner (minus a cleanup fee).
 - The parachain's state subtree is retained on-chain for `STATE_RETENTION_WAVES` (default ~1 year), then pruned by archive nodes.
@@ -363,11 +366,7 @@ Pyde does **not** ship a maintained per-language SDK for parachain development. 
 What Pyde provides:
 
 1. **Host Function ABI Specification** — a ~10-page document covering names, signatures, memory layout conventions, gas cost table per host function, ABI versioning rules.
-2. **`otigen parachain` CLI**:
-   - `bundle`: package `.wasm` + `parachain.toml` into a deploy artifact.
-   - `submit`: sign and send the deploy tx.
-   - `upgrade`: replace WASM bytes via governance flow.
-   - `pause` / `unpause` / `kill`.
+2. **The `otigen` CLI** — the same top-level binary used for contracts. Parachains use `otigen init <name> --type parachain` to scaffold with the §8 imports surface; `otigen build` packages the bundle (bundle carries `contract_type = Parachain`); `otigen deploy` ships the bundle on-chain (same subcommand as contracts; parachain-specific validations gate on the bundle's `contract_type`). v1 parachain lifecycle uses the same surfaces as contracts — proxy-pattern upgrade, author-declared `paused` / `killed` booleans. v2 will add governance-cert-gated `otigen upgrade --parachain` per [OTIGEN_BINARY_SPEC §3.4](./OTIGEN_BINARY_SPEC.md). The canonical surface lives in [OTIGEN_BINARY_SPEC §3.3 / §3.4 / §4.10](./OTIGEN_BINARY_SPEC.md).
 3. **On-chain parachain registry** — single source of truth for config + WASM bytes + version history.
 4. **Hardcoded bootstrap nodes** — peer discovery; no DHT (see [Network Protocol](./NETWORK_PROTOCOL.md)).
 5. **Slashing preset menu** — minimal / standard / strict; authors pick at deploy time.

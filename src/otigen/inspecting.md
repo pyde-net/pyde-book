@@ -79,11 +79,14 @@ otigen call <addr> get
   Return:   0x0300000000000000
 ```
 
-`otigen call` without `--from` runs in view mode against `pyde_call` — no tx, no gas, no nonce, no signing. Pass `--from <wallet>` to switch to a state-mutating signed call. For arguments:
+`otigen call` without `--from` runs in view mode against `pyde_call` — no tx, no gas, no nonce, no signing. Pass `--from <wallet>` to switch to a state-mutating signed call. Positional arguments are typed per `[functions.<fn>].inputs` in declaration order:
 
 ```bash
 otigen call <addr> balance_of 0x9b8c7d6e5f4a3b2c...
+otigen call <addr> balance_of devnet-0
 ```
+
+Address-typed inputs accept either a `0x`-prefixed 64-char hex literal OR a wallet name from the local keystore (`devnet-0`, `alice`, …). The CLI looks the wallet name up and substitutes its 32-byte address before encoding the call. See the [`call` command reference](./commands.md#otigen-call) for the full typed-args surface (`vec(T)`, structs, enums, the `--raw` view-return knob).
 
 For the structured-output variant, add `--json`:
 

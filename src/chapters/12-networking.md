@@ -158,10 +158,10 @@ The fix (commit 2018b17) was twofold:
    all of its mesh peers immediately, not just a random subset.
 
 The combination raised sustained TPS from ~1K to ~4K on the same testnet
-hardware. There is also a paired change in the block executor that skips
-redundant per-tx FALCON verification when the block-level batched verify
-already passed (`block_sigs_pre_verified` flag in `BlockContext`) —
-roughly 70% reduction in block-execution CPU.
+hardware. There is also a paired change in the wave executor that skips
+redundant per-tx FALCON verification when the wave-level batched verify
+already passed (`block_sigs_pre_verified` flag in `WaveContext`) —
+roughly 70% reduction in wave-execution CPU.
 
 ---
 

@@ -1519,14 +1519,14 @@ fn walk_proof(leaf: [u8; 32], proof: &[u8]) -> [u8; 32] {
 #[pyde::entry]
 fn claim(amount: u128, proof: Vec<u8>) {
     // Sanity-check proof length BEFORE hashing — saves gas on garbage input.
-    if proof.len() % 33 != 0 { pyde::revert("MalformedProof"); }
-    if proof.len() > 33 * 32 { pyde::revert("ProofTooLong"); }   // cap at 32 levels = 2^32 leaves
+    if proof.len() % 33 != 0 { pyde::revert("merkle: malformed proof"); }
+    if proof.len() > 33 * 32 { pyde::revert("merkle: proof too long"); }   // cap at 32 levels = 2^32 leaves
 
     let claimant = pyde::caller();
     let leaf = leaf_hash(&claimant, amount);
     let computed = walk_proof(leaf, &proof);
 
-    if computed != stored_root() { pyde::revert("InvalidProof"); }
+    if computed != stored_root() { pyde::revert("merkle: invalid proof"); }
 
     // ... mark claimed, emit event, etc.
 }

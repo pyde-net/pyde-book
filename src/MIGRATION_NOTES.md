@@ -53,7 +53,7 @@ protocol that Sui has been running in production since 2024.
 | State tree | Fixed-depth Sparse Merkle Tree | Jellyfish Merkle Tree (radix-16, path-compressed) |
 | Hashing | Poseidon2 everywhere | Blake3 (native) + Poseidon2 (ZK-bearing) |
 | State root | Single Poseidon2 root | Dual: Blake3 + Poseidon2 |
-| Execution | Static access lists only | Hybrid: static + Block-STM speculation |
+| Execution | Otigen era: static access lists only. Intermediate proposal (dropped): hybrid static + Block-STM speculation. | Current v1: uniform Block-STM; access list is an optional prefetch hint (PIP-3 multiget cache warm-up) and never partitions execution. |
 | Staking model | Single 10K PYDE | Single 10K PYDE (unchanged; an interim mid-pivot draft of the book proposed 10M/100K tiers — that was an error; flat-tier with operator-cap was the actual decision) |
 | Reward distribution | Direct proposer share (20%) | Epoch reward pool (20%, distributed by stake×uptime) |
 | Peer discovery | Kademlia DHT | Layered (seeds → DNS → on-chain registry → PEX → cache) |

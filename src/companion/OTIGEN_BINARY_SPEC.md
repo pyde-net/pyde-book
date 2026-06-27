@@ -64,7 +64,7 @@ All subcommands accept the global flags:
 
 | Flag | Effect |
 |---|---|
-| `-v, --verbose` | Verbose logging. Counter flag — `-v` info, `-vv` debug. `otigen test` extends the ladder to `-vvv` (per-call traces) and `-vvvv` (storage diffs); see §3.10. |
+| `-v, --verbose` | Verbose logging. Counter flag — `-v` info, `-vv` debug. `otigen test` extends the ladder to `-vvv` (per-call traces) and `-vvvv` (storage diffs); see §3.11. |
 | `-q, --quiet` | Suppress non-error output |
 | `--json` | Output structured JSON (for CI / scripting) |
 | `--network <name>` | Override the default network (default: read from `otigen.toml` → `[network.default]`) |
@@ -198,9 +198,87 @@ otigen deploy --bundle <bundle> \
               --password-stdin
 ```
 
-Match `--chain-id` to what `pyde_chainId` reports on the target RPC. The same pair is required across §3.4 (`upgrade`), §3.5 (`pause` / `unpause` / `kill`), and §3.13's submitting variants — every CLI subcommand that signs a tx.
+Match `--chain-id` to what `pyde_chainId` reports on the target RPC. The same pair is required across §3.4 (`call` — mutating mode), §3.5 (`upgrade`), §3.6 (`pause` / `unpause` / `kill`), and §3.14's submitting variants — every CLI subcommand that signs a tx.
 
-### 3.4 `otigen upgrade`
+### 3.4 `otigen call`
+
+Invoke a function on a deployed contract. View vs mutating is decided by the presence of `--from`: without a signing wallet the call runs read-only through `pyde_call`; with `--from <wallet>` it submits a `TxType::Standard` transaction the same way `otigen deploy` does.
+
+```
+otigen call <target> <function> [ARGS...] [--args <HEX>] [--raw]
+            [--from <wallet>] [--rpc-url <URL>] [--network <name>]
+            [--value <quanta>] [--no-wait] [--password-stdin]
+```
+
+| Arg / Flag | Default | Description |
+|---|---|---|
+| `<target>` | required | Contract name (registered) or `0x`-prefixed address. |
+| `<function>` | required | Function name as declared in `[functions.<fn>]`. |
+| `ARGS...` | none | Positional, typed per `[functions.<fn>].inputs` in declaration order. See "Typed positional args" below. Mutually exclusive with `--args`. |
+| `--args <HEX>` | none | Pre-encoded borsh calldata, hex-encoded. Escape hatch when typed args don't fit. Mutually exclusive with positional `ARGS`. |
+| `--raw` | off | Preserve raw hex output for view-call returns. Default behaviour decodes per `[functions.<fn>].outputs`. |
+| `--from <WALLET>` | none (view mode) | Signing account. Presence flips the call to a state-mutating signed tx. |
+| `--rpc-url <URL>` | from `otigen.toml` | One-shot RPC override. View-mode does NOT require `--chain-id`; mutating-mode does (same contract as §3.3.1). |
+| `--network <NAME>` | `[network.default]` | Network selector from `otigen.toml`. |
+| `--value <QUANTA>` | `0` | Native PYDE attached to a mutating call (quanta = 10⁻⁹ PYDE). |
+| `--no-wait` | off | Mutating mode: submit + exit without polling. |
+| `--password-stdin` | off | Read wallet password from stdin. |
+
+#### 3.4.1 Typed positional args
+
+`ARGS` are marshalled per `[functions.<fn>].inputs` in declaration order:
+
+- **Primitives** (`u8`..`u128`, `i8`..`i128`, `bool`, `address`, `hash32`, `bytes`, `string`) — bare values. `address`-typed inputs accept either a `0x`-prefixed 64-char hex literal OR a wallet name from the local keystore (`devnet-0`, `alice`, …). Wallet names resolve to the keystore entry's deployed address.
+- **`vec(T)`** — JSON array literal: `'[1,2,3]'` (standard borsh `Vec<T>` wire shape).
+- **Named struct from `[types.<Name>]`** — JSON5 object: `'{maker:0xaa…,id:1,amount:100}'`. Field order in the literal does not matter; the marshaller looks fields up by name. See §4.13.
+- **Named enum from `[types.<Name>]`** — variant name as a bare string: `Pending`. v1 enums are unit-only. See §4.13.
+- **Unquoted `0x` hex literals** of 16+ chars are auto-quoted before JSON5 parse so 32-byte hash / address values don't need surrounding quotes inside struct + array literals.
+
+`--args 0x<hex>` is the escape hatch when typed args don't fit (e.g. calling a contract without a local `otigen.toml`, or supplying hand-built calldata). Mutually exclusive with positional `ARGS`.
+
+#### 3.4.2 Auto-decode of view returns
+
+By default, view returns are decoded per `[functions.<fn>].outputs`:
+
+- Single output → bare value (e.g. `1000000` for a `uint128`).
+- Multi-output → tuple syntax (e.g. `(true, 1000000)`).
+- Compound shapes (`vec(T)`, `struct(<Name>)`, enum) → JSON5-style rendering.
+
+`--raw` preserves the on-wire hex (`0x40420f00…`) — useful for piping into external decoders or for contracts the CLI doesn't have a schema for.
+
+In `--json` mode, the `call_result` event carries `return_data` as the raw hex and the decoded form in a separate `decoded` field.
+
+#### 3.4.3 Examples
+
+```bash
+# Primitive — address from local keystore
+otigen call my-token balance_of devnet-0
+
+# Primitive — explicit 0x hex address
+otigen call my-token balance_of 0x9b8c7d6e5f4a3b2c...
+
+# vec(u64)
+otigen call my-pool echo_vec_u64 '[1,2,3]'
+
+# Struct from [types.Order]
+otigen call my-orders echo_order '{id:1,maker:devnet-0,amount:100,paid:true}'
+
+# Enum from [types.Status]
+otigen call my-orders echo_status Pending
+
+# Raw hex return for piping
+otigen call my-token balance_of devnet-0 --raw
+
+# Escape hatch — hand-built calldata
+otigen call my-contract some_fn --args 0x0100000000000000
+
+# State-mutating call (signed tx)
+otigen call my-token transfer devnet-1 1000 --from devnet-0 --password-stdin <<< pw
+```
+
+Exit codes: `0` on success (view returned cleanly OR mutating tx included with success), `1` on validation failure (bad arg shape, mutually-exclusive `ARGS` + `--args`, `--rpc-url` without `--chain-id` in mutating mode), `2` on RPC / network error, `3` on contract revert (mutating mode).
+
+### 3.5 `otigen upgrade`
 
 Replace a contract's WASM via the upgrade flow.
 
@@ -217,14 +295,14 @@ otigen upgrade <name-or-address> [--bundle <path> | --wasm <path>] [--from <key>
 | `--from <KEY>` | from `otigen.toml` | Signing account (the contract's deployer / admin). |
 | `--no-wait` | off | Submit and exit without polling for the receipt. |
 | `--password-stdin` | off | Read wallet password from stdin. |
-| `--i-know-engine-rejects` | off | Bypass the engine-not-ready gate (see §3.5.1). |
+| `--i-know-engine-rejects` | off | Bypass the engine-not-ready gate (see §3.6.1). |
 | `--rpc-url` / `--chain-id` | none | RPC override pair, same contract as §3.3.1. |
 
-For contracts: signs an `UpgradeContractTx` (`TxType::Lifecycle` / `LifecyclePayload::Upgrade { new_wasm }` per §8.3). **As of v1 the engine has no `TxType::Lifecycle` handler** — the tx is built and signed correctly by the CLI but refused at the engine. See §3.5.1.
+For contracts: signs an `UpgradeContractTx` (`TxType::Lifecycle` / `LifecyclePayload::Upgrade { new_wasm }` per §8.3). **As of v1 the engine has no `TxType::Lifecycle` handler** — the tx is built and signed correctly by the CLI but refused at the engine. See §3.6.1.
 
 For parachains: requires governance certs collected separately (per [PARACHAIN_DESIGN §6.2](./PARACHAIN_DESIGN.md)). `otigen upgrade --parachain` runs the full vote flow if `[parachain.governance.auto_collect]` is true; otherwise the author submits the proposal, gathers votes externally, and runs `otigen upgrade --finalize <proposal-id>` to submit the activation tx.
 
-### 3.5 `otigen pause` / `otigen unpause` / `otigen kill`
+### 3.6 `otigen pause` / `otigen unpause` / `otigen kill`
 
 Operational lifecycle.
 
@@ -240,7 +318,7 @@ otigen kill    <name-or-address> [...same flags as pause...] [--yes]
 | `--from <KEY>` | from `otigen.toml` | Signing account (contract deployer / admin). |
 | `--no-wait` | off | Submit and exit without polling for the receipt. |
 | `--password-stdin` | off | Read wallet password from stdin. |
-| `--i-know-engine-rejects` | off | Bypass the engine-not-ready gate (§3.5.1). |
+| `--i-know-engine-rejects` | off | Bypass the engine-not-ready gate (§3.6.1). |
 | `--rpc-url` / `--chain-id` | none | RPC override pair, same contract as §3.3.1. |
 | `--yes` (kill only) | off | Skip the interactive `re-type the contract name` confirmation. |
 
@@ -248,7 +326,7 @@ otigen kill    <name-or-address> [...same flags as pause...] [--yes]
 - `unpause`: signs `LifecyclePayload::Unpause`.
 - `kill`: signs `LifecyclePayload::Kill`. Irreversible; the interactive confirmation prompts for the contract's name to be re-typed verbatim unless `--yes` is passed.
 
-#### 3.5.1 The engine-not-ready gate
+#### 3.6.1 The engine-not-ready gate
 
 Per §8.2 + §8.3, v1 ships **no chain-side `TxType::Lifecycle` handler**. The CLI surface is committed in code so that when engine support lands the wire shape doesn't shift, but submitting any of the four lifecycle subcommands against current mainnet / devnet would revert at the engine with `decode CallPayload: Unexpected length of input` (the engine treats the Standard-shape tx as a contract call and tries to decode the borsh-encoded `LifecyclePayload` as a `CallPayload { function, calldata }`).
 
@@ -267,7 +345,7 @@ Exit code `1` (`VALIDATION_FAILURE`).
 
 The v1 alternative patterns (proxy contracts for upgrade; author-declared `paused: bool` / `killed: bool` in `[state]` for pause/kill) are documented in §8.2 + §8.3.
 
-### 3.6 `otigen inspect`
+### 3.7 `otigen inspect`
 
 Read contract / parachain state and metadata.
 
@@ -297,7 +375,7 @@ With `--state-field` or `--field`: focused single-slot read; prints the slot has
 
 > **Note.** Earlier drafts of this spec listed `version` / `total_versions` / `owner` / `status` fields. None of these exist on the engine's `Account` in v1 — see §8.2/§8.3 for what v1 actually provides and the v2 plan. The v1 lifecycle story is author-declared booleans + proxy upgrades; chain-side support is deferred.
 
-### 3.7 `otigen wallet`
+### 3.8 `otigen wallet`
 
 Wallet subcommands. `<NAME>` is positional in every subcommand that takes one (no `--name` flag).
 
@@ -325,7 +403,7 @@ otigen wallet verify [NAME] --message <MSG> --signature <HEX> [--hex] [--pubkey 
 
 Keystore format: see §6.
 
-### 3.8 `otigen console`
+### 3.9 `otigen console`
 
 Interactive REPL against a Pyde node. Foundry-`cast` shape;
 line-edited via rustyline with persisted history at
@@ -361,7 +439,7 @@ or a registered name resolved via `pyde_resolveName`.
 Deferred (follow-up PRs):
 - ABI-aware calldata typing (Foundry's `cast send --json-abi` shape) — currently calldata is supplied as raw hex.
 
-### 3.9 `otigen verify`
+### 3.10 `otigen verify`
 
 Verify that a published contract's bundled artifact matches its on-chain deployment.
 
@@ -384,7 +462,7 @@ Exit codes: `0` on match, `1` on mismatch (with a diff summary including size de
 
 The `--explorer` path uploads independently of the local-vs-chain check. The CLI redacts the API key when echoing the endpoint in human-readable output.
 
-### 3.10 `otigen test`
+### 3.11 `otigen test`
 
 Run contract behaviour tests declared in TOML against the built `.wasm`.
 
@@ -458,7 +536,7 @@ Note: the runner's fuel units correlate to but are not bit-identical with on-cha
 
 The full TOML schema, name resolution rules, cheatcode catalogue, host-function behaviour, and limitations are documented in [`OTIGEN_TEST_SPEC.md`](./OTIGEN_TEST_SPEC.md). That spec is authoritative.
 
-### 3.11 `otigen new`
+### 3.12 `otigen new`
 
 Scaffold a project by cloning a canonical example from the [`pyde-net/otigen` example catalogue](https://github.com/pyde-net/otigen/tree/main/examples). Where `otigen init` writes a minimal hello-world, `otigen new` produces a fully-working contract with a passing TOML test suite — the fastest path from zero to a green `otigen test` run.
 
@@ -497,7 +575,7 @@ Side effects:
 
 Exit codes: `0` on success, `1` if `<dir>` already exists or the template is unknown (`UnknownTemplate(name)` error → run with `--list` to see the catalogue).
 
-### 3.12 `otigen devnet`
+### 3.13 `otigen devnet`
 
 Run a local devnet. The chain runtime is **embedded in the `otigen` binary** — no separate `pyde` download or path resolution. The devnet's `ValidatorRuntime` builds on a tempdir-backed `StateStore`, applies the genesis prefund via a `ValidatorPreRunHook`, binds the JSON-RPC server, and runs until Ctrl-C. State is wiped on shutdown.
 
@@ -524,7 +602,7 @@ Mutual-exclusion check between `--fork` and the `--prefund-*` flags fires up-fro
 
 Exit codes: `0` on graceful shutdown, `1` on validation failure (conflicting flags), `2` on runtime / chain-side error.
 
-### 3.13 `otigen check`
+### 3.14 `otigen check`
 
 Validate the project without packaging. Same checks as `otigen build` steps 1–7 (read + schema-validate `otigen.toml`, locate `.wasm`, every WASM-level validator, ABI build) minus the bundle write. Intended for pre-commit hooks, IDE integrations, and tight iteration loops where the bundle write is wasted I/O.
 
@@ -540,7 +618,7 @@ Exit codes: `0` on clean validation, `1` on validation failure (with per-violati
 
 Coverage parity with `otigen build`: any contract that passes `otigen check` will pass `otigen build`'s validators identically (steps 8+ are I/O-only). Likewise any contract that fails `otigen build` validation fails `otigen check` with the same diagnostic. The two commands share the validation core; `check` is `build` with the writer disabled.
 
-### 3.14 `otigen validator`
+### 3.15 `otigen validator`
 
 Read-only validator-introspection over the engine's
 `pyde_getValidator` + `pyde_getOperatorValidators` RPCs.
@@ -704,7 +782,9 @@ The `[contract.lang.toolchain]` subtable holds language-specific version pins. `
 | `attributes` | array of strings | ✅ | — | Any subset of `view`, `payable`, `reentrant`, `sponsored`, `constructor`, `fallback`, `receive`, `entry`. Subject to compatibility rules per [HOST_FN_ABI_SPEC §3.5.1](./HOST_FN_ABI_SPEC.md) |
 | `inputs` | array of strings | ❌ | `[]` | Parameter types in declaration order |
 | `outputs` | array of strings | ❌ | `[]` | Return types in declaration order |
-| `access_list` | array of strings | ❌ | `[]` | Informational state slot patterns; the runtime computes the actual hashes |
+| `access_list` | array of strings | ❌ | `[]` | Optional prefetch hint — pairs of `(address, slot)` patterns the chain may use to warm cache before Block-STM workers start. Not a scheduling primitive; v1 execution is uniform Block-STM regardless of declared access list. Runtime enforcement of declared scope (rejecting out-of-list reads) is a v2 hardening. |
+
+`inputs` / `outputs` accept the storage type vocabulary in §4.6 (`uint128`, `address`, `bool`, `vec(uint64)`, …) plus the **bare name** of any custom type declared in `[types.<Name>]` (§4.13). For example, `inputs = ["Order", "uint128"]` references the struct declared in `[types.Order]`. The asymmetry with `[state].schema` (which wraps custom types as `struct(<Name>)`) is intentional — see §4.13.
 
 A function declared in `[functions.X]` must have a matching WASM export named `X`. The reverse must also hold (no orphan exports), unless the export name starts with `_` (internal helper convention).
 
@@ -744,8 +824,8 @@ Field type vocabulary:
 | `address` / `hash32` | 32 | Raw 32-byte array. `bytes32` is an alias for `hash32` (Solidity migration ergonomics). |
 | `bytes` | variable | u32-len-prefix + bytes. |
 | `string` | variable | u32-len-prefix + UTF-8 bytes. |
-| `vec(<inner>)` | variable | u32-len-prefix + N × fixed-width inner. Inner must be fixed-width — `vec(bytes)` / `vec(string)` / `vec(vec(...))` rejected at parse time. |
-| `struct(<Name>)` | variable | Borsh round-trip. Author declares `#[derive(BorshSerialize, BorshDeserialize)]` on `<Name>`; the macro emits typed accessors that borsh-encode/decode through the chain's variable-length storage host fns. Chain-side maps to `ScalarType::Bytes`. |
+| `vec(<inner>)` | variable | u32-len-prefix + N × fixed-width inner. Inner must be fixed-width (`u8`..`u128`, `i8`..`i128`, `bool`, `address`, `hash32`, `bytes32`) — `vec(bytes)` / `vec(string)` / `vec(<Custom>)` / `vec(vec(...))` rejected at parse time. Workaround for arrays-of-struct: use the indexed-map pattern `map<u64, struct(<Name>)>` (same I/O shape from the contract's perspective; see §4.13). |
+| `struct(<Name>)` | variable | Borsh round-trip. Author declares `#[derive(BorshSerialize, BorshDeserialize)]` on `<Name>` and the struct in `[types.<Name>]` (§4.13); the macro emits typed accessors that borsh-encode/decode through the chain's variable-length storage host fns. Chain-side maps to `ScalarType::Bytes`. |
 
 Map shape — two equivalent surfaces. Either form may be used; the canonical-form keys/value path is the underlying representation and the sugar form is lowered to it at build time.
 
@@ -877,6 +957,92 @@ discord           = "pyde"
 Two caps are intentionally stricter on the explorer side (280 vs 1000 for description; 4 vs 32 for tags; 5 vs 32 for authors). The explorer ones are the binding limit — they're what the verify endpoint actually enforces and what the verified-card UI is sized for. Plan to converge otigen-toml down to the explorer values in a follow-up.
 
 `[contract].name` and `[metadata].name` are independent fields but must share a charset (lowercase ENS-style) so a bundle that builds also verifies. The chain-level identifier (`[contract].name`) is what derives the deployed address; `[metadata].name` is purely display.
+
+### 4.13 `[types.<Name>]` table
+
+Declares contract-local named types — structs and unit-variant enums — so they can be referenced by bare name in `[functions.<fn>].inputs` / `outputs` and via the `struct(<Name>)` wrapper in `[state].schema`. Lets contracts pass typed records across the chain ABI without falling back to opaque `bytes`.
+
+Two shapes, chosen by which key is present.
+
+**Struct** — `fields = [{ name = "...", type = "..." }, ...]`:
+
+```toml
+[types.Order]
+fields = [
+    { name = "id",     type = "uint64" },
+    { name = "maker",  type = "address" },
+    { name = "amount", type = "uint128" },
+    { name = "paid",   type = "bool" },
+]
+```
+
+Field declaration order is wire-load-bearing — borsh keys positional offsets. Reordering breaks compatibility for any contract previously deployed against the old order.
+
+**Enum (unit-variant only)** — `variants = [{ name = "..." }, ...]`:
+
+```toml
+[types.Status]
+variants = [
+    { name = "Pending" },
+    { name = "Active" },
+    { name = "Cancelled" },
+]
+```
+
+Variant declaration order is the u8 tag (0-based: `Pending = 0`, `Active = 1`, `Cancelled = 2`). Reordering breaks the wire. v1 supports unit-variant enums only — no data-carrying variants. Rationale: cross-language portability. Rust / C++ / Zig have native sum types, but Go / TypeScript / Python need per-variant boilerplate that the bare-tag enum sidesteps. Data-carrying variants are tracked for a v2 follow-up.
+
+#### Referencing custom types
+
+The asymmetry is intentional:
+
+| Where | Form | Example |
+|---|---|---|
+| `[functions.<fn>].inputs` | bare name | `inputs = ["Order"]` |
+| `[functions.<fn>].outputs` | bare name | `outputs = ["Status"]` |
+| `[state].schema` | `struct(<Name>)` / `vec(<Name>)` wrapper | `{ name = "current_order", type = "struct(Order)" }` |
+
+Function dispatch reads bare names directly from the ABI; the storage macro substrate needs the wrapper to disambiguate a custom type from a primitive type-token name.
+
+#### Storage `vec(T)` constraint
+
+Stored arrays must hold a fixed-width inner type: `u8`..`u128`, `i8`..`i128`, `bool`, `address`, `hash32`, `bytes32`. Variable-width inners (`string`, `bytes`, `vec(...)`, `struct(<Name>)`) are rejected at parse time — slot derivation collides on variable-width offsets.
+
+Workaround for stored arrays-of-struct (or any non-fixed-width vec element): use an indexed-map pattern.
+
+```toml
+[state]
+schema = [
+    { name = "order_count", type = "uint64" },
+    { name = "orders",      type = "map", keys = ["uint64"], value = "struct(Order)" },
+]
+```
+
+`orders[i]` for `i in 0..order_count` is the same I/O shape as a `vec(struct(Order))` from the contract author's perspective — same `read`/`write` calls, no surprise about iteration cost.
+
+#### Rust contract requirement
+
+Every custom type referenced from `[types.<Name>]` must carry `#[derive(BorshSerialize, BorshDeserialize)]` on the Rust side. Without the derives, the macro substrate (`#[pyde::entry]` arg-decode + `pyde::declare_storage!()` typed storage accessors) fails to compile — the generated code calls borsh's `try_from_slice` / `serialize` on these types.
+
+```rust
+use borsh::{BorshSerialize, BorshDeserialize};
+
+#[derive(BorshSerialize, BorshDeserialize)]
+pub struct Order {
+    pub id:     u64,
+    pub maker:  pyde::Address,
+    pub amount: u128,
+    pub paid:   bool,
+}
+
+#[derive(BorshSerialize, BorshDeserialize)]
+pub enum Status {
+    Pending,
+    Active,
+    Cancelled,
+}
+```
+
+Non-Rust contracts marshal the wire bytes manually per their language's borsh library (see `examples/counter-{go,as,c}` for the per-language convention).
 
 ---
 

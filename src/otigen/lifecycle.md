@@ -41,7 +41,7 @@ pub mod state {
 #[pyde::entry]
 fn init(admin: Address, implementation: Address) {
     if state::init_guard().read() != 0 {
-        pyde::revert("AlreadyInitialized");
+        pyde::revert("proxy: already initialized");
     }
     state::admin().write(&admin);
     state::implementation().write(&implementation);
@@ -52,7 +52,7 @@ fn init(admin: Address, implementation: Address) {
 fn upgrade(new_implementation: Address) {
     let caller = pyde::caller();
     if caller != state::admin().read() {
-        pyde::revert("NotAdmin");
+        pyde::revert("proxy: not admin");
     }
     state::implementation().write(&new_implementation);
 }
@@ -86,13 +86,13 @@ pub mod state {
 
 fn require_unpaused() {
     if state::paused().read() {
-        pyde::revert("Paused");
+        pyde::revert("contract: paused");
     }
 }
 
 fn require_owner() {
     if pyde::caller() != state::owner().read() {
-        pyde::revert("NotOwner");
+        pyde::revert("contract: not owner");
     }
 }
 
@@ -124,7 +124,7 @@ Same shape as `paused`, but the entry assertions never check for an unpause coun
 ```rust
 fn require_alive() {
     if state::killed().read() {
-        pyde::revert("Killed");
+        pyde::revert("contract: killed");
     }
 }
 

@@ -31,7 +31,8 @@ Execution sits inside the `wasm-exec` crate of the engine workspace. The crate e
 ```
 ┌────────────────────────────────────────────────────────────┐
 │  Engine transaction pipeline                                │
-│  (mempool → access-list scheduler → execution dispatch)     │
+│  (mempool → Block-STM scheduler [with access-list prefetch] │
+│   → execution dispatch)                                     │
 └─────────────────────┬───────────────────────────────────────┘
                       │
                       ▼

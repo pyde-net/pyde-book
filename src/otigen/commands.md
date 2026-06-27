@@ -378,30 +378,64 @@ otigen kill    my-counter --from devnet-0 --i-know-engine-rejects --yes --passwo
 Invoke a function on a deployed contract. View vs mutating is decided by the presence of `--from`: with a signing wallet the call submits a tx; without one it runs in view mode via `pyde_call`.
 
 ```text
-otigen call [OPTIONS] <TARGET> <FUNCTION>
+otigen call [OPTIONS] <TARGET> <FUNCTION> [ARGS...]
 ```
 
-| Flag | Default | What it does |
+| Arg / Flag | Default | What it does |
 | --- | --- | --- |
 | `<TARGET>` | required | Contract name or `0x`-prefixed address. |
 | `<FUNCTION>` | required | Function name from the contract's ABI. |
-| `--args <HEX>` | empty | Borsh-encoded calldata, hex-encoded. |
+| `[ARGS...]` | none | Typed positional args. Marshalled per `[functions.<FUNCTION>].inputs` in declaration order. Mutually exclusive with `--args`. See "Typed arguments" below. |
+| `--args <HEX>` | none | Pre-encoded borsh calldata, hex-encoded. Escape hatch when typed args don't fit (e.g. calling a contract without a local `otigen.toml`). Mutually exclusive with positional `ARGS`. |
+| `--raw` | off | Preserve raw hex output for view-call returns. Default behaviour decodes per `[functions.<FUNCTION>].outputs`. |
 | `--value <QUANTA>` | `0` | Native PYDE to attach to a mutating call (quanta = 10⁻⁹ PYDE). |
 | `--from <WALLET>` | none (view mode) | Signing account. Presence flips the call to a state-mutating signed tx. |
 | `--no-wait` | off | For mutating calls: submit + exit without polling. |
 | `--password-stdin` | off | Read wallet password from stdin. |
 | `--rpc-url <URL>` | from `otigen.toml` | RPC override. View-mode `--rpc-url` does NOT require `--chain-id` (no tx signed). Mutating-mode usage WILL require `--chain-id` like deploy/upgrade. |
 
+### Typed arguments
+
+Positional `ARGS` are marshalled per `[functions.<fn>].inputs` in declaration order. Per type:
+
+- **Primitives** (`u8`..`u128`, `i8`..`i128`, `bool`, `address`, `hash32`, `bytes`, `string`) — bare values. `address`-typed inputs accept either a `0x`-prefixed 64-char hex literal OR a wallet name from the local keystore (`devnet-0`, `alice`, …) — wallet names resolve to the keystore entry's address.
+- **`vec(T)`** — JSON array literal: `'[1,2,3]'` (standard borsh `Vec<T>` wire shape).
+- **Struct from `[types.<Name>]`** — JSON5 object literal: `'{maker:devnet-0,amount:100,paid:false}'`. Field order does not matter; the marshaller looks fields up by name.
+- **Enum from `[types.<Name>]`** — variant name as a bare string: `Pending`. v1 enums are unit-only.
+- **Unquoted `0x` hex literals** of 16+ chars are auto-quoted before JSON5 parse, so 32-byte hash + address values don't need surrounding quotes inside struct + array literals.
+
 ```bash
 # View mode (free, no tx, no gas, no signing):
 otigen call my-counter get
-otigen call my-token balance_of --args 0x9b8c... --rpc-url https://rpc.example
+otigen call my-token balance_of devnet-0          # wallet-name address
+otigen call my-token balance_of 0x9b8c...         # explicit hex address
+otigen call my-pool   echo_amounts '[100,200,300]'
+
+# Struct + enum
+otigen call my-orders create '{maker:devnet-0,amount:100,paid:false}'
+otigen call my-orders set_status Active
+
+# Raw hex view return (default decodes)
+otigen call my-token balance_of devnet-0 --raw    # 0x40420f00000000000000000000000000
 
 # Mutating mode (signed tx):
 otigen call my-counter increment --from devnet-0 --password-stdin <<< pw
+otigen call my-token   transfer 0x9b8c... 1000 --from devnet-0 --password-stdin <<< pw
+otigen call my-token   transfer devnet-1 1000  --from devnet-0 --password-stdin <<< pw
+
+# Escape hatch — pre-encoded calldata when no local otigen.toml is available
+otigen call my-contract some_fn --args 0x0100000000000000
 ```
 
-`--json` mode emits a `call_included` NDJSON event; view calls include the `return_data` hex.
+### Auto-decoded view returns
+
+By default, view-call returns are decoded per `[functions.<fn>].outputs`:
+
+- Single output → bare value (`1000000` for a `uint128`).
+- Multi-output → tuple syntax (`(true, 1000000)`).
+- Compound shapes (`vec(T)`, `struct(<Name>)`, enum) → JSON5-style.
+
+`--raw` preserves the on-wire hex — useful for piping into external decoders or for contracts the CLI doesn't have an `outputs` schema for. In `--json` mode the `call_result` event carries `return_data` (raw hex) alongside a separate `decoded` field with the decoded form (see [`crates/otigen-cli/src/commands/call.rs`](https://github.com/pyde-net/otigen/blob/main/crates/otigen-cli/src/commands/call.rs) for the exact event shape).
 
 ---
 

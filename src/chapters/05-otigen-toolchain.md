@@ -59,7 +59,7 @@ Every row links to its canonical [`OTIGEN_BINARY_SPEC`](../companion/OTIGEN_BINA
 | `otigen deploy` | Sign and submit a deploy transaction. Loads the bundle, re-validates, fetches nonce via `pyde_getTransactionCount`, builds the canonical `Tx` envelope with `tx_type = Deploy` + borsh-encoded `DeployData{ name, wasm_bytes, contract_type, init_calldata }` in `tx.data`, FALCON-signs the Poseidon2 tx-hash, submits via `pyde_sendRawTransaction`, polls the receipt. `--dry-run` to inspect without submitting; `--no-wait` to skip the receipt poll. `--rpc-url <URL>` + `--chain-id <N>` give a one-shot override of `[network.<name>]` (mandatory pair — raw URL has no chain id, signing against `chain_id = 0` silently bricks the FALCON sig). | [§3.3](../companion/OTIGEN_BINARY_SPEC.md#33-otigen-deploy) |
 | `otigen upgrade <target>` | **Engine-gated in v1.** The CLI builds the signed tx but refuses to submit (`EngineNotReady`) because the chain has no `TxType::Lifecycle` handler yet. v1 pattern: proxy + `delegate_call`. `--i-know-engine-rejects` bypasses the gate for stub-engine testing. Mandatory `--rpc-url` + `--chain-id` pair applies when overriding. | [§3.4](../companion/OTIGEN_BINARY_SPEC.md#34-otigen-upgrade) |
 | `otigen pause` / `unpause` / `kill` | **Engine-gated in v1** — same `EngineNotReady` refusal + `--i-know-engine-rejects` bypass as `upgrade`. v1 pattern: author-declared `paused: bool` / `killed: bool` in `[state]`, gated in entry-function bodies. `kill --yes` skips the retype-the-target confirmation; mandatory `--rpc-url` + `--chain-id` pair applies when overriding. | [§3.5](../companion/OTIGEN_BINARY_SPEC.md#35-otigen-pause--otigen-unpause--otigen-kill) |
-| `otigen call <target> <fn>` | Sign and submit a contract call (`TxType::Standard` with `data = borsh(CallPayload { function, calldata })`). Routes through the chain's `WasmExecutor::execute_call` for `entry`-attributed functions; view functions skip submission and go through `pyde_call` (free, no tx, no gas) when otigen recognises the `view` attribute from a local `otigen.toml`. `--args <hex>` for raw pre-encoded calldata; `--value <decimal>` for native-token transfers alongside the call. | [§3.3](../companion/OTIGEN_BINARY_SPEC.md#33-otigen-deploy) (shared tx envelope path) |
+| `otigen call <target> <fn> [args...]` | Sign and submit a contract call (`TxType::Standard` with `data = borsh(CallPayload { function, calldata })`). Routes through the chain's `WasmExecutor::execute_call` for `entry`-attributed functions; view functions skip submission and go through `pyde_call` (free, no tx, no gas) when otigen recognises the `view` attribute from a local `otigen.toml`. Positional args are typed per `[functions.X].inputs` — `otigen call <addr> transfer devnet-1 100` Just Works; address values resolve wallet names from the local keystore; JSON array syntax `[1,2,3]` carries `vec(T)`; JSON5 struct + variant-name forms carry `[types.<Name>]` shapes (`{maker:0xaa…,id:1}`, `Pending`). `--args <hex>` is the escape hatch for raw pre-encoded calldata; view returns auto-decode per `[functions.X].outputs` (`--raw` keeps the hex); `--value <decimal>` attaches a native-token transfer alongside the call. | [§3.X](../companion/OTIGEN_BINARY_SPEC.md) |
 | `otigen inspect <target>` | Read deployed contract state via the rpc client. Default mode surfaces address, account type, balance, nonce, code hash, code size, state root, and (when the wasm carries a `pyde.abi` custom section) the full ABI summary: version, function count, constructor / fallback / receive bindings, state schema hash, per-function selector + attribute labels. `--state-field <name>` reads a substrate-typed scalar field — derives the slot `Poseidon2(self_address \|\| field_name)` (the chain's `sstore_scalar` convention), pulls the bytes, and decodes per the type token in `[state].schema`; renders contract / field / slot / raw / decoded value. `--field <name>` reads a legacy raw-storage slot via `Poseidon2(name)` — used by contracts that call `sstore` / `sload` directly; mutually exclusive with `--state-field`. `--rpc-url <URL>` one-shot override + `--at-wave <id>` for archive nodes. ⏳ Owner / version history land when the RPC catalog grows the corresponding endpoints. | [§3.6](../companion/OTIGEN_BINARY_SPEC.md#36-otigen-inspect) |
 | `otigen verify <target>` | Reproducibility check: compares the local bundle's `contract.wasm` against the chain-stored bytes from `pyde_getContractCode`. Exit 0 on match, 1 on mismatch with blake3 hashes + size delta + first-diff offset. Two clean local builds of the canonical hello-rust produce byte-identical `contract.wasm` + `abi.json` (modulo `manifest.build_timestamp`) — the `make reproducibility` gate locks the invariant. | [§3.9](../companion/OTIGEN_BINARY_SPEC.md#39-otigen-verify) |
 | `otigen validator <subcmd>` | Read-only validator-introspection over `pyde_getValidator` + `pyde_getOperatorValidators`. `show <addr>` returns one validator's full chain-side record (operator + pubkey + stake + status + jail / unbond timeline + last-claimed reward checkpoint + uptime bps); exits non-zero with `NotAValidator` for unregistered addresses so shell scripts can branch on exit code. `by-operator <addr>` lists every validator an operator runs. `--json` emits the same data as one NDJSON event per invocation. Registration / stake / unbond / unjail / key-rotation flows live on the `pyde stake` CLI (engine binary). | [§3.14](../companion/OTIGEN_BINARY_SPEC.md#314-otigen-validator) |
@@ -132,7 +132,7 @@ schema = [
 attributes  = ["entry", "payable"]
 inputs      = ["address", "uint128"]
 outputs     = ["bool"]
-access_list = [                  # optional; unlocks parallel scheduling
+access_list = [                  # optional; prefetch hint for cache warm-up
     "balances[caller()]",
     "balances[args.0]",
 ]
@@ -145,6 +145,26 @@ outputs    = ["uint128"]
 [functions.init]
 attributes = ["constructor"]      # callable only at deploy time
 inputs     = ["uint128"]
+
+# ─────────────────────────────────────────────────────────────────
+# Custom types — referenced by bare name in [functions.X].inputs/outputs,
+# and via struct(...) / vec(...) wrappers in [state].schema.
+# ─────────────────────────────────────────────────────────────────
+
+[types.Order]
+fields = [
+    { name = "id",     type = "uint64"  },
+    { name = "maker",  type = "address" },
+    { name = "amount", type = "uint128" },
+    { name = "paid",   type = "bool"    },
+]
+
+[types.Status]
+variants = [
+    { name = "Pending" },
+    { name = "Active"  },
+    { name = "Cancelled" },
+]
 
 [events.Transfer]
 signature = "Transfer(address,address,uint128)"
@@ -169,7 +189,9 @@ fields = [
 
 **`[state]`** — the schema of the contract's storage. Used by `otigen build` to compute `state_schema_hash` (which the chain compares against on every state read for type-safety enforcement) and emitted in `abi.json` for explorers. The author's contract code still derives the storage slots itself — Pyde does not ship per-language storage bindings.
 
-**`[functions.<name>]`** — every callable function the runtime should dispatch to. `attributes` is the safety + dispatch attribute set documented in §5.6. `otigen build` cross-checks every `[functions.X]` has a matching WASM export named `X` and rejects exports that aren't declared. Optional `access_list` declares the storage slots the function touches; declaring them unlocks the parallel scheduler.
+**`[functions.<name>]`** — every callable function the runtime should dispatch to. `attributes` is the safety + dispatch attribute set documented in §5.6. `otigen build` cross-checks every `[functions.X]` has a matching WASM export named `X` and rejects exports that aren't declared. Optional `access_list` declares the storage slots the function touches; accurate lists optimize cache prefetch performance in the uniform Block-STM scheduler (declaring nothing still works — the chain just runs with a colder cache).
+
+**`[types.<Name>]`** — author-declared custom types. Two shapes: a struct declares `fields = [{ name, type }, ...]`; an enum declares `variants = [{ name = "X" }, ...]` (v1 is unit-only — no data-carrying variants). Functions reference custom types by **bare name** in `[functions.X].inputs` / `outputs` (e.g. `"Order"`); storage references them via the `struct(<Name>)` wrapper in `[state].schema` (e.g. `{ name = "current_order", type = "struct(Order)" }`), and `vec(<Name>)` similarly wraps for arrays. Rust contract code needs `#[derive(BorshSerialize, BorshDeserialize)]` on every custom type — the macro substrate's typed storage + entry-arg decoders depend on it.
 
 **`[events.<name>]`** — emitted-event declarations. `signature` is the canonical string the chain hashes (Blake3) to derive the topic-0 value. Indexed fields are searchable via `pyde_getLogs`; non-indexed fields are Borsh-encoded into `data`.
 
@@ -339,7 +361,7 @@ pyde::declare_events! {
 fn transfer(to: Address, amount: u128) {
     let from = pyde::caller();
     let from_bal = storage::balances().get(&from);
-    if from_bal < amount { pyde::revert("InsufficientBalance"); }
+    if from_bal < amount { pyde::revert("transfer: insufficient balance"); }
     storage::balances().set(&from, from_bal - amount);
     storage::balances().set(&to, storage::balances().get(&to) + amount);
     events::Transfer { from, to, amount }.emit();
@@ -479,7 +501,7 @@ Beyond function attributes, several broader Otigen design choices carry forward 
 | Checked arithmetic by default       | Per-language SDK helper patterns; wrapping ops require explicit opt-in (e.g., Rust's `wrapping_add` is explicitly named). |
 | Typed storage                       | `otigen.toml` `[state]` schema declares types; ABI includes the schema so the runtime + explorers know what each slot is. Authors implement type-safe access in their own code. |
 | No `tx.origin`                      | Host function ABI exposes `caller()` (direct caller) but no `origin()`. The Solidity-style phishing footgun is absent.     |
-| Compile-time access lists           | Build tool emits a static access list per function from the declared state schema; the parallel scheduler uses these.     |
+| Compile-time access lists           | Build tool emits a static access list per function from the declared state schema; these serve as prefetch hints to warm the cache, improving performance but never affecting Block-STM correctness. |
 | 4-byte function selectors           | Build tool emits `selector = first 4 bytes of Hash(function_signature)` in the ABI.                                       |
 | Sponsored / gasless transactions    | `#[sponsored]` attribute + `gas_tank` per contract account, exactly as designed in the Otigen era.                        |
 | Reserved-storage-slot guards        | Reentrancy guard uses a reserved slot in the contract's state subtree, never reachable by user-allocated slots.            |

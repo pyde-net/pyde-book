@@ -167,7 +167,7 @@ Pyde's TS and Rust SDKs embed wasmtime directly, so wallets can **simulate trans
 The default. Wallets ship with:
 
 - **Gas estimation** — run the tx against current state locally; count consumed fuel; show user the expected gas cost
-- **Access list inference** — speculatively execute; record every sload/sstore call's slot_hash; attach the inferred access list to the tx so the chain's parallel scheduler can use it
+- **Access list inference** — speculatively execute; record every sload/sstore call's slot_hash; attach the inferred access list to the tx so the chain can warm its execution cache via PIP-3 multiget prefetch before Block-STM workers start
 - **View function execution** — `view`-attributed functions execute locally, fetching state via RPC for any cache misses; no tx submitted, no gas
 - **Dry-run preview** — show the user "this tx will spend X PYDE, transfer Y tokens to address Z, emit Transfer event, leave your balance at W"
 - **Known-pattern decoding** — recognize standard ABI patterns (transfer, approve, etc.) and surface them in plain language

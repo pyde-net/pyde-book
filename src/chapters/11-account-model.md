@@ -407,11 +407,13 @@ struct AccessEntry {
 }
 ```
 
-The access list drives parallel execution (Chapter 9). Wallets generate it
-automatically by simulating the transaction (`pyde_createAccessList`) and
-attach it to the signed transaction. If the actual on-chain execution
-touches a slot not in the access list, the transaction reverts cleanly with
-`AccessListViolation`.
+The access list is a prefetch hint that optimizes cache warm-up (PIP-3
+multiget); v1 execution is uniform Block-STM and runs every tx in parallel
+regardless of whether a list is supplied. Wallets generate it automatically
+by simulating the transaction (`pyde_createAccessList`) and attach it to
+the signed transaction. (Runtime enforcement of declared access_list scope
+is a v2 hardening; v1 treats the list as a prefetch hint without runtime
+validation.)
 
 ### `deadline`
 

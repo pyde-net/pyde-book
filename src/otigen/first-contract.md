@@ -122,7 +122,7 @@ fn decrement() -> u64 {
     if current == 0 {
         // pyde::revert never returns; the engine rolls back every
         // state change since this call started.
-        pyde::revert("CounterAtZero");
+        pyde::revert("counter: at zero");
     }
     let next = current - 1;
     storage::counter().write(next);
@@ -146,13 +146,13 @@ outputs    = ["uint64"]
 Edit `tests/contract.test.toml` — append three new `[[tests]]` entries:
 
 ```toml
-# decrement from zero reverts with "CounterAtZero".
+# decrement from zero reverts with "counter: at zero".
 [[tests]]
 name = "decrement_at_zero_reverts"
 
 [[tests.calls]]
 function = "decrement"
-expect.revert = "CounterAtZero"
+expect.revert = "counter: at zero"
 
 
 # decrement from non-zero succeeds and reaches zero.
@@ -191,7 +191,7 @@ expect.return_value = "0"
 # discarded; the counter stays at the value from the previous call.
 [[tests.calls]]
 function = "decrement"
-expect.revert = "CounterAtZero"
+expect.revert = "counter: at zero"
 
 [[tests.calls]]
 function = "get"
@@ -261,6 +261,88 @@ expect.gas_max      = "300"     # fail the test if increment grows past 300 gas
 ```
 
 `expect.gas_max` is an upper-bound check — your contract can use any value ≤ the budget. Prefer `gas_max` over `expect.gas` (exact match) — exact is brittle to opcode-level codegen changes.
+
+---
+
+## 8. Next: custom types & complex arguments
+
+Real contracts pass more than primitives across the ABI. Two common needs — structs and enums — are declared in a `[types.<Name>]` block in `otigen.toml`, then referenced by bare name in function signatures.
+
+Here's a minimal `Order` struct + `Status` enum threaded through a `create_order` entry point.
+
+### Declare the types in `otigen.toml`
+
+```toml
+[types.Order]
+fields = [
+    { name = "id",     type = "uint64" },
+    { name = "maker",  type = "address" },
+    { name = "amount", type = "uint128" },
+    { name = "paid",   type = "bool" },
+]
+
+[types.Status]
+variants = [
+    { name = "Pending" },
+    { name = "Active" },
+    { name = "Cancelled" },
+]
+
+[functions.create_order]
+attributes = ["entry"]
+inputs     = ["Order"]
+outputs    = ["Status"]
+```
+
+Custom types are referenced by **bare name** in function `inputs` / `outputs` (`"Order"`, `"Status"`) and via the **`struct(<Name>)` wrapper** in `[state].schema` (e.g. `type = "struct(Order)"`). v1 enums are unit-only — no data-carrying variants. See [OTIGEN_BINARY_SPEC §4.13](../companion/OTIGEN_BINARY_SPEC.md) for the full schema.
+
+### Declare the matching Rust types
+
+Every custom type needs `#[derive(BorshSerialize, BorshDeserialize)]` — the macro substrate calls borsh on these types when decoding `#[pyde::entry]` arguments and round-tripping storage:
+
+```rust
+use borsh::{BorshSerialize, BorshDeserialize};
+use pyde_host as pyde;
+
+#[derive(BorshSerialize, BorshDeserialize)]
+pub struct Order {
+    pub id:     u64,
+    pub maker:  pyde::Address,
+    pub amount: u128,
+    pub paid:   bool,
+}
+
+#[derive(BorshSerialize, BorshDeserialize)]
+pub enum Status {
+    Pending,
+    Active,
+    Cancelled,
+}
+
+#[pyde::entry]
+fn create_order(order: Order) -> Status {
+    // store, validate, emit — whatever the contract needs.
+    // The macro decoded `order` from calldata for you.
+    Status::Pending
+}
+```
+
+### Call it with typed args
+
+JSON5 object literal for the struct, variant name for the enum return decode:
+
+```bash
+otigen call <addr> create_order '{id:1,maker:devnet-0,amount:100,paid:false}'
+```
+
+```text
+  Call create_order on 0xe37844… (devnet)
+  Mode:    view (pyde_call — no tx, no gas, no nonce)
+  ✓ Call succeeded.
+  Return:  Pending
+```
+
+Field order in the literal doesn't matter — `'{amount:100,maker:devnet-0,id:1,paid:false}'` works equivalently. Address-typed fields accept wallet names from the keystore OR `0x`-prefixed hex. Unquoted `0x` hex literals 16+ chars long don't need surrounding quotes inside the JSON5.
 
 ---
 

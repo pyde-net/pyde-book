@@ -109,7 +109,7 @@ The lessons that survived the pivot intact, expressed now in the WASM-era archit
 
 3. **Author safety is a property of host functions, not language syntax.** Reentrancy guards, checked arithmetic, type-safe storage access — all of these can be expressed as patterns in the WASM host-function ABI and the binding generators, without requiring authors to learn a new language. The current `otigen` toolchain (the binary; same name, new role) emits language-specific bindings that preserve these guarantees in Rust, AssemblyScript, Go, and C.
 
-4. **Compile-time access lists work, regardless of source language.** The current architecture preserves access-list-inferred parallel scheduling; the lists are now produced by the binding generators from the `otigen.toml` state schema rather than by the Otigen compiler. Same property, different surface.
+4. **Compile-time access lists work, regardless of source language.** The current architecture preserves access-list inference (from the binding generators deriving from `otigen.toml`) as a prefetch optimization within the uniform Block-STM scheduler; the lists are now produced by the binding generators from the `otigen.toml` state schema rather than by the Otigen compiler. Same property, different surface.
 
 5. **A custom language costs more than its benefit returns.** The language was not Pyde's differentiator. The work spent on it was work not spent on the post-quantum consensus + crypto + state stack that actually is the differentiator. The pivot redirected that work.
 
@@ -118,7 +118,7 @@ The lessons that survived the pivot intact, expressed now in the WASM-era archit
 A lot, in fact:
 
 - The **safety properties** Otigen aimed for — reentrancy guards, checked arithmetic, typed storage, no `tx.origin` — are preserved in the host-function ABI and the binding generators.
-- The **compile-time access-list inference** is preserved (now produced by the binding generators from `otigen.toml`).
+- The **compile-time access-list inference** is preserved (now produced by the binding generators from `otigen.toml`). It now functions as a prefetch optimization in the uniform Block-STM scheduler rather than a scheduling mechanism; the lists are never used to partition execution.
 - The **state model** (JMT, PIP-2 clustering, dual-hash) was already architecturally separate from the VM; no changes needed.
 - The **wave model**, **gas accounting**, **threshold encryption**, and all the consensus-side properties were preserved without change.
 - The **otigen name** itself — repurposed for the developer toolchain, where it now describes the role of "making the ergonomics layer feel coherent and opinionated."

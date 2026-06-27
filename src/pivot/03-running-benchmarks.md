@@ -119,7 +119,7 @@ What you should take from them:
 What you should **not** take from them:
 
 - **These are not Pyde's TPS numbers.** Full-chain TPS depends on consensus latency, signature verification throughput, network bandwidth, the parallel scheduler, and disk IO in addition to VM execution. Pyde's realistic v1 throughput target — awaiting the multi-region performance harness — reflects all of those layers combined, not just the VM.
-- **These do not include parallel execution.** Each benchmark above runs one workload on one thread. The production scheduler runs many workloads in parallel via static access lists + Block-STM speculation; that compounds throughput but is measured separately by the full-chain harness, not here.
+- **These do not include parallel execution.** Each benchmark above runs one workload on one thread. The production scheduler runs many workloads in parallel via uniform Block-STM; wallet-attached access lists serve as prefetch hints to warm the cache before workers start. That compounds throughput but is measured separately by the full-chain harness, not here.
 - **These do not separate memory reads from memory writes, or from disk IO.** The token-transfer benchmark exercises storage IO end-to-end as a single number; it does not isolate "Sload cost" from "Sstore cost" from "leaf-hash recomputation cost." That level of decomposition is the job of the per-component micro-benchmark suite (in flight; see below) and the full-chain performance harness.
 
 ## More detailed benchmarks (in flight)
@@ -127,7 +127,7 @@ What you should **not** take from them:
 The benchmarks above are deliberately simple — they were enough to drive the pivot decision. A more sophisticated suite is part of the planned performance harness work, covering:
 
 - **Per-host-function micro-benchmarks** — measuring the cost of each WASM host function (sload, sstore, transfer, threshold_*, hashing primitives, etc.) in isolation, so the gas-cost table can be calibrated against real hardware.
-- **Sequential vs parallel execution** — measuring how the access-list-driven parallel scheduler scales with core count on workloads with various access-conflict ratios.
+- **Sequential vs parallel execution** — measuring how the Block-STM parallel scheduler, optimized with access-list prefetch, scales with core count on workloads with various access-conflict ratios.
 - **Memory read vs memory write vs disk IO** — splitting state-layer cost by category, so the JMT + RocksDB + write-back cache (PIP-4) stack can be profiled independently.
 - **Workload mixes** — realistic blends of transfer / token-op / DEX / NFT-mint / encrypted txs, with the realistic-mix fraction tracked over time.
 - **Multi-region full-chain TPS** — the end-to-end measurement with consensus, network, and IO all under load.

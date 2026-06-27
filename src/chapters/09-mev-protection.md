@@ -159,7 +159,7 @@ has been Shamir-split across the 128 active validators (see Chapter 8). Any
 | `from`       | yes     | Needed for signature verification + nonce window check  |
 | `nonce`      | yes     | Replay protection (must fit the bitmap window)          |
 | `gas_limit`  | yes     | Block gas accounting at proposal time                   |
-| `access_list`| yes     | Drives parallel scheduling                              |
+| `access_list`| yes     | Prefetch hint for cache warm-up (never affects correctness) |
 | `deadline`   | yes     | Mempool eviction of expired txs                         |
 | `chain_id`   | yes     | Cross-chain replay protection                           |
 | `signature`  | yes     | Validates the whole tx                                  |

@@ -107,23 +107,27 @@ Chapters that changed less:
 
 ## Honest Status
 
-**Designed architecture, not shipped implementation.** This book
-describes the post-pivot target architecture. Implementation status:
+The post-pivot architecture is now substantially implemented. Devnet runs
+a multi-validator Mysticeti committee with WASM execution, threshold
+encryption, per-epoch DKG resharing, and state-sync. Credible public
+performance numbers are still gated on the multi-region harness.
 
 | Component | Status |
 |-----------|--------|
 | Architecture design | ✅ Complete |
-| WASM execution layer (wasmtime + Cranelift AOT) | 🟡 Foundation in place; integration in progress |
-| State (JMT) | 🟡 In place, needs hybrid hashing wired |
-| Mysticeti DAG consensus | 🔴 Not yet — rebuild post-pivot |
-| Threshold cryptography | 🔴 Research-grade (PQ threshold is bleeding edge) |
-| Network protocol | 🟡 Existing, needs libp2p+QUIC migration |
-| Performance harness | 🔴 Not yet built |
+| WASM execution (wasmtime + Cranelift AOT, Block-STM) | 🟢 Live; pooled `Engine`, Host Function ABI v1.0 frozen, Block-STM wired into the commit walk |
+| State (JMT + hybrid Blake3 / Poseidon2 dual root) | 🟢 Wired; `StateRoot { blake3, poseidon2 }` end-to-end |
+| Mysticeti DAG consensus | 🟡 Vertex / anchor / beacon / committee / wave commit live; multi-validator genesis DKG + state-sync replay shipped; soak-hardening and resharing edge cases in flight |
+| Threshold cryptography (Kyber-768 + PSS-refresh) | 🟡 DKG + per-epoch resharing + live hot-swap shipped; encrypted-tx survival across rotation still tracked as an open bug |
+| Network protocol (libp2p + QUIC + Gossipsub) | 🟢 Migrated; layered discovery, peer scoring, sentry-friendly topology |
+| Performance harness | 🟡 Local soak driver + multi-validator cluster CLI live; multi-region rig + chaos scenarios not yet built |
+| SDKs (TypeScript + Rust) | 🟡 `pyde-ts-sdk` 0.1.0 staged; Rust SDK in progress |
 
-The performance harness is the bottleneck on credible TPS claims. No
-external number leaves this project without harness evidence: publish only
-what the harness measures under sustained, production-realistic conditions
-— never lab extrapolations or microbenchmark peaks.
+The multi-region performance harness is still the bottleneck on credible
+TPS claims. No external number leaves this project without harness
+evidence: publish only what the harness measures under sustained,
+production-realistic conditions — never lab extrapolations or
+microbenchmark peaks.
 
 ## Related Docs
 

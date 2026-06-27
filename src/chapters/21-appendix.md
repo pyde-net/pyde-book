@@ -1,4 +1,4 @@
-# Chapter 20: Appendix
+# Chapter 21: Appendix
 
 Reference material from across the book in one place: the glossary, the
 constants tables, the discriminator registry, the JSON-RPC method index,

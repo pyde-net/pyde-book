@@ -37,6 +37,7 @@ If you're brand-new to programming, this isn't the entry point — see the [Get 
 | `otigen console` | Interactive REPL against a Pyde node. Persistent history, view + write calls, live event subscriptions. |
 | `otigen devnet` | Run a local devnet embedded in the `otigen` binary. Deterministic genesis pre-fund (10 accounts auto-imported into `~/.pyde/keystore.json` as `devnet-0..devnet-9`). `--fork` bootstraps state from a snapshot file or `pyde_getSnapshot` URL. |
 | `otigen validator` | Read-only queries over the chain-side validator registry. `show <addr>` fetches one validator's full record (stake / status / jail / uptime); `by-operator <addr>` lists every validator an operator runs. |
+| `otigen update` | Pull the latest release and replace the binary. Wraps the canonical curl install one-liner; `--check` prints latest-vs-installed without side effect. |
 
 `otigen` is **the only binary you need**. There is no `otigen-deploy`, no `otigen-test`, no separate SDK. One tool, four languages, complete coverage.
 

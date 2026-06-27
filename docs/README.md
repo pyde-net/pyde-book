@@ -47,17 +47,18 @@ Pyde underwent a major architectural pivot:
 
 ## Honest Status
 
-This documentation reflects **designed architecture**, not shipped implementation.
+The post-pivot architecture is now substantially implemented. Devnet runs a multi-validator Mysticeti committee with WASM execution, threshold encryption, per-epoch DKG resharing, and state-sync. Credible public performance numbers are still gated on the multi-region harness.
 
 | Aspect | Status |
 |---|---|
 | Architecture design | ✅ Complete |
-| Execution layer (WASM via wasmtime) | 🟡 Foundation in place, integration in progress |
-| State layer (JMT) | 🟡 In place, needs hybrid hashing (Blake3 + Poseidon2) |
-| Consensus (Mysticeti DAG) | 🔴 Not yet implemented (post-pivot rebuild) |
-| Threshold crypto | 🔴 Research-grade (post-quantum threshold is bleeding edge) |
-| Network protocol | 🟡 Existing in archive, needs libp2p + QUIC migration |
-| Performance harness | 🔴 Not yet built |
+| WASM execution (wasmtime + Cranelift AOT, Block-STM) | 🟢 Live; pooled `Engine`, Host Function ABI v1.0 frozen, Block-STM wired into the commit walk |
+| State (JMT + hybrid Blake3 / Poseidon2 dual root) | 🟢 Wired; `StateRoot { blake3, poseidon2 }` end-to-end |
+| Consensus (Mysticeti DAG) | 🟡 Vertex / anchor / beacon / committee / wave commit live; multi-validator genesis DKG + state-sync replay shipped; soak-hardening and resharing edge cases in flight |
+| Threshold crypto (Kyber-768 + PSS-refresh) | 🟡 DKG + per-epoch resharing + live hot-swap shipped; encrypted-tx survival across rotation still tracked as an open bug |
+| Network protocol (libp2p + QUIC + Gossipsub) | 🟢 Migrated; layered discovery, peer scoring, sentry-friendly topology |
+| Performance harness | 🟡 Local soak driver + multi-validator cluster CLI live; multi-region rig + chaos scenarios not yet built |
+| SDKs (TypeScript + Rust) | 🟡 `pyde-ts-sdk` 0.1.0 staged; Rust SDK in progress |
 
 Mainnet ships when the work above is complete and external audit passes. No public schedule.
 

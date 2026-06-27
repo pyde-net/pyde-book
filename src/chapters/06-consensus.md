@@ -1,6 +1,6 @@
 # Consensus: Mysticeti DAG
 
-**Note: This chapter reflects the post-May-2026 pivot. The previous HotStuff variant is archived in `archive/`.**
+**Note: This chapter reflects the post-2026 pivot. The previous HotStuff variant is archived in `archive/`.**
 
 Pyde's consensus is a **Mysticeti-style DAG protocol**. A committee of 128 validators participates each epoch; every round (~150ms), each member produces exactly one vertex; commits flow continuously at the round rate; finality lands at ~500ms median.
 

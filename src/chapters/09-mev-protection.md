@@ -14,7 +14,7 @@ bribery infeasible at the protocol level — not in policy, in physics.
 
 **Post-pivot context.** The earlier HotStuff design had a single proposer
 per slot, which was both the source of and the brake on MEV. After the
-May 2026 pivot to Mysticeti DAG consensus, there is **no single proposer**
+2026 pivot to Mysticeti DAG consensus, there is **no single proposer**
 to bribe or collude with — each round, every committee member produces a
 vertex independently, and the canonical order is derived from a
 deterministically-selected anchor + commit certificate. This makes the

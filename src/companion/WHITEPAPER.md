@@ -1,6 +1,6 @@
 # Pyde: A Post-Quantum, MEV-Resistant Layer 1 with Mysticeti-style Consensus
 
-**Version 0.2 — May 2026**
+**Version 0.2 — 2026**
 Pyde Network · Apache-2.0
 
 ---
@@ -19,7 +19,7 @@ Pyde is a Layer 1 blockchain built greenfield to ship four properties as default
 
 The execution layer is **WebAssembly via wasmtime** (with Cranelift AOT) and a **uniform Block-STM scheduler** — every tx runs optimistically in parallel through an MVCC layer, conflicts are caught at validation, losers re-execute until fixpoint. Wallet-attached access lists from `pyde_simulateTransaction` drive PIP-3 multiget prefetch into the dashmap cache before workers start; the lists are performance hints, not scheduling decisions, and never affect correctness. Developers author smart contracts in Rust, AssemblyScript, Go (TinyGo), or C/C++ — any wasm32-target language — with Pyde safety attributes (reentrancy off by default, checked arithmetic, typed storage, no `tx.origin`, compile-time access-list inference) preserved as language-native attributes and enforced at runtime. No proprietary VM or new language to learn; teams use the stack they already know. The `otigen` developer toolchain handles project scaffolding, build, state binding generation, and deployment. Cross-chain interactions are served by the **parachain framework** (v1) and post-mainnet bridge contracts gated by `HardFinalityCert` — a FALCON quorum certificate verifiable on any chain. The parachain framework lets developer teams launch their own execution environments (custom VMs, confidential-vote chains, gaming-specific subchains, oracle networks) without slot auctions or central gatekeeping; Pyde validators stake to run third-party parachains and earn the parachain's fees.
 
-This document presents the current design following a **May 2026 architectural pivot** from an in-house HotStuff variant (whose persistent wedges and stalls at 400 ms slot timing motivated a clean rebuild) to a DAG-based consensus inspired by Narwhal, Bullshark, and Mysticeti. The pivot scoped the chain to its execution and cryptography layers first; the consensus layer is being rebuilt design-first against the new foundation.
+This document presents the current design following a **2026 architectural pivot** from an in-house HotStuff variant (whose persistent wedges and stalls at 400 ms slot timing motivated a clean rebuild) to a DAG-based consensus inspired by Narwhal, Bullshark, and Mysticeti. The pivot scoped the chain to its execution and cryptography layers first; the consensus layer is being rebuilt design-first against the new foundation.
 
 The v1 mainnet throughput target — for both the plaintext and encrypted regimes, on commodity validator hardware — is established by a multi-region performance harness before any number is published. Long-term aspirational headroom (with GPU acceleration, batch threshold decryption, and protocol upgrades) is real but carries no concrete number and is not a v1 commitment. The chain commits to publishing only what the harness measures under sustained, production-realistic conditions — never lab extrapolations or microbenchmark peaks — so any number it eventually publishes is one application teams and businesses can plan against rather than aspire to.
 
@@ -63,7 +63,7 @@ The combination removes the surface MEV extraction needs to exist on. Encryption
 
 ---
 
-## 3. The May 2026 Pivot
+## 3. The 2026 Pivot
 
 Pyde's earlier architecture used an in-house pipelined HotStuff variant with VRF proposer selection at 400 ms slot timing. Repeated wedges — head-divergence deadlocks, view-change cascades, quorum starvation under network jitter — were being addressed by accumulating patches rather than fundamental changes. The team made a clean break: remove the entire consensus, mempool, and networking layers from the active workspace and rebuild against a foundation with a smaller protocol surface and simpler safety arguments.
 

@@ -58,7 +58,6 @@ The chapters cross-link to these stand-alone specs:
 |------|---------|
 | [WHITEPAPER.md](src/companion/WHITEPAPER.md) | High-level technical paper |
 | [DESIGN.md](src/companion/DESIGN.md) | Full implementation-level design |
-| [PITCH_DECK.md](src/companion/PITCH_DECK.md) | Short-form pitch with differentiation table |
 | [TOKENOMICS.md](src/companion/TOKENOMICS.md) | Supply schedule, fee distribution math |
 | [SLASHING.md](src/companion/SLASHING.md) | 10-offense slashing catalog with evidence flow |
 | [VALIDATOR_LIFECYCLE.md](src/companion/VALIDATOR_LIFECYCLE.md) | Register / unbond / jail / unjail state machine |

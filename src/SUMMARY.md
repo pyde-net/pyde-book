@@ -52,6 +52,7 @@
 - [Developer Tools](chapters/17-developer-tools.md)
 - [Protocol Upgrades](chapters/18-protocol-upgrades.md)
 - [Launch Strategy](chapters/19-launch-strategy.md)
+- [Future Direction](chapters/20-future-direction.md)
 
 ---
 
@@ -104,5 +105,5 @@
 
 ---
 
-[Appendix](chapters/20-appendix.md)
+[Appendix](chapters/21-appendix.md)
 [Migration Notes](MIGRATION_NOTES.md)

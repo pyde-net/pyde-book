@@ -41,7 +41,16 @@ Pass either the bare version (`v0.1.0-alpha.1`) or the full mirror tag (`otigen-
 
 ### Update
 
-Re-run the canonical one-liner. The script detects the existing install at `~/.otigen/bin/otigen` and replaces it with the latest release (same shape as `rustup-init` / `deno install` — no separate manager binary needed):
+Easiest: let the CLI do it.
+
+```bash
+otigen update          # latest
+otigen update --check  # poll without side effect (exit 1 = drift)
+```
+
+`otigen update` wraps the canonical curl one-liner so you don't have to dig the URL out each time. Same script, same target detection, same sigstore verification.
+
+If you don't have `otigen` on PATH yet (fresh box, broken install), re-run the canonical one-liner directly:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/pyde-net/test-releases/main/otigen/install.sh | bash

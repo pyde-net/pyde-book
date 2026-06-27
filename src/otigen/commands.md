@@ -614,3 +614,27 @@ otigen validator by-operator 0xdef...
 ```
 
 Registration / stake / unbond / unjail flows live on the engine's `pyde` binary — those are tx submission, not introspection.
+
+---
+
+## `otigen update`
+
+Pull the latest release and replace the binary. Wraps the canonical curl install one-liner so you don't have to copy the URL each time.
+
+```text
+otigen update [OPTIONS]
+```
+
+| Flag | Default | What it does |
+| --- | --- | --- |
+| `--version <V>` | `latest` | Install a specific tag instead of the freshest one. Accepts either `v0.1.0-alpha.4` or the mirror's full `otigen-v0.1.0-alpha.4`. |
+| `--check` | off | Print the latest version + the currently installed one and exit. No filesystem side-effect. Exit code 0 = up-to-date, non-zero = drift. Handy for pre-commit hooks. |
+| `--no-verify-sig` | off | Skip the install script's sigstore verification. Use only on locked-down machines that can't install `cosign`. |
+
+```bash
+otigen update                          # latest
+otigen update --version v0.1.0-alpha.3 # pin a tag
+otigen update --check                  # poll without side effect
+```
+
+Under the hood: `curl -fsSL <install-url> | bash -s -- <flags>`. Same URL the [installation page](./installation.md) documents; `otigen update` is just sugar so the flow stays inside the CLI.

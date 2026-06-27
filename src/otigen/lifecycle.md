@@ -17,8 +17,8 @@ Operating a deployed contract over time: upgrading the logic, pausing it under i
 
 Two things to internalize:
 
-1. **There is no native "contract owner" concept in v1.** Accounts have `auth_keys`, but a contract account is its own authority surface. Authoring an "owner" means storing an `Address` in `[state]` and checking `pyde::caller() == stored_owner` in your guarded entrypoints. The CLI's lifecycle commands assume engine support that does not exist; they cannot enforce ownership for you today.
-2. **The CLI surface is committed in code so the day the engine catches up the wire shape doesn't shift.** Until then, the four subcommands refuse to submit. See [the engine ask in `/tmp/pyde-engine-lifecycle-ask-2026-06-18.md`](https://github.com/pyde-net/engine/issues) for the proposed `TxType::Lifecycle` + `LifecyclePayload` + `paused: bool` + `deployer: Address` shape on `Account`.
+1. **There is no native "contract owner" concept in v1.** Accounts have `auth_keys`, but a contract account is its own authority surface. Authoring an "owner" means storing an `Address` in `[state]` and checking `pyde::ctx::caller() == stored_owner` in your guarded entrypoints. The CLI's lifecycle commands assume engine support that does not exist; they cannot enforce ownership for you today.
+2. **The CLI surface is committed in code so the day the engine catches up the wire shape doesn't shift.** Until then, the four subcommands refuse to submit. See the engine ask tracking `TxType::Lifecycle` + paused/killed `Account` fields for the proposed shape.
 
 ---
 
@@ -26,72 +26,119 @@ Two things to internalize:
 
 ### 2.1 Upgrade — the proxy pattern
 
-The canonical v1 upgrade story is a proxy contract that holds the admin + implementation address in `[state]` and forwards every call via `pyde::delegate_call`. To upgrade you deploy a new implementation contract and submit a tx that overwrites the implementation slot.
+The canonical v1 upgrade story is a proxy contract that holds the admin + logic address in storage and forwards every call via `pyde::call::execute_delegate_raw`. To upgrade you deploy a new logic contract and submit a tx that overwrites the logic slot.
 
-The [`upgradeable-proxy`](https://github.com/pyde-net/otigen/tree/main/examples/upgradeable-proxy) template is the worked example. Skeleton:
+The [`upgradeable-proxy`](https://github.com/pyde-net/otigen/tree/main/examples/upgradeable-proxy) template is the worked example. The skeleton is two files. In `src/lib.rs`:
 
 ```rust
-#[pyde::declare_storage]
-pub mod state {
-    pub admin: Address,
-    pub implementation: Address,
-    pub init_guard: u64,         // set non-zero on first init
-}
+pyde::declare_storage!();
+
+const ZERO_ADDRESS: Address = [0u8; 32];
 
 #[pyde::entry]
-fn init(admin: Address, implementation: Address) {
-    if state::init_guard().read() != 0 {
+fn init(initial_logic: Address) {
+    // Re-init guard: the manifest tags `init` as `["constructor"]`,
+    // and this in-source check makes the invariant explicit.
+    if storage::proxy_admin().read() != ZERO_ADDRESS {
         pyde::revert("proxy: already initialized");
     }
-    state::admin().write(&admin);
-    state::implementation().write(&implementation);
-    state::init_guard().write(1);
+    let admin = pyde::ctx::caller();
+    if admin == ZERO_ADDRESS || initial_logic == ZERO_ADDRESS {
+        pyde::revert("proxy: init with zero address");
+    }
+    storage::proxy_admin().write(admin);
+    storage::proxy_logic().write(initial_logic);
 }
 
 #[pyde::entry]
-fn upgrade(new_implementation: Address) {
-    let caller = pyde::caller();
-    if caller != state::admin().read() {
-        pyde::revert("proxy: not admin");
+fn upgrade_to(new_logic: Address) {
+    let admin = storage::proxy_admin().read();
+    if pyde::ctx::caller() != admin {
+        pyde::revert("proxy: caller is not admin");
     }
-    state::implementation().write(&new_implementation);
+    if new_logic == ZERO_ADDRESS {
+        pyde::revert("proxy: upgrade to zero address");
+    }
+    storage::proxy_logic().write(new_logic);
 }
 
-#[pyde::entry(fallback)]
-fn fallback() {
-    let impl_addr = state::implementation().read();
-    pyde::delegate_call(&impl_addr, pyde::calldata(), pyde::gas_left());
+#[pyde::entry]
+fn transfer_admin(new_admin: Address) {
+    let admin = storage::proxy_admin().read();
+    if pyde::ctx::caller() != admin {
+        pyde::revert("proxy: caller is not admin");
+    }
+    if new_admin == ZERO_ADDRESS {
+        pyde::revert("proxy: transfer to zero address; use renounce_admin");
+    }
+    storage::proxy_admin().write(new_admin);
+}
+
+#[pyde::entry]
+fn renounce_admin() {
+    let admin = storage::proxy_admin().read();
+    if pyde::ctx::caller() != admin {
+        pyde::revert("proxy: caller is not admin");
+    }
+    storage::proxy_admin().write(ZERO_ADDRESS);
+}
+
+#[pyde::entry]
+fn forward(function: String, calldata: Vec<u8>) -> Vec<u8> {
+    let logic = storage::proxy_logic().read();
+    match pyde::call::execute_delegate_raw(&logic, &function, &calldata) {
+        Ok(bytes) => bytes,
+        Err(CallError::Reverted(payload)) => {
+            let msg = core::str::from_utf8(&payload)
+                .unwrap_or("proxy: delegate-call failed");
+            pyde::revert(msg);
+        }
+        Err(CallError::InvalidFunction) => {
+            pyde::revert("proxy: logic has no such function");
+        }
+        Err(_) => pyde::revert("proxy: delegate-call failed"),
+    }
 }
 ```
 
-The proxy address never changes. Storage lives in the proxy. The implementation contract is a pure logic blob — its address rotates each upgrade. Callers point at the proxy's address forever.
+`renounce_admin` is the one-way door: zeroing the admin slot freezes the logic pointer forever, so the contract becomes non-upgradeable from that point on.
+
+In `otigen.toml` the storage layout is declared declaratively:
+
+```toml
+[state]
+schema = [
+    { name = "proxy_admin", type = "address" },
+    { name = "proxy_logic", type = "address" },
+    { name = "value",       type = "uint64" },
+]
+```
+
+The `proxy_` prefix on the privileged fields is intentional. Pyde's storage slots are derived as `Poseidon2(self_address || field_name)`, and under delegate-call the logic sees the proxy's `self_address` — so a logic contract that happens to declare a field named `admin` would otherwise clobber the proxy's admin slot. Prefixing makes the collision a loud, deliberate choice rather than a silent footgun.
+
+The proxy address never changes. Storage lives in the proxy. The logic contract is a pure code blob — its address rotates each upgrade. Callers point at the proxy's address forever.
 
 Trade-offs vs a native engine upgrade:
 
-- **Cost**: every call pays for a `delegate_call` indirection. Measured at ~3-7% gas overhead in current devnet runs.
-- **Storage discipline**: the implementation's `[state]` slot derivation lives in the proxy's address space. Renaming a field is a wire break across upgrades (the slot hash changes); use append-only field order.
-- **Admin key risk**: lose the admin key, lose upgradability. Pair with a multisig for production (see [`simple-multisig`](https://github.com/pyde-net/otigen/tree/main/examples/simple-multisig)) once the simple-multisig template's migration to `#[pyde::entry]` lands (tracked separately).
+- **Cost**: every call pays a `delegate_call` indirection — flat 1,200 gas + 8 gas per calldata byte on top of the sub-call's own gas (per `HOST_FN_ABI_SPEC` §7.8).
+- **Storage discipline**: the logic's storage slot derivation lives in the proxy's address space. Renaming a field is a wire break across upgrades (the slot hash changes); use append-only field order.
+- **Admin key risk**: lose the admin key, lose upgradability. Pair with a multisig for production (see [`simple-multisig`](https://github.com/pyde-net/otigen/tree/main/examples/simple-multisig)). Lifecycle ops then go through multisig proposals + signature collection.
 
 ### 2.2 Pause — author-declared boolean
 
 Add a `paused: bool` field and assert it at every state-mutating entrypoint. Reads stay open by convention.
 
 ```rust
-#[pyde::declare_storage]
-pub mod state {
-    pub owner: Address,
-    pub paused: bool,
-    // ... your contract fields
-}
+pyde::declare_storage!();
 
 fn require_unpaused() {
-    if state::paused().read() {
+    if storage::paused().read() {
         pyde::revert("contract: paused");
     }
 }
 
 fn require_owner() {
-    if pyde::caller() != state::owner().read() {
+    if pyde::ctx::caller() != storage::owner().read() {
         pyde::revert("contract: not owner");
     }
 }
@@ -99,13 +146,13 @@ fn require_owner() {
 #[pyde::entry]
 fn pause() {
     require_owner();
-    state::paused().write(true);
+    storage::paused().write(true);
 }
 
 #[pyde::entry]
 fn unpause() {
     require_owner();
-    state::paused().write(false);
+    storage::paused().write(false);
 }
 
 #[pyde::entry]
@@ -115,6 +162,8 @@ fn transfer(to: Address, amount: u128) {
 }
 ```
 
+The matching `otigen.toml` `[state]` block declares `owner: address`, `paused: bool`, plus whatever other fields your contract needs.
+
 In-flight transactions that were already accepted into the mempool before the `pause` tx commits will still execute (the pause only affects waves committed AFTER the pause). View calls via `otigen call <addr> <view-fn>` always work regardless; they don't enter consensus.
 
 ### 2.3 Kill — author-declared terminal flag
@@ -123,7 +172,7 @@ Same shape as `paused`, but the entry assertions never check for an unpause coun
 
 ```rust
 fn require_alive() {
-    if state::killed().read() {
+    if storage::killed().read() {
         pyde::revert("contract: killed");
     }
 }
@@ -131,7 +180,7 @@ fn require_alive() {
 #[pyde::entry]
 fn kill() {
     require_owner();
-    state::killed().write(true);
+    storage::killed().write(true);
 }
 ```
 
@@ -144,13 +193,13 @@ Storage is retained on-chain — there is no v1 mechanism to free the contract's
 The four subcommands (`upgrade`, `pause`, `unpause`, `kill`) are scaffolded against the future `TxType::Lifecycle` wire shape:
 
 ```bash
-otigen upgrade <addr> --bundle ./artifacts/<name>.bundle --from deployer
-otigen pause <addr> --from deployer
-otigen unpause <addr> --from deployer
-otigen kill <addr> --from deployer --yes
+otigen upgrade my-counter --bundle ./artifacts/my-counter.bundle --from deployer
+otigen pause my-counter --from deployer
+otigen unpause my-counter --from deployer
+otigen kill my-counter --from deployer --yes
 ```
 
-All four sign txs with `tx_type = Standard` and a borsh-encoded `LifecyclePayload` in `tx.data`. The engine sees a Standard tx to a contract address, tries to decode `tx.data` as a `CallPayload { function, calldata }`, fails on the 1-byte discriminant, and reverts with `decode CallPayload: Unexpected length of input` — burning gas on a guaranteed-failed tx.
+All four sign txs with `tx_type = Standard` and a borsh-encoded `LifecyclePayload` in `tx.data`. The engine sees a Standard tx to a contract address, tries to decode `tx.data` as a `CallPayload { function: String, calldata: Vec<u8> }`, and reverts with `decode CallPayload: Unexpected length of input` — burning gas on a guaranteed-failed tx.
 
 The CLI refuses to submit by default to avoid that gas burn (see §4). Until the engine ships `TxType::Lifecycle`, prefer the §2 patterns.
 
@@ -214,11 +263,18 @@ Passing `--rpc-url` without `--chain-id` returns `InvalidArgs` with exit `1`. Th
 
 ## 6. Owner key hygiene (forward-looking)
 
-When the engine catches up and lifecycle ops actually submit, the on-chain `Account.deployer` field will gate them. Until then, treat the `auth_keys` of whatever account you used to deploy + write `state::owner` with the same level of paranoia.
+When the engine catches up and lifecycle ops actually submit, the on-chain `Account.deployer` field will gate them. Until then, treat the `auth_keys` of whatever account you used to deploy + write `storage::owner` with the same level of paranoia.
 
 - **Don't reuse your dev keystore for production deployments.** Spin a separate wallet via `otigen wallet new prod-owner`.
-- **Plan for a multisig.** The path forward is to set the multisig contract's address as the proxy's admin (and as `state::owner` for any direct-pause contracts). Lifecycle ops then go through multisig proposals + signature collection.
-- **Test the upgrade flow on devnet before mainnet.** `otigen devnet --rpc-listen 127.0.0.1:9933` + `otigen new my-proxy --from upgradeable-proxy` + `otigen deploy` + a swap of the implementation slot is the canonical drill.
+- **Plan for a multisig.** The path forward is to set the multisig contract's address as the proxy's admin (and as `storage::owner` for any direct-pause contracts). Lifecycle ops then go through multisig proposals + signature collection.
+- **Test the upgrade flow on devnet before mainnet.** The canonical drill:
+
+  ```bash
+  otigen devnet --rpc-listen 127.0.0.1:9933
+  otigen new my-proxy --lang rust --from upgradeable-proxy
+  otigen deploy --from deployer
+  # then sign a tx that calls upgrade_to(new_logic) on the proxy
+  ```
 
 ---
 

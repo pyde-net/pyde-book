@@ -28,6 +28,8 @@ otigen build
 
 `--no-compile` skips step 1 and packages whatever's already on disk.
 
+Other flags: `--release` / `--debug` toggle the debug-vs-release expectation; `--out <path>` overrides the default `<config_dir>/artifacts/` so monorepo workflows write the bundle next to the project; `--no-strict` is the escape hatch for bundling test-only host fns (`pyde::debug_log`) for local inspection — never use it for a bundle that reaches a network.
+
 ### What's in the bundle
 
 ```text
@@ -35,7 +37,8 @@ artifacts/my-counter.bundle/
 ├── contract.wasm        # the WASM with the pyde.abi section injected
 ├── otigen.toml          # snapshot of the project manifest
 ├── abi.json             # decoded ABI (functions + events + state schema)
-└── manifest.json        # build provenance (otigen version, language toolchain pin, timestamp, hashes)
+├── metadata.json        # JSON-extracted [metadata] section for explorers/wallets
+└── manifest.json        # build provenance (otigen version, language toolchain pin, timestamp, hashes, metadata_hash_blake3)
 ```
 
 The bundle is the **only** thing the chain ever sees. Source, tests, `Cargo.lock` stay local.
@@ -52,7 +55,7 @@ Per [`OTIGEN_BINARY_SPEC §3.2`](../companion/OTIGEN_BINARY_SPEC.md):
 | Parachain gating | A non-parachain contract importing §8 fns ⇒ rejected. |
 | Export consistency | Every `[functions.X]` in `otigen.toml` must be exported by the WASM. Every non-underscored export must be declared. |
 | Entry shape | Every entry must export `() -> ()` (`HOST_FN_ABI_SPEC §3.5.2`). The `#[pyde::entry]` macro generates this shim; hand-rolled `#[no_mangle] pub extern "C" fn foo(args, ...) -> ret` is rejected. |
-| Forbidden features | Threads, SIMD, GC, reference types, multi-memory, memory64, component model ⇒ rejected (deterministic-execution subset only). |
+| Forbidden features | Threads, SIMD, GC, multi-memory, memory64, component model, exceptions, tail-call, custom-page-sizes ⇒ rejected (deterministic-execution subset only). Reference types and bulk-memory ARE accepted (LLVM emits them unconditionally). |
 
 A clean `otigen build` = a deployable bundle. If validation fails, the error message points at the exact violation; fix the source + re-run. The process exit code is `VALIDATION_FAILURE` (1) — scripts can rely on it.
 
@@ -73,18 +76,18 @@ otigen wallet new deployer
 ```
 
 ```text
-Enter a strong password (>= 12 chars): ************
-Re-enter to confirm:                   ************
+New password: ************
+Confirm password: ************
 
-✓ created account "deployer"
-  address:   0x9b8c7d6e5f4a3b2c... (32 bytes, Poseidon2-derived from the pubkey)
-  keystore:  ~/.pyde/keystore.json
+  ✓ Wallet created: deployer
+  Address:        0x9b8c7d6e5f4a3b2c...
+  Keystore:       ~/.pyde/keystore.json
 ```
 
-`[NAME]` is positional. Under `--json` mode or piped stdin, supply it on the command line (interactive prompts disabled). Use `--password-stdin` to pipe the password (two consecutive lines: password + confirmation):
+`[NAME]` is positional. Under `--json` mode or piped stdin, supply it on the command line (interactive prompts disabled). Use `--password-stdin` to pipe the password (one line):
 
 ```bash
-printf 'pw\npw\n' | otigen wallet new alice --password-stdin
+printf 'pw' | otigen wallet new alice --password-stdin
 ```
 
 The keystore is a single file at `~/.pyde/keystore.json`. Argon2id-derived keys encrypt each account's secret with AES-256-GCM. Multiple accounts live in one file; passwords are per-account.
@@ -97,7 +100,7 @@ otigen wallet show <NAME>                         # print address + pubkey
 otigen wallet delete <NAME>                       # remove (asks confirmation)
 otigen wallet password <NAME>                     # rotate the password (TTY only)
 otigen wallet import <NAME> --from-file <PATH>    # restore a backup
-otigen wallet import --from-devnet                # bulk-import the 10 prefunded devnet accounts
+otigen wallet import --from-devnet                # bulk-import the 10 prefunded devnet accounts (override count with --count <N>, prefix with --prefix <str>)
 otigen wallet export <NAME> --out <PATH>          # write a portable encrypted backup
 otigen wallet sign <NAME> --message <MSG>         # off-chain FALCON sig (NOT for chain txs)
 otigen wallet verify [NAME] --message <MSG> --signature <HEX>
@@ -107,7 +110,7 @@ Full reference: [`commands.md`](./commands.md) and [`OTIGEN_BINARY_SPEC §3.7`](
 
 ### Funding
 
-A fresh account has zero balance. On devnet, **don't create a wallet from scratch — import the 10 deterministic prefunded accounts** the embedded `otigen devnet` bootstraps at genesis:
+A fresh account has zero balance. On devnet you don't have to do anything — `otigen devnet` auto-imports `devnet-0..devnet-9` into `~/.pyde/keystore.json` at startup (password `"devnet"`). If you skipped that with `--no-auto-import-wallets`, or you want to re-import into a fresh keystore, run:
 
 ```bash
 otigen devnet --rpc-listen 127.0.0.1:9933 &       # in another terminal
@@ -115,11 +118,20 @@ otigen wallet import --from-devnet                # imports devnet-0..devnet-9
 ```
 
 ```text
-✓ imported 10 prefunded accounts (devnet-0..devnet-9, 10 PYDE each)
-  keystore: ~/.pyde/keystore.json
+  ✓ Imported devnet accounts → ~/.pyde/keystore.json
+    • devnet-0     0x9b8c7d6e5f4a3b2c…
+    • devnet-1     0x…
+    …
+    • devnet-9     0x…
+
+  Use any of them via: otigen <cmd> --from devnet-0
+  These wallets sign valid txs against any running `pyde devnet`
+  (their balance is set by the devnet's genesis prefund — 10,000,000 PYDE each).
 ```
 
 The accounts are derived via `Blake3("pyde-devnet-v1/" || i)` and re-derive identically across machines. Their secrets are **public** by design — they're for tests, not for anything that matters.
+
+To move PYDE between accounts (e.g. fund a fresh `deployer` from `devnet-0`), use `otigen send <recipient> <amount-in-quanta> --from devnet-0`. Recipient accepts either a `0x`-prefixed 32-byte address or a wallet name; amount is decimal quanta (`1_000_000_000` = 1 PYDE) or `0x`-hex.
 
 For real funding (testnet / mainnet), real PYDE is required. There is no `POST /faucet` HTTP endpoint on the devnet RPC; the prefund-at-genesis path above is the only auto-funding the binary provides today. A testnet faucet UI is planned but not yet live.
 
@@ -152,7 +164,7 @@ chain_id = 1
 
 ### One-shot RPC override
 
-For ad-hoc invocations against an alt port — e.g. a CI worker spinning a devnet on `127.0.0.1:29933` because `9933` is taken by a multi-validator cluster — `deploy` / `upgrade` / `pause` / `unpause` / `kill` all accept `--rpc-url` + `--chain-id`:
+For ad-hoc invocations against an alt port — e.g. a CI worker spinning a devnet on `127.0.0.1:29933` because `9933` is taken by a multi-validator cluster — `deploy` / `upgrade` / `pause` / `unpause` / `kill` / `send` all accept `--rpc-url` + `--chain-id` (write-tx commands need both for signature replay protection). Read-only ops — `inspect`, `call`, `verify` — accept `--rpc-url` alone.
 
 ```bash
 otigen deploy --from devnet-0 --password-stdin \
@@ -161,7 +173,7 @@ otigen deploy --from devnet-0 --password-stdin \
               <<< pw
 ```
 
-`--rpc-url` requires `--chain-id` (signed-tx replay protection). Passing one without the other returns `InvalidArgs` with exit `1`.
+`--rpc-url` requires `--chain-id` (signed-tx replay protection). Passing `--rpc-url` without `--chain-id` returns `InvalidArgs` with exit `1`; `--chain-id` without `--rpc-url` is silently ignored.
 
 ---
 
@@ -177,13 +189,15 @@ otigen deploy --from devnet-0 --password-stdin <<< pw
   RPC:      http://127.0.0.1:9933
   Account:  devnet-0 (chain 31337)
   Nonce:    0
-  Gas:      10000000 (limit)
+  Gas:      10,000,000 quanta (limit)
   Tx hash:  0x6400519b791aa353488443b66b98c37b2f8bb1aa148fed313c013fe6b5bf62dd
   Wire:     6037 bytes
   Submitted. Server tx hash: 0x6400519b791aa353488443b66b98c37b2f8bb1aa148fed313c013fe6b5bf62dd
   Waiting for inclusion (timeout 60s)...
-  Contract: 0x5224c65fbc03fc63ab4cc6c30906e593342edd42b540f489d6b279dbc689f413
-  ✓ Deployed. Try: otigen call 0x5224c65fbc03fc63ab4cc6c30906e593342edd42b540f489d6b279dbc689f413 <fn>
+  Contract: 0x5224c65fbc03fc63ab4cc6c30906e593342edd42b540f489d6b279dbc689f413 (registered as "my-counter")
+  ✓ Deployed. Try either form:
+      otigen call my-counter <fn>           # by name
+      otigen call 0x5224c65fbc03fc63ab4cc6c30906e593342edd42b540f489d6b279dbc689f413 <fn>   # by hex address
 ```
 
 What happened, step by step (per [`OTIGEN_BINARY_SPEC §3.3`](../companion/OTIGEN_BINARY_SPEC.md)):
@@ -206,6 +220,10 @@ gas_price = "auto"          # base_fee + 10% headroom at submission time
 ```
 
 There is no `--gas-limit` / `--gas-price` CLI flag — change the manifest instead.
+
+### Typed constructor args + `--value`
+
+Typed constructor args follow the wallet flags: `otigen deploy --from devnet-0 --password-stdin <<< pw devnet-1 100` invokes the contract's `[functions.init]` with `(devnet-1, 100)` — addresses resolve through the keystore, numbers accept decimal/hex/underscores. For vec/struct args fall back to `--args 0x<hex>`. Native PYDE transfer at deploy time: `--value <quanta>` (1 PYDE = 10⁹ quanta); the constructor sees it via `pyde::ctx::value()`.
 
 ### `--dry-run`
 

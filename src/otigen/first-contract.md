@@ -2,14 +2,14 @@
 
 End-to-end: scaffold → write → test. By the end you'll have a working contract that passes a behaviour suite, with execution traces visible on demand.
 
-This chapter uses Rust. For TinyGo / AssemblyScript / C, the patterns are identical; the per-language `README.md` in each scaffolded project carries the syntactic equivalent. `otigen init --lang <go|as|c>` produces the other-language scaffolds.
+This chapter uses Rust. For TinyGo / AssemblyScript / C, the patterns are identical; the per-language `README.md` in each scaffolded project carries the syntactic equivalent. `otigen new --lang <go|as|c>` produces the other-language scaffolds — it falls through to the minimal counter starter when no Rust-only template is requested.
 
 ---
 
 ## 1. Scaffold
 
 ```bash
-otigen new my-counter --from counter
+otigen new my-counter --lang rust --from counter
 cd my-counter
 ```
 
@@ -18,6 +18,8 @@ scaffolded "my-counter" from "counter" at my-counter
   files: 7
 next: cd my-counter && cargo build --target wasm32-unknown-unknown --release && otigen test
 ```
+
+You can skip the standalone `cargo build` — `otigen test` invokes the per-language compiler by default; `--no-compile` opts out when a CI step has already produced the wasm.
 
 What landed:
 
@@ -80,7 +82,7 @@ fn get() -> u64 {
 }
 ```
 
-The `#[pyde::entry]` macro wraps each function in the spec-mandated `() -> ()` WASM shim ([`HOST_FN_ABI_SPEC §3.5.2`](../companion/HOST_FN_ABI_SPEC.md)) — it decodes calldata from `pyde::calldata_*`, calls the inner body, and surfaces the return value via `pyde::return`. You write idiomatic Rust; the macro handles the chain-side ABI.
+The `#[pyde::entry]` macro wraps each function in the spec-mandated `() -> ()` WASM shim ([`HOST_FN_ABI_SPEC §3.5.2`](../companion/HOST_FN_ABI_SPEC.md)) — it decodes calldata from `pyde::calldata_*`, calls the inner body, and surfaces the return value via `pyde::return_` (the trailing underscore avoids the Rust keyword). You write idiomatic Rust; the macro handles the chain-side ABI.
 
 The corresponding `otigen.toml`:
 
@@ -222,9 +224,11 @@ otigen test
   test result: ok. 6 passed; 0 failed; 0 skipped (6 ran)
 ```
 
+(Cargo converts the kebab-case project name to snake_case for the wasm filename — that's why `my-counter` produces `my_counter.wasm`.)
+
 (If you get a different result, jump to [Debugging](./debugging.md) — the most common cause is forgetting `cargo build --release`, but `otigen test` invokes that for you by default.)
 
-The runner executes against `pyde-engine-wasm-exec::WasmExecutor` — the same code path mainnet uses. That's "engine path" in the output line. The legacy in-process mock is still available via `--no-engine` for the handful of cases the engine can't yet host (today: parachains).
+The runner executes against `pyde-engine-wasm-exec::WasmExecutor` — the same code path mainnet uses. That's the `(via engine)` marker in the output line. The legacy in-process mock is still available via `--no-engine` for the handful of cases the engine can't yet host (today: parachains).
 
 ---
 
@@ -234,18 +238,20 @@ The runner executes against `pyde-engine-wasm-exec::WasmExecutor` — the same c
 
 ```bash
 otigen test           # default — per-test pass/fail + duration
-otigen test -v        # + INFO logs from the runner
-otigen test -vv       # + DEBUG logs (host-fn calls, slot derivations)
+otigen test -v        # + per-test gas used + INFO logs from the runner
+otigen test -vv       # + emitted event list (topic0 + sizes)
+otigen test -vvv      # + per-call traces (fn args / return / gas)
+otigen test -vvvv     # + storage diffs (slot → before / after)
 otigen test --json    # NDJSON event stream for CI / scripted consumers
 ```
 
-For per-call trace + storage diff render, the `[tests.expect]` block in `contract.test.toml` already declares what the runner asserts — failures print the expected vs actual for each. To see successful calls' return values + gas, use `--dry-run`:
+To see successful calls' return values + gas, use `otigen test -v` — `-v` adds gas to the pass line; `-vvv` adds per-call traces (fn args + return + gas).
 
 ```bash
 otigen test --dry-run
 ```
 
-That parses + resolves every test without executing the WASM — useful for verifying that your `storage.<field>` assertions resolve to the same `Poseidon2`-derived slot the contract writes to.
+`--dry-run` parses + resolves every test without executing the WASM — useful for verifying that your `storage.<field>` assertions resolve to the same `Poseidon2`-derived slot the contract writes to.
 
 ---
 
@@ -257,7 +263,7 @@ Once a test is green and the gas number looks reasonable, freeze it as a regress
 [[tests.calls]]
 function = "increment"
 expect.return_value = "1"
-expect.gas_max      = "300"     # fail the test if increment grows past 300 gas
+expect.gas_max      = "250000"  # fail if increment grows past the current budget — pick a number your green run is comfortably under
 ```
 
 `expect.gas_max` is an upper-bound check — your contract can use any value ≤ the budget. Prefer `gas_max` over `expect.gas` (exact match) — exact is brittle to opcode-level codegen changes.
@@ -289,7 +295,7 @@ variants = [
 ]
 
 [functions.create_order]
-attributes = ["entry"]
+attributes = ["entry", "view"]   # body has no storage writes — declarable view
 inputs     = ["Order"]
 outputs    = ["Status"]
 ```
@@ -336,6 +342,7 @@ otigen call <addr> create_order '{id:1,maker:devnet-0,amount:100,paid:false}'
 ```
 
 ```text
+# excerpt — header lines (Target / RPC / Calldata) omitted for brevity
   Call create_order on 0xe37844… (devnet)
   Mode:    view (pyde_call — no tx, no gas, no nonce)
   ✓ Call succeeded.

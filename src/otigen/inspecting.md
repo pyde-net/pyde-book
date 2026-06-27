@@ -16,17 +16,28 @@ otigen inspect 0xe37844e3800a70e82f18828ed603e49e3db5a0d234e307a3419a4c98ad1c420
   Target:       0xe37844e3800a70e82f18828ed603e49e3db5a0d234e307a3419a4c98ad1c4209
   Address:      0xe37844e3800a70e82f18828ed603e49e3db5a0d234e307a3419a4c98ad1c4209
   Account type: contract
-  Balance:      0x0 (hex quanta)
+  Balance:      0 PYDE (0 quanta)
   Nonce:        0
-  Code hash:    0x4ac6059a67dea1d8...
+  Code hash:    0x4ac6059a67dea1d8b2f9c3a7e15d8b4c026a91e8f3d7b5a9c14e6f2b8d3a5c79e
   Code size:    5077 bytes
   State root:   0x0000000000000000000000000000000000000000000000000000000000000000
+
+  ABI summary (from embedded pyde.abi custom section):
+    abi version:    1
+    contract type:  contract
+    functions:      2
+    constructor:    init
+    state schema:   0x9c2e1a7d4f3b6e58a01d92f74c83b6e2d75a4f1c8b39e6d20a47f15b29e3c8a64
+      0x6f3a82c1 get [entry, view]
+      0xa8e21f74 increment [entry]
 ```
+
+Two flags are useful here — `--at-wave <N>` reads state at a historical wave (archive-node-only today; v1 forwards the value but falls back to current state otherwise), and `--rpc-url <URL>` lets you inspect without a local `otigen.toml` (e.g. against operator dashboards or a forked devnet).
 
 What's shown:
 
 - **`Account type`** — `eoa`, `contract`, or `system`. The chain's [`AccountType`](https://github.com/pyde-net/engine/blob/main/crates/types/src/account.rs) discriminant.
-- **`Balance`** — current balance in hex quanta (10⁹ quanta = 1 PYDE).
+- **`Balance`** — current balance as `<N> PYDE (<M> quanta)` (1 PYDE = 10⁹ quanta).
 - **`Nonce`** — next acceptable nonce. The chain uses a 16-slot sliding window; this number is `nonce_window.base + bitmap.trailing_ones()`.
 - **`Code hash`** — `Poseidon2(runtime_wasm)`. Zero for EOA / system accounts; non-zero for deployed contracts.
 - **`Code size`** — length of the deployed bytecode in bytes.
@@ -76,7 +87,7 @@ otigen call <addr> get
   RPC:      http://127.0.0.1:9933
   Mode:     view (pyde_call — no tx, no gas, no nonce)
   ✓ Call succeeded.
-  Return:   0x0300000000000000
+  Return:   3
 ```
 
 `otigen call` without `--from` runs in view mode against `pyde_call` — no tx, no gas, no nonce, no signing. Pass `--from <wallet>` to switch to a state-mutating signed call. Positional arguments are typed per `[functions.<fn>].inputs` in declaration order:
@@ -107,16 +118,13 @@ otigen verify <addr>
 ```
 
 ```text
-verifying my-counter on devnet ...
-  fetching on-chain wasm        → 5,077 bytes (blake3 4ac6059a67dea1d8)
-  reading local bundle          → 5,077 bytes (blake3 4ac6059a67dea1d8)
-  comparing                     → byte-identical ✓
-
-  Wasm size:  5,077 bytes ✓
-  Blake3:     4ac6059a67dea1d8... ✓
-  ABI:        147 bytes ✓
-
-✓ on-chain bytes match local bundle
+  Target:        my-counter
+  Address:       0xe37844e3800a70e82f18828ed603e49e3db5a0d234e307a3419a4c98ad1c4209
+  Network:       devnet
+  Bundle:        ./artifacts/my-counter.bundle/
+  Local wasm:    5077 bytes, blake3 4ac6059a67dea1d8…
+  Chain wasm:    5077 bytes, blake3 4ac6059a67dea1d8…
+  ✓ Match — bundle is byte-identical to the deployed contract.
 ```
 
 The CLI fetches `pyde_getContractCode(addr)`, re-derives the Blake3 hash of your local `./artifacts/<name>.bundle/contract.wasm`, and compares both byte length and hash. The `--strict-toolchain` flag also compares the toolchain version pin baked into the bundle's `manifest.json` against the running rustc / TinyGo / asc / clang — useful when reproducing audited builds.
@@ -124,11 +132,11 @@ The CLI fetches `pyde_getContractCode(addr)`, re-derives the Blake3 hash of your
 If they don't match:
 
 ```text
-✗ verification failed
-  Expected: 5,077 bytes (blake3 4ac6059a67dea1d8)
-  Got:      4,989 bytes (blake3 b4c5d6e7f8a9b1c2)
-  Size delta: -88 bytes
-  First differing byte at offset 0x1a3
+  ✗ MISMATCH
+    Size differs: local 5077 vs chain 4989 (88 bytes)
+    First differing byte at offset 419
+    Hint: same source + toolchain pins should produce identical bundles.
+          Check rustc / wasm-target / opt-level / strip settings.
 ```
 
 Possible causes:
@@ -142,6 +150,8 @@ otigen verify <addr> --explorer https://explorer.pyde.network --api-key-env PYDE
 ```
 
 Uploads `(contract.wasm, manifest.json, metadata.json)` to a verifying explorer's `/api/v1/contracts/<addr>/verify` endpoint. The `--api-key-env` variant reads the bearer token from an env var; `--api-key-stdin` reads from stdin. The CLI redacts the key when echoing the endpoint.
+
+Set `EXPLORER_API_KEY` and the `--api-key-env` flag is optional; pass `--api-key-env <VAR>` only when the key lives under a different env name. `--api-key-stdin` takes priority over `--api-key-env`.
 
 ### Why verify matters
 
@@ -180,12 +190,13 @@ curl -X POST http://127.0.0.1:9933 \
        "id": 1,
        "method": "pyde_call",
        "params": [{
-         "target": "0xe37844e3800a70e82f18828ed603e49e3db5a0d234e307a3419a4c98ad1c4209",
-         "function": "get",
-         "calldata": "0x"
+         "to":   "0xe37844e3800a70e82f18828ed603e49e3db5a0d234e307a3419a4c98ad1c4209",
+         "data": "0x03000000676574000000000000000000000000"
        }]
      }'
 ```
+
+The `data` field is the borsh-encoded `pyde_engine_types::CallPayload { function: "get", calldata: vec![] }` envelope — the same wire shape `tx.data` carries for a `TxType::Standard` call.
 
 ```json
 {

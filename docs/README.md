@@ -2,7 +2,7 @@
 
 This directory contains the canonical documents describing Pyde — a post-quantum Layer 1 blockchain with native MEV protection and DAG-based consensus.
 
-These documents form the source-of-truth for the protocol design as of the May 2026 pivot from in-house HotStuff to a Mysticeti-style DAG consensus.
+These documents form the source-of-truth for the protocol design as of the 2026 pivot from in-house HotStuff to a Mysticeti-style DAG consensus.
 
 ## Document Index
 
@@ -37,7 +37,7 @@ These documents form the source-of-truth for the protocol design as of the May 2
 |---|---|
 | [TOKENOMICS.md](./TOKENOMICS.md) | PYDE supply, distribution, emission, staking yield |
 
-## Pivot Context (May 2026)
+## Pivot Context (2026)
 
 Pyde underwent a major architectural pivot:
 - **Removed:** in-house HotStuff BFT consensus (400ms slots, persistent wedges)

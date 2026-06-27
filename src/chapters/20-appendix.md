@@ -27,7 +27,7 @@ and the post-mainnet roadmap.
 | **PSS**              | Proactive Secret Sharing — refresh key shares without changing the public key.|
 | **DKG**              | Distributed Key Generation. Pedersen DKG ceremony each epoch for threshold pubkey. |
 | **VRF**              | Verifiable Random Function. Lattice-based; built from FALCON + Poseidon2.   |
-| **Mysticeti**        | The DAG-based consensus protocol Pyde uses (post-May-2026 pivot, formerly HotStuff). |
+| **Mysticeti**        | The DAG-based consensus protocol Pyde uses (post-2026 pivot, formerly HotStuff). |
 | **DAG**              | Directed Acyclic Graph. Every round, each committee member produces a vertex; parents must be strictly prior rounds. |
 | **Vertex**           | A committee member's per-round output: batch refs + parent refs + state-root sigs + decryption shares + FALCON sig. |
 | **Round**            | A ~150 ms DAG cycle. Each member produces one vertex per round.            |

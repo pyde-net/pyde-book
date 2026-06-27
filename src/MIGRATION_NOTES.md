@@ -1,4 +1,4 @@
-# Migration Notes (May 2026 Pivot)
+# Migration Notes (2026 Pivot)
 
 This page is the migration log between the pre-pivot Pyde architecture
 (in-house HotStuff consensus) and the post-pivot architecture (Mysticeti

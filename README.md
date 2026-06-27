@@ -26,7 +26,7 @@ with full specifications for the parts the chapters summarize.
 
 | # | Chapter | What it covers |
 |---|---------|----------------|
-| 1 | [Introduction](src/chapters/01-introduction.md) | Vision, May 2026 pivot, honest status |
+| 1 | [Introduction](src/chapters/01-introduction.md) | Vision, 2026 pivot, honest status |
 | 2 | [Architecture Overview](src/chapters/02-architecture-overview.md) | High-level component map, worker/primary split |
 | 3 | [Virtual Machine](src/chapters/03-virtual-machine.md) | wasmtime runtime, host function ABI, Cranelift AOT |
 | 4 | [State Model](src/chapters/04-state-model.md) | JMT (radix-16), hybrid Blake3 + Poseidon2 hashing |
@@ -48,7 +48,7 @@ with full specifications for the parts the chapters summarize.
 | 20 | [Appendix](src/chapters/20-appendix.md) | Glossary, constants, post-mainnet roadmap |
 
 Pivot reference: [MIGRATION_NOTES.md](src/MIGRATION_NOTES.md) — what
-changed in the May 2026 HotStuff → Mysticeti DAG rewrite.
+changed in the 2026 HotStuff → Mysticeti DAG rewrite.
 
 ## Companion Specifications (`src/companion/`)
 

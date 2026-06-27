@@ -145,15 +145,19 @@ rustup show | grep -E "active toolchain|wasm32"
 ```bash
 # macOS
 brew tap tinygo-org/tools
-brew install tinygo go
+brew install tinygo go binaryen
 
 # Linux (apt)
-apt install tinygo golang
+apt install tinygo golang binaryen
 ```
 
-TinyGo bundles its own Go compiler fork but **also** needs a standard Go install for module resolution. Without it, `tinygo version` reports `(using go version <unknown>)` and module resolution misbehaves silently.
+Three packages are required:
 
-**Required versions:** TinyGo ≥ 0.41, Go ≥ 1.21 (for `//go:wasmimport`).
+1. **TinyGo** — the wasm32 compiler.
+2. **Go** — TinyGo bundles its own Go compiler fork but **also** needs a standard Go install for module resolution. Without it, `tinygo version` reports `(using go version <unknown>)` and module resolution misbehaves silently.
+3. **binaryen** — ships `wasm-opt`, which TinyGo invokes for size optimisation under the `-opt=z` flag the otigen scaffold uses. Without it, `otigen build` fails fast with a platform-tagged install hint (`ToolchainMissing: TinyGo requires wasm-opt (binaryen)`).
+
+**Required versions:** TinyGo ≥ 0.41, Go ≥ 1.21 (for `//go:wasmimport`), binaryen ≥ 116 (anything `wasm-opt --version` reports works in practice).
 
 The `wasm-unknown` target landed in TinyGo 0.31, but the otigen Go scaffold + canonical examples are tested against the 0.41 series — earlier versions hit `//go:wasmexport` codegen bugs that landed fixes in 0.34 / 0.36 / 0.41. The scaffold's `otigen.toml` pins `tinygo_version = "0.41.0"`; older toolchains aren't supported.
 
@@ -161,14 +165,17 @@ The `wasm-unknown` target landed in TinyGo 0.31, but the otigen Go scaffold + ca
 
 ```bash
 tinygo version
+wasm-opt --version
 ```
 
 ```text
 tinygo version 0.41.1 darwin/arm64 (using go version go1.26.3 and LLVM version 20.1.1)
+wasm-opt version 130
 ```
 
 **Common errors:**
 - `brew install tinygo` (without the tap) fails with "no available formula." You must `brew tap tinygo-org/tools` first.
+- `could not find wasm-opt, set the WASMOPT environment variable to override`: binaryen isn't installed. `brew install binaryen` (macOS) / `apt install binaryen` (Debian) / `pacman -S binaryen` (Arch). To point TinyGo at a custom build, set `WASMOPT=/path/to/wasm-opt` in your shell.
 - First `tinygo build` after `otigen init` fails with `error obtaining VCS status: exit status 128` if the project dir isn't a git repo. Fix: `git init -q` inside the project. (Generated `Makefile` does this automatically in future revisions.)
 
 ### AssemblyScript

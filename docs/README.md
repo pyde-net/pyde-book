@@ -12,7 +12,6 @@ These documents form the source-of-truth for the protocol design as of the May 2
 |---|---|---|
 | [WHITEPAPER.md](./WHITEPAPER.md) | High-level technical paper | Researchers, investors, validators |
 | [DESIGN.md](./DESIGN.md) | Comprehensive technical design | Implementers, contributors, auditors |
-| [PITCH_DECK.md](./PITCH_DECK.md) | Short-form pitch | Investors, partners, ecosystem |
 
 ### Threat Model & Operations
 

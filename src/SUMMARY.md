@@ -102,10 +102,6 @@
 - [Tokenomics Detail](companion/TOKENOMICS.md)
 - [Brand Reference](companion/BRAND.md)
 
-# External Materials
-
-- [Pitch Deck](companion/PITCH_DECK.md)
-
 ---
 
 [Appendix](chapters/20-appendix.md)

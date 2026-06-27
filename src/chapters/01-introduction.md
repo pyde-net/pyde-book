@@ -111,7 +111,7 @@ This book is the comprehensive technical reference. Different paths for differen
 1. This Introduction
 2. [Chapter 14: Tokenomics](./14-tokenomics.md)
 3. [Chapter 19: Launch Strategy](./19-launch-strategy.md)
-4. Companion: [Pitch Deck](../companion/PITCH_DECK.md), [Tokenomics Detail](../companion/TOKENOMICS.md)
+4. Companion: [Tokenomics Detail](../companion/TOKENOMICS.md)
 
 **For someone doing security review / audit:**
 1. [Chapter 16: Security & Threat Model](./16-security.md)

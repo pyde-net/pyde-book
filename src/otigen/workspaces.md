@@ -192,7 +192,8 @@ unlocked once and the nonce is sequenced locally across all members.
 
 `--dry-run` prints the full plan — network, RPC, account, order, and each
 member's resolved args (`@refs` shown as a zero-address placeholder) —
-and submits nothing, builds nothing:
+and submits nothing, builds nothing. It never asks for a wallet password
+and doesn't need a running node: the preview is fully offline.
 
 ```bash
 otigen deploy --dry-run --from devnet-0
@@ -204,17 +205,32 @@ otigen deploy --dry-run --from devnet-0
     RPC:      http://127.0.0.1:9933
     Account:  devnet-0
     Order:    counter → vault
-  ▸ counter (nonce 0)
-  ▸ vault (nonce 1)  args: [0x0000…0000, devnet-0]
+  ▸ counter
+  ▸ vault  args: [0x0000…0000, devnet-0]
   ✓ dry-run — 2 contract(s) prepared, none submitted
 ```
 
 ### One member, and re-runs
 
 - `otigen deploy --contract vault` deploys just that member.
+- With `--contract`, constructor args can come straight from the command
+  line instead of `[workspace.args]` — handy for one-off deploys with
+  values you don't want to commit to the manifest:
+
+  ```bash
+  otigen deploy --contract usdc usdc-token USDC 6 100000000000000 --from devnet-0
+  ```
+
+  Positional args override that member's `[workspace.args]` entry;
+  `@name` values still resolve to member addresses; `--args 0x<hex>` is
+  the raw-calldata escape hatch, and `--value <quanta>` funds the
+  constructor. (Without `--contract`, CLI args are rejected — one arg
+  set can't address several members.)
 - Deploy is **idempotent**: on a re-run, a member that's already
   registered on-chain (by name) is skipped — so re-running after a
-  partial failure only deploys what's missing.
+  partial failure only deploys what's missing. If you passed explicit
+  CLI args and the member is skipped, otigen warns you they had no
+  effect (a registered name can't be deployed twice).
 
 ```text
   ✓ Deployed 0 contract(s), 2 already deployed, skipped.

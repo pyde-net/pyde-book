@@ -22,13 +22,14 @@ If you're brand-new to programming, this isn't the entry point — see the [Get 
 
 | Subcommand | What it does |
 | --- | --- |
-| `otigen new` | Clone a canonical Rust template (counter, erc20-token, vesting, dao-governance, …) or — for TinyGo / AssemblyScript / C — scaffold the language's minimal counter starter. Fastest path from zero to a green test run. |
-| `otigen init` | Scaffold a new minimal project for a specific language (`--lang rust|as|go|c`). |
+| `otigen new` | Scaffold a single contract — minimal counter by default, or clone a canonical example (counter, erc20-token, vesting, dao-governance, …) with `--from <name>`. Run inside a workspace to add the contract as a new `contracts/<name>/` member (registered in `[workspace].members` + `order`). |
+| `otigen init` | Scaffold a new multi-contract **workspace**: a root `otigen.toml` with a `[workspace]` table, root `.gitignore` / `README.md` / `Makefile`, and a starter member at `contracts/counter/`. See [Workspaces](./workspaces.md). |
+| `otigen addresses` | List a workspace's deployed member addresses (from `artifacts/deployments/<network>.json`). |
 | `otigen check` | Validate the project without packaging. Fast pre-commit gate. |
 | `otigen build` | Validate + package the compiled `.wasm` into a deploy bundle. Injects the `pyde.abi` custom section. |
 | `otigen test` | Run `.test.toml` declarations through the chain's `wasm-exec` engine. Same code path mainnet uses. |
 | `otigen wallet` | Manage FALCON-512 keystore. `new` / `import` / `list` / `show` / `password` / `export` / `delete` / `sign` / `verify`. |
-| `otigen deploy` | Sign + submit a deploy transaction, poll for the receipt. |
+| `otigen deploy` | Sign + submit a deploy transaction, poll for the receipt. At a workspace root: builds every member, prints a deploy plan, deploys in `[workspace].order` resolving `@name` cross-references, skips already-deployed members, and caches addresses. `--contract <name>` (also on `build` / `test`) scopes to one member. |
 | `otigen call` | Invoke a function on a deployed contract. Typed positional args (decoded per `[functions.<fn>].inputs`), wallet-name address resolution, optional `--value <quanta>` PYDE transfer. View mode is free; `--from` switches to a state-mutating signed tx. |
 | `otigen send` | Native PYDE value transfer between accounts. `TxType::Standard`, 21,000-gas path; recipient accepts a `0x` address or a wallet name. |
 | `otigen inspect` | Read contract / account metadata + state. `--state-field <name>` returns a typed scalar read from the `declare_storage!` substrate slot. |
@@ -49,7 +50,7 @@ For exhaustive flag + arg reference, see [Commands](./commands.md).
 
 - **Not a smart contract language.** Pyde contracts are written in real Rust / TinyGo / AssemblyScript / C, compiled to WebAssembly by each language's own compiler. `otigen` validates + packages the output. The chain runs the WASM.
 - **Not a runtime.** `otigen test` executes through the chain's `pyde-engine-wasm-exec::WasmExecutor` by default (same code path mainnet uses); the legacy in-process mock is opt-in via `--no-engine` for the handful of cases the engine can't yet host (parachains, today).
-- **Not an SDK.** For Rust, the `#[pyde::entry]` macro + `pyde::declare_storage!()` substrate (vendored via `pyde-host`) is the canonical authoring path; for the other three languages, authors declare `pyde::*` host fn imports directly via the language's FFI mechanism (`//go:wasmimport`, `@external`, `__attribute__((import_module))`). See [WASM Contract Author Guide](../companion/WASM_AUTHOR_GUIDE.md) for the design rationale.
+- **Not an SDK.** For Rust, the `#[pyde::entry]` macro + `pyde::declare_storage!()` substrate (pulled from crates.io — `pyde-host` plus the macro crates) is the canonical authoring path; for the other three languages, authors declare `pyde::*` host fn imports directly via the language's FFI mechanism (`//go:wasmimport`, `@external`, `__attribute__((import_module))`). See [WASM Contract Author Guide](../companion/WASM_AUTHOR_GUIDE.md) for the design rationale.
 - **Does not bundle a language compiler.** `otigen build` invokes `cargo` / `tinygo` / `asc` / `clang` from your environment. You install the language toolchain yourself.
 
 ---

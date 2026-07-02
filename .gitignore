@@ -13,3 +13,6 @@ src/sitemap.xml
 *~
 .vscode/
 .idea/
+
+# Local Claude Code agent state — never commit
+.claude/

@@ -73,6 +73,7 @@
 - [Otigen Commands](otigen/commands.md)
 - [Your First Contract](otigen/first-contract.md)
 - [Shipping Contracts](otigen/shipping.md)
+- [Multi-Contract Workspaces](otigen/workspaces.md)
 - [Inspect & Verify](otigen/inspecting.md)
 - [Contract Lifecycle](otigen/lifecycle.md)
 - [Debugging Contracts](otigen/debugging.md)

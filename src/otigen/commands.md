@@ -19,7 +19,7 @@ Path defaults that say `<config-dir>/...` are resolved against the parent of `--
 
 ## `otigen new`
 
-Scaffold a new project by cloning a canonical template. The fastest path from zero to a green test run.
+Scaffold a **single contract**. By default it's a minimal counter; `--from <template>` clones a canonical example instead. Run inside a workspace to add the contract as a new member (see [`otigen init`](#otigen-init) and [Workspaces](./workspaces.md)).
 
 ```text
 otigen new [OPTIONS] [NAME]
@@ -29,8 +29,8 @@ otigen new --list           # show the template catalog
 | Argument / flag | Type | Default | What it does |
 | --- | --- | --- | --- |
 | `[NAME]` | string | prompt on TTY | Project name (ENS-style: lowercase + hyphens, 1–32 chars). |
-| `--lang <LANG>` | enum | prompt on TTY | Target language (`rust`, `as`, `go`, `c`). Non-Rust scaffolds fall through to the same minimal-counter starter as `otigen init --lang <lang>`; only Rust currently has canonical example templates. |
-| `--from <TEMPLATE>` | name | prompt on TTY | Canonical template to clone. `otigen new --list` shows what's available (currently 8: counter, erc20-token, erc721-token, simple-multisig, upgradeable-proxy, merkle-claim-airdrop, vesting, dao-governance). |
+| `--lang <LANG>` | enum | prompt on TTY | Target language (`rust`, `as`, `go`, `c`). Only Rust has canonical example templates; `--lang go` / `as` / `c` scaffold the language's minimal counter starter. |
+| `--from <TEMPLATE>` | name | minimal counter | Canonical example to clone (Rust). `otigen new --list` shows what's available (currently 8: counter, erc20-token, erc721-token, simple-multisig, upgradeable-proxy, merkle-claim-airdrop, vesting, dao-governance). Omitted ⇒ minimal counter. |
 | `--list` | — | — | Print the template catalog and exit. Mutually exclusive with `<NAME>` / `--lang` / `--from` / `--dir`. |
 | `--dir <DIR>` | path | `./<name>` | Target directory. Created if missing; refuses to overwrite an existing path. |
 
@@ -40,13 +40,13 @@ otigen new my-counter --from counter
 otigen new my-token --from erc20-token --dir ./projects/my-token
 ```
 
-The cloned scaffold preserves the template's full file tree (Cargo.toml, otigen.toml, src/, tests/, Makefile). For `--lang go` / `--lang as` / `--lang c`, `new` falls through to the same minimal counter scaffold as `otigen init --lang <lang>` (no canonical Rust-equivalent examples ship in those languages yet).
+The scaffold is a full single-contract project tree (Cargo.toml, otigen.toml, src/, tests/, Makefile). **Run from inside a workspace**, `otigen new <name>` instead scaffolds the contract under `contracts/<name>/` and registers it in the root manifest's `[workspace].members` + `order`.
 
 ---
 
 ## `otigen init`
 
-Scaffold a new minimal project for a specific language. Use this when you want the canonical counter contract in TinyGo / AssemblyScript / C; for Rust prefer `otigen new --from counter`.
+Scaffold a new multi-contract **workspace** — a project that groups several contracts which build, test, and deploy together. See [Workspaces](./workspaces.md) for the full flow.
 
 ```text
 otigen init [OPTIONS] [NAME]
@@ -54,18 +54,18 @@ otigen init [OPTIONS] [NAME]
 
 | Argument / flag | Type | Default | What it does |
 | --- | --- | --- | --- |
-| `[NAME]` | string | prompt on TTY | Project name (ENS-style: lowercase + hyphens, 1–32 chars). |
-| `--lang <LANG>` | enum | prompt on TTY | Target language: `rust`, `as` (AssemblyScript), `go` (TinyGo), `c` (clang `--target=wasm32`). |
-| `--type <TYPE>` | enum | `contract` | `contract` or `parachain`. Parachain projects add the §8 parachain-only host fns to the imports surface. |
+| `[NAME]` | string | prompt on TTY | Workspace name (ENS-style: lowercase + hyphens, 1–32 chars). |
+| `--lang <LANG>` | enum | prompt on TTY | Language for the starter member: `rust`, `as` (AssemblyScript), `go` (TinyGo), `c` (clang `--target=wasm32`). |
+| `--type <TYPE>` | enum | `contract` | `contract` or `parachain` for the starter member. Parachain projects add the §8 parachain-only host fns to the imports surface. |
 | `--dir <DIR>` | path | `./<name>` | Target directory. Created if missing; refuses overwrite. |
 
 ```bash
-otigen init my-counter --lang rust
+otigen init my-app --lang rust
 otigen init my-parachain --lang go --type parachain
-otigen init my-c-contract --lang c --dir ~/projects/my-c-contract
+otigen init my-c-app --lang c --dir ~/projects/my-c-app
 ```
 
-The scaffold ships a minimal counter (`increment` + `get`), a language-aware Makefile, an `otigen.toml`, and a `tests/contract.test.toml` with 3 behaviour tests. Run `otigen test` immediately to confirm the toolchain is wired.
+The workspace root gets a `[workspace]` `otigen.toml`, a `.gitignore`, a `README.md`, and a `Makefile`. The first member — a minimal counter (`increment` + `get`) with 3 behaviour tests — lands at `contracts/counter/`. Add more with `otigen new <name>` from the root; run `otigen test` immediately to confirm the toolchain is wired.
 
 ---
 
@@ -105,6 +105,9 @@ otigen build [OPTIONS]
 | `--no-compile` | off | Skip the language compiler — package the existing `.wasm` as-is. |
 | `--no-strict` | off | Disable the production gate that rejects test-only host fns (e.g. `pyde::debug_log`). Default is strict so the bundle is chain-deploy-safe. Escape hatch for bundling chain-unsafe wasm for local inspection / fuzzing; never use for a bundle that will reach a network. |
 | `--out <PATH>` | `<config-dir>/artifacts/` | Override the bundle output **directory** — `<name>.bundle/` is created inside it. Anchored on the parent of `--config` so invocations from outside the project dir (`otigen --config path/to/otigen.toml build`) write next to the project, not the cwd. |
+| `--contract <NAME>` | all members | In a workspace, build only this member (by `[contract].name`). Errors in a single-contract project. |
+
+At a **workspace** root, `otigen build` builds every member into the shared `artifacts/` directory (and prunes bundles for removed members); `--contract <name>` scopes to one. See [Workspaces](./workspaces.md).
 
 Output bundle lands at `--out` (default `<config-dir>/artifacts/<name>.bundle/`) with:
 
@@ -140,6 +143,9 @@ otigen test [OPTIONS]
 | `--watch` | off | Re-run on file change. Debounced 300 ms; ignores `target/`, `artifacts/`, `.git/`, `node_modules/`, `build/`, `dist/`. |
 | `--no-engine` | off | Use the legacy in-process mock host-fn surface instead of `pyde-engine-wasm-exec::WasmExecutor`. The engine path is the default and source of truth. |
 | `--no-compile` | off | Skip the per-language compiler. Run the test suite against the existing `.wasm` as-is. |
+| `--contract <NAME>` | all members | In a workspace, test only this member (by `[contract].name`). Errors in a single-contract project. |
+
+At a **workspace** root, `otigen test` builds + tests every member (a member with no test file is skipped, not failed) and prints a workspace summary; `--contract <name>` scopes to one. `--watch` isn't supported at the workspace level. See [Workspaces](./workspaces.md).
 
 Verbosity is the standard global `-v` flag, repeated for more detail:
 
@@ -309,6 +315,7 @@ otigen deploy [OPTIONS]
 | `--password-stdin` | off | Read wallet password from stdin. |
 | `--rpc-url <URL>` | from `otigen.toml` | One-shot RPC URL override. Bypasses the bundle's baked `[network.<name>]`. **REQUIRES `--chain-id`.** |
 | `--chain-id <N>` | from `otigen.toml` | Required when `--rpc-url` is set; the chain's tx-hash domain. The CLI refuses `--rpc-url` without `--chain-id` (signed tx against `chain_id = 0` silently bricks the FALCON signature). |
+| `--contract <NAME>` | all members | In a workspace, deploy only this member (by `[contract].name`). Errors in a single-contract project. |
 
 Receipt poll timeout is 60 s (constant, not CLI-configurable). On success the contract address appears in the receipt; the CLI prints it.
 
@@ -322,6 +329,30 @@ otigen deploy --dry-run     # print wire bytes, don't submit
 ```
 
 There is no `--gas-limit` / `--gas-price` flag today; values come from `[deploy]` in `otigen.toml` (`gas_limit = 10_000_000`, `gas_price = "auto"`).
+
+At a **workspace** root, `otigen deploy` builds every member first, prints a deploy plan (network, RPC, account, order), then deploys each member in `[workspace].order` — resolving `@name` cross-references to deployed addresses, skipping members already registered on-chain, and caching addresses to `artifacts/deployments/<network>.json`. Positional / `--args` calldata isn't accepted (constructor args come from `[workspace.args]`); `--dry-run` prints the plan without building or submitting. See [Workspaces](./workspaces.md).
+
+---
+
+## `otigen addresses`
+
+List a workspace's deployed member addresses, read from the deploy cache (`artifacts/deployments/<network>.json`) written by `otigen deploy`. **Workspace-only** — a single contract's address is printed by `otigen deploy`.
+
+```text
+otigen addresses [OPTIONS]
+```
+
+| Flag | Default | What it does |
+| --- | --- | --- |
+| `--network <NAME>` | workspace `[network.default]` | Which network's deployments to list. |
+
+Every workspace member is listed with its deployed address, or `(not deployed)` if it hasn't been deployed to the selected network. `--json` emits the raw `name → address` map for scripts.
+
+```bash
+otigen addresses
+otigen addresses --network testnet
+otigen addresses --json
+```
 
 ---
 
@@ -390,7 +421,7 @@ otigen call [OPTIONS] <TARGET> <FUNCTION> [ARGS...]
 
 | Arg / Flag | Default | What it does |
 | --- | --- | --- |
-| `<TARGET>` | required | Contract name or `0x`-prefixed address. |
+| `<TARGET>` | required | Contract name or `0x`-prefixed address. At a workspace root, a member's `[contract].name` resolves to that member's manifest (for typed-arg encoding) over the workspace network. |
 | `<FUNCTION>` | required | Function name from the contract's ABI. |
 | `[ARGS...]` | none | Typed positional args. Marshalled per `[functions.<FUNCTION>].inputs` in declaration order. Mutually exclusive with `--args`. See "Typed arguments" below. |
 | `--args <HEX>` | none | Pre-encoded borsh calldata, hex-encoded. Escape hatch when typed args don't fit (e.g. calling a contract without a local `otigen.toml`). Mutually exclusive with positional `ARGS`. |
@@ -485,7 +516,7 @@ otigen inspect [OPTIONS] <TARGET>
 
 | Flag | Default | What it does |
 | --- | --- | --- |
-| `<TARGET>` | required | Contract name or `0x`-prefixed address. |
+| `<TARGET>` | required | Contract name or `0x`-prefixed address. At a workspace root, a member's `[contract].name` resolves that member's manifest + the workspace network. |
 | `--state-field <NAME>` | none | Substrate-typed storage read. Slot = `Poseidon2(self_address ‖ field_name)`; decoded per the `[state].schema` type token. Use this for any contract built with `#[pyde::declare_storage]`. |
 | `--field <NAME>` | none | Legacy pre-substrate raw-slot read. Slot = `Poseidon2(name.as_bytes())`. Mutually exclusive with `--state-field`. |
 | `--at-wave <N>` | none | Read state as of a specific wave. Honored only by archive nodes. |
@@ -512,7 +543,7 @@ otigen verify [OPTIONS] <TARGET>
 
 | Flag | Default | What it does |
 | --- | --- | --- |
-| `<TARGET>` | required | Contract address or name. |
+| `<TARGET>` | required | Contract address or name. At a workspace root, a member's `[contract].name` resolves that member's bundle + the workspace network. |
 | `--bundle <PATH>` | `<config-dir>/artifacts/<target>.bundle/` (name TARGET) or `<config-dir>/artifacts/<contract.name>.bundle/` (hex TARGET) | Local bundle to compare against. |
 | `--strict-toolchain` | off | Also compare the toolchain version pin in `manifest.json` against the running rustc / TinyGo / asc / clang. Mismatch fails verify even when bytes match. |
 | `--explorer <URL>` | none | Submit the bundle to an external verifying explorer. Posts `(contract.wasm, manifest.json, metadata.json)` to `<URL>/api/v1/contracts/<addr>/verify`. |

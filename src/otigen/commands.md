@@ -330,7 +330,7 @@ otigen deploy --dry-run     # print wire bytes, don't submit
 
 There is no `--gas-limit` / `--gas-price` flag today; values come from `[deploy]` in `otigen.toml` (`gas_limit = 10_000_000`, `gas_price = "auto"`).
 
-At a **workspace** root, `otigen deploy` builds every member first, prints a deploy plan (network, RPC, account, order), then deploys each member in `[workspace].order` — resolving `@name` cross-references to deployed addresses, skipping members already registered on-chain, and caching addresses to `artifacts/deployments/<network>.json`. Positional / `--args` calldata isn't accepted (constructor args come from `[workspace.args]`); `--dry-run` prints the plan without building or submitting. See [Workspaces](./workspaces.md).
+At a **workspace** root, `otigen deploy` prints a deploy plan (network, RPC, account, order), builds every member, then deploys each member in `[workspace].order` — resolving `@name` cross-references to deployed addresses, skipping members already registered on-chain, and caching addresses to `artifacts/deployments/<network>.json`. Constructor args come from `[workspace.args]`; with `--contract <name>` they may instead be given on the command line (positional or `--args 0x<hex>`, overriding that member's `[workspace.args]` entry — positional `@name` values still resolve), and `--value` funds that one member's constructor. `--dry-run` prints the plan and each member's resolved args without building, submitting, unlocking the wallet, or touching the RPC. See [Workspaces](./workspaces.md).
 
 ---
 

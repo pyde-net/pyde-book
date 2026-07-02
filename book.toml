@@ -1,5 +1,5 @@
 [book]
-authors = ["Pyde Network"]
+authors = ["zarah <zarah@pyde.network>"]
 language = "en"
 src = "src"
 title = "The Pyde Book"

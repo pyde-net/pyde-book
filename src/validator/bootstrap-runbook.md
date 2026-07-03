@@ -20,7 +20,7 @@ Decisions that need to be made BEFORE any binary runs. These are bound into the 
 | **Epoch length** | 100 waves at first | Drop to `10` or `5` during smoke tests; production-shape is `100`. |
 | **Dispute window** | 6 epochs | Default. Tightens to 3-4 for high-tempo testnets if you want faster slashing finality. |
 | **Genesis timestamp** | Now (`date +%s`) | The chain doesn't care about wall-clock past genesis; operators do for "when did this testnet start." |
-| **Initial prefund accounts** | Every committee operator address + ~20 dev accounts | The dev accounts let the faucet, the bootstrap-side soak runs, and downstream contract authors have funded EOAs without each begging for transfers. |
+| **Initial prefund accounts** | Every committee operator address + ~20 dev accounts | The dev accounts let the faucet, the bootstrap-side soak-test runs, and downstream contract authors have funded EOAs without each begging for transfers. |
 
 Once these are locked, every committee member needs to know them — they all bind into the genesis manifest's chain-identity hash and must match byte-for-byte.
 
@@ -242,7 +242,7 @@ The honest bar for a public unaudited testnet:
 |---|---|---|
 | Chain commits waves continuously | ≥ 99% wave-commit rate over 7+ days | [Operations dashboard](operations.md#2-set-up-monitoring) |
 | External operators can join | Someone non-bootstrap follows the docs cold and lands a healthy validator | The [external-validator drill](#) (planned task) |
-| Slashing detectors don't false-positive | Zero unjustified slashes over the soak window | DKG participation + equivocation counters |
+| Slashing detectors don't false-positive | Zero unjustified slashes over the soak-test window | DKG participation + equivocation counters |
 | Receipts resolve | 100% of submitted txs return a receipt within 30s | The `pyde soak` workload generator |
 | State sync works for fresh joiners | New validator can join from snapshot in < 1 hour | Manual drill |
 | Network survives validator churn | Restart any one validator; chain doesn't halt | `kill -9` drill |

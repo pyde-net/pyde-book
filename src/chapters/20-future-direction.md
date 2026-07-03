@@ -373,7 +373,7 @@ mempool view for K rounds, that's evidence of censorship and is
 slashable.
 
 Why deferred. The mechanism design is subtle — you need to handle
-legitimate omissions (insufficient gas, blacklisted addresses) without
+legitimate omissions (insufficient gas, denylisted addresses) without
 either creating false positives or letting real censorship slip
 through. Requires its own PIP and audit.
 

@@ -117,10 +117,10 @@ performance numbers are still gated on the multi-region harness.
 | Architecture design | ✅ Complete |
 | WASM execution (wasmtime + Cranelift AOT, Block-STM) | 🟢 Live; pooled `Engine`, Host Function ABI v1.0 frozen, Block-STM wired into the commit walk |
 | State (JMT + hybrid Blake3 / Poseidon2 dual root) | 🟢 Wired; `StateRoot { blake3, poseidon2 }` end-to-end |
-| Mysticeti DAG consensus | 🟡 Vertex / anchor / beacon / committee / wave commit live; multi-validator genesis DKG + state-sync replay shipped; soak-hardening and resharing edge cases in flight |
+| Mysticeti DAG consensus | 🟡 Vertex / anchor / beacon / committee / wave commit live; multi-validator genesis DKG + state-sync replay shipped; soak-test hardening and resharing edge cases in flight |
 | Threshold cryptography (Kyber-768 + PSS-refresh) | 🟡 DKG + per-epoch resharing + live hot-swap shipped; encrypted-tx survival across rotation still tracked as an open bug |
 | Network protocol (libp2p + QUIC + Gossipsub) | 🟢 Migrated; layered discovery, peer scoring, sentry-friendly topology |
-| Performance harness | 🟡 Local soak driver + multi-validator cluster CLI live; multi-region rig + chaos scenarios not yet built |
+| Performance harness | 🟡 Local soak-test driver + multi-validator cluster CLI live; multi-region rig + chaos scenarios not yet built |
 | SDKs (TypeScript + Rust) | 🟡 `pyde-ts-sdk` 0.1.0 staged; Rust SDK in progress |
 
 The multi-region performance harness is still the bottleneck on credible

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 360" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="pydeFactoryTitle pydeFactoryDesc">
   <title id="pydeFactoryTitle">The Pyde factory cycle</title>
-  <desc id="pydeFactoryDesc">An animated diagram of the Pyde transaction lifecycle. The cycle runs every six seconds. A user submits transactions which fall through a chute onto the mempool conveyor. Some transactions are encrypted, shown as gold padlocks attached to their droplets. Batches form and feed the consensus DAG, which stacks vertices into four floors. An anchor is selected and the wave commits in a bright flash that shakes the factory. The flash also shatters the locks on encrypted transactions, representing threshold decryption. Two robotic arms reach in and stamp executed transactions as state pillars. Smoke rises from the chimney as the cache evicts old data. A receipt droplet exits through the right door back to the user. A small rotation indicator in the corner signifies the eternal nature of the loop.</desc>
+  <desc id="pydeFactoryDesc">An animated diagram of the Pyde transaction lifecycle. The cycle runs every six seconds. A user submits transactions which fall through a chute onto the mempool conveyor. Some transactions are encrypted, shown as gold padlocks attached to their droplets. Batches form and feed the consensus DAG, which stacks vertices into four floors. An anchor is selected and the wave commits in a bright flash that shakes the factory. The flash also shatters the locks on encrypted transactions, representing threshold decryption. Two robotic arms reach in and stamp executed transactions as state pillars. Exhaust rises from the chimney as the cache evicts old data. A receipt droplet exits through the right door back to the user. A small rotation indicator in the corner signifies the eternal nature of the loop.</desc>
 
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
@@ -24,7 +24,7 @@
       <stop offset="100%" stop-color="#456c8a"/>
     </linearGradient>
 
-    <radialGradient id="bang" cx="0.5" cy="0.5" r="0.5">
+    <radialGradient id="slam" cx="0.5" cy="0.5" r="0.5">
       <stop offset="0%"   stop-color="#ffefc0" stop-opacity="1"/>
       <stop offset="35%"  stop-color="#ffaa44" stop-opacity="0.95"/>
       <stop offset="75%"  stop-color="#ff7a22" stop-opacity="0.35"/>
@@ -36,7 +36,7 @@
       <stop offset="100%" stop-color="#3a7a4e"/>
     </linearGradient>
 
-    <linearGradient id="smoke" x1="0" y1="0" x2="0" y2="1">
+    <linearGradient id="exhaust" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0%"  stop-color="#cfd4d9" stop-opacity="0.0"/>
       <stop offset="50%" stop-color="#cfd4d9" stop-opacity="0.5"/>
       <stop offset="100%" stop-color="#cfd4d9" stop-opacity="0.0"/>
@@ -55,7 +55,7 @@
     <style><![CDATA[
       /* --------------------------------------------------------------
          Cycle: 3 seconds. Sub-animations phased via animation-delay.
-         Bang fires at 58% (3.48s in). Pillars stamp at 65% (3.9s in).
+         Slam fires at 58% (3.48s in). Pillars stamp at 65% (3.9s in).
          Receipt exits at 80% (4.8s in).
          -------------------------------------------------------------- */
 
@@ -115,7 +115,7 @@
       }
 
       /* Locks on DAG vertices that contain encrypted txs.
-         These appear when the DAG builds, then SHATTER at the bang. */
+         These appear when the DAG builds, then SHATTER at the slam. */
       .dag-lock {
         transform-box: fill-box;
         transform-origin: center;
@@ -178,7 +178,7 @@
         60%, 100% { opacity: 0; }
       }
 
-      /* Anchor pulses right before the bang */
+      /* Anchor pulses right before the slam */
       .anchor {
         opacity: 0;
         transform-box: fill-box;
@@ -190,20 +190,20 @@
         55% { opacity: 1; transform: scale(1.2); }
       }
 
-      /* The big bang */
-      .bang {
+      /* The big slam */
+      .slam {
         opacity: 0;
         transform-box: fill-box;
         transform-origin: center;
-        animation: bangFlash 3s ease-out infinite;
+        animation: slamFlash 3s ease-out infinite;
       }
-      @keyframes bangFlash {
+      @keyframes slamFlash {
         0%, 55%, 73%, 100% { opacity: 0; transform: scale(0.3); }
         58% { opacity: 1; transform: scale(1.0); }
         65% { opacity: 0.4; transform: scale(1.6); }
       }
 
-      /* Execution arms swing during execution phase (right after bang) */
+      /* Execution arms swing during execution phase (right after slam) */
       .exec-arm.a1 { transform-origin: 460px 80px; animation: armSwingA 3s ease-in-out infinite; }
       .exec-arm.a2 { transform-origin: 510px 80px; animation: armSwingB 3s ease-in-out infinite; }
 
@@ -223,7 +223,7 @@
         72%, 100% { transform: rotate(30deg); }
       }
 
-      /* Pillars stamp in right after the bang */
+      /* Pillars stamp in right after the slam */
       .pillar {
         transform-box: fill-box;
         transform-origin: center bottom;
@@ -241,18 +241,18 @@
         98% { transform: scaleY(1); opacity: 0; }
       }
 
-      /* Smoke wisps rise from chimney after the bang */
-      .smoke-wisp {
+      /* Exhaust wisps rise from chimney after the slam */
+      .exhaust-wisp {
         opacity: 0;
         transform-box: fill-box;
         transform-origin: center;
-        animation: smokeRise 3s ease-out infinite;
+        animation: exhaustRise 3s ease-out infinite;
       }
-      .smoke-wisp.w1 { animation-delay: 0s; }
-      .smoke-wisp.w2 { animation-delay: 0.175s; }
-      .smoke-wisp.w3 { animation-delay: 0.35s; }
+      .exhaust-wisp.w1 { animation-delay: 0s; }
+      .exhaust-wisp.w2 { animation-delay: 0.175s; }
+      .exhaust-wisp.w3 { animation-delay: 0.35s; }
 
-      @keyframes smokeRise {
+      @keyframes exhaustRise {
         0%, 60%   { opacity: 0; transform: translate(0, 0) scale(0.6); }
         65%       { opacity: 0.6; }
         85%       { opacity: 0.3; transform: translate(-3px, -40px) scale(1.4); }
@@ -329,7 +329,7 @@
     <text class="label-small" x="670" y="55" style="fill:#7090b0">∞ cycle</text>
   </g>
 
-  <!-- ================= INSIDE THE FACTORY (shakes at the bang) ================= -->
+  <!-- ================= INSIDE THE FACTORY (shakes at the slam) ================= -->
   <g class="factory-shake">
 
     <!-- factory floor baseline -->
@@ -427,7 +427,7 @@
       <line class="dag-edge e3" x1="400" y1="220" x2="378" y2="198"/>
     </g>
 
-    <!-- Locks on DAG-resident encrypted txs — shattered by the bang -->
+    <!-- Locks on DAG-resident encrypted txs — shattered by the slam -->
     <g class="dag-lock dl1" transform="translate(363, 205)">
       <rect x="-3.5" y="-2" width="7" height="6" rx="1" fill="url(#lock)"/>
       <path d="M-2.5,-2 L-2.5,-5 Q-2.5,-7 0,-7 Q2.5,-7 2.5,-5 L2.5,-2" fill="none" stroke="#a07014" stroke-width="0.9"/>
@@ -440,8 +440,8 @@
     <!-- ============ STAGE 4: ANCHOR HIGHLIGHT (mid vertex of top floor) ============ -->
     <circle class="anchor" cx="363" cy="191" r="14" fill="none" stroke="#ffaa44" stroke-width="2.2"/>
 
-    <!-- ============ STAGE 5: WAVE COMMIT BANG ============ -->
-    <circle class="bang" cx="363" cy="160" r="50" fill="url(#bang)"/>
+    <!-- ============ STAGE 5: WAVE COMMIT SLAM ============ -->
+    <circle class="slam" cx="363" cy="160" r="50" fill="url(#slam)"/>
 
     <!-- ============ STAGES 6+7: EXECUTION ARMS ============ -->
     <!-- Arm A: hangs from (460,80), swings during execution phase -->
@@ -471,15 +471,15 @@
       <rect class="pillar p4" x="60" y="-25" width="14" height="90" rx="2" fill="url(#pillar)"/>
     </g>
 
-    <!-- ============ STAGE 9: CHIMNEY (pokes through roof) + SMOKE ============ -->
+    <!-- ============ STAGE 9: CHIMNEY (pokes through roof) + EXHAUST ============ -->
     <!-- chimney rectangle, from above-roof down to just inside building -->
     <rect x="557" y="20" width="20" height="50" rx="2" fill="#3a4a5a"/>
     <rect x="554" y="20" width="26" height="6"  rx="1" fill="#5a6878"/>
-    <!-- smoke wisps emerge from chimney top (y=20) -->
+    <!-- exhaust wisps emerge from chimney top (y=20) -->
     <g transform="translate(567, 20)">
-      <ellipse class="smoke-wisp w1" cx="0" cy="-4" rx="11" ry="8" fill="url(#smoke)"/>
-      <ellipse class="smoke-wisp w2" cx="-2" cy="-4" rx="11" ry="8" fill="url(#smoke)"/>
-      <ellipse class="smoke-wisp w3" cx="2" cy="-4" rx="11" ry="8" fill="url(#smoke)"/>
+      <ellipse class="exhaust-wisp w1" cx="0" cy="-4" rx="11" ry="8" fill="url(#exhaust)"/>
+      <ellipse class="exhaust-wisp w2" cx="-2" cy="-4" rx="11" ry="8" fill="url(#exhaust)"/>
+      <ellipse class="exhaust-wisp w3" cx="2" cy="-4" rx="11" ry="8" fill="url(#exhaust)"/>
     </g>
 
     <!-- ============ STAGE 10: RECEIPT EXIT (through right door) ============ -->

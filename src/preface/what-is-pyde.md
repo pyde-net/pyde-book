@@ -80,12 +80,12 @@ One core. Many orbits. Bound by physics, not by trust.
 
 Most blockchain explanations start with cryptography and end with consensus, leaving the reader holding a bag of acronyms. We are going to do this differently.
 
-Pyde is a **factory**. Goods (transactions) arrive at the loading dock from outside. They are sorted, lifted onto a continuously-moving assembly line, and arranged by a series of robotic arms working in parallel. Every few hundred milliseconds, a controlled detonation locks in a batch as final — the _bang_ you feel when the factory floor shakes is a wave commit. After the bang, the audit ledger is stamped, smoke rises from the chimney (eviction, pruning), a receipt is sent out the front door, and the line keeps moving without ever stopping.
+Pyde is a **factory**. Goods (transactions) arrive at the loading dock from outside. They are sorted, lifted onto a continuously-moving assembly line, and arranged by a series of robotic arms working in parallel. Every few hundred milliseconds, the great press slams down and locks a batch as final — the _slam_ you feel when the factory floor shakes is a wave commit. After the slam, the audit ledger is stamped, exhaust rises from the chimney (eviction, pruning), a receipt is sent out the front door, and the line keeps moving without ever stopping.
 
 The continuous rotation is the throughput. Pyde is not a fast database; it is a deep pipeline.
 
 <!-- The animated factory loop is embedded just below. -->
-<img src="../assets/factory-loop.svg" alt="Pyde factory loop animation: transactions flowing in as droplets, batches forming, DAG floors rising, wave commit flash, state pillars stamped, smoke wisps rising, repeat." class="pyde-factory-loop" />
+<img src="../assets/factory-loop.svg" alt="Pyde factory loop animation: transactions flowing in as droplets, batches forming, DAG floors rising, wave commit flash, state pillars stamped, exhaust wisps rising, repeat." class="pyde-factory-loop" />
 
 <p class="pyde-figure-caption">The Pyde cycle, ~2-3 times a second on commodity hardware. Each pass is one wave commit.</p>
 
@@ -125,17 +125,17 @@ anchor_validator_id = VRF(beacon_combined, round, prev_state_root) mod 128
 
 The beacon is the XOR of the prior round's VRF shares (public randomness). The previous state root locks anchor selection to canonical history, so an adversary who reorders the DAG cannot retroactively choose a more favourable anchor. Mod 128 picks which member's vertex at this round wears the crown. Every honest member computes the same answer.
 
-### Stage 5 — Big bang (wave commit) 💥
+### Stage 5 — The press slams (wave commit) 💥
 
-Once the anchor has accumulated ≥85 attestations from later-round vertices (other members' vertices that reach the anchor transitively through parent links), the **commit threshold** trips. The bang fires.
+Once the anchor has accumulated ≥85 attestations from later-round vertices (other members' vertices that reach the anchor transitively through parent links), the **commit threshold** trips. The press comes down.
 
-What the bang does, in three lines:
+What the slam does, in three lines:
 
 1. **BFS subdag walk** — starting at the anchor, walk every parent reference recursively. The set of touched vertices is the subdag being committed.
 2. **Canonical sort** — order the subdag by (round, author_id, batch_list_order). Every honest member produces the same order.
 3. **Dedupe + flatten** — same transaction may appear in multiple batches across multiple members; keep the first appearance. The result is the wave's `ordered_list`, a fully deterministic transaction sequence.
 
-That sequence is _what gets executed_. Before the bang the DAG is ambiguous; after the bang it is fixed. See [Chapter 6 §5b–5c](../chapters/06-consensus.md) for round-vs-wave terminology, missing-vertex handling, and the 5-skip recovery walkthrough.
+That sequence is _what gets executed_. Before the slam the DAG is ambiguous; after the slam it is fixed. See [Chapter 6 §5b–5c](../chapters/06-consensus.md) for round-vs-wave terminology, missing-vertex handling, and the 5-skip recovery walkthrough.
 
 ### Stage 6 — Unboxing the sealed crates (threshold decryption)
 
@@ -153,11 +153,11 @@ For each transaction, the dispatch looks at the type. Native transactions (Trans
 
 After execution, the wave overlay holds every write _and_ every emitted event. Now the audit stamp goes on. Each `(slot_hash, value)` write lands in two places: the **state_cf** flat table (live state, O(1) reads later) and the **jmt_cf** versioned tree (proofs and state root). JMT internal nodes touched by this wave are recomputed with dual hashes — Blake3 for fast native verification, Poseidon2 for future ZK light clients (see [Chapter 4 §4.1b](../chapters/04-state-model.md)). Events land in three more column families — **events_cf** (primary, ordered by wave) plus **events_by_topic_cf** and **events_by_contract_cf** (indexes for fast filtering) — and the wave commit record carries an `events_root` (Blake3 Merkle tree over canonical-ordered events) plus a 256-byte `events_bloom` so light clients can verify event inclusion identically to how they verify state. The new state root, the events root + bloom, the wave commit record, the receipts, and the tx-to-wave mapping all land in a single atomic RocksDB WriteBatch. Either the entire wave commits or none of it does. There is no such thing as a half-committed wave.
 
-### Stage 9 — Smoke from the chimney (eviction and pruning) 💨
+### Stage 9 — Exhaust from the chimney (eviction and pruning) 💨
 
 The DashMap write-back cache layer holds writes from recent waves in memory; reads against hot accounts are near-free here. On every wave boundary, the cache is flushed and LRU eviction trims it back under its size cap. Hot accounts (token contracts, popular pools) stay resident; cold accounts get evicted and next access pays one disk read against `state_cf`. Pruning policy varies by node tier: archive nodes keep everything; full nodes drop state-tree versions older than ninety days; committee validators keep thirty days. The mempool drops every transaction that just committed and every transaction whose nonce window has now closed.
 
-The smoke rising from the chimney is the eviction. The exhaust is the pruning. The factory shrinks back to a clean working volume ready for the next round.
+The plume rising from the chimney is the eviction. The exhaust trailing it is the pruning. The factory shrinks back to a clean working volume ready for the next round.
 
 ### Stage 10 — Receipt out the front door (back to the user)
 
@@ -178,7 +178,7 @@ The wallet updates the user's view: _"Transferred 100 PYDE to alice.pyde. Confir
 
 ### Stage 11 — The eternal rotation 🔁
 
-Everything you have just read is happening in parallel for different waves. While Stage 7's arms execute wave 1,234,567, round R+1 has already advanced, decryption shares for round R+5's encrypted transactions are piggybacking through the gossip layer, the next anchor is already known by VRF, the mempool is already sorting transactions that will land in wave 1,234,568, and somebody's wallet on the other side of the world is running a Tier-1 preview for a transaction that does not yet exist. The pipeline is deep. The conveyor belts overlap. The big bang fires roughly twice a second.
+Everything you have just read is happening in parallel for different waves. While Stage 7's arms execute wave 1,234,567, round R+1 has already advanced, decryption shares for round R+5's encrypted transactions are piggybacking through the gossip layer, the next anchor is already known by VRF, the mempool is already sorting transactions that will land in wave 1,234,568, and somebody's wallet on the other side of the world is running a Tier-1 preview for a transaction that does not yet exist. The pipeline is deep. The conveyor belts overlap. The press slams roughly twice a second.
 
 The continuous rotation is the throughput. No single transaction is faster than on a slower chain — but the assembly line never empties.
 
@@ -187,9 +187,9 @@ The continuous rotation is the throughput. No single transaction is faster than 
 ## What the metaphor catches that the spec sometimes loses
 
 - **Pipelining is everything.** Stages 1–11 run concurrently for different waves. No stage waits for another stage to finish.
-- **The bang is real.** Wave commit is a discrete moment that locks order. Before the bang the DAG is ambiguous; after the bang it is canonical.
-- **Smoke is not waste — it is necessary.** Eviction and pruning are first-class. Without them the factory chokes on its own inventory.
-- **The user only sees the loading dock and the receipt window.** Everything in between is hidden machinery. The wallet's job is to make the bang feel like an instant click.
+- **The slam is real.** Wave commit is a discrete moment that locks order. Before the slam the DAG is ambiguous; after the slam it is canonical.
+- **Exhaust is not waste — it is necessary.** Eviction and pruning are first-class. Without them the factory clogs on its own inventory.
+- **The user only sees the loading dock and the receipt window.** Everything in between is hidden machinery. The wallet's job is to make the slam feel like an instant click.
 
 ---
 

@@ -259,14 +259,14 @@ which wasm-ld
 The fastest end-to-end smoke test — `otigen test` auto-invokes the per-language compiler before running the suite, so a single command covers build + test:
 
 ```bash
-otigen new smoke --lang rust --from counter
-cd smoke
+otigen new smoke-test --lang rust --from counter
+cd smoke-test
 otigen test
 ```
 
 ```text
 → Compiling (rust) — cargo build --target wasm32-unknown-unknown --release
-✓ Compiled → ./target/wasm32-unknown-unknown/release/smoke.wasm
+✓ Compiled → ./target/wasm32-unknown-unknown/release/smoke_test.wasm
 
   Running 3 tests in ./tests/contract.test.toml (via engine)
     ✓ get_returns_zero_initially (29.55 ms)

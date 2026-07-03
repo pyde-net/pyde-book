@@ -307,7 +307,7 @@ otigen deploy [OPTIONS]
 | --- | --- | --- |
 | `--bundle <PATH>` | `<config-dir>/artifacts/<name>.bundle/` | Bundle directory to deploy. Anchored on the parent of `--config` so deploys from outside the project dir find the bundle next to the project. |
 | `--from <WALLET>` | `[wallet.default_account]` | Signing account. |
-| `[ARGS...]` | none | Typed positional constructor args, marshalled per `[functions.init].inputs` in declaration order. Same encoder + wallet-name address resolution as `otigen call`. Mutually exclusive with `--args`. |
+| `[ARGS...]` | none | Typed positional constructor args, marshalled per the constructor's declared inputs — the `[functions.<name>]` entry tagged `constructor`, any name — in declaration order. Same encoder + wallet-name address resolution as `otigen call`. Mutually exclusive with `--args`. |
 | `--args <HEX>` | empty | Pre-encoded borsh calldata for the constructor (`init`), hex-encoded. Renamed from `--init-arg` to match `otigen call --args`. Mutually exclusive with positional constructor args. |
 | `--value <QUANTA>` | `0` | Optional native PYDE transfer to the freshly-deployed contract account (decimal quanta — 1 PYDE = 10⁹ quanta). The constructor sees it via `pyde::ctx::value()`; forfeited per PIP-4 if the constructor reverts. |
 | `--dry-run` | off | Build + sign the tx but don't submit. Useful for inspecting the wire bytes. |
@@ -474,6 +474,27 @@ By default, view-call returns are decoded per `[functions.<fn>].outputs`:
 - Compound shapes (`vec(T)`, `struct(<Name>)`, enum) → JSON5-style.
 
 `--raw` preserves the on-wire hex — useful for piping into external decoders or for contracts the CLI doesn't have an `outputs` schema for. In `--json` mode the `call_result` event carries `return_data` (raw hex) alongside a separate `decoded` field with the decoded form (see [`crates/otigen-cli/src/commands/call.rs`](https://github.com/pyde-net/otigen/blob/main/crates/otigen-cli/src/commands/call.rs) for the exact event shape).
+
+### Mutating calls decode too
+
+A **write** function that returns data (`pyde::return`) shows it the same way — the payload rides the tx receipt's `return_data` and is decoded per the declared `outputs`:
+
+```text
+  ✓ Call succeeded.
+  Return:   2
+```
+
+In `--json` mode the `call_included` event carries the `return_data` hex. The console's `tx` command prints the raw hex.
+
+### Reverts show the author's message
+
+A revert — view or tx — prints the string the contract passed to `pyde::revert`, never a wasm backtrace:
+
+```text
+otigen [ERROR] Reverted: erc721: nonexistent token
+```
+
+This works across `call`, `deploy` (constructor reverts included), `send`, and the console.
 
 ---
 
@@ -658,7 +679,7 @@ otigen update [OPTIONS]
 
 | Flag | Default | What it does |
 | --- | --- | --- |
-| `--version <V>` | `latest` | Install a specific tag instead of the freshest one. Accepts either `v0.1.0-alpha.4` or the mirror's full `otigen-v0.1.0-alpha.4`. |
+| `--version <V>` | `latest` | Install a specific tag instead of the freshest one. Accepts either `v0.1.0-alpha.5` or the mirror's full `otigen-v0.1.0-alpha.5`. |
 | `--check` | off | Print the latest version + the currently installed one and exit. No filesystem side-effect. Exit code 0 = up-to-date, non-zero = drift. Handy for pre-commit hooks. |
 | `--no-verify-sig` | off | Skip the install script's sigstore verification. Use only on locked-down machines that can't install `cosign`. |
 

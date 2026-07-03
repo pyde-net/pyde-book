@@ -85,7 +85,7 @@ Each threat ID prefixed `T-` (toolchain). Numbered for cross-reference. Severity
 **Mitigations:**
 - `serde` + `toml-rs` are the parser substrate; both are battle-tested under fuzzing.
 - `otigen-toml` adds its own cross-cutting validation pass that explicitly rejects malformed shapes (see [`OTIGEN_BINARY_SPEC.md`](./OTIGEN_BINARY_SPEC.md) §4 and the adversarial corpus at `crates/otigen-toml/tests/corpus/fail/`).
-- Continuous fuzzing target `fuzz_toml_parser` runs against arbitrary UTF-8 bytes; ≥24h cumulative run required before α release per [`roadmap.md`](../roadmap.md) `α.qual.fuzz` gate. 4.3 M iterations clean as of the initial smoke run.
+- Continuous fuzzing target `fuzz_toml_parser` runs against arbitrary UTF-8 bytes; ≥24h cumulative run required before α release per [`roadmap.md`](../roadmap.md) `α.qual.fuzz` gate. 4.3 M iterations clean as of the initial smoke-test run.
 
 **Residual risk:** A surviving fuzz crash that wasn't reduced into the corpus. Mitigated by the gate above.
 

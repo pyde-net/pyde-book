@@ -180,7 +180,7 @@ Owner: shared between β and γ as the changes touch both sides. Coordinated by 
 ### 3.6 MC-5 — Validation + Mainnet Launch (sequential)
 
 - Five external audits (consensus, execution layer, cryptography, networking, otigen toolchain).
-- Incentivized testnet (multi-month soak with reference dApps + bug bounty at mainnet tier).
+- Incentivized testnet (multi-month soak test with reference dApps + bug bounty at mainnet tier).
 - 128-validator genesis ceremony.
 - Mainnet launch.
 

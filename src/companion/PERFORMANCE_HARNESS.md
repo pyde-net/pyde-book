@@ -139,13 +139,13 @@ Concrete workloads:
 
 | Test | Duration | Frequency |
 |---|---|---|
-| **Smoke** | 5 min | Every commit (CI) |
-| Short soak | 1 hour | Daily |
-| **Standard soak** | 4 hours | Weekly |
-| Extended soak | 24 hours | Pre-release |
-| **Pre-launch soak** | 7 days | Before mainnet only |
+| **Smoke test** | 5 min | Every commit (CI) |
+| Short soak test | 1 hour | Daily |
+| **Standard soak test** | 4 hours | Weekly |
+| Extended soak test | 24 hours | Pre-release |
+| **Pre-launch soak test** | 7 days | Before mainnet only |
 
-Pass criteria for soak:
+Pass criteria for soak tests:
 - TPS within 5% of starting value over 4 hours
 - p99 latency within 20% of starting value
 - Memory growth < 100 MB/hour (excluding state)
@@ -181,7 +181,7 @@ All must pass with publishable evidence before any TPS claim:
 | DKG under load | Epoch transition at the v1 throughput target, no commit stall |
 | State sync under load | New node joins under sustained load, syncs in <1 hour |
 | Slashing under load | Equivocation slashed within 1 epoch |
-| 7-day soak | Sustained load for 7 days, no memory leak, no drift |
+| 7-day soak test | Sustained load for 7 days, no memory leak, no drift |
 | Encrypted tx mix | 30% encrypted at the v1 throughput target, decrypt latency <500ms |
 | Modest hardware | Single committee validator on 1 Gbps, 8c/16GB |
 
@@ -208,8 +208,8 @@ pyde.network/perf
 │   ├── p50, p99 latency
 │   ├── Validator count + uptime
 │   └── Test network conditions
-├── Soak History
-│   ├── 4h, 24h, 7d soak results
+├── Soak-Test History
+│   ├── 4h, 24h, 7d soak-test results
 │   ├── Pass/fail per scenario
 │   └── Regression trend lines
 └── Methodology
@@ -227,7 +227,7 @@ pyde.network/perf
 | Multi-region deployment automation | ~1 week |
 | Metrics collection + Prometheus integration | ~1 week |
 | Chaos testing scenarios | ~2 weeks |
-| Long-duration soak runners | ~1 week |
+| Long-duration soak-test runners | ~1 week |
 | Reporting + dashboard | ~1 week |
 | **Total minimum viable harness** | **~8 weeks of focused engineering** |
 

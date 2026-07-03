@@ -379,9 +379,9 @@ Gate: prefetched waves measurably faster than no-list waves on a read-heavy benc
 
 - Property tests with proptest: random tx mixes, random pool sizes, identical final state.
 - AFL+ fuzz harness against `execute_wave`.
-- Soak: 24h continuous waves on a 4-validator cluster with random tx mixes; zero state-root divergence required.
+- Soak test: 24h continuous waves on a 4-validator cluster with random tx mixes; zero state-root divergence required.
 
-Gate: 24h soak clean.
+Gate: 24h soak test clean.
 
 ### Phase F — Production swap (week 8+)
 

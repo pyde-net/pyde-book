@@ -130,7 +130,7 @@ When making a new illustration:
 - Corners are slightly rounded (`rx="2"` is the default).
 - Animations loop on a 3-second cycle (matching the factory loop's tempo).
 
-Diagrams that explain Pyde mechanics may reuse the factory's visual vocabulary in grayscale: droplets for transactions, boxes for vertices, pillars for state, smoke for eviction, a flash for wave commit.
+Diagrams that explain Pyde mechanics may reuse the factory's visual vocabulary in grayscale: droplets for transactions, boxes for vertices, pillars for state, exhaust for eviction, a flash for wave commit.
 
 ---
 

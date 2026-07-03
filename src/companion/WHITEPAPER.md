@@ -439,7 +439,7 @@ Pyde's pre-pivot in-house HotStuff implementation measured ~ 4 K TPS in practice
 
 - **Multi-region testing mandatory.** Localhost devnet numbers do not count.
 - **Production-realistic workload mix.** Not synthetic transfer-only; realistic ratios of transfers / AMM swaps / NFT mints / contract calls.
-- **Continuous soak.** 4-hour minimum for any TPS claim that ships externally.
+- **Continuous soak testing.** 4-hour minimum for any TPS claim that ships externally.
 - **Measured-only rule.** External claims publish only what the harness measures under sustained, production-realistic conditions — never lab extrapolations or microbenchmark peaks.
 - **Public dashboard.** Rolling 30-day metrics, visible.
 
@@ -597,9 +597,9 @@ The protocol-level cross-chain primitives (`cross_call!`, `HardFinalityCert`) sh
 This document is the technical specification of the post-pivot design. The engineering between specification and mainnet is the work ahead, in execution order:
 
 1. **Mysticeti DAG implementation.** Adapt the open-source Mysticeti reference for FALCON-bound signatures and Pyde's threshold-decryption integration; rebuild the consensus, mempool, and node crates against the new foundation.
-2. **Performance harness build-out.** Multi-region production-realistic infrastructure; workload generators for the four target tx-mixes; chaos / failure injection; soak schedule. Pre-mainnet test slate is mandatory before any external TPS claim.
+2. **Performance harness build-out.** Multi-region production-realistic infrastructure; workload generators for the four target tx-mixes; chaos / failure injection; soak-test schedule. Pre-mainnet test slate is mandatory before any external TPS claim.
 3. **External audit programme.** Multi-track, specialist firms across consensus, the WASM execution layer integration (host-function ABI, fuel-to-gas mapping, deploy-time validator), post-quantum cryptography, networking, and the `otigen` developer toolchain. Remediate all critical and high findings; re-audit the remediation. The wasmtime runtime itself is a vetted production dependency from the Bytecode Alliance and is not separately audited.
-4. **Incentivized testnet.** Reference dApps (DEX, lending market, NFT marketplace); fully-funded bug bounty at mainnet-tier scale; multi-month soak; remediate community-found issues before launch.
+4. **Incentivized testnet.** Reference dApps (DEX, lending market, NFT marketplace); fully-funded bug bounty at mainnet-tier scale; a multi-month soak test; remediate community-found issues before launch.
 5. **128-validator genesis.** Recruit operators with documented hardware benchmarks and incentivized-testnet participation. Geo-distribute across 3 + regions. Coordinate validator DKG for the threshold pubkey. Sign the genesis block. Publish the chain hash.
 
 There is no public schedule. Mainnet ships when the audit programme passes and the incentivized testnet validates the throughput target on production-realistic infrastructure — not before. For investors, the absence of a public schedule is by design: the project prioritizes correctness over a date, and each milestone above is a gate that must close on the merits before mainnet.

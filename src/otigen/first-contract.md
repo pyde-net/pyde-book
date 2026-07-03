@@ -14,12 +14,20 @@ cd my-counter
 ```
 
 ```text
-scaffolded "my-counter" from "counter" at my-counter
-  files: 7
-next: cd my-counter && cargo build --target wasm32-unknown-unknown --release && otigen test
+  ✓ Scaffolded my-counter — Rust contract from `counter` (7 files)
+
+    my-counter/
+    ├─ src/lib.rs                 the contract (start here)
+    ├─ otigen.toml                state schema · functions · networks
+    └─ tests/contract.test.toml   behaviour tests
+
+  Next steps:
+    cd my-counter
+    otigen test      # compile + run the behaviour suite
+    otigen deploy    # against `otigen devnet`
 ```
 
-You can skip the standalone `cargo build` — `otigen test` invokes the per-language compiler by default; `--no-compile` opts out when a CI step has already produced the wasm.
+`otigen test` invokes the per-language compiler by default; `--no-compile` opts out when a CI step has already produced the wasm.
 
 What landed:
 

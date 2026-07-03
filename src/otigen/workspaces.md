@@ -30,12 +30,13 @@ cd shop
 ```
 
 ```text
-  ✓ Scaffolded Rust workspace "shop" at shop
-      contracts/counter/   starter contract (rename before a real deploy)
-  Next: cd shop
-        otigen new <name>      # add another contract
-        otigen build           # build every member
-        otigen deploy          # against `otigen devnet`
+  ✓ Scaffolded shop — Rust workspace (starter member: contracts/counter/)
+
+  Next steps:
+    cd shop
+    otigen new <name>   # add another contract
+    otigen test         # build + test every member
+    otigen deploy       # against `otigen devnet`
 ```
 
 What landed:
@@ -69,6 +70,19 @@ Run `otigen new <name>` from the workspace root:
 
 ```bash
 otigen new vault --from counter --lang rust
+```
+
+```text
+  ✓ Added vault to the workspace — Rust contract from `counter`
+
+    contracts/vault/
+    ├─ src/lib.rs                 the contract (start here)
+    ├─ otigen.toml                state schema · functions · networks
+    └─ tests/contract.test.toml   behaviour tests
+
+  Next steps:
+    otigen test --contract vault    # test just this member
+    otigen deploy                   # deploy every member in order
 ```
 
 This scaffolds `contracts/vault/` and registers it in the root manifest —
@@ -121,7 +135,7 @@ Three things to know:
 - **`[workspace.args]`** are constructor arguments, one array per member.
   A `@name` entry resolves to that member's deployed address; everything
   else (wallet names, `0x…` addresses, numbers, booleans) is passed
-  through to the member's `[functions.init].inputs` typed-arg encoder.
+  through to the member's declared constructor inputs (the `[functions.*]` entry tagged `constructor`).
 
 The workspace `[network.*]` tables are **authoritative** — every member
 deploys, and every workspace-level `call` / `inspect` / `verify`

@@ -54,6 +54,7 @@ Per [`OTIGEN_BINARY_SPEC §3.2`](../companion/OTIGEN_BINARY_SPEC.md):
 | Function allowlist | Imports of `pyde::*` fns not in `HOST_FN_ABI_SPEC` §7 ⇒ rejected. |
 | Parachain gating | A non-parachain contract importing §8 fns ⇒ rejected. |
 | Export consistency | Every `[functions.X]` in `otigen.toml` must be exported by the WASM. Every non-underscored export must be declared. |
+| Signature consistency | Declared `[functions.X]` `inputs` / `outputs` must match the code's REAL signature, recorded by the `#[pyde::entry]` macro in a `pyde.sig.v1` section (`pyde-host ≥ 0.1.0-alpha.7`). Mismatch fails the build with a declared-vs-actual diagnostic. Contracts without the section (older pyde-host, AS / TinyGo / C manual FFI) skip the check. The section is stripped from the bundle — the chain never sees it. |
 | Entry shape | Every entry must export `() -> ()` (`HOST_FN_ABI_SPEC §3.5.2`). The `#[pyde::entry]` macro generates this shim; hand-rolled `#[no_mangle] pub extern "C" fn foo(args, ...) -> ret` is rejected. |
 | Forbidden features | Threads, SIMD, GC, multi-memory, memory64, component model, exceptions, tail-call, custom-page-sizes ⇒ rejected (deterministic-execution subset only). Reference types and bulk-memory ARE accepted (LLVM emits them unconditionally). |
 
@@ -223,7 +224,7 @@ There is no `--gas-limit` / `--gas-price` CLI flag — change the manifest inste
 
 ### Typed constructor args + `--value`
 
-Typed constructor args follow the wallet flags: `otigen deploy --from devnet-0 --password-stdin <<< pw devnet-1 100` invokes the contract's `[functions.init]` with `(devnet-1, 100)` — addresses resolve through the keystore, numbers accept decimal/hex/underscores. For vec/struct args fall back to `--args 0x<hex>`. Native PYDE transfer at deploy time: `--value <quanta>` (1 PYDE = 10⁹ quanta); the constructor sees it via `pyde::ctx::value()`.
+Typed constructor args follow the wallet flags: `otigen deploy --from devnet-0 --password-stdin <<< pw devnet-1 100` invokes the contract's constructor (the `[functions.*]` entry tagged `constructor` — any name) with `(devnet-1, 100)` — addresses resolve through the keystore, numbers accept decimal/hex/underscores. For vec/struct args fall back to `--args 0x<hex>`. Native PYDE transfer at deploy time: `--value <quanta>` (1 PYDE = 10⁹ quanta); the constructor sees it via `pyde::ctx::value()`.
 
 ### `--dry-run`
 

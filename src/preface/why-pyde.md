@@ -60,7 +60,7 @@ The v1 mainnet throughput target is established by a multi-region harness with r
 **Runtime that already powers production at scale.**
 wasmtime + Cranelift AOT — the same WebAssembly runtime Fastly serves edge functions on, Microsoft ships in Hyperlight, Shopify uses for app extensions, and the Bytecode Alliance maintains with 50+ corporate contributors. Not a homegrown VM with a 1.0 release ahead of it.
 
-**Native session keys and programmable accounts on the roadmap.**
+**Native session keys and programmable accounts are planned.**
 v1 ships native multisig (up to 16 signers). v2 ships scoped session keys and programmable accounts at the protocol layer — not retrofitted like Ethereum's ERC-4337. Your dApp gets bounded, revocable delegation as a first-class primitive: gaming sessions, AI-agent delegation, recurring payments, all without a wallet popup per action. v1 reserves the protocol surface so contracts written today survive the v2 upgrade unchanged.
 
 **16 concurrent transactions per account.**

@@ -11,7 +11,7 @@ This document is the coordination artifact for **implementing** Pyde. The design
 
 If this document and any other artifact disagree on *implementation logistics* (who owns what, branching rules), this document wins. If this document and a *design spec* (HOST_FN_ABI_SPEC, etc.) disagree on protocol semantics, the design spec wins.
 
-For the roadmap with checklist-level tracking, see [roadmap.md](../roadmap.md). For the design philosophy ("v1 ships interfaces, v2 ships implementations") see the memory entry [`v2_roadmap_and_room`](https://github.com/pyde-net/.github/blob/main/memory-references.md).
+For the design philosophy ("v1 ships interfaces, v2 ships implementations") see the [org memory references](https://github.com/pyde-net/.github/blob/main/memory-references.md).
 
 ---
 
@@ -54,7 +54,7 @@ MC-4 — PERFORMANCE + FAILURE HANDLING  [PAR within]
 MC-5 — VALIDATION + MAINNET LAUNCH  [SEQ]
 ```
 
-Phase summaries in §3 below. Detailed checklists per phase live in [roadmap.md](../roadmap.md).
+Phase summaries in §3 below. Detailed per-phase checklists are tracked separately.
 
 ---
 
@@ -738,7 +738,6 @@ Quick reference for things the implementation must hold to:
 - [OTIGEN_TEST_SPEC.md](./OTIGEN_TEST_SPEC.md) — contract behaviour test framework
 - [PARACHAIN_DESIGN.md](./PARACHAIN_DESIGN.md) — parachain framework
 - [STATE_SYNC.md](./STATE_SYNC.md), [CHAIN_HALT.md](./CHAIN_HALT.md), [SLASHING.md](./SLASHING.md), [VALIDATOR_LIFECYCLE.md](./VALIDATOR_LIFECYCLE.md), [NETWORK_PROTOCOL.md](./NETWORK_PROTOCOL.md), [THREAT_MODEL.md](./THREAT_MODEL.md), [FAILURE_SCENARIOS.md](./FAILURE_SCENARIOS.md), [PERFORMANCE_HARNESS.md](./PERFORMANCE_HARNESS.md) — operational specs
-- [roadmap.md](../roadmap.md) — phase-by-phase checklist tracking
 - The 20 book chapters + 4 PIPs — full design
 
 ---

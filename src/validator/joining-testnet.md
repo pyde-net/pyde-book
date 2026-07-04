@@ -187,4 +187,4 @@ What the verification flow protects against:
 
 The honest gap: an attacker with full control of `pyde-net/test-releases` AND the ability to mint sigstore certs against `pyde-net/engine`'s OIDC could swap the entire release. That's the same trust root as the validator binary itself — if you trust the binary you installed, the genesis bound to it has the same trust level.
 
-Pre-mainnet that's an acceptable v1 bar. v2 hardening (multiple genesis-publisher attestations, a deterministic publish from a quorum of bootstrappers) is on the roadmap.
+Pre-mainnet that's an acceptable v1 bar. v2 hardening (multiple genesis-publisher attestations, a deterministic publish from a quorum of bootstrappers) is planned.

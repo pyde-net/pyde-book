@@ -63,7 +63,7 @@ Pyde is **pre-mainnet**. That means:
 | Run a full node | ❌ Mainnet (devnet earlier) |
 | Follow the project | ✅ Now |
 
-The roadmap below tracks the path from "pre-mainnet engineering" to
+The sections below track the path from "pre-mainnet engineering" to
 "mainnet live".
 
 ---
@@ -72,9 +72,9 @@ The roadmap below tracks the path from "pre-mainnet engineering" to
 
 1. **Read the [whitepaper](../companion/WHITEPAPER.md).** 30 minutes;
    covers everything at a digestible depth.
-2. **Follow the [roadmap](../roadmap.md).** Five phases (MC-0 →
-   MC-5). MC-0 shipped; MC-1 is in flight. No calendar dates — each
-   phase ships when its bar is met.
+2. **Follow the [launch plan](../chapters/19-launch-strategy.md).**
+   Phased to mainnet — no calendar dates; each phase ships when its
+   bar is met.
 3. **Join [Telegram](https://t.me/pydenet)** for project chat.
 4. **Follow [@pydenet on X](https://x.com/pydenet)** for milestone
    announcements.
@@ -103,7 +103,7 @@ inclusion order isn't biddable), and the chain commits a wave every
 
 ## Where to follow along
 
-- **[Roadmap](../roadmap.md)** — phase-by-phase tracking.
+- **[Launch Strategy](../chapters/19-launch-strategy.md)** — the phased path to mainnet.
 - **[GitHub org](https://github.com/pyde-net)** — every repo, every commit.
 - **[Telegram](https://t.me/pydenet)** — community chat.
 - **[X (@pydenet)](https://x.com/pydenet)** — milestone announcements.

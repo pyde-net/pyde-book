@@ -89,7 +89,7 @@ changed most are:
    uniform-random committee selection, operator-identity cap), reward
    pool, updated inflation math.
 8. **Chapter 19 (Launch Strategy)** — timeline reset post-pivot.
-9. **Chapter 20 (Appendix)** — glossary, constants, post-mainnet roadmap
+9. **Chapter 20 (Appendix)** — glossary, constants, post-mainnet plan
    updated.
 
 Chapters that changed less:

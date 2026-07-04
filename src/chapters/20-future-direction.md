@@ -1,6 +1,6 @@
 # Chapter 20: Future Direction
 
-This chapter is the post-v1 capability roadmap: what's deliberately
+This chapter is the post-v1 capability plan: what's deliberately
 deferred, why, what changes for users when each lands, and the
 reservations v1 makes so future work doesn't require breaking changes.
 
@@ -13,7 +13,7 @@ new client tooling), no reservation is needed.
 
 No calendar commitments. Items move on PIP merit, audit capacity, and
 ecosystem demand. The
-[Post-Mainnet Roadmap](21-appendix.md#l-post-mainnet-roadmap) in the
+[Post-Mainnet Plan](21-appendix.md#l-post-mainnet-plan) in the
 appendix is the priority-sorted index; this chapter is the prose behind
 it.
 
@@ -246,7 +246,7 @@ justify.
 | L6: Execution sharding | Partition the wave across executor pools; merge state changes deterministically | Linear in shard count |
 | L7: Chain sharding | Multi-chain state, cross-shard txs, post-mainnet whole-chain rewrite | Linear in shard count, with cross-shard overhead |
 
-**Not on the roadmap.** Object-centric models (Sui-style) are
+**Not planned.** Object-centric models (Sui-style) are
 structurally incompatible with Pyde's slot-keyed `sstore(slot, value)`
 model and would require breaking the host-function ABI. The decision
 to stay slot-keyed is intentional and locked.
@@ -429,7 +429,7 @@ wallet UX itself, not the chain hooks.
 
 ---
 
-## 20.7 What's Explicitly Not on the Roadmap
+## 20.7 What's Explicitly Not Planned
 
 A short list of things considered and deliberately rejected:
 
@@ -473,7 +473,7 @@ contract type) or slots into a reservation v1 has already made
 (`AuthKeys::Programmable` tag, `FeePayer::Paymaster` variant,
 `commitment` slot on resharing contributions). The pieces that need
 protocol-level breaking changes — Sui-style objects, gas refunds,
-on-chain governance — are not on the roadmap and aren't coming.
+on-chain governance — are not planned and aren't coming.
 
 This is the bet: a small, correct, audited v1 surface is worth more
 than a feature-rich one. Everything in this chapter is an addition to

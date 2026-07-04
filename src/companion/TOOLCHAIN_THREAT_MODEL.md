@@ -85,7 +85,7 @@ Each threat ID prefixed `T-` (toolchain). Numbered for cross-reference. Severity
 **Mitigations:**
 - `serde` + `toml-rs` are the parser substrate; both are battle-tested under fuzzing.
 - `otigen-toml` adds its own cross-cutting validation pass that explicitly rejects malformed shapes (see [`OTIGEN_BINARY_SPEC.md`](./OTIGEN_BINARY_SPEC.md) §4 and the adversarial corpus at `crates/otigen-toml/tests/corpus/fail/`).
-- Continuous fuzzing target `fuzz_toml_parser` runs against arbitrary UTF-8 bytes; ≥24h cumulative run required before α release per [`roadmap.md`](../roadmap.md) `α.qual.fuzz` gate. 4.3 M iterations clean as of the initial smoke-test run.
+- Continuous fuzzing target `fuzz_toml_parser` runs against arbitrary UTF-8 bytes; ≥24h cumulative run required before α release per the `α.qual.fuzz` gate. 4.3 M iterations clean as of the initial smoke-test run.
 
 **Residual risk:** A surviving fuzz crash that wasn't reduced into the corpus. Mitigated by the gate above.
 
@@ -183,7 +183,7 @@ Each threat ID prefixed `T-` (toolchain). Numbered for cross-reference. Severity
 **Description:** A tampered `otigen` binary, or a fake `otigen wallet new` prompt, captures the author's password.
 
 **Mitigations:**
-- Signed binary releases (`α.qual.release` roadmap item) ship with sigstore signatures + sha256sums; the user can verify the binary before running.
+- Signed binary releases (`α.qual.release` gate) ship with sigstore signatures + sha256sums; the user can verify the binary before running.
 - Documentation directs users to install via the canonical curl one-liner against the public release mirror at [`pyde-net/test-releases`](https://github.com/pyde-net/test-releases) — anonymous fetch over the GitHub CDN, sha256 verified before extraction — or via `cargo install --git` from the source repo for contributors.
 - No telemetry; no password ever leaves the local process.
 
@@ -198,7 +198,7 @@ Each threat ID prefixed `T-` (toolchain). Numbered for cross-reference. Severity
 **Description:** A direct or transitive dependency of `otigen` (e.g., `wasmparser`, `serde`, `toml`, `borsh`) is compromised in a future release. The build now contains a backdoor.
 
 **Mitigations:**
-- `cargo-audit` runs on every PR (`α.qual.ci` roadmap item) and refuses to merge when a dep has a known RustSec advisory.
+- `cargo-audit` runs on every PR (`α.qual.ci` gate) and refuses to merge when a dep has a known RustSec advisory.
 - `cargo-deny` enforces a license policy + version-policy + duplicate-version checks.
 - `cargo-machete` flags unused deps so the surface stays minimal.
 - `Cargo.lock` is committed; reproducibility test catches an attacker who substitutes a dep mid-build.
@@ -280,7 +280,7 @@ Each threat ID prefixed `T-` (toolchain). Numbered for cross-reference. Severity
 | T-11 path traversal via `--out` | ✅ standard CLI flag, no surprise |
 | T-12 replay attack | ✅ chain-side nonce; no toolchain action needed |
 
-Marked ⏳ are tracked as roadmap items under `α.qual` and `α.feat`. Marked ✅ are landed or architectural.
+Marked ⏳ are tracked under `α.qual` and `α.feat`. Marked ✅ are landed or architectural.
 
 ---
 
@@ -289,4 +289,4 @@ Marked ⏳ are tracked as roadmap items under `α.qual` and `α.feat`. Marked �
 - This document is updated alongside each new feature that touches the threat surface.
 - A new attack class found during fuzzing or external review is added as a new T-NN entry with the mitigation it triggered.
 - Cross-references to [`THREAT_MODEL.md`](./THREAT_MODEL.md) (chain-side) are kept current.
-- The `α.qual.threat` roadmap item gates this document being signed off before the α-stream ships.
+- The `α.qual.threat` item gates this document being signed off before the α-stream ships.

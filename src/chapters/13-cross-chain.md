@@ -306,7 +306,7 @@ This keeps the gas accounting simple: one token, one fuel mechanism, uniform acr
 
 ---
 
-## 13.9 What the Roadmap Looks Like
+## 13.9 What the Plan Looks Like
 
 | Stage                      | Cross-chain capability                                |
 | -------------------------- | ---------------------------------------------------- |

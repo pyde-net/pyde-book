@@ -7,7 +7,6 @@
 [Get Started — for Users](preface/get-started-for-users.md)
 [Introduction](chapters/01-introduction.md)
 [The Pivot](preface/pivot.md)
-[Roadmap](roadmap.md)
 
 ---
 

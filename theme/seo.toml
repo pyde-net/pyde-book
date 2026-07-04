@@ -44,10 +44,6 @@ description = "Frozen authoritative specs for Pyde: HOST_FN_ABI v1.0, PIPs (Pyde
 title = "Pyde — Historical Design References"
 description = "Archived design decisions from Pyde's pre-pivot era: the HotStuff consensus model + the Otigen domain-specific language that were superseded by Mysticeti DAG consensus and the WASM-targeted toolchain."
 
-[sections."roadmap"]
-title = "Pyde — Implementation Roadmap"
-description = "Phase-by-phase implementation status of the Pyde protocol: MC-0 foundation, MC-1 streams (state, account, tx, wasm-exec, mempool, consensus, network), MC-2 integration, MC-3 state sync + parachains, MC-4 performance, MC-5 mainnet."
-
 # ── Specific overrides for cross-section pages ───────────────────
 #
 # The Otigen Toolchain chapter sits in `chapters/` but topically

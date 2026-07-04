@@ -509,11 +509,11 @@ The WASM execution layer is implemented post-pivot in a fresh `engine` workspace
 
 ## 3.12 Open Questions
 
-These are tracked in the roadmap and resolved as the execution layer matures:
+These are tracked as planned work and resolved as the execution layer matures:
 
 - **Re-enabling deterministic SIMD.** Pyde currently disables SIMD entirely. A deterministic SIMD subset (excluding relaxed operations) would benefit crypto-heavy contracts. Pending implementation work and conservative validation.
 - **WASM module hash-content-addressing.** Two contracts with identical WASM bytes could share a single compiled module entry. Optimization opportunity; not blocking.
-- **zk-WASM proving integration.** When zk-WASM provers reach production quality, slot one in as an optional execution attestation layer. Tracked as a v2/v3 direction in the roadmap.
+- **zk-WASM proving integration.** When zk-WASM provers reach production quality, slot one in as an optional execution attestation layer. Tracked as a v2/v3 direction.
 - **Hot-reload of compiled modules across version pins.** Currently a wasmtime version bump invalidates the cache; coordinated upgrades are required. Hot-reload research may relax this.
 
 ---

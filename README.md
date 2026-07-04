@@ -45,7 +45,7 @@ with full specifications for the parts the chapters summarize.
 | 17 | [Developer Tools](src/chapters/17-developer-tools.md) | `otigen` toolchain, JSON-RPC, SDKs |
 | 18 | [Protocol Upgrades](src/chapters/18-protocol-upgrades.md) | Voluntary validator upgrade, hard/soft fork |
 | 19 | [Launch Strategy](src/chapters/19-launch-strategy.md) | 10-phase mainnet plan, audits, testnet |
-| 20 | [Appendix](src/chapters/20-appendix.md) | Glossary, constants, post-mainnet roadmap |
+| 20 | [Appendix](src/chapters/20-appendix.md) | Glossary, constants, post-mainnet plan |
 
 Pivot reference: [MIGRATION_NOTES.md](src/MIGRATION_NOTES.md) — what
 changed in the 2026 HotStuff → Mysticeti DAG rewrite.

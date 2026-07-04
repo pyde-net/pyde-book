@@ -39,4 +39,3 @@ Read in the order presented (01 then 02). The two pivots happened in sequence; t
 1. [Preface: The Pivot](../preface/pivot.md) — the narrative.
 2. This directory's [01 — HotStuff Era](./01-hotstuff-consensus-era.md) and [02 — Otigen Era](./02-otigen-language-era.md) — the design records.
 3. The main book chapters — the current architecture.
-4. [Roadmap](../roadmap.md) — the path forward.

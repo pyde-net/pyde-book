@@ -401,7 +401,7 @@ The protocol-level surface (the `cross_call!` macro, `HardFinalityCert`, unified
 
 ### 11.4 Why the Parachain Framework Is the Most Consequential Adoption Surface
 
-The parachain framework is the chain's most consequential decision for ecosystem growth: third-party developer teams launch their own execution environments — custom VMs, confidential-vote chains, gaming-specific subchains, oracle networks, privacy-focused application chains — without an auction or foundation shortlist, while inheriting Pyde's security, sub-second finality, and `HardFinalityCert`-based composability for free. Each parachain bootstraps its own developer community around its specific innovation; Pyde validators stake to run third-party parachains and earn the parachain's fees. The model converts what Polkadot priced through slot auctions into a permissionless capability — and gives Pyde a structural ecosystem-growth path absent from monolithic single-execution chains. For investors, this is the line where Pyde's adoption story stops being one team's roadmap and starts being a many-team capability surface.
+The parachain framework is the chain's most consequential decision for ecosystem growth: third-party developer teams launch their own execution environments — custom VMs, confidential-vote chains, gaming-specific subchains, oracle networks, privacy-focused application chains — without an auction or foundation shortlist, while inheriting Pyde's security, sub-second finality, and `HardFinalityCert`-based composability for free. Each parachain bootstraps its own developer community around its specific innovation; Pyde validators stake to run third-party parachains and earn the parachain's fees. The model converts what Polkadot priced through slot auctions into a permissionless capability — and gives Pyde a structural ecosystem-growth path absent from monolithic single-execution chains. For investors, this is the line where Pyde's adoption story stops being one team's plan and starts being a many-team capability surface.
 
 ---
 
@@ -529,13 +529,13 @@ Coordinated safety offenses apply a 2 × multiplier. Reporter receives 10 % of s
 
 | Axis | Pyde | Ethereum (L1) | Solana | Aptos | Sui | Polkadot | Cosmos | Avalanche |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Post-quantum signatures (default) | **Yes** (FALCON-512) | Roadmap | Roadmap | Roadmap | Roadmap | Roadmap | Roadmap | Roadmap |
+| Post-quantum signatures (default) | **Yes** (FALCON-512) | Planned | Planned | Planned | Planned | Planned | Planned | Planned |
 | Encrypted mempool (default) | **Yes** (Kyber-768 threshold) | No (PBS auction) | No (Jito auction) | No | No | No | Proposals in IBC track | No |
 | Sandwich-attack prevention | **Structural** | Partial (PBS) | Partial (Jito) | Partial | Partial | N/A (relay-chain) | Partial | Partial |
 | Hard-finality time | ~ 500 ms (DAG commit) | ~ 12 min | Probabilistic (~ 13 s) | < 1 s | < 1 s | ~ 12 – 60 s | ~ 6 s | ~ 1 s |
 | Validator hardware | 8c / 16 GB / 500 GB / 100 Mbps (awaiting committee) | Modest | 12 + cores / 256 + GB | Modest | Modest | Modest (validator tier) | Modest (per zone) | Modest |
 | Equal validator voting | **Yes** (1 = 1) | Stake-weighted | Stake-weighted | Stake-weighted | Stake-weighted | Stake-weighted | Stake-weighted | Stake-weighted |
-| Permissionless cross-chain infra layer | Roadmap (parachain spec, PYDE-staked, unified gas) | L2s (per-L2 sequencer); third-party oracles | Third-party (Pyth / Switchboard) | No | No | App-chains via auctions | IBC zone-to-zone (no integrated infra) | Subnet model (sovereign, not infra) |
+| Permissionless cross-chain infra layer | Planned (parachain spec, PYDE-staked, unified gas) | L2s (per-L2 sequencer); third-party oracles | Third-party (Pyth / Switchboard) | No | No | App-chains via auctions | IBC zone-to-zone (no integrated infra) | Subnet model (sovereign, not infra) |
 
 Each chain in this matrix is competently engineered by serious teams. The differences are choices, not capability gaps. The matrix exists to make the choices visible, not to imply a ranking.
 
@@ -544,7 +544,7 @@ Each chain in this matrix is competently engineered by serious teams. The differ
 Pyde does not invent every wheel. The chain stands on a foundation the rest of the industry built — and the strategic claim is not that other chains are wrong, but that the time has come to integrate the field's best ideas into a single greenfield design.
 
 - **Bitcoin** invented the field. Public chain, hard rules, minimal trust assumptions — the social model everything in this document presupposes.
-- **Ethereum** invented the programmable blockchain and shaped most of the design vocabulary the field still uses: smart contracts, EVM execution semantics, the EIP process, EIP-1559, account-abstraction roadmap, the entire MEV literature. Pyde adopts the EIP-1559 base-fee + elastic-block design (with the priority-tip removal the encrypted mempool enables) and the EIP-style off-chain governance workflow.
+- **Ethereum** invented the programmable blockchain and shaped most of the design vocabulary the field still uses: smart contracts, EVM execution semantics, the EIP process, EIP-1559, account abstraction, the entire MEV literature. Pyde adopts the EIP-1559 base-fee + elastic-block design (with the priority-tip removal the encrypted mempool enables) and the EIP-style off-chain governance workflow.
 - **Solana** proved at scale that a monolithic-binary L1 with parallel execution can deliver retail throughput, and that consensus and execution sharing one process is operationally viable. Pyde's monolithic architecture, access-list-driven scheduler, and sub-second-finality commitment are the same family of design choices Solana legitimized in production. Solana's stability work — mempool overload mitigations, consensus liveness fixes, gossipsub tuning — is the production reference for what hardening a high-throughput chain looks like.
 - **Aptos** contributed the Jellyfish Merkle Tree that Pyde adopts as its state structure, and **Block-STM as the optimistic parallel execution model Pyde adopts uniformly at v1**. Aptos's measured production numbers under Block-STM (10-30K real-world TPS sustained) are the proof point Pyde's v1 throughput target is anchored against.
 - **Sui** introduced the object-centric model as one of the cleanest expressions of ownership encoded in the transaction structure. Pyde's scheduler operates against declared access lists rather than encoded ownership, but Sui's work established that parallelism is a function of transaction format, not just scheduler implementation. Mysticeti — the consensus Pyde adopts post-pivot — was developed by the Mysten Labs team behind Sui.

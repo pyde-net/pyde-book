@@ -2,7 +2,7 @@
 
 Reference material from across the book in one place: the glossary, the
 constants tables, the discriminator registry, the JSON-RPC method index,
-and the post-mainnet roadmap.
+and the post-mainnet plan.
 
 ---
 
@@ -291,7 +291,7 @@ No elliptic curves anywhere in the protocol.
 
 ---
 
-## L. Post-Mainnet Roadmap
+## L. Post-Mainnet Plan
 
 Items explicitly out of scope for the launch network, with the rough
 priority each is tracked at:

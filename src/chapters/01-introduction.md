@@ -47,7 +47,7 @@ Chains optimizing for throughput have ended up requiring datacenter-class valida
 - **Encryption opt-in** per-tx — MEV protection where needed, no overhead where not
 - **`otigen` developer toolchain** — zero-extra-code authoring: write contract logic + `otigen.toml`, the tool handles everything else
 - **Honest performance targets** — the v1 throughput target is validated by a multi-region performance harness before any number is published
-- **Phased mainnet plan** — external audit + incentivized testnet before launch (see Roadmap)
+- **Phased mainnet plan** — external audit + incentivized testnet before launch
 
 ## Honest Status
 
@@ -66,7 +66,7 @@ This book describes **designed architecture**, with implementation in various st
 | Parachain framework | Designed; implementation deferred to a later phase |
 | Performance harness (multi-region, chain-throughput) | Not yet built (mandatory before any TPS claim) |
 
-**Mainnet ships when the implementation is complete, audited, and validated by an incentivized testnet** — no public schedule. See the [Roadmap](../roadmap.md) for the sequenced plan.
+**Mainnet ships when the implementation is complete, audited, and validated by an incentivized testnet** — no public schedule. See [Chapter 19: Launch Strategy](./19-launch-strategy.md) for the phased path.
 
 ## Performance Targets
 

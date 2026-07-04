@@ -111,7 +111,7 @@ What you can do right now:
 
 - Read the spec, file issues, propose PIPs.
 - Watch the repos.
-- Track [the roadmap](../roadmap.md).
+- Track [the launch plan](../chapters/19-launch-strategy.md).
 
 ---
 

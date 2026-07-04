@@ -2266,7 +2266,7 @@ If a v1.x function is discovered to have an implementation bug that diverges fro
 
 ### 17.3 Reserving for v2
 
-Functions known to be useful but requiring substantial design work (e.g., a streaming I/O abstraction, an account-abstraction policy invocation primitive, session-key authorization hooks) are *not* added to v1. They are tracked on the [Roadmap](../roadmap.md) under "Beyond V1" and ship as part of v2 when ready.
+Functions known to be useful but requiring substantial design work (e.g., a streaming I/O abstraction, an account-abstraction policy invocation primitive, session-key authorization hooks) are *not* added to v1. They are reserved for v2 under "Beyond V1" and ship when ready.
 
 ### 17.4 Per-language SDK alignment
 

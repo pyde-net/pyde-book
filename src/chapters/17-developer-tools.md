@@ -15,7 +15,7 @@ A standalone `pyde` node binary (light / full / validator profiles) is planned p
 
 ## What's **not** in scope at launch (tracked later)
 
-- A dedicated Pyde block explorer frontend (the backend indexer is on the roadmap; the UI is community ecosystem work).
+- A dedicated Pyde block explorer frontend (the backend indexer is planned; the UI is community ecosystem work).
 - A proprietary IDE. Standard editors with the language's standard tooling (rust-analyzer for Rust, the AssemblyScript LSP, gopls for Go, clangd for C/C++) are the intended path. No Pyde-specific IDE.
 - Per-language testing wrappers for pure helpers. Authors use their language's native test runner (`cargo test`, `npm test`, `go test`, `clang` + their test framework of choice) for function-internals tests. Contract *behaviour* tests — state changes, events, reverts — go through `otigen test`, a Foundry-style TOML-driven runner shared across all four supported languages. See [§17.1](#171-otigen--the-developer-toolchain) below and [Chapter 5 §5.12](./05-otigen-toolchain.md) for the split.
 
@@ -80,7 +80,7 @@ otigen devnet              One-command local devnet. Spins up the embedded engin
 
 `otigen validator show <addr>` and `otigen validator by-operator <addr>` provide read-only introspection over the chain-side ValidatorRecord; they're operator queries, not validator-mode flags.
 
-The standalone validator surface — long-lived validator process, light/full/validator profiles, key rotation, stake management, genesis-manifest tooling — is post-public-testnet roadmap and will ship as a separate `pyde` binary. v1 does not exercise those code paths from a CLI; they're library entry points in the engine workspace today. A full operational reference for validators is published separately (see Validator Operating Guide, post-public-testnet).
+The standalone validator surface — long-lived validator process, light/full/validator profiles, key rotation, stake management, genesis-manifest tooling — is post-public-testnet work and will ship as a separate `pyde` binary. v1 does not exercise those code paths from a CLI; they're library entry points in the engine workspace today. A full operational reference for validators is published separately (see Validator Operating Guide, post-public-testnet).
 
 ---
 

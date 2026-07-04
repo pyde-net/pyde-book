@@ -1,6 +1,6 @@
 # Chapter 19: Launch Strategy
 
-This chapter is the road from "code in a repo" to "live mainnet." The full sequenced plan lives in [the Roadmap](../roadmap.md); this chapter covers the principles and the shape, not the calendar.
+This chapter is the road from "code in a repo" to "live mainnet" — the principles and the shape of the path, not the calendar.
 
 There are no specific launch dates in this document. Phasing is honest; calendar commitments are not made.
 
@@ -22,7 +22,7 @@ The plan is conservative on purpose. A delayed launch is recoverable; a botched 
 
 ## 19.2 The Shape of the Path
 
-The roadmap groups work into sequenced phases. They are not strictly linear — many items run in parallel within a phase — but each phase has a bar that gates the next.
+The plan groups work into sequenced phases. They are not strictly linear — many items run in parallel within a phase — but each phase has a bar that gates the next.
 
 Summary, in order:
 
@@ -36,7 +36,7 @@ Summary, in order:
 | Audit + stress + bug bounty | External audit complete; all critical findings resolved; stress testing passed |
 | Mainnet candidate | Final build; validator set committed; genesis configuration locked |
 
-The deliverables and exit criteria for each phase are in [the Roadmap](../roadmap.md), enumerated to the smallest actionable unit. This chapter does not duplicate them.
+Each phase's deliverables and exit criteria are tracked to the smallest actionable unit; this chapter covers the shape, not the line-item checklist.
 
 ---
 
@@ -91,7 +91,6 @@ Both pivots reset the critical path for the affected layer but did not invalidat
 
 ## 19.6 Reading on
 
-- [Roadmap](../roadmap.md) — the canonical sequenced plan with all phase deliverables.
 - [Preface: The Pivot](../preface/pivot.md) — context on both architectural pivots.
 - [Performance Harness](../companion/PERFORMANCE_HARNESS.md) — testing methodology.
 - [Chapter 16: Security](./16-security.md) — threat model and audit scope.

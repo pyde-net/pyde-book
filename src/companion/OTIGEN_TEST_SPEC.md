@@ -1,4 +1,4 @@
-# `otigen test` — Contract Behaviour Test Spec
+# `otigen test`: Contract Behaviour Test Spec
 
 **Status:** v1 — shipped. The framework runs through `pyde-engine-wasm-exec::WasmExecutor` by default (same code path mainnet uses); the legacy in-process mock surface remains behind `--no-engine` for parachain contracts (parachain runtime ships in engine v2) and runner-side bisection.
 
@@ -27,22 +27,22 @@ Authors today can write `cargo test` (or the equivalent in their language) for p
 
 ### Use `otigen test` for:
 
-- **Behavioural assertions** — "after `transfer`, alice's balance is X and bob's is Y."
-- **Event verification** — "this call emitted exactly these events with these fields."
-- **Revert semantics** — "this input path traps with `InsufficientBalance`."
-- **Multi-step scenarios** — "alice transfers to bob, then bob transfers to carol; final state is ..."
-- **Cheatcode-driven tests** — "after the deadline passes, `claim()` reverts with `Expired`."
-- **Cross-language regression** — the same `.test.toml` runs against the contract regardless of source language (Rust / AssemblyScript / Go / C), as long as the resulting WASM matches the same `otigen.toml` shape.
+- **Behavioural assertions**: "after `transfer`, alice's balance is X and bob's is Y."
+- **Event verification**: "this call emitted exactly these events with these fields."
+- **Revert semantics**: "this input path traps with `InsufficientBalance`."
+- **Multi-step scenarios**: "alice transfers to bob, then bob transfers to carol; final state is ..."
+- **Cheatcode-driven tests**: "after the deadline passes, `claim()` reverts with `Expired`."
+- **Cross-language regression**: the same `.test.toml` runs against the contract regardless of source language (Rust / AssemblyScript / Go / C), as long as the resulting WASM matches the same `otigen.toml` shape.
 
 ### Use your language's native test framework for:
 
-- **Pure-function unit tests** — math helpers, parsing, formatting. Run them with `cargo test` / `npm test` / `go test` / your C test harness. Faster than spinning up wasmtime.
+- **Pure-function unit tests**: math helpers, parsing, formatting. Run them with `cargo test` / `npm test` / `go test` / your C test harness. Faster than spinning up wasmtime.
 - **Property-based / fuzz testing** of pure helpers. Use `proptest` / `quickcheck` / language-native fuzzers. v1 `otigen test` is example-based; property testing lands in v2 (see §11).
-- **Compiler integration** — the language's own test framework is what catches "this trait isn't implemented" / "this import path doesn't resolve."
+- **Compiler integration**: the language's own test framework is what catches "this trait isn't implemented" / "this import path doesn't resolve."
 
 ### Use a full devnet for:
 
-- **End-to-end chain integration** — actual consensus, actual mempool, actual cross-contract calls between independently-deployed contracts. The mock host functions in `otigen test` are deliberately simple; they don't simulate parallel execution, gas exhaustion under load, or wave finalisation.
+- **End-to-end chain integration**: actual consensus, actual mempool, actual cross-contract calls between independently-deployed contracts. The mock host functions in `otigen test` are deliberately simple; they don't simulate parallel execution, gas exhaustion under load, or wave finalisation.
 
 ---
 
@@ -95,7 +95,7 @@ Exit 0 on all-pass, exit 1 on any failure.
 
 Every TOML key the test framework understands, in order they appear in a typical file.
 
-### 4.1 `[accounts]` — named addresses
+### 4.1 `[accounts]`: named addresses
 
 Maps a human-readable name to a deterministic 32-byte address. The address is `Blake3(name.as_bytes())` truncated / taken as-is to 32 bytes — same output every run.
 
@@ -123,7 +123,7 @@ Names are used throughout the file to refer to accounts: `from = "alice"`, `args
 
 **Reserved name:** `__contract__` resolves to the contract's own deployed address (`Blake3(contract.name)` — same as how the chain computes it at deploy time). Used for testing `pyde::self()` and self-references.
 
-### 4.2 `[cheats]` — global cheatcodes
+### 4.2 `[cheats]`: global cheatcodes
 
 State the runner installs before EVERY test, overridable per-test in `[tests.cheats]`:
 
@@ -191,7 +191,7 @@ Coming from Solidity / Foundry? `vm.xxx()` imperative cheats map to declarative 
 | `vm.recordLogs` | not needed — events are always recorded for matching |
 | `console.log(...)` | `pyde::debug_log(label_ptr, label_len, data_ptr, data_len)` — test-only host fn captured by the runner. Surfaced at `-vv` verbosity; `otigen build` rejects it by default (strict-by-default) and `otigen deploy` always rejects it. Use `otigen build --no-strict` for local inspection only. |
 
-### 4.3 `[[tests]]` — test case array
+### 4.3 `[[tests]]`: test case array
 
 Each test case is a TOML table-array entry. Order in the file is the order they run; tests are independent (one's state doesn't leak into the next).
 
@@ -222,7 +222,7 @@ storage.balances.bob   = "10"
 storage.total_supply   = "1000000"        # invariant: total unchanged
 ```
 
-### 4.4 `[tests.setup]` — pre-test state
+### 4.4 `[tests.setup]`: pre-test state
 
 Installed into the mock environment before `[[tests.calls]]` runs.
 
@@ -233,7 +233,7 @@ Installed into the mock environment before `[[tests.calls]]` runs.
 | `setup.code.<account>` | path to `.wasm` | Pre-deploys another contract's WASM at `<account>`'s address. **v2** — multi-contract tests not yet implemented. |
 | `setup.balances.<account>` | hex / decimal | Override `[accounts].<name>.balance`. Useful for testing balance changes under a specific starting condition. |
 
-### 4.5 `[[tests.calls]]` — call sequence
+### 4.5 `[[tests.calls]]`: call sequence
 
 Each call executes a contract function in order, with its own caller / value / expectations.
 
@@ -254,7 +254,7 @@ Each call executes a contract function in order, with its own caller / value / e
 | `expect.gas` | u64 (dec or `0x`-hex) | no | Foundry-style **exact** gas assertion. Fails if observed gas (wasmtime fuel delta) does not equal this value. Brittle to opcode-level codegen changes — prefer `expect.gas_max` unless you specifically need a snapshot. |
 | `expect.gas_max` | u64 (dec or `0x`-hex) | no | Foundry-style **upper bound** assertion. Fails if observed gas > this value. Use as a regression guard: pick a ceiling once, the test breaks the moment a future change pushes you over it. |
 
-### 4.6 `[tests.expect]` — final-state assertions
+### 4.6 `[tests.expect]`: final-state assertions
 
 After every call in `[[tests.calls]]` has run, the runner checks these once:
 
@@ -266,7 +266,7 @@ After every call in `[[tests.calls]]` has run, the runner checks these once:
 | `expect.no_other_storage_writes` | bool | If `true`, assert that NO slots outside the declared `expect.storage` were modified by the test. Default `false` (would be too brittle in most cases). |
 | `expect.events_total` | u32 | If set, assert exactly N events were emitted across all calls. Helps catch accidental double-emits. |
 
-### 4.7 `[[contracts]]` — secondary contracts for cross-contract tests
+### 4.7 `[[contracts]]`: secondary contracts for cross-contract tests
 
 Cross-contract tests (`pyde::cross_call` / `pyde::delegate_call` targeting an external contract) require multiple contracts deployed at distinct addresses in the same test run. The `[[contracts]]` block declares secondaries; the primary contract is the one whose `otigen.toml` lives in cwd.
 
@@ -393,7 +393,7 @@ expect.events = [
 ]
 ```
 
-### 5.5 Typed-arg DSL — `@pubkey:NAME`, `@sig:NAME:args.IDX`, `@pubkey_hash:NAME`
+### 5.5 Typed-arg DSL: `@pubkey:NAME`, `@sig:NAME:args.IDX`, `@pubkey_hash:NAME`
 
 Typed-arg marshalling covers the value-typed primitives plus three variable / hash-derived shapes that the runner resolves at plan time:
 

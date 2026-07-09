@@ -3,19 +3,19 @@
 [What is Pyde](preface/what-is-pyde.md)
 [Why Pyde](preface/why-pyde.md)
 [Get Started](preface/get-started.md)
-[Get Started — for Developers](preface/get-started-for-developers.md)
-[Get Started — for Users](preface/get-started-for-users.md)
+[Get Started: for Developers](preface/get-started-for-developers.md)
+[Get Started: for Users](preface/get-started-for-users.md)
 [Introduction](chapters/01-introduction.md)
 [The Pivot](preface/pivot.md)
 
 ---
 
-# Pivot — Historical Design References
+# Pivot: Historical Design References
 
 - [Overview](pivot/README.md)
-- [01 — The HotStuff Consensus Era](pivot/01-hotstuff-consensus-era.md)
-- [02 — The Otigen Language Era](pivot/02-otigen-language-era.md)
-- [03 — Running the Pivot-Era Benchmarks](pivot/03-running-benchmarks.md)
+- [01. The HotStuff Consensus Era](pivot/01-hotstuff-consensus-era.md)
+- [02. The Otigen Language Era](pivot/02-otigen-language-era.md)
+- [03. Running the Pivot-Era Benchmarks](pivot/03-running-benchmarks.md)
 
 ---
 

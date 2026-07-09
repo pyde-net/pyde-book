@@ -41,11 +41,11 @@ and this doc just cross-links.
 
 | Asset | Where it lives | Compromise impact |
 |---|---|---|
-| FALCON-512 secret key | Author's machine, `~/.pyde/keystore.json`, encrypted at rest | **Critical** — full account takeover; attacker can deploy, upgrade, kill contracts at will |
-| `otigen.toml` source | Author's project tree | **Low** — public after deploy; corruption causes build failure not theft |
-| Compiled `.wasm` artifact | Author's project tree | **Medium** — corruption causes deploy failure; substitution attack is the real threat (see T-04) |
-| Compiled `otigen` binary | User's `~/.cargo/bin/` or installed location | **High** — substituted binary can phish passwords, sign on author's behalf without consent |
-| `pyde-net/otigen` source code | This repo | **High** — supply-chain attack vector; mitigations in §3 |
+| FALCON-512 secret key | Author's machine, `~/.pyde/keystore.json`, encrypted at rest | **Critical:** full account takeover; attacker can deploy, upgrade, kill contracts at will |
+| `otigen.toml` source | Author's project tree | **Low:** public after deploy; corruption causes build failure not theft |
+| Compiled `.wasm` artifact | Author's project tree | **Medium:** corruption causes deploy failure; substitution attack is the real threat (see T-04) |
+| Compiled `otigen` binary | User's `~/.cargo/bin/` or installed location | **High:** substituted binary can phish passwords, sign on author's behalf without consent |
+| `pyde-net/otigen` source code | This repo | **High:** supply-chain attack vector; mitigations in §3 |
 
 ---
 
@@ -53,11 +53,11 @@ and this doc just cross-links.
 
 ### Adversary types
 
-- **Hostile project (T-α)** — the contract author opens a malicious `otigen.toml` / `.wasm` (e.g., from a cloned malicious repo). Goal: panic, RCE, or escape the validator.
-- **Network attacker (T-β)** — sits between the author's machine and the chain RPC endpoint. Goal: intercept, modify, or replay transactions.
-- **Local attacker (T-γ)** — has read access to the author's filesystem but not the password. Goal: extract keystore secret.
-- **Supply-chain attacker (T-δ)** — compromises one of `otigen`'s transitive dependencies. Goal: backdoor every build that uses the affected dep.
-- **Phishing attacker (T-ε)** — distributes a tampered `otigen` binary or impersonates the chain's RPC endpoint. Goal: steal passwords, sign without consent.
+- **Hostile project (T-α):** the contract author opens a malicious `otigen.toml` / `.wasm` (e.g., from a cloned malicious repo). Goal: panic, RCE, or escape the validator.
+- **Network attacker (T-β):** sits between the author's machine and the chain RPC endpoint. Goal: intercept, modify, or replay transactions.
+- **Local attacker (T-γ):** has read access to the author's filesystem but not the password. Goal: extract keystore secret.
+- **Supply-chain attacker (T-δ):** compromises one of `otigen`'s transitive dependencies. Goal: backdoor every build that uses the affected dep.
+- **Phishing attacker (T-ε):** distributes a tampered `otigen` binary or impersonates the chain's RPC endpoint. Goal: steal passwords, sign without consent.
 
 ### Adversary capabilities
 
@@ -76,7 +76,7 @@ and this doc just cross-links.
 
 Each threat ID prefixed `T-` (toolchain). Numbered for cross-reference. Severity scaled L/M/H/C (Critical).
 
-### T-01 — Malicious `otigen.toml` causes panic or DoS in the parser
+### T-01: Malicious `otigen.toml` causes panic or DoS in the parser
 
 **Severity:** M (denial-of-service of `otigen build`; not chain-affecting)
 
@@ -91,7 +91,7 @@ Each threat ID prefixed `T-` (toolchain). Numbered for cross-reference. Severity
 
 ---
 
-### T-02 — Malicious `.wasm` input bypasses the validator
+### T-02: Malicious `.wasm` input bypasses the validator
 
 **Severity:** M (deploy validator on the chain re-checks everything; toolchain catches obvious cases earlier for ergonomics)
 
@@ -110,7 +110,7 @@ Each threat ID prefixed `T-` (toolchain). Numbered for cross-reference. Severity
 
 ---
 
-### T-03 — `pyde.abi` injection corrupts the WASM code section
+### T-03: `pyde.abi` injection corrupts the WASM code section
 
 **Severity:** H if successful (chain accepts a contract whose claimed ABI doesn't match its actual exports)
 
@@ -126,7 +126,7 @@ Each threat ID prefixed `T-` (toolchain). Numbered for cross-reference. Severity
 
 ---
 
-### T-04 — Substituted `.wasm` after build
+### T-04: Substituted `.wasm` after build
 
 **Severity:** H if the author misses it; M with `otigen verify`
 
@@ -140,7 +140,7 @@ Each threat ID prefixed `T-` (toolchain). Numbered for cross-reference. Severity
 
 ---
 
-### T-05 — RPC MITM intercepts `otigen deploy`
+### T-05: RPC MITM intercepts `otigen deploy`
 
 **Severity:** H (attacker can drop / modify / replay deploy transactions)
 
@@ -155,7 +155,7 @@ Each threat ID prefixed `T-` (toolchain). Numbered for cross-reference. Severity
 
 ---
 
-### T-06 — Keystore tampering / theft (local attacker)
+### T-06: Keystore tampering / theft (local attacker)
 
 **Severity:** C if successful (full account takeover)
 
@@ -176,7 +176,7 @@ Each threat ID prefixed `T-` (toolchain). Numbered for cross-reference. Severity
 
 ---
 
-### T-07 — Phished keystore password
+### T-07: Phished keystore password
 
 **Severity:** C if successful
 
@@ -191,7 +191,7 @@ Each threat ID prefixed `T-` (toolchain). Numbered for cross-reference. Severity
 
 ---
 
-### T-08 — Malicious dependency in the cargo graph
+### T-08: Malicious dependency in the cargo graph
 
 **Severity:** H — a malicious dep can do anything `otigen` can do
 
@@ -208,7 +208,7 @@ Each threat ID prefixed `T-` (toolchain). Numbered for cross-reference. Severity
 
 ---
 
-### T-09 — Dependency confusion / typosquatting
+### T-09: Dependency confusion / typosquatting
 
 **Severity:** M (similar to T-08 but at install time)
 
@@ -222,7 +222,7 @@ Each threat ID prefixed `T-` (toolchain). Numbered for cross-reference. Severity
 
 ---
 
-### T-10 — `otigen build` executes the contract WASM
+### T-10: `otigen build` executes the contract WASM
 
 **Severity:** M (if it did, malicious WASM could run code on the build machine)
 
@@ -239,7 +239,7 @@ Each threat ID prefixed `T-` (toolchain). Numbered for cross-reference. Severity
 
 ---
 
-### T-11 — `otigen build` runs against an attacker-controlled CWD
+### T-11: `otigen build` runs against an attacker-controlled CWD
 
 **Severity:** L (path-traversal in artifact output)
 
@@ -253,7 +253,7 @@ Each threat ID prefixed `T-` (toolchain). Numbered for cross-reference. Severity
 
 ---
 
-### T-12 — Replay attack on signed transactions
+### T-12: Replay attack on signed transactions
 
 **Severity:** L (chain rejects, but UX confusion)
 

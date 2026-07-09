@@ -46,9 +46,9 @@ my-counter/
 
 Seven files. The Rust scaffold pulls host fns + the entry macro from the `pyde-host` family of crates on crates.io, referenced from `Cargo.toml` (no `src/host_fns.rs` in the project tree — the macro substrate is the canonical interface). You'll spend your time in:
 
-- **`src/lib.rs`** — your contract code.
-- **`otigen.toml`** — declares state fields + function signatures + network endpoints.
-- **`tests/contract.test.toml`** — behaviour assertions.
+- **`src/lib.rs`**: your contract code.
+- **`otigen.toml`**: declares state fields + function signatures + network endpoints.
+- **`tests/contract.test.toml`**: behaviour assertions.
 
 ---
 

@@ -1,6 +1,6 @@
 # Pyde Block-STM Execution Layer
 
-**Version 0.2** — v1 model locked as uniform Block-STM; access list is prefetch hint only; the hybrid "static groups + Block-STM fallback" framing in earlier book drafts is **stale + superseded** as of 2026-06-12.
+**Version 0.2**: v1 model locked as uniform Block-STM; access list is prefetch hint only; the hybrid "static groups + Block-STM fallback" framing in earlier book drafts is **stale + superseded** as of 2026-06-12.
 
 How transactions in a committed wave execute on a validator. v1 mainnet ships parallel execution via a Block-STM scheduler — every wave's txs run optimistically in parallel, conflicts are detected via multi-version concurrency control, and the final state is deterministic across validators.
 
@@ -8,10 +8,10 @@ The wire protocol, gas semantics, and `commit_wave` interface are all unchanged 
 
 ## Goals
 
-1. **Parallel within a wave** — every tx in a wave runs concurrently on a `num_cpus`-wide rayon pool. Throughput scales with hardware.
-2. **Deterministic final state** — every validator that applies the same `walked_subdag` produces the same JMT root + the same receipt set. Per-tx execution attempt order can differ across validators or across re-runs; only the committed final state has to match.
-3. **Gas charged once** — speculative re-executions are free. Authors pay for the successful attempt only.
-4. **Backwards-compatible interface** — `StateMutator::commit_wave(walked_subdag) -> WaveCommitInputs` is the only entry point. Switching between serial and parallel impls is a code-level swap, not a chain fork.
+1. **Parallel within a wave**: every tx in a wave runs concurrently on a `num_cpus`-wide rayon pool. Throughput scales with hardware.
+2. **Deterministic final state**: every validator that applies the same `walked_subdag` produces the same JMT root + the same receipt set. Per-tx execution attempt order can differ across validators or across re-runs; only the committed final state has to match.
+3. **Gas charged once**: speculative re-executions are free. Authors pay for the successful attempt only.
+4. **Backwards-compatible interface**: `StateMutator::commit_wave(walked_subdag) -> WaveCommitInputs` is the only entry point. Switching between serial and parallel impls is a code-level swap, not a chain fork.
 5. **Access list = prefetch hint, never used for scheduling.** Wallets attach a `Tx.access_list` produced by `pyde_simulateTransaction` so the scheduler can warm the dashmap (PIP-4 cache) via PIP-3 multiget prefetch before execution starts. **The list never partitions the wave, never decides which tx runs where, and never affects correctness.** Block-STM owns scheduling + safety; the access list owns warm-cache performance. If the list is wrong, prefetch misses some slots — execution still produces the correct deterministic result.
 
 ## Non-Goals
@@ -345,11 +345,11 @@ The wasmtime Store's `Data` carries the backend, so no host-fn body changes.
 
 Roughly 8 weeks of focused effort.
 
-### Phase A — Spec lock (week 1)
+### Phase A: Spec lock (week 1)
 
 This document. Determinism contract, MVCC API, scheduler state machine, RPC shape. No code.
 
-### Phase B — Skeleton + MVCC (weeks 2-3)
+### Phase B: Skeleton + MVCC (weeks 2-3)
 
 - New crate `pyde-engine-parallel-exec`.
 - `MvccLayer` with serial single-thread access. Unit tests for read-back-through-versions, finalize, invalidate.
@@ -358,7 +358,7 @@ This document. Determinism contract, MVCC API, scheduler state machine, RPC shap
 
 Gate to next phase: differential test passes (serial via new path == serial via old path, byte-for-byte).
 
-### Phase C — Parallel scheduler (weeks 4-5)
+### Phase C: Parallel scheduler (weeks 4-5)
 
 - Add rayon dependency.
 - `Scheduler` + `Task` types.
@@ -367,7 +367,7 @@ Gate to next phase: differential test passes (serial via new path == serial via 
 
 Gate: differential test passes (parallel == serial across 10⁵ random waves).
 
-### Phase D — Access-list prefetch + simulate RPC (week 6)
+### Phase D: Access-list prefetch + simulate RPC (week 6)
 
 - `pyde_simulateTransaction` RPC handler.
 - Pre-execute prefetch step: scheduler unions declared `(addr, slot)` pairs, issues one batched `state_cf.multi_get` (PIP-3) into the dashmap (PIP-4) before Block-STM workers start.
@@ -375,7 +375,7 @@ Gate: differential test passes (parallel == serial across 10⁵ random waves).
 
 Gate: prefetched waves measurably faster than no-list waves on a read-heavy benchmark (target: ~30% throughput gain on a wave whose txs all declared accurate lists vs the same wave with empty lists).
 
-### Phase E — Determinism testing (weeks 7-8)
+### Phase E: Determinism testing (weeks 7-8)
 
 - Property tests with proptest: random tx mixes, random pool sizes, identical final state.
 - AFL+ fuzz harness against `execute_wave`.
@@ -383,7 +383,7 @@ Gate: prefetched waves measurably faster than no-list waves on a read-heavy benc
 
 Gate: 24h soak test clean.
 
-### Phase F — Production swap (week 8+)
+### Phase F: Production swap (week 8+)
 
 Remove the feature flag. `BlockStmExecutor` becomes the default in `pyde validator`. `SerialExecutor` stays compiled `cfg(test)` only, used by the differential test infrastructure.
 
@@ -411,13 +411,13 @@ The path past that ceiling is **additive layers on top of the same Block-STM cor
 
 | Layer | Mechanism | Multiplier | When it lands |
 |---|---|---|---|
-| **L1 — Access-list scheduling fast path** | Txs with declared lists that fully cover their actual access set skip MVCC validation and execute sequentially within their declared partition. Rare misses fall back to standard Block-STM. | 1.5-3× on declared-list-heavy workloads | v2 — when conflict rates measurably tank Block-STM throughput |
-| **L2 — Pipelined execution + consensus** | Speculatively execute wave N+1 against state from wave N before N's state-root sigs collect. Commit if N finalizes cleanly; rollback if not. | ~2× | v2-v3 — needs rollback machinery first |
-| **L3 — Read-write set classification** | Distinguish read-only from read-write slot accesses inside the AccessTracker. Read-only accesses never conflict; only RW accesses need MVCC validation. Cuts effective conflict surface 5-10× on read-heavy workloads. | 2-5× at scale | v2 — single AccessTracker change |
-| **L4 — GPU acceleration for PQ crypto** | Move FALCON verify + Kyber threshold decrypt off CPU. PQ crypto is the per-tx tax that dominates execution at scale. | 5-10× on encrypted txs | v2 — driver work |
-| **L5 — Native pre-compiles for hot patterns** | Implement batch transfer, native swap, NFT mint, etc. as host fns in Rust (not WASM). | 10× on specific patterns | v1.x-v2 — pick 3-5 highest-volume patterns at v1 lock |
-| **L6 — Execution sharding within one chain** | State partitioned across N execution shards; consensus unified. Each shard runs its slice of the canonical wave through its own Block-STM scheduler. Cross-shard slot accesses via lightweight 2-phase commit. | Linear in shard count | v3+ — major undertaking |
-| **L7 — Chain sharding** | Multiple sub-chains, cross-shard atomicity via finality cert. | Linear | Post-mainnet — whole-chain rewrite scope |
+| **L1: Access-list scheduling fast path** | Txs with declared lists that fully cover their actual access set skip MVCC validation and execute sequentially within their declared partition. Rare misses fall back to standard Block-STM. | 1.5-3× on declared-list-heavy workloads | v2: when conflict rates measurably tank Block-STM throughput |
+| **L2: Pipelined execution + consensus** | Speculatively execute wave N+1 against state from wave N before N's state-root sigs collect. Commit if N finalizes cleanly; rollback if not. | ~2× | v2-v3: needs rollback machinery first |
+| **L3: Read-write set classification** | Distinguish read-only from read-write slot accesses inside the AccessTracker. Read-only accesses never conflict; only RW accesses need MVCC validation. Cuts effective conflict surface 5-10× on read-heavy workloads. | 2-5× at scale | v2: single AccessTracker change |
+| **L4: GPU acceleration for PQ crypto** | Move FALCON verify + Kyber threshold decrypt off CPU. PQ crypto is the per-tx tax that dominates execution at scale. | 5-10× on encrypted txs | v2: driver work |
+| **L5: Native pre-compiles for hot patterns** | Implement batch transfer, native swap, NFT mint, etc. as host fns in Rust (not WASM). | 10× on specific patterns | v1.x-v2: pick 3-5 highest-volume patterns at v1 lock |
+| **L6: Execution sharding within one chain** | State partitioned across N execution shards; consensus unified. Each shard runs its slice of the canonical wave through its own Block-STM scheduler. Cross-shard slot accesses via lightweight 2-phase commit. | Linear in shard count | v3+: major undertaking |
+| **L7: Chain sharding** | Multiple sub-chains, cross-shard atomicity via finality cert. | Linear | Post-mainnet: whole-chain rewrite scope |
 
 **What is structurally out of scope:**
 

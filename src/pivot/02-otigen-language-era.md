@@ -1,4 +1,4 @@
-# 02 — The Otigen Language Era
+# 02. The Otigen Language Era
 
 The second large pivot Pyde went through was the retirement of the custom execution stack — language, VM, AOT, toolchain — in favor of WebAssembly via wasmtime. This document summarizes what we built in the Otigen-language era, why we built it that way, what we learned, and where the original material lives.
 
@@ -6,7 +6,7 @@ The second large pivot Pyde went through was the retirement of the custom execut
 
 A complete custom execution stack for Pyde, four interlocking components:
 
-### Otigen — the language
+### Otigen: the language
 
 `.oti` source files, surface syntax inspired by Rust, semantics tuned for blockchain execution:
 
@@ -18,11 +18,11 @@ A complete custom execution stack for Pyde, four interlocking components:
 - Compile-time access-list inference for the parallel scheduler.
 - 4-byte function selectors derived from signature hashes.
 
-### otic — the compiler
+### otic: the compiler
 
 `.oti` source → PVM bytecode + JSON ABI. Architecturally a four-stage pipeline: lex → parse → resolve → typecheck → safety analysis → bytecode emit. Implemented in Rust as a standalone library + binary.
 
-### pyde-vm — the virtual machine
+### pyde-vm: the virtual machine
 
 A custom register-based VM:
 
@@ -33,11 +33,11 @@ A custom register-based VM:
 - Static 4MB memory map with gas-metered page allocation.
 - Trap-on-overflow by default.
 
-### pyde-aot — the ahead-of-time compiler
+### pyde-aot: the ahead-of-time compiler
 
 PVM bytecode → native x86 / aarch64 machine code, via the Cranelift code generator. Compiled at contract deploy time; the resulting native function was cached forever (contracts were immutable).
 
-### wright — the developer toolchain
+### wright: the developer toolchain
 
 Project-level CLI (init, build, test, deploy, wallet, console) analogous to Foundry for Solidity. Wrapped the otic compiler with project conventions and a deployment client.
 
@@ -75,11 +75,11 @@ The engineering work was real. The design was coherent. The team built it carefu
 
 Two things, accumulating over time:
 
-### One — the maintenance commitment was not one-shot
+### One: the maintenance commitment was not one-shot
 
 Building a language is a permanent commitment, not a one-time deliverable. Toolchain churn (Cranelift API updates breaking the AOT), feature requests from authors, security advisories, fuzzing, audit prep, documentation, IDE support — all of it had to be sustained continuously. The language was a parallel track of work that competed with the rest of the protocol for attention.
 
-### Two — the speed argument did not hold
+### Two: the speed argument did not hold
 
 The case for keeping a custom VM rested on the assumption that custom-AOT would outperform a general-purpose WASM runtime. Investigation showed otherwise:
 
@@ -136,7 +136,7 @@ The pivot was localized to the VM and the language. Everything around it stayed.
 
 ## Reading on
 
-- [01 — The HotStuff Consensus Era](./01-hotstuff-consensus-era.md) — the first pivot.
-- [Chapter 3: Execution Layer (WASM)](../chapters/03-virtual-machine.md) — the current execution model.
-- [Chapter 5: Otigen Toolchain](../chapters/05-otigen-toolchain.md) — the new role for the Otigen name.
-- [Preface: The Pivot](../preface/pivot.md) — the narrative version of both pivots.
+- [01. The HotStuff Consensus Era](./01-hotstuff-consensus-era.md): the first pivot.
+- [Chapter 3: Execution Layer (WASM)](../chapters/03-virtual-machine.md), the current execution model.
+- [Chapter 5: Otigen Toolchain](../chapters/05-otigen-toolchain.md), the new role for the Otigen name.
+- [Preface: The Pivot](../preface/pivot.md), the narrative version of both pivots.

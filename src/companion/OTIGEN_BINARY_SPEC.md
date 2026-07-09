@@ -9,7 +9,7 @@ Where [`HOST_FN_ABI_SPEC.md`](./HOST_FN_ABI_SPEC.md) defines the binary surface 
 
 If the implementation and this document disagree, **this document is authoritative**. Implementation bugs are bugs in `otigen`, not in the spec.
 
-For the narrative overview, see [Chapter 5 — Otigen Toolchain](../chapters/05-otigen-toolchain.md).
+For the narrative overview, see [Chapter 5: Otigen Toolchain](../chapters/05-otigen-toolchain.md).
 
 ---
 
@@ -17,22 +17,22 @@ For the narrative overview, see [Chapter 5 — Otigen Toolchain](../chapters/05-
 
 This spec defines:
 
-- The **subcommand catalog** — every `otigen X Y Z` command, its flags, semantics, and exit codes
-- The **`otigen.toml` schema** — every key, type, default, and validation rule
-- The **per-language build pipeline** — exactly how `otigen` invokes Rust / AssemblyScript / Go / C compilers
-- The **`pyde.abi` custom-section injection** — how `otigen` integrates ABI metadata into the WASM output
-- The **wallet integration** — keystore format, FALCON signing pipeline, key rotation
-- The **deploy / upgrade / lifecycle flow** — what transactions `otigen` submits and how
-- The **artifact format** — the deploy bundle structure (`.wasm` + manifest)
-- The **network configuration** — RPC endpoints, chain IDs, default gas
-- The **CI / scripting interface** — JSON output mode, exit codes
-- The **versioning rules** — `otigen` binary version vs chain ABI version compatibility
+- The **subcommand catalog**: every `otigen X Y Z` command, its flags, semantics, and exit codes
+- The **`otigen.toml` schema**: every key, type, default, and validation rule
+- The **per-language build pipeline**: exactly how `otigen` invokes Rust / AssemblyScript / Go / C compilers
+- The **`pyde.abi` custom-section injection**: how `otigen` integrates ABI metadata into the WASM output
+- The **wallet integration**: keystore format, FALCON signing pipeline, key rotation
+- The **deploy / upgrade / lifecycle flow**: what transactions `otigen` submits and how
+- The **artifact format**: the deploy bundle structure (`.wasm` + manifest)
+- The **network configuration**: RPC endpoints, chain IDs, default gas
+- The **CI / scripting interface**: JSON output mode, exit codes
+- The **versioning rules**: `otigen` binary version vs chain ABI version compatibility
 
 This spec does **not** define:
 
 - The Host Function ABI (see [HOST_FN_ABI_SPEC.md](./HOST_FN_ABI_SPEC.md))
 - Language compiler internals (those belong to upstream — rustc, asc, TinyGo, clang)
-- The chain's transaction wire format (see [Chapter 11 — Account Model](../chapters/11-account-model.md))
+- The chain's transaction wire format (see [Chapter 11: Account Model](../chapters/11-account-model.md))
 - Per-language SDKs — `otigen` is not an SDK; it's a build harness (see [PARACHAIN_DESIGN §10](./PARACHAIN_DESIGN.md) for the no-SDK rationale)
 
 ---
@@ -228,10 +228,10 @@ otigen call <target> <function> [ARGS...] [--args <HEX>] [--raw]
 
 `ARGS` are marshalled per `[functions.<fn>].inputs` in declaration order:
 
-- **Primitives** (`u8`..`u128`, `i8`..`i128`, `bool`, `address`, `hash32`, `bytes`, `string`) — bare values. `address`-typed inputs accept either a `0x`-prefixed 64-char hex literal OR a wallet name from the local keystore (`devnet-0`, `alice`, …). Wallet names resolve to the keystore entry's deployed address.
-- **`vec(T)`** — JSON array literal: `'[1,2,3]'` (standard borsh `Vec<T>` wire shape).
-- **Named struct from `[types.<Name>]`** — JSON5 object: `'{maker:0xaa…,id:1,amount:100}'`. Field order in the literal does not matter; the marshaller looks fields up by name. See §4.13.
-- **Named enum from `[types.<Name>]`** — variant name as a bare string: `Pending`. v1 enums are unit-only. See §4.13.
+- **Primitives** (`u8`..`u128`, `i8`..`i128`, `bool`, `address`, `hash32`, `bytes`, `string`): bare values. `address`-typed inputs accept either a `0x`-prefixed 64-char hex literal OR a wallet name from the local keystore (`devnet-0`, `alice`, …). Wallet names resolve to the keystore entry's deployed address.
+- **`vec(T)`**: JSON array literal: `'[1,2,3]'` (standard borsh `Vec<T>` wire shape).
+- **Named struct from `[types.<Name>]`**: JSON5 object: `'{maker:0xaa…,id:1,amount:100}'`. Field order in the literal does not matter; the marshaller looks fields up by name. See §4.13.
+- **Named enum from `[types.<Name>]`**: variant name as a bare string: `Pending`. v1 enums are unit-only. See §4.13.
 - **Unquoted `0x` hex literals** of 16+ chars are auto-quoted before JSON5 parse so 32-byte hash / address values don't need surrounding quotes inside struct + array literals.
 
 `--args 0x<hex>` is the escape hatch when typed args don't fit (e.g. calling a contract without a local `otigen.toml`, or supplying hand-built calldata). Mutually exclusive with positional `ARGS`.
@@ -363,13 +363,13 @@ otigen inspect <name-or-address> [--state-field <NAME> | --field <NAME>]
 
 Default output (no `--state-field` / `--field`) — account snapshot per the chain's `pyde_getAccount` RPC:
 
-- `Target` / `Address` — the supplied name/address + the resolved 32-byte address.
-- `Account type` — `eoa`, `contract`, or `system` (chain's [`AccountType`](https://github.com/pyde-net/engine/blob/main/crates/types/src/account.rs) discriminant).
-- `Balance` — current balance in hex quanta.
-- `Nonce` — next acceptable nonce (`nonce_window.base + bitmap.trailing_ones()`).
-- `Code hash` — `Poseidon2(runtime_wasm)`. Zero for EOA / system accounts.
-- `Code size` — length of deployed bytecode in bytes.
-- `State root` — Blake3 summary of the contract's storage sub-trie. V1 keeps this all-zero (single global JMT).
+- `Target` / `Address`: the supplied name/address + the resolved 32-byte address.
+- `Account type`: `eoa`, `contract`, or `system` (chain's [`AccountType`](https://github.com/pyde-net/engine/blob/main/crates/types/src/account.rs) discriminant).
+- `Balance`: current balance in hex quanta.
+- `Nonce`: next acceptable nonce (`nonce_window.base + bitmap.trailing_ones()`).
+- `Code hash`: `Poseidon2(runtime_wasm)`. Zero for EOA / system accounts.
+- `Code size`: length of deployed bytecode in bytes.
+- `State root`: Blake3 summary of the contract's storage sub-trie. V1 keeps this all-zero (single global JMT).
 
 With `--state-field` or `--field`: focused single-slot read; prints the slot hash + raw bytes + decoded value (per `[state].schema` for `--state-field`).
 
@@ -422,16 +422,16 @@ for the password once (or reads it from stdin with
 signer is cached for the rest of the session.
 
 REPL commands (shipping today):
-- `help` / `?` — list the catalog
-- `balance <addr>` — query native PYDE balance
-- `nonce <addr>` — query next-acceptable nonce
-- `call <addr> <fn> [hex]` — invoke a `view` function (free, off-chain via `pyde_call`)
-- `tx <addr> <fn> [hex] [--value <decimal>]` — sign + submit + receipt poll
-- `state <addr> <field>` — substrate-typed scalar storage read (uses `--state-field` derivation)
-- `events <addr> [--from N] [--to N] [--limit N]` — pull `pyde_getLogs` with optional wave bounds
-- `subscribe <filter>` — WebSocket subscription to live events
-- `inspect <addr>` — account snapshot (mirrors `otigen inspect`)
-- `exit` / `quit` — leave the console
+- `help` / `?`: list the catalog
+- `balance <addr>`: query native PYDE balance
+- `nonce <addr>`: query next-acceptable nonce
+- `call <addr> <fn> [hex]`: invoke a `view` function (free, off-chain via `pyde_call`)
+- `tx <addr> <fn> [hex] [--value <decimal>]`: sign + submit + receipt poll
+- `state <addr> <field>`: substrate-typed scalar storage read (uses `--state-field` derivation)
+- `events <addr> [--from N] [--to N] [--limit N]`: pull `pyde_getLogs` with optional wave bounds
+- `subscribe <filter>`: WebSocket subscription to live events
+- `inspect <addr>`: account snapshot (mirrors `otigen inspect`)
+- `exit` / `quit`: leave the console
 
 Address inputs accept either a `0x`-prefixed 32-byte hex address
 or a registered name resolved via `pyde_resolveName`.
@@ -964,7 +964,7 @@ Declares contract-local named types — structs and unit-variant enums — so th
 
 Two shapes, chosen by which key is present.
 
-**Struct** — `fields = [{ name = "...", type = "..." }, ...]`:
+**Struct**: `fields = [{ name = "...", type = "..." }, ...]`:
 
 ```toml
 [types.Order]
@@ -978,7 +978,7 @@ fields = [
 
 Field declaration order is wire-load-bearing — borsh keys positional offsets. Reordering breaks compatibility for any contract previously deployed against the old order.
 
-**Enum (unit-variant only)** — `variants = [{ name = "..." }, ...]`:
+**Enum (unit-variant only)**: `variants = [{ name = "..." }, ...]`:
 
 ```toml
 [types.Status]
@@ -1226,7 +1226,7 @@ Chain handling on `DeployContractTx`:
 6. If a constructor is declared, instantiate the WASM and invoke the constructor with `init_calldata`.
 7. Emit a `ContractDeployed` event.
 
-### 8.2 Upgrade transaction — **v2-deferred; v1 uses the proxy pattern**
+### 8.2 Upgrade transaction: **v2-deferred; v1 uses the proxy pattern**
 
 v1 does NOT ship a chain-side `UpgradeContractTx` tx type or an `Account::Contract.owner` field. The frozen `TxType` enum has 14 variants (`crates/types/src/tx.rs`); none of them are contract upgrade.
 
@@ -1244,7 +1244,7 @@ Why deferred rather than shipped:
 
 For parachains: governance-cert-gated runtime upgrades remain documented in [PARACHAIN_DESIGN §6.2](./PARACHAIN_DESIGN.md) as a v2 deliverable; v1 parachains are pinned to a fixed runtime.
 
-### 8.3 Pause / Unpause / Kill — **contract-internal in v1; no chain-side tx types**
+### 8.3 Pause / Unpause / Kill: **contract-internal in v1; no chain-side tx types**
 
 v1 does NOT ship `PauseContractTx`, `UnpauseContractTx`, or `KillContractTx`. Contract-level pause / kill are not protocol surface; any author can declare a `paused: bool` (or `killed: bool`) field in `[state]` and gate their entry points on it:
 
@@ -1596,13 +1596,13 @@ The pipeline pins the MSRV toolchain version and disables debug info to maximize
 
 ## 12. References
 
-- [Chapter 5 — Otigen Toolchain](../chapters/05-otigen-toolchain.md) — narrative overview
-- [Chapter 17 — Developer Tools](../chapters/17-developer-tools.md) — what tools authors use day-to-day
-- [HOST_FN_ABI_SPEC.md](./HOST_FN_ABI_SPEC.md) — the chain-facing ABI this toolchain builds against
-- [OTIGEN_TEST_SPEC.md](./OTIGEN_TEST_SPEC.md) — contract behaviour test framework (Foundry-grade TOML)
-- [PARACHAIN_DESIGN.md](./PARACHAIN_DESIGN.md) — parachain-specific concerns (no-SDK rationale, governance, etc.)
-- [Chapter 11 — Account Model](../chapters/11-account-model.md) — address derivation, tx wire format
-- [`wasm-encoder` crate](https://docs.rs/wasm-encoder/) — the WASM section-writer `otigen` uses
+- [Chapter 5: Otigen Toolchain](../chapters/05-otigen-toolchain.md), narrative overview
+- [Chapter 17: Developer Tools](../chapters/17-developer-tools.md), what tools authors use day-to-day
+- [HOST_FN_ABI_SPEC.md](./HOST_FN_ABI_SPEC.md): the chain-facing ABI this toolchain builds against
+- [OTIGEN_TEST_SPEC.md](./OTIGEN_TEST_SPEC.md): contract behaviour test framework (Foundry-grade TOML)
+- [PARACHAIN_DESIGN.md](./PARACHAIN_DESIGN.md): parachain-specific concerns (no-SDK rationale, governance, etc.)
+- [Chapter 11: Account Model](../chapters/11-account-model.md), address derivation, tx wire format
+- [`wasm-encoder` crate](https://docs.rs/wasm-encoder/): the WASM section-writer `otigen` uses
 
 ---
 

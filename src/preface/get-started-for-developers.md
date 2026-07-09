@@ -1,4 +1,4 @@
-# Get Started — for Developers
+# Get Started: for Developers
 
 You're here because you want to build something on Pyde. This page is
 the on-ramp: enough orientation to land you on the right specs,
@@ -10,13 +10,13 @@ without reproducing them.
 
 Pyde supports two contract surfaces:
 
-1. **Smart contracts** — sandboxed WASM modules deployed to the chain.
-   Standard L1 contract development; read [Chapter 3 — Execution
+1. **Smart contracts**: sandboxed WASM modules deployed to the chain.
+   Standard L1 contract development; read [Chapter 3: Execution
    Layer](../chapters/03-virtual-machine.md) for the runtime model.
-2. **Parachains** — permissionless side-runtimes that share Pyde's
+2. **Parachains**: permissionless side-runtimes that share Pyde's
    finality and validator set, with their own state subtree and an
    extended ABI for cross-chain messaging + threshold cryptography.
-   Read [Chapter 13 — Parachains](../chapters/13-cross-chain.md).
+   Read [Chapter 13: Parachains](../chapters/13-cross-chain.md).
 
 Both compile to WebAssembly. Pyde executes them via
 [wasmtime](https://wasmtime.dev) + Cranelift AOT — deterministic
@@ -30,10 +30,10 @@ Whatever targets `wasm32`. Pyde doesn't ship per-language SDKs;
 authors compile their `.wasm` themselves and use the `otigen`
 toolchain to package + deploy it. First-class examples ship for:
 
-- **Rust** — `cargo build --target wasm32-unknown-unknown --release`
-- **AssemblyScript** — `npx asc contract.ts -o contract.wasm`
-- **Go (TinyGo)** — `tinygo build -target wasm-unknown -o contract.wasm`
-- **C / C++** — `clang --target=wasm32 -nostdlib -Wl,--no-entry`
+- **Rust**: `cargo build --target wasm32-unknown-unknown --release`
+- **AssemblyScript**: `npx asc contract.ts -o contract.wasm`
+- **Go (TinyGo)**: `tinygo build -target wasm-unknown -o contract.wasm`
+- **C / C++**: `clang --target=wasm32 -nostdlib -Wl,--no-entry`
 
 The chain only sees the bytes. Pick what fits your team.
 
@@ -43,19 +43,19 @@ The chain only sees the bytes. Pick what fits your team.
 
 In order:
 
-1. **[Chapter 1 — Introduction](../chapters/01-introduction.md)** —
+1. **[Chapter 1: Introduction](../chapters/01-introduction.md)**:
    10-minute orientation. Why Pyde exists, what it's not.
-2. **[Chapter 3 — Execution Layer](../chapters/03-virtual-machine.md)**
-   — the runtime, the per-tx overlay, the determinism contract.
-3. **[Host Function ABI v1.0](../companion/HOST_FN_ABI_SPEC.md)** —
+2. **[Chapter 3: Execution Layer](../chapters/03-virtual-machine.md)**:
+   the runtime, the per-tx overlay, the determinism contract.
+3. **[Host Function ABI v1.0](../companion/HOST_FN_ABI_SPEC.md)**:
    every `pyde::*` function your WASM can import. Signatures,
    semantics, gas costs, error codes. This is the contract the chain
    stands on.
-4. **[Chapter 5 — Otigen Toolchain](../chapters/05-otigen-toolchain.md)**
-   — how `otigen` builds, tests, deploys, and manages wallets.
-5. **[Otigen Binary Spec v1.0](../companion/OTIGEN_BINARY_SPEC.md)** —
+4. **[Chapter 5: Otigen Toolchain](../chapters/05-otigen-toolchain.md)**:
+   how `otigen` builds, tests, deploys, and manages wallets.
+5. **[Otigen Binary Spec v1.0](../companion/OTIGEN_BINARY_SPEC.md)**:
    the CLI surface. Every command, every flag.
-6. **[Otigen Test Spec v1.0](../companion/OTIGEN_TEST_SPEC.md)** —
+6. **[Otigen Test Spec v1.0](../companion/OTIGEN_TEST_SPEC.md)**:
    the contract-behaviour test framework (Foundry-grade, TOML).
    Read once you have a working contract.
 
@@ -117,11 +117,11 @@ What you can do right now:
 
 ## Where to ask
 
-- **[GitHub Discussions](https://github.com/pyde-net)** — design
+- **[GitHub Discussions](https://github.com/pyde-net)**: design
   questions, spec ambiguities.
-- **[Telegram](https://t.me/pydenet)** — quick chat, anything that
+- **[Telegram](https://t.me/pydenet)**: quick chat, anything that
   doesn't need a paper trail.
-- **[PIPs](https://github.com/pyde-net/pips)** — propose a protocol
+- **[PIPs](https://github.com/pyde-net/pips)**: propose a protocol
   change.
 
 Welcome aboard.

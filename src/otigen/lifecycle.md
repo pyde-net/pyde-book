@@ -24,7 +24,7 @@ Two things to internalize:
 
 ## 2. The v1 patterns
 
-### 2.1 Upgrade — the proxy pattern
+### 2.1 Upgrade: the proxy pattern
 
 The canonical v1 upgrade story is a proxy contract that holds the admin + logic address in storage and forwards every call via `pyde::call::execute_delegate_raw`. To upgrade you deploy a new logic contract and submit a tx that overwrites the logic slot.
 
@@ -124,7 +124,7 @@ Trade-offs vs a native engine upgrade:
 - **Storage discipline**: the logic's storage slot derivation lives in the proxy's address space. Renaming a field is a wire break across upgrades (the slot hash changes); use append-only field order.
 - **Admin key risk**: lose the admin key, lose upgradability. Pair with a multisig for production (see [`simple-multisig`](https://github.com/pyde-net/otigen/tree/main/examples/simple-multisig)). Lifecycle ops then go through multisig proposals + signature collection.
 
-### 2.2 Pause — author-declared boolean
+### 2.2 Pause: author-declared boolean
 
 Add a `paused: bool` field and assert it at every state-mutating entrypoint. Reads stay open by convention.
 
@@ -166,7 +166,7 @@ The matching `otigen.toml` `[state]` block declares `owner: address`, `paused: b
 
 In-flight transactions that were already accepted into the mempool before the `pause` tx commits will still execute (the pause only affects waves committed AFTER the pause). View calls via `otigen call <addr> <view-fn>` always work regardless; they don't enter consensus.
 
-### 2.3 Kill — author-declared terminal flag
+### 2.3 Kill: author-declared terminal flag
 
 Same shape as `paused`, but the entry assertions never check for an unpause counterpart. Once set, the contract refuses every mutation forever.
 

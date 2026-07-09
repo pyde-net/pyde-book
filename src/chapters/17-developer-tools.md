@@ -6,10 +6,10 @@ For deep documentation on the primary developer-facing tool (the `otigen` binary
 
 ## What's in scope
 
-- **`otigen`** — the developer toolchain binary. Handles project scaffolding, builds in any supported language, state binding generation, deployments, wallet management, REPL access, *and* an embedded chain runtime for one-command local devnets. The single tool most contract developers use day-to-day.
-- **`pyde-rust-sdk`** — the Rust client SDK for talking to a Pyde node programmatically.
-- **`pyde-ts-sdk`** — the TypeScript / JavaScript client SDK.
-- **`pyde-crypto-wasm`** — WASM bindings exposing post-quantum cryptography (FALCON signing, Kyber encryption, Poseidon2/Blake3 hashing) to browser and Node.js environments.
+- **`otigen`**: the developer toolchain binary. Handles project scaffolding, builds in any supported language, state binding generation, deployments, wallet management, REPL access, *and* an embedded chain runtime for one-command local devnets. The single tool most contract developers use day-to-day.
+- **`pyde-rust-sdk`**: the Rust client SDK for talking to a Pyde node programmatically.
+- **`pyde-ts-sdk`**: the TypeScript / JavaScript client SDK.
+- **`pyde-crypto-wasm`**: WASM bindings exposing post-quantum cryptography (FALCON signing, Kyber encryption, Poseidon2/Blake3 hashing) to browser and Node.js environments.
 
 A standalone `pyde` node binary (light / full / validator profiles) is planned post-public-testnet. For v1, the chain runtime lives inside `otigen` and is reached via `otigen devnet`.
 
@@ -58,7 +58,7 @@ The two test layers complement each other:
 - `cargo test` / `npm test` / `go test` (the author's language-native runner) — pure helpers, math, parsing, formatting. Runs in-process, microseconds per test, no chain semantics.
 - `otigen test` — contract behaviour. Spins up a wasmtime sandbox per test, mocks every `pyde::*` host function, drives the contract through TOML-declared scenarios with named accounts, named storage slots, time / wave / chain cheats, multi-call sequences, named event matching, and revert assertions. The same `.test.toml` runs against the contract regardless of source language. Spec: [`OTIGEN_TEST_SPEC.md`](../companion/OTIGEN_TEST_SPEC.md).
 
-### Performance — what to expect from `otigen build`
+### Performance: what to expect from `otigen build`
 
 The whole `otigen build` validation + packaging pipeline runs in **single-digit microseconds of CPU work** for a typical contract (parse `otigen.toml`, validate every cross-cutting rule, walk the compiled `.wasm` for imports + exports + deterministic-feature compliance, build the canonical `ContractAbi`, Borsh-encode, inject the `pyde.abi` custom section). Wall-clock invocations are dominated by file I/O — reading the `.wasm` + writing the four bundle files — which lands in the 1–5 ms range on commodity hardware. Validator work is essentially free against that.
 
@@ -132,7 +132,7 @@ Pyde Network ships **one canonical contract-side SDK** — the Rust stack in [py
 
 If you're maintaining or proposing a language SDK, the contract you must satisfy lives in:
 
-- [**SDK Author Guide**](../companion/SDK_AUTHOR_GUIDE.md) — the four invariants every SDK must hold (void-void entry signature, borsh-canonical calldata, host-fn signature parity, `pyde.abi` custom section), the reference implementation's surface, and the quality bar to ship.
+- [**SDK Author Guide**](../companion/SDK_AUTHOR_GUIDE.md): the four invariants every SDK must hold (void-void entry signature, borsh-canonical calldata, host-fn signature parity, `pyde.abi` custom section), the reference implementation's surface, and the quality bar to ship.
 - [`examples/storage-stress`](https://github.com/pyde-net/otigen/tree/main/examples/storage-stress) in otigen — the canonical acceptance contract. A community SDK is "ready" when its port of the 28-assertion `tests/stress_e2e.py` passes end-to-end against `pyde devnet`.
 
 Community SDKs publish under their own org (e.g., `pyde-go/`, `pyde-ts-contracts/`) and are listed back here by PR against [pyde-net/pyde-book](https://github.com/pyde-net/pyde-book). No SDK is currently in the listing — this section will fill in as language communities ship.
@@ -143,16 +143,16 @@ Community SDKs publish under their own org (e.g., `pyde-go/`, `pyde-ts-contracts
 
 The node exposes a JSON-RPC interface over HTTP and WebSocket. Method surface includes:
 
-- Standard query methods — `pyde_getAccount`, `pyde_getBalance`, `pyde_getTransactionCount`, `pyde_getContractCode`, `pyde_getStorageSlot`, `pyde_resolveName`
-- Transaction submission — `pyde_sendRawTransaction`, `pyde_sendRawEncryptedTransaction`, `pyde_estimateAccess`
-- View-function calls — `pyde_call(contract, fn, calldata)` — **free**, off-chain execution against current state; no tx, no gas, no consensus. Mirrors EVM's `eth_call`. Bounded by RPC-layer rate limits + per-call instruction cap.
-- Archival reads (full + archive nodes) — `pyde_getTx(hash)`, `pyde_getReceipt(hash)`
-- Subscription methods (WebSocket on `/ws`) — `pyde_subscribe`:
-  - `newHeads` — wave commits as they finalize
-  - `accountChanges` — state changes to a specific account
-  - `logs` — events matching an AND+OR filter (topic OR-list + optional contract); at-least-once delivery; each event carries `(wave_id, tx_index, event_index)` cursor for dedup; `pyde_resubscribe({from: cursor})` resumes after disconnect. Full mechanics: [Host Function ABI Spec §15.5](../companion/HOST_FN_ABI_SPEC.md).
-- Historical event queries — `pyde_getLogs({from_wave, to_wave, topics, contract, cursor, limit})` — 5,000-wave cap per request, cursor pagination, ascending wave order. Per-wave bloom filter prefilters; three RocksDB indexes resolve exact matches. Full spec: [Host Function ABI Spec §15.4](../companion/HOST_FN_ABI_SPEC.md).
-- Gas / fee estimation — `pyde_estimateGas`, `pyde_getBaseFee`
+- Standard query methods: `pyde_getAccount`, `pyde_getBalance`, `pyde_getTransactionCount`, `pyde_getContractCode`, `pyde_getStorageSlot`, `pyde_resolveName`
+- Transaction submission: `pyde_sendRawTransaction`, `pyde_sendRawEncryptedTransaction`, `pyde_estimateAccess`
+- View-function calls: `pyde_call(contract, fn, calldata)` — **free**, off-chain execution against current state; no tx, no gas, no consensus. Mirrors EVM's `eth_call`. Bounded by RPC-layer rate limits + per-call instruction cap.
+- Archival reads (full + archive nodes): `pyde_getTx(hash)`, `pyde_getReceipt(hash)`
+- Subscription methods (WebSocket on `/ws`): `pyde_subscribe`:
+  - `newHeads`: wave commits as they finalize
+  - `accountChanges`: state changes to a specific account
+  - `logs`: events matching an AND+OR filter (topic OR-list + optional contract); at-least-once delivery; each event carries `(wave_id, tx_index, event_index)` cursor for dedup; `pyde_resubscribe({from: cursor})` resumes after disconnect. Full mechanics: [Host Function ABI Spec §15.5](../companion/HOST_FN_ABI_SPEC.md).
+- Historical event queries: `pyde_getLogs({from_wave, to_wave, topics, contract, cursor, limit})` — 5,000-wave cap per request, cursor pagination, ascending wave order. Per-wave bloom filter prefilters; three RocksDB indexes resolve exact matches. Full spec: [Host Function ABI Spec §15.4](../companion/HOST_FN_ABI_SPEC.md).
+- Gas / fee estimation: `pyde_estimateGas`, `pyde_getBaseFee`
 
 Wire-shape quirks the SDK tolerates (transaction-type strings, byte-array addresses on archival reads, `getTransactionCount` snapshot lag, devnet rate-limiting) are catalogued in the SDK companion guide. The canonical method catalog is published as the JSON-RPC reference alongside the engine workspace.
 
@@ -162,15 +162,15 @@ Wire-shape quirks the SDK tolerates (transaction-type strings, byte-array addres
 
 Pyde's TS and Rust SDKs embed wasmtime directly, so wallets can **simulate transactions locally** before signing. This unlocks honest pre-sign safety information without server-side round trips.
 
-### Tier 1 — Deterministic local preview (v1 mainnet)
+### Tier 1: Deterministic local preview (v1 mainnet)
 
 The default. Wallets ship with:
 
-- **Gas estimation** — run the tx against current state locally; count consumed fuel; show user the expected gas cost
-- **Access list inference** — speculatively execute; record every sload/sstore call's slot_hash; attach the inferred access list to the tx so the chain can warm its execution cache via PIP-3 multiget prefetch before Block-STM workers start
-- **View function execution** — `view`-attributed functions execute locally, fetching state via RPC for any cache misses; no tx submitted, no gas
-- **Dry-run preview** — show the user "this tx will spend X PYDE, transfer Y tokens to address Z, emit Transfer event, leave your balance at W"
-- **Known-pattern decoding** — recognize standard ABI patterns (transfer, approve, etc.) and surface them in plain language
+- **Gas estimation**: run the tx against current state locally; count consumed fuel; show user the expected gas cost
+- **Access list inference**: speculatively execute; record every sload/sstore call's slot_hash; attach the inferred access list to the tx so the chain can warm its execution cache via PIP-3 multiget prefetch before Block-STM workers start
+- **View function execution**: `view`-attributed functions execute locally, fetching state via RPC for any cache misses; no tx submitted, no gas
+- **Dry-run preview**: show the user "this tx will spend X PYDE, transfer Y tokens to address Z, emit Transfer event, leave your balance at W"
+- **Known-pattern decoding**: recognize standard ABI patterns (transfer, approve, etc.) and surface them in plain language
 
 The user clicks Sign only after seeing exactly what the tx does in this moment.
 
@@ -195,7 +195,7 @@ Wallet UX flow (Tier 1):
   User signs (FALCON-512) → tx submitted
 ```
 
-### Tier 2 — Reputation + heuristics (v2 direction)
+### Tier 2: Reputation + heuristics (v2 direction)
 
 Layers on top of Tier 1. Doesn't require AI — just curated data + pattern matching:
 
@@ -204,7 +204,7 @@ Layers on top of Tier 1. Doesn't require AI — just curated data + pattern matc
 - Cross-reference with audit databases (was this contract audited? by whom?)
 - Surface community reputation scores
 
-### Tier 3 — LLM-augmented analysis (v3+ direction)
+### Tier 3: LLM-augmented analysis (v3+ direction)
 
 LLM reads contract WASM (or decompiled source) to summarize behavior, identify common risk patterns:
 
@@ -243,8 +243,8 @@ For readers coming from the pre-pivot world, the developer tooling has changed s
 
 | Pre-pivot (Otigen-language era) | Post-pivot (current) |
 |-------------------------------|---------------------|
-| `otic` — Otigen compiler | Retired; archived |
-| `wright` — project CLI | Retired; archived. Role taken by the new `otigen` binary |
+| `otic`: Otigen compiler | Retired; archived |
+| `wright`: project CLI | Retired; archived. Role taken by the new `otigen` binary |
 | `.oti` source files | Replaced by author's language of choice (`.rs`, `.ts`, `.go`, `.c`) |
 | PVM bytecode artifacts | Replaced by WASM `.wasm` artifacts |
 | Otigen-specific tests | Two layers: author's language-native test runner for pure helpers (`cargo test`, etc.) + `otigen test` for contract behaviour (TOML-declared, language-agnostic) |
@@ -271,8 +271,8 @@ The `otigen` *name* survives, repurposed for the developer toolchain. See [The P
 
 ## 17.7 Reading on
 
-- [Chapter 5: Otigen Toolchain](./05-otigen-toolchain.md) — the deep reference for the `otigen` binary.
-- [Chapter 3: Execution Layer](./03-virtual-machine.md) — the WASM runtime that compiled contracts execute under.
-- [Chapter 11: Account Model](./11-account-model.md) — the name registry the toolchain interacts with.
-- [Chapter 18: Protocol Upgrades](./18-protocol-upgrades.md) — how contract and protocol upgrades flow.
-- [Preface: The Pivot](../preface/pivot.md) — narrative on why the toolchain looks the way it does.
+- [Chapter 5: Otigen Toolchain](./05-otigen-toolchain.md), the deep reference for the `otigen` binary.
+- [Chapter 3: Execution Layer](./03-virtual-machine.md), the WASM runtime that compiled contracts execute under.
+- [Chapter 11: Account Model](./11-account-model.md), the name registry the toolchain interacts with.
+- [Chapter 18: Protocol Upgrades](./18-protocol-upgrades.md), how contract and protocol upgrades flow.
+- [Preface: The Pivot](../preface/pivot.md), narrative on why the toolchain looks the way it does.

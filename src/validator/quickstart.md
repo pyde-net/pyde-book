@@ -6,7 +6,7 @@ This is the operator path. Contract authors want the [Otigen Toolchain Guide](..
 
 ---
 
-## TL;DR — see it work locally first
+## TL;DR: see it work locally first
 
 If you just want to confirm Pyde's multi-validator path works on your machine before committing to a real testnet setup, build the binary and run:
 
@@ -117,12 +117,12 @@ You'll also need a libp2p Ed25519 keypair for the peer-to-peer layer. `pyde vali
 
 Two ways to join a soft testnet:
 
-- **Path A — bootstrap a fresh network.** You and N other operators agree on a genesis manifest, every operator points `pyde validator --genesis` at the same file. Use this when you're starting a new test network.
-- **Path B — join an existing network.** You state-sync from a peer that's already running. Use this for everything after the initial bootstrap.
+- **Path A: bootstrap a fresh network.** You and N other operators agree on a genesis manifest, every operator points `pyde validator --genesis` at the same file. Use this when you're starting a new test network.
+- **Path B: join an existing network.** You state-sync from a peer that's already running. Use this for everything after the initial bootstrap.
 
 If you're not sure, you want **Path B**. Skip to it.
 
-### Path A — Bootstrap a fresh network
+### Path A: Bootstrap a fresh network
 
 Write a template genesis manifest:
 
@@ -135,9 +135,9 @@ pyde genesis template \
 
 Edit it. The interesting fields:
 
-- **`committee`** — one entry per founding validator. Each entry carries that validator's `falcon_pubkey`, `operator_address`, and `stake_quanta` (must be `>= MIN_VALIDATOR_STAKE = 10_000_000_000_000 quanta = 10,000 PYDE`).
-- **`prefund`** — initial balances. At minimum prefund every committee member's `operator_address` so they can pay gas.
-- **`economic.epoch_length_waves`** — keep at `100` for production-shape, drop to `5` or `10` if you want fast epoch boundaries during testing.
+- **`committee`**: one entry per founding validator. Each entry carries that validator's `falcon_pubkey`, `operator_address`, and `stake_quanta` (must be `>= MIN_VALIDATOR_STAKE = 10_000_000_000_000 quanta = 10,000 PYDE`).
+- **`prefund`**: initial balances. At minimum prefund every committee member's `operator_address` so they can pay gas.
+- **`economic.epoch_length_waves`**: keep at `100` for production-shape, drop to `5` or `10` if you want fast epoch boundaries during testing.
 
 Validate the file:
 
@@ -147,9 +147,9 @@ pyde genesis validate --genesis ./genesis.toml
 
 Distribute the file to every founding operator. Everyone must boot `pyde validator` with the same `--genesis` path; the chain ID inside the manifest is what binds them to the same network.
 
-Then jump to step **4 — Run the validator**.
+Then jump to step **4. Run the validator**.
 
-### Path B — Join an existing network via state-sync
+### Path B: Join an existing network via state-sync
 
 Get a trusted peer's RPC endpoint (their `pyde validator --rpc-listen` address) and an out-of-band copy of their current `(wave_id, state_root)` pair. The state root is published by the chain on the wave commit record; in practice you'll grab it from the running peer:
 

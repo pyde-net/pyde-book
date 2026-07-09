@@ -111,11 +111,11 @@ At a **workspace** root, `otigen build` builds every member into the shared `art
 
 Output bundle lands at `--out` (default `<config-dir>/artifacts/<name>.bundle/`) with:
 
-- `contract.wasm` — the compiled binary (blake3-checksummed).
-- `abi.json` — the contract's ABI extracted from `[functions.*]`.
-- `manifest.json` — canonical manifest snapshot (build-deterministic apart from a `build_timestamp` field).
-- `metadata.json` — JSON-extracted `[metadata]` section (the project's source URL, license, description). Hashed into `manifest.metadata_hash_blake3` for explorer verification.
-- `otigen.toml` — the source manifest copied verbatim so `otigen deploy` / `verify` / `test` can re-read declarations from a bundle without the source tree.
+- `contract.wasm`: the compiled binary (blake3-checksummed).
+- `abi.json`: the contract's ABI extracted from `[functions.*]`.
+- `manifest.json`: canonical manifest snapshot (build-deterministic apart from a `build_timestamp` field).
+- `metadata.json`: JSON-extracted `[metadata]` section (the project's source URL, license, description). Hashed into `manifest.metadata_hash_blake3` for explorer verification.
+- `otigen.toml`: the source manifest copied verbatim so `otigen deploy` / `verify` / `test` can re-read declarations from a bundle without the source tree.
 
 Exits non-zero on validation failure (`VALIDATION_FAILURE` = 1). Scripts can rely on the exit code.
 
@@ -436,10 +436,10 @@ otigen call [OPTIONS] <TARGET> <FUNCTION> [ARGS...]
 
 Positional `ARGS` are marshalled per `[functions.<fn>].inputs` in declaration order. Per type:
 
-- **Primitives** (`u8`..`u128`, `i8`..`i128`, `bool`, `address`, `hash32`, `bytes`, `string`) — bare values. `address`-typed inputs accept either a `0x`-prefixed 64-char hex literal OR a wallet name from the local keystore (`devnet-0`, `alice`, …) — wallet names resolve to the keystore entry's address.
-- **`vec(T)`** — JSON array literal: `'[1,2,3]'` (standard borsh `Vec<T>` wire shape).
-- **Struct from `[types.<Name>]`** — JSON5 object literal: `'{maker:devnet-0,amount:100,paid:false}'`. Field order does not matter; the marshaller looks fields up by name.
-- **Enum from `[types.<Name>]`** — variant name as a bare string: `Pending`. v1 enums are unit-only.
+- **Primitives** (`u8`..`u128`, `i8`..`i128`, `bool`, `address`, `hash32`, `bytes`, `string`): bare values. `address`-typed inputs accept either a `0x`-prefixed 64-char hex literal OR a wallet name from the local keystore (`devnet-0`, `alice`, …) — wallet names resolve to the keystore entry's address.
+- **`vec(T)`**: JSON array literal: `'[1,2,3]'` (standard borsh `Vec<T>` wire shape).
+- **Struct from `[types.<Name>]`**: JSON5 object literal: `'{maker:devnet-0,amount:100,paid:false}'`. Field order does not matter; the marshaller looks fields up by name.
+- **Enum from `[types.<Name>]`**: variant name as a bare string: `Pending`. v1 enums are unit-only.
 - **Unquoted `0x` hex literals** of 16+ chars are auto-quoted before JSON5 parse, so 32-byte hash + address values don't need surrounding quotes inside struct + array literals.
 
 ```bash

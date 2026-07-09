@@ -2,7 +2,7 @@
 
 How to point your validator at a specific Pyde public testnet — fetch the genesis manifest, verify it's the one the network was bootstrapped against, configure your bootnodes, register your stake on-chain.
 
-This chapter assumes you've already followed the [Quickstart](quickstart.md) through step 1 (you have the `pyde` binary installed and a FALCON keypair generated). It picks up where the quickstart's *Path B — Join an existing network* branch starts.
+This chapter assumes you've already followed the [Quickstart](quickstart.md) through step 1 (you have the `pyde` binary installed and a FALCON keypair generated). It picks up where the quickstart's *Path B: Join an existing network* branch starts.
 
 ---
 
@@ -12,8 +12,8 @@ A public testnet has one canonical genesis manifest. Every validator on the netw
 
 Two artifacts make this honest:
 
-1. **The genesis manifest itself** (`genesis.toml`) — the human-readable network spec.
-2. **A SHA-256 checksum + sigstore-keyless signature** — published alongside the manifest so you can prove the file you downloaded is the one the bootstrappers actually published.
+1. **The genesis manifest itself** (`genesis.toml`): the human-readable network spec.
+2. **A SHA-256 checksum + sigstore-keyless signature**: published alongside the manifest so you can prove the file you downloaded is the one the bootstrappers actually published.
 
 Both are hosted on the public release mirror (`pyde-net/test-releases`) under the same release tag as the validator binary you installed. Same trust root, same URL pattern.
 
@@ -23,9 +23,9 @@ Both are hosted on the public release mirror (`pyde-net/test-releases`) under th
 
 Pick the release tag that matches your installed binary (e.g. `v0.1.0-testnet.1`). Every release ships three files relevant to genesis:
 
-- `genesis.toml` — the manifest
-- `genesis.toml.sha256` — the SHA-256 checksum
-- `genesis.toml.sig` + `genesis.toml.pem` — the sigstore-keyless signature + ephemeral cert
+- `genesis.toml`: the manifest
+- `genesis.toml.sha256`: the SHA-256 checksum
+- `genesis.toml.sig` + `genesis.toml.pem`: the sigstore-keyless signature + ephemeral cert
 
 Fetch them:
 
@@ -168,9 +168,9 @@ See [Day-2 Operations](operations.md) for the production setup (systemd, log rot
 
 ## Where to go next
 
-- [Day-2 Operations](operations.md) — running the validator as a service, monitoring, log rotation, key rotation.
-- [Quickstart Step 5 — Register on-chain](quickstart.md#5-register-your-validator-on-chain) — submit your `StakeDeposit` tx once the validator is committee-eligible.
-- The [State Sync companion spec](../companion/STATE_SYNC.md) — the full snapshot + tail-replay protocol.
+- [Day-2 Operations](operations.md): running the validator as a service, monitoring, log rotation, key rotation.
+- [Quickstart Step 5: Register on-chain](quickstart.md#5-register-your-validator-on-chain), submit your `StakeDeposit` tx once the validator is committee-eligible.
+- The [State Sync companion spec](../companion/STATE_SYNC.md): the full snapshot + tail-replay protocol.
 
 ---
 

@@ -95,27 +95,27 @@ The continuous rotation is the throughput. Pyde is not a fast database; it is a 
 
 The full cycle, end-to-end, from a user's keypress to a receipt landing back in their wallet, is eleven stages. Five are happening to your transaction. The other six are happening to other people's transactions concurrently, on the same factory floor, because the line never stops.
 
-### Stage 0 — Workshop floor (the user)
+### Stage 0: Workshop floor (the user)
 
 A user opens a wallet and asks it to send 100 PYDE to `alice.pyde`. The wallet quietly does five things before showing a "Sign" button: it resolves the recipient name via JSON-RPC, fetches the sender's account state, fetches any relevant contract bytecode, runs the transaction _locally_ inside a wasmtime sandbox embedded in the wallet itself (Tier 1 client-side preview, see [Chapter 17 §17.4b](../chapters/17-developer-tools.md)), and shows the user a preview: _"This tx will send 100 PYDE, cost ~21,000 gas, leave your balance at 900 PYDE."_ Only then does the user sign with their FALCON-512 key, and only then does the tx leave their machine.
 
 If the user opted for confidentiality, the wallet also encrypts the payload with the current epoch's threshold pubkey before signing — the recipient and amount become opaque ciphertext that no validator can read until the wave commits.
 
-### Stage 1 — Loading dock (RPC ingress)
+### Stage 1: Loading dock (RPC ingress)
 
 The transaction lands at any RPC node. RPC nodes are **stateless ingress**: they hold no validator key, sign nothing, and have no consensus role. They parse the JSON, do a shape check, rate-limit, return the tx hash to the wallet synchronously, and then shovel the transaction into the libp2p Gossipsub mempool topic. From the wallet's perspective the trip is done. In reality it has just begun.
 
-### Stage 2 — Sorting room (mempool)
+### Stage 2: Sorting room (mempool)
 
 Every node — and especially every committee validator — runs a validation pipeline on each incoming tx: signature verify (FALCON-512, batchable), nonce window check (the tx's nonce must be within sixteen of the sender's last committed nonce), balance sufficiency, gas-limit cap, attribute coherence. Passes go into the local mempool DashMap, organised by gas-price descending. Failures are dropped and the gossip score of the peer that sent it is docked. Encrypted transactions land here too: the envelope is validated, but the payload stays sealed until threshold decryption fires at commit.
 
-### Stage 3 — Assembly-line dispatch (batches and vertices)
+### Stage 3: Assembly-line dispatch (batches and vertices)
 
 Inside each of the 128 committee members for this epoch, two things happen continuously. First, every hundred milliseconds or so, the member packs the highest-fee transactions into a **Batch** (~50-200 txs, ~4 MB cap) and broadcasts it on the `/pyde/batches/1.0.0` topic. Second, every round (~150-500 ms, structurally paced — see below), the member emits a **Vertex** that references ≥85 parent vertices from the previous round, references whichever batches it wants to include, carries piggybacked decryption shares for any encrypted transactions in the subdag, contributes a VRF beacon share, attests to the previous anchor, and is signed by the member's epoch key. Vertices broadcast on `/pyde/dag/1.0.0` and form the next floor of the DAG.
 
 The round advances when the member has _seen ≥85 vertices from the current round_, not when its own timer fires. This is the structural-pacing trick that makes Mysticeti elegant: the floor speed is the median peer speed, not the slowest peer's speed. A single laggard cannot stall the line.
 
-### Stage 4 — The foreman picks the lead (anchor selection)
+### Stage 4: The foreman picks the lead (anchor selection)
 
 Every K rounds (typically K=3), an **anchor** is picked, deterministically and verifiably, by all 128 members simultaneously:
 
@@ -125,7 +125,7 @@ anchor_validator_id = VRF(beacon_combined, round, prev_state_root) mod 128
 
 The beacon is the XOR of the prior round's VRF shares (public randomness). The previous state root locks anchor selection to canonical history, so an adversary who reorders the DAG cannot retroactively choose a more favourable anchor. Mod 128 picks which member's vertex at this round wears the crown. Every honest member computes the same answer.
 
-### Stage 5 — The press slams (wave commit) 💥
+### Stage 5: The press slams (wave commit) 💥
 
 Once the anchor has accumulated ≥85 attestations from later-round vertices (other members' vertices that reach the anchor transitively through parent links), the **commit threshold** trips. The press comes down.
 
@@ -137,29 +137,29 @@ What the slam does, in three lines:
 
 That sequence is _what gets executed_. Before the slam the DAG is ambiguous; after the slam it is fixed. See [Chapter 6 §5b–5c](../chapters/06-consensus.md) for round-vs-wave terminology, missing-vertex handling, and the 5-skip recovery walkthrough.
 
-### Stage 6 — Unboxing the sealed crates (threshold decryption)
+### Stage 6: Unboxing the sealed crates (threshold decryption)
 
 Encrypted transactions in the ordered list were opaque until now. Each was sealed with a one-time symmetric key encrypted under the epoch's threshold pubkey. Every vertex committed in the wave piggybacked a **decryption share** for each encrypted tx in the committable subdag. By commit time, ≥85 shares per encrypted tx are already in hand.
 
 For each encrypted transaction: Lagrange interpolation across the shares recovers the decryption key, the payload is decrypted in-memory, and the now-revealed transaction is re-validated (nonce, balance) one final time before execution. If the decrypted transaction is invalid, it is dropped — but the sender still pays a small gas bond from their plaintext balance (anti-spam). The order-then-decrypt design is what gives Pyde its MEV protection: validators cannot front-run, sandwich, or censor based on transaction content, because they could not read it when they ordered it.
 
-### Stage 7 — Robotic arms picking and ordering (execution)
+### Stage 7: Robotic arms picking and ordering (execution)
 
 The wave's `ordered_list` enters the **Block-STM scheduler**. First, the scheduler walks every tx's declared access list and unions every `(addr, slot)` pair into a single prefetch set, then issues one batched `state_cf.multi_get` (PIP-3) to warm the dashmap (PIP-4) before any worker starts — the access list is a prefetch hint only, never used to partition the wave or affect correctness. Then every tx runs optimistically in parallel on a rayon pool, reading + writing through a multi-version concurrency control (MVCC) layer addressed by `(tx_index, attempt)`. The validate pass checks every read against the canonical tx_index order; reads that have since been invalidated by a lower-tx_index write abort the tx, drop its writes, and re-incarnate it at attempt+1. The cycle repeats until every tx is validated — fixpoint — then the highest-tx_index's last write per slot is flushed to the JMT. Aptos's measured production numbers (10-30K real-world TPS) anchor Pyde's v1 throughput target.
 
 For each transaction, the dispatch looks at the type. Native transactions (Transfer, ValidatorRegister, Stake, Unstake) skip wasmtime entirely — direct calls into native handlers, ~21K gas, no WASM cost. Contract calls and contract deploys enter the wasmtime path: load (or fetch and Cranelift-compile) the contract module from state, instantiate it with a 64 MB linear-memory cap and `gas_limit` of fuel, invoke the entrypoint, run host functions (`sload`, `sstore`, `sdelete`, `log`, `cross_call`) through a per-transaction overlay that snapshots reads and isolates writes. Success merges the overlay into the wave overlay; trap discards it; either way the gas actually consumed is deducted (no refunds in v1, see [Chapter 10 §10.1](../chapters/10-gas-and-fee-model.md)). Cross-contract calls nest overlays recursively so a failed sub-call rolls back cleanly without touching the caller's state.
 
-### Stage 8 — Inventory audit (state root computation)
+### Stage 8: Inventory audit (state root computation)
 
 After execution, the wave overlay holds every write _and_ every emitted event. Now the audit stamp goes on. Each `(slot_hash, value)` write lands in two places: the **state_cf** flat table (live state, O(1) reads later) and the **jmt_cf** versioned tree (proofs and state root). JMT internal nodes touched by this wave are recomputed with dual hashes — Blake3 for fast native verification, Poseidon2 for future ZK light clients (see [Chapter 4 §4.1b](../chapters/04-state-model.md)). Events land in three more column families — **events_cf** (primary, ordered by wave) plus **events_by_topic_cf** and **events_by_contract_cf** (indexes for fast filtering) — and the wave commit record carries an `events_root` (Blake3 Merkle tree over canonical-ordered events) plus a 256-byte `events_bloom` so light clients can verify event inclusion identically to how they verify state. The new state root, the events root + bloom, the wave commit record, the receipts, and the tx-to-wave mapping all land in a single atomic RocksDB WriteBatch. Either the entire wave commits or none of it does. There is no such thing as a half-committed wave.
 
-### Stage 9 — Exhaust from the chimney (eviction and pruning) 💨
+### Stage 9: Exhaust from the chimney (eviction and pruning) 💨
 
 The DashMap write-back cache layer holds writes from recent waves in memory; reads against hot accounts are near-free here. On every wave boundary, the cache is flushed and LRU eviction trims it back under its size cap. Hot accounts (token contracts, popular pools) stay resident; cold accounts get evicted and next access pays one disk read against `state_cf`. Pruning policy varies by node tier: archive nodes keep everything; full nodes drop state-tree versions older than ninety days; committee validators keep thirty days. The mempool drops every transaction that just committed and every transaction whose nonce window has now closed.
 
 The plume rising from the chimney is the eviction. The exhaust trailing it is the pruning. The factory shrinks back to a clean working volume ready for the next round.
 
-### Stage 10 — Receipt out the front door (back to the user)
+### Stage 10: Receipt out the front door (back to the user)
 
 The wallet has been holding a WebSocket subscription on the transaction hash since Stage 1. The moment Stage 8's WriteBatch lands, the RPC layer pushes:
 
@@ -176,7 +176,7 @@ The wallet has been holding a WebSocket subscription on the transaction hash sin
 
 The wallet updates the user's view: _"Transferred 100 PYDE to alice.pyde. Confirmed."_ For light clients (mobile wallets, browser dApps), the same wave commits as a 200-byte header signed by the committee threshold — the light client verifies the threshold signature against the committee pubkeys it already trusts and has now verified the entire wave's integrity without downloading a single transaction. See [Chapter 17 §17.3](../chapters/17-developer-tools.md) for the SDK surface and [Companion: State Sync](../companion/STATE_SYNC.md) for the light-client model.
 
-### Stage 11 — The eternal rotation 🔁
+### Stage 11: The eternal rotation 🔁
 
 Everything you have just read is happening in parallel for different waves. While Stage 7's arms execute wave 1,234,567, round R+1 has already advanced, decryption shares for round R+5's encrypted transactions are piggybacking through the gossip layer, the next anchor is already known by VRF, the mempool is already sorting transactions that will land in wave 1,234,568, and somebody's wallet on the other side of the world is running a Tier-1 preview for a transaction that does not yet exist. The pipeline is deep. The conveyor belts overlap. The press slams roughly twice a second.
 

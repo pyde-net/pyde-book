@@ -630,7 +630,7 @@ export function readBalance(accountPtr: usize): u64 {
 
 ---
 
-## 7. Storage — variable-length values + slot derivation
+## 7. Storage: variable-length values + slot derivation
 
 Pyde v1 storage is **variable-length** per HOST_FN_ABI_SPEC §7.1. Three host fns:
 
@@ -676,7 +676,7 @@ fn derive_slot(field: &[u8], key: &[u8]) -> [u8; 32] {
 }
 ```
 
-### 7.2 Rust — scalar + mapping + composite-key
+### 7.2 Rust: scalar + mapping + composite-key
 
 ```rust
 const FIELD_TOTAL_SUPPLY: &[u8] = b"total_supply";
@@ -712,7 +712,7 @@ let allowed = read_u128(FIELD_ALLOWANCES, &k);                     // nested map
 
 `read_u64` / `write_u64` follow the same shape with 8-byte buffers; `read_address` / `write_address` use 32. Storage costs (5000 base + 32/byte on `sstore`) scale with what you write — pay for what you use, no 32-byte padding overhead.
 
-### 7.3 TinyGo — same shape, `//go:wasmimport`
+### 7.3 TinyGo: same shape, `//go:wasmimport`
 
 ```go
 //go:wasmimport pyde sload
@@ -758,7 +758,7 @@ func readBalance(owner [32]byte) uint64 {
 }
 ```
 
-### 7.4 AssemblyScript — same shape, `@external`
+### 7.4 AssemblyScript: same shape, `@external`
 
 ```ts
 @external("pyde", "sload")
@@ -791,7 +791,7 @@ function deriveSlot(field: StaticArray<u8>, key: StaticArray<u8> | null): Static
 }
 ```
 
-### 7.5 C — same shape, `import_module`
+### 7.5 C: same shape, `import_module`
 
 ```c
 __attribute__((import_module("pyde"), import_name("sload")))
@@ -854,7 +854,7 @@ pyde::cross_call(
 ) -> i32                                       ; status code
 ```
 
-### 8.2 Rust — calling `token.transfer(recipient, amount)`
+### 8.2 Rust: calling `token.transfer(recipient, amount)`
 
 ```rust
 // Import the host fn (see §5.1).
@@ -972,7 +972,7 @@ pub fn transfer_via_token(
 }
 ```
 
-### 8.3 TinyGo — same pattern
+### 8.3 TinyGo: same pattern
 
 ```go
 package contract
@@ -1037,7 +1037,7 @@ func transferViaToken(
 }
 ```
 
-### 8.4 AssemblyScript — same pattern
+### 8.4 AssemblyScript: same pattern
 
 ```typescript
 // Host fn declaration.
@@ -1097,7 +1097,7 @@ export function transferViaToken(
 }
 ```
 
-### 8.5 The four cross_call invariants — pattern + example
+### 8.5 The four cross_call invariants: pattern + example
 
 When a primary contract calls `pyde::cross_call(target, fn_name, calldata, value, ...)`, four properties hold per `HOST_FN_ABI_SPEC §7.8` — properties that distinguish cross_call from a regular function call within the same contract:
 
@@ -1552,7 +1552,7 @@ The full pattern — domain-separated hashing, 33-byte step encoding, proof veri
 
 ---
 
-## 12. Composed contracts — when primitives stack
+## 12. Composed contracts: when primitives stack
 
 The §7-§11 chapters each cover a primitive in isolation: storage, cross-call, FALCON, proxy, hashing. Real contracts compose them. A DAO needs all five at once. A vesting contract with multisig admin needs three. The composition is not always obvious — pairing FALCON sigs with time-phased state introduces replay surfaces that neither pattern has alone, and inlining a delegate_call into a hash-committed dispatch can corrupt storage if the slot layouts diverge.
 
@@ -1594,11 +1594,11 @@ The full contract is ~450 lines; the high-level shape is just four phases:
 
 The composition surface is at the phase boundaries:
 
-- **propose → vote** — vote sigs bind to `proposal_id`, so a sig for proposal 0 can't be replayed against proposal 1. But the binding alone isn't enough; see §12.4.
-- **vote → execute** — execute checks both `quorum_met` AND `yes > no`, AND the calldata hash matches. Skip any of these and you have an exploit. §12.6 walks through why.
-- **propose → execute** — the `calldata_hash` stored at propose-time is the *commitment*; the bytes supplied at execute-time are the *reveal*. The contract verifies they match, so neither party can swap calldata between commit and execute. §12.6 again.
+- **propose → vote**: vote sigs bind to `proposal_id`, so a sig for proposal 0 can't be replayed against proposal 1. But the binding alone isn't enough; see §12.4.
+- **vote → execute**: execute checks both `quorum_met` AND `yes > no`, AND the calldata hash matches. Skip any of these and you have an exploit. §12.6 walks through why.
+- **propose → execute**: the `calldata_hash` stored at propose-time is the *commitment*; the bytes supplied at execute-time are the *reveal*. The contract verifies they match, so neither party can swap calldata between commit and execute. §12.6 again.
 
-### 12.3 Pattern 1 — signed off-chain action authorization
+### 12.3 Pattern 1: signed off-chain action authorization
 
 The classic Web2 + multisig + meta-tx pattern, ported to FALCON:
 
@@ -1632,7 +1632,7 @@ if rc != 0 { revert(b"BadSignature"); }
 
 Order matters: cheap structural checks first, expensive cryptographic check last. An attacker who spams unknown-signer votes pays 200 gas per attempt, not 50K. The contract's gas-ddos-resistance is built into the check order.
 
-### 12.4 Pattern 2 — domain-separated canonical messages
+### 12.4 Pattern 2: domain-separated canonical messages
 
 The single most-bitten composition pitfall in production contracts. A FALCON sig binds a public key to a specific message-bytes preimage. If two contracts produce identical preimages for different intents, sigs leak across them — a sig authorizing "vote yes on proposal 3 in DAO A" verifies as "vote yes on proposal 3 in DAO B" if DAO B uses the same canonical-message recipe.
 
@@ -1676,7 +1676,7 @@ Skip step 3 and an attacker can submit a sig over an arbitrary preimage while cl
 
 In production (no test framework involved), the wallet computes the canonical message once and ships only the sig. The contract reconstructs and verifies. The arg-threading is a test-time convenience.
 
-### 12.5 Pattern 3 — time-phased state machines via `wave_timestamp`
+### 12.5 Pattern 3: time-phased state machines via `wave_timestamp`
 
 A proposal has a natural lifecycle: open → voting closed → executed (or stale). Time gates the transitions.
 
@@ -1711,7 +1711,7 @@ So at the *exact* boundary, voting closes and execution opens in the same wave. 
 
 Pyde's `wave_timestamp` returns unix seconds (committee-attested). A `u64` covers ~5×10¹¹ years. Adding `voting_duration` to `now()` cannot realistically overflow at any input the contract would accept. The contract still uses `saturating_add` defensively — cheap, makes the bound explicit.
 
-### 12.6 Pattern 4 — hash-committed deferred dispatch
+### 12.6 Pattern 4: hash-committed deferred dispatch
 
 Proposals announce *what* they'll do at execute-time without revealing it cheaply. The mechanism:
 

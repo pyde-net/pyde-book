@@ -230,19 +230,19 @@ Session keys ship at v2. The threats below are catalogued now so the v2 implemen
 
 These are risks Pyde cannot fully eliminate:
 
-1. **Coordinated 85+ validator collusion** — out of BFT scope. If 85+ collude, safety can be violated. Mitigation: economic disincentives + stake distribution + operator identity cap.
+1. **Coordinated 85+ validator collusion**: out of BFT scope. If 85+ collude, safety can be violated. Mitigation: economic disincentives + stake distribution + operator identity cap.
 
-2. **Quantum compute breaking PQ primitives in <10 years** — not currently feasible to defend; PQ choice is the best available.
+2. **Quantum compute breaking PQ primitives in <10 years**: not currently feasible to defend; PQ choice is the best available.
 
-3. **Smart contract bugs in user-deployed WASM contracts** — out of protocol scope. Mitigation: Pyde safety attributes (reentrancy off by default, checked arithmetic) preserved in the WASM era + recommended user audits.
+3. **Smart contract bugs in user-deployed WASM contracts**: out of protocol scope. Mitigation: Pyde safety attributes (reentrancy off by default, checked arithmetic) preserved in the WASM era + recommended user audits.
 
-4. **Single-validator key compromise** — validator loses ≤1 vote of influence. Mitigation: key rotation, HSM, multisig validator (v2 feature).
+4. **Single-validator key compromise**: validator loses ≤1 vote of influence. Mitigation: key rotation, HSM, multisig validator (v2 feature).
 
-5. **Foundation multisig compromise** — 7+ of 12 hostile = emergency halt abuse. Mitigation: diverse multisig members, public visibility, slashable malicious unhalt.
+5. **Foundation multisig compromise**: 7+ of 12 hostile = emergency halt abuse. Mitigation: diverse multisig members, public visibility, slashable malicious unhalt.
 
-6. **Network-level adversary (BGP, ISP)** — out of protocol scope. Mitigation: encourage geographic + provider diversity.
+6. **Network-level adversary (BGP, ISP)**: out of protocol scope. Mitigation: encourage geographic + provider diversity.
 
-7. **Genesis trust** — initial committee, hardcoded seeds, hardcoded committee pubkeys all require founder trust. Unavoidable at chain launch.
+7. **Genesis trust**: initial committee, hardcoded seeds, hardcoded committee pubkeys all require founder trust. Unavoidable at chain launch.
 
 ## 7. Update Procedure
 

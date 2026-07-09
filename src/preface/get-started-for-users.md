@@ -1,4 +1,4 @@
-# Get Started — for Users
+# Get Started: For Users
 
 You're not here to write contracts. You want to *use* Pyde — hold
 PYDE, send a transaction, run a node, or follow the project's path to
@@ -103,10 +103,10 @@ inclusion order isn't biddable), and the chain commits a wave every
 
 ## Where to follow along
 
-- **[Launch Strategy](../chapters/19-launch-strategy.md)** — the phased path to mainnet.
-- **[GitHub org](https://github.com/pyde-net)** — every repo, every commit.
-- **[Telegram](https://t.me/pydenet)** — community chat.
-- **[X (@pydenet)](https://x.com/pydenet)** — milestone announcements.
-- **`info@pyde.network`** — formal contact.
+- **[Launch Strategy](../chapters/19-launch-strategy.md)**: the phased path to mainnet.
+- **[GitHub org](https://github.com/pyde-net)**: every repo, every commit.
+- **[Telegram](https://t.me/pydenet)**: community chat.
+- **[X (@pydenet)](https://x.com/pydenet)**: milestone announcements.
+- **`info@pyde.network`**: formal contact.
 
 Welcome to the pre-mainnet phase. It's the most honest place to be.

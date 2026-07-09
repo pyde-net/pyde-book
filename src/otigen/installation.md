@@ -106,8 +106,8 @@ Anonymous `curl -L` against the asset's `browser_download_url` works the same wa
 
 Every release publishes binaries for all four platforms, each accompanied by:
 
-- `.sha256` — checksum (auto-verified by the install script).
-- `.sig` + `.pem` — sigstore-keyless OIDC signature + certificate. The install script doesn't currently verify these (cosign is an optional install on the user side); manual verification flow lives in the [mirror README](https://github.com/pyde-net/test-releases#verifying-a-download-manually) and is normatively specified in [`OTIGEN_BINARY_SPEC §11.4`](../companion/OTIGEN_BINARY_SPEC.md).
+- `.sha256`: checksum (auto-verified by the install script).
+- `.sig` + `.pem`: sigstore-keyless OIDC signature + certificate. The install script doesn't currently verify these (cosign is an optional install on the user side); manual verification flow lives in the [mirror README](https://github.com/pyde-net/test-releases#verifying-a-download-manually) and is normatively specified in [`OTIGEN_BINARY_SPEC §11.4`](../companion/OTIGEN_BINARY_SPEC.md).
 
 ### Build from source
 
@@ -165,9 +165,9 @@ apt install tinygo golang binaryen
 
 Three packages are required:
 
-1. **TinyGo** — the wasm32 compiler.
-2. **Go** — TinyGo bundles its own Go compiler fork but **also** needs a standard Go install for module resolution. Without it, `tinygo version` reports `(using go version <unknown>)` and module resolution misbehaves silently.
-3. **binaryen** — ships `wasm-opt`, which TinyGo invokes for size optimisation under the `-opt=z` flag the otigen scaffold uses. Without it, any compile path (`otigen build` / `otigen test` / `otigen check`) fails fast with a platform-tagged install hint (`` ToolchainMissing: TinyGo requires `wasm-opt` (binaryen) for size optimisation ``).
+1. **TinyGo**: the wasm32 compiler.
+2. **Go**: TinyGo bundles its own Go compiler fork but **also** needs a standard Go install for module resolution. Without it, `tinygo version` reports `(using go version <unknown>)` and module resolution misbehaves silently.
+3. **binaryen**: ships `wasm-opt`, which TinyGo invokes for size optimisation under the `-opt=z` flag the otigen scaffold uses. Without it, any compile path (`otigen build` / `otigen test` / `otigen check`) fails fast with a platform-tagged install hint (`` ToolchainMissing: TinyGo requires `wasm-opt` (binaryen) for size optimisation ``).
 
 **Required versions:** TinyGo ≥ 0.41, Go ≥ 1.21 (for `//go:wasmimport`), binaryen ≥ 116 (anything `wasm-opt --version` reports works in practice).
 
@@ -284,7 +284,7 @@ If you get that output, you're ready for the [next chapter](./first-contract.md)
 
 ## Reference
 
-- Full per-language install gotchas with troubleshooting steps: [Debugging — installation errors](./debugging.md#installation-errors).
+- Full per-language install gotchas with troubleshooting steps: [Debugging: installation errors](./debugging.md#installation-errors).
 - Toolchain pinning for reproducible builds: each project's `otigen.toml` records `rust_channel` / `tinygo_version` / `asc_version` / `clang_version`. The chain doesn't enforce these, but your team should. For team-wide enforcement on audit machines, `otigen verify --strict-toolchain <addr>` cross-checks the bundle's declared toolchain versions against the host's installed compilers and fails on mismatch.
 - The `make check-tools` target inside each scaffolded project verifies all four prerequisites are present + correct.
 - Public release mirror: [`pyde-net/test-releases`](https://github.com/pyde-net/test-releases) — README covers the tag convention, manual sigstore verification, and the canonical surfaces for every Pyde toolchain.

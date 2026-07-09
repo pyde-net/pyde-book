@@ -182,11 +182,11 @@ The validator exposes ~40 counters covering vertex flow, batch flow, mempool flo
 
 JSON dashboard templates ship at `pyde-net/test-releases:engine/grafana/`. Import via Grafana's UI (Dashboards → Import → upload JSON). The templates cover:
 
-- **Validator health** — vertex production rate, wave-commit cadence, mempool depth, gossipsub mesh size.
-- **Consensus participation** — DKG attestations sent/received, beacon shares emitted/combined, state-root sigs.
-- **Operational counters** — RPC request rate, restart count, disk usage.
+- **Validator health**: vertex production rate, wave-commit cadence, mempool depth, gossipsub mesh size.
+- **Consensus participation**: DKG attestations sent/received, beacon shares emitted/combined, state-root sigs.
+- **Operational counters**: RPC request rate, restart count, disk usage.
 
-### Alerting — the chain-halt signal
+### Alerting: the chain-halt signal
 
 The single most important alert: **`waves_committed` stops climbing**. If your validator's wave counter hasn't ticked in 2 minutes, the chain has halted (or your node is silently behind) and someone needs eyes on it.
 
@@ -340,9 +340,9 @@ If you've already lost custody (the attacker submitted a `RotateValidatorKeys` f
 
 Pyde stores three growing artifacts on disk:
 
-- **`consensus_store`** — receipts, txs, wave-commit records. Grows monotonically. ~2 GB/week at testnet cadence; pruning is a v2 feature.
-- **`state_store`** — JMT slots, account blobs, events. Also monotonic until pruning lands. ~1 GB/week.
-- **`/var/log/pyde`** + journald — bounded by the rotation / journald cap above.
+- **`consensus_store`**: receipts, txs, wave-commit records. Grows monotonically. ~2 GB/week at testnet cadence; pruning is a v2 feature.
+- **`state_store`**: JMT slots, account blobs, events. Also monotonic until pruning lands. ~1 GB/week.
+- **`/var/log/pyde`** + journald: bounded by the rotation / journald cap above.
 
 Plan for **~50 GB free disk** at minimum for a 3-month testnet operation. SSD strongly recommended — RocksDB's write amplification hits spinning rust hard.
 
@@ -352,8 +352,8 @@ Plan for **~50 GB free disk** at minimum for a 3-month testnet operation. SSD st
 
 The validator needs:
 
-- **Inbound TCP 30303** (or your `--listen` port) — peers dial you here.
-- **Outbound TCP 30303 to bootnodes + peers** — `pyde validator` initiates the gossipsub mesh.
+- **Inbound TCP 30303** (or your `--listen` port): peers dial you here.
+- **Outbound TCP 30303 to bootnodes + peers**: `pyde validator` initiates the gossipsub mesh.
 - **Outbound HTTPS to your state-sync source** (first boot only — for the snapshot fetch).
 
 RPC (`127.0.0.1:9933`) stays loopback. **Never expose RPC publicly** without a TLS-terminating reverse proxy + per-method auth — v1 RPC has no auth and accepts `pyde_sendRawTransaction` from any caller.
@@ -374,6 +374,6 @@ If you front the RPC behind nginx for monitoring access from an adjacent host, t
 
 ## Where to go next
 
-- [Quickstart Step 7 — Day-2 ops surface](quickstart.md#7-day-2-ops) for the `pyde stake` subcommand reference.
+- [Quickstart Step 7: Day-2 ops surface](quickstart.md#7-day-2-ops) for the `pyde stake` subcommand reference.
 - The [Chain Halt & Recovery companion spec](../companion/CHAIN_HALT.md) for what to do when alerts fire.
 - The [Slashing companion spec](../companion/SLASHING.md) for the full enumeration of slashable offenses + how to avoid them.

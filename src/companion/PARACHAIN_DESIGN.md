@@ -89,9 +89,9 @@ parachain_id = Poseidon2("pyde-parachain:" || name_bytes)
 
 Names are globally unique, ENS-style. 1-32 chars, single-letter allowed. First-come-first-served at registration with yearly renewal + grace period (see [Chapter 11](../chapters/11-account-model.md) for the full naming model).
 
-**Why prefix the hash with `"pyde-parachain:"`** — to keep the parachain namespace disjoint from the contract namespace and the account namespace. A contract named `chainlink` and a parachain named `chainlink` would otherwise collide on Poseidon2(name). The prefix forces them into different `parachain_id` and `contract_address` values even when their human-readable names are identical.
+**Why prefix the hash with `"pyde-parachain:"`**: to keep the parachain namespace disjoint from the contract namespace and the account namespace. A contract named `chainlink` and a parachain named `chainlink` would otherwise collide on Poseidon2(name). The prefix forces them into different `parachain_id` and `contract_address` values even when their human-readable names are identical.
 
-**Why 32 bytes for the full ID** — see [memory: address-naming-collision]. Pyde uses full 32-byte addresses everywhere (no truncation). The first 16 bytes are used by PIP-2 clustering (§5); the full 32 bytes are the canonical identifier in receipts, events, and cross-parachain messages.
+**Why 32 bytes for the full ID**: see [memory: address-naming-collision]. Pyde uses full 32-byte addresses everywhere (no truncation). The first 16 bytes are used by PIP-2 clustering (§5); the full 32 bytes are the canonical identifier in receipts, events, and cross-parachain messages.
 
 **Collision risk**: with `2^128` possible 16-byte clustering prefixes, the birthday bound is ~`2^64` names before a clustering collision becomes likely. Pyde additionally enforces uniqueness at registration time — the on-chain name registry rejects any name whose Poseidon2 hash matches an existing parachain's. PIP-2 collision risk is effectively zero.
 
@@ -208,7 +208,7 @@ On successful submission (v2):
 - The parachain's state subtree is retained on-chain for `STATE_RETENTION_WAVES` (default ~1 year), then pruned by archive nodes.
 - The name remains in the registry but cannot be re-registered for `NAME_REUSE_GRACE` (default 1 year) to prevent confusion.
 
-### 6.5 Version history retention — never discarded
+### 6.5 Version history retention: never discarded
 
 ```rust
 pub struct ParachainAccount {
@@ -365,11 +365,11 @@ Pyde does **not** ship a maintained per-language SDK for parachain development. 
 
 What Pyde provides:
 
-1. **Host Function ABI Specification** — a ~10-page document covering names, signatures, memory layout conventions, gas cost table per host function, ABI versioning rules.
-2. **The `otigen` CLI** — the same top-level binary used for contracts. Parachains use `otigen init <name> --type parachain` to scaffold with the §8 imports surface; `otigen build` packages the bundle (bundle carries `contract_type = Parachain`); `otigen deploy` ships the bundle on-chain (same subcommand as contracts; parachain-specific validations gate on the bundle's `contract_type`). v1 parachain lifecycle uses the same surfaces as contracts — proxy-pattern upgrade, author-declared `paused` / `killed` booleans. v2 will add governance-cert-gated `otigen upgrade --parachain` per [OTIGEN_BINARY_SPEC §3.4](./OTIGEN_BINARY_SPEC.md). The canonical surface lives in [OTIGEN_BINARY_SPEC §3.3 / §3.4 / §4.10](./OTIGEN_BINARY_SPEC.md).
-3. **On-chain parachain registry** — single source of truth for config + WASM bytes + version history.
-4. **Hardcoded bootstrap nodes** — peer discovery; no DHT (see [Network Protocol](./NETWORK_PROTOCOL.md)).
-5. **Slashing preset menu** — minimal / standard / strict; authors pick at deploy time.
+1. **Host Function ABI Specification**: a ~10-page document covering names, signatures, memory layout conventions, gas cost table per host function, ABI versioning rules.
+2. **The `otigen` CLI**: the same top-level binary used for contracts. Parachains use `otigen init <name> --type parachain` to scaffold with the §8 imports surface; `otigen build` packages the bundle (bundle carries `contract_type = Parachain`); `otigen deploy` ships the bundle on-chain (same subcommand as contracts; parachain-specific validations gate on the bundle's `contract_type`). v1 parachain lifecycle uses the same surfaces as contracts — proxy-pattern upgrade, author-declared `paused` / `killed` booleans. v2 will add governance-cert-gated `otigen upgrade --parachain` per [OTIGEN_BINARY_SPEC §3.4](./OTIGEN_BINARY_SPEC.md). The canonical surface lives in [OTIGEN_BINARY_SPEC §3.3 / §3.4 / §4.10](./OTIGEN_BINARY_SPEC.md).
+3. **On-chain parachain registry**: single source of truth for config + WASM bytes + version history.
+4. **Hardcoded bootstrap nodes**: peer discovery; no DHT (see [Network Protocol](./NETWORK_PROTOCOL.md)).
+5. **Slashing preset menu**: minimal / standard / strict; authors pick at deploy time.
 6. **Canonical example parachains** (NOT maintained SDKs — just starter projects authors can copy and modify):
    - `hello-world-parachain` (Rust)
    - `hello-world-parachain` (AssemblyScript)
@@ -430,9 +430,9 @@ This keeps the gas accounting simple: one token, one fuel mechanism, uniform acr
 Tracked but explicitly deferred to v2 or later:
 
 - **ZK-aggregated FALCON signature verification** for parachain committees — the path to massively higher throughput. ~95% of the prerequisite work (dual-hash JMT, Poseidon2 state root) is done at v1; the aggregation circuit + verifier is v2 work.
-- **Adaptive validator-set rotation per parachain** — currently the validator set is fixed at deploy and changes via governance. v2 may allow continuous rotation based on uptime / stake.
-- **Multi-WASM execution within one parachain** — currently one parachain = one WASM module. v2 could allow modular parachains with hot-swappable components.
-- **First-class light-client parachain bootstrap** — currently new parachain validators sync the full subtree. v2 could ship per-parachain light-client mode for resource-constrained validators.
+- **Adaptive validator-set rotation per parachain**: currently the validator set is fixed at deploy and changes via governance. v2 may allow continuous rotation based on uptime / stake.
+- **Multi-WASM execution within one parachain**: currently one parachain = one WASM module. v2 could allow modular parachains with hot-swappable components.
+- **First-class light-client parachain bootstrap**: currently new parachain validators sync the full subtree. v2 could ship per-parachain light-client mode for resource-constrained validators.
 
 ## 16. References
 

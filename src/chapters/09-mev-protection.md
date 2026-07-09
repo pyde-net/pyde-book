@@ -126,7 +126,7 @@ re-opens a class of MEV.
 
 ---
 
-## 9.3 Layer 1 — Threshold-Encrypted Mempool
+## 9.3 Layer 1: Threshold-Encrypted Mempool
 
 ### The wire shape
 
@@ -222,7 +222,7 @@ exactly one valid sender it can attribute to.
 
 ---
 
-## 9.4 Layer 2 — Commit-Before-Reveal Ordering (DAG)
+## 9.4 Layer 2: Commit-Before-Reveal Ordering (DAG)
 
 In the post-pivot DAG architecture, ordering and decryption are
 **structurally** separated by the protocol — no proposer "commits" to an
@@ -279,7 +279,7 @@ in `crates/crypto/src/threshold.rs` and `crates/consensus/src/wave.rs`.
 
 ---
 
-## 9.5 Layer 3 — Structural Inclusion (DAG)
+## 9.5 Layer 3: Structural Inclusion (DAG)
 
 Under HotStuff, a single proposer could selectively omit txs, motivating
 the local-view mandatory-inclusion check. Under Mysticeti DAG, there is
@@ -323,7 +323,7 @@ needed for safety at launch.
 
 ---
 
-## 9.6 Layer 4 — No Tips, No Priority Fees
+## 9.6 Layer 4: No Tips, No Priority Fees
 
 Pyde's gas model has no field anywhere in the wire format for a "priority
 fee" or "tip." Every transaction pays exactly:
@@ -540,7 +540,7 @@ The bandwidth cost is per-share data piggybacked on consensus vertices
 
 ---
 
-## 9.11 What's Visible vs Hidden — Recap
+## 9.11 What's Visible vs Hidden: Recap
 
 ```
 +-----------------------------+------+------+

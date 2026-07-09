@@ -177,25 +177,25 @@ fields = [
 
 ### Schema notes
 
-**`[contract]`** — identity + version + type (contract or parachain). `name` is the ENS-style on-chain name (globally unique; see [Ch 11 §11.2](./11-account-model.md)). The address is derived from the FALCON pubkey at deploy time, not from `name`; the registry binds `name → address`.
+**`[contract]`**: identity + version + type (contract or parachain). `name` is the ENS-style on-chain name (globally unique; see [Ch 11 §11.2](./11-account-model.md)). The address is derived from the FALCON pubkey at deploy time, not from `name`; the registry binds `name → address`.
 
-**`[contract.lang]`** — declares which language the author compiled with and where their compiler emits the `.wasm`. `language` ∈ {`rust`, `as`, `go`, `c`}. `output` is the path `otigen build` reads. Optional `[contract.lang.toolchain]` pins specific toolchain versions (surfaced in `manifest.json` for reproducible-build verification).
+**`[contract.lang]`**: declares which language the author compiled with and where their compiler emits the `.wasm`. `language` ∈ {`rust`, `as`, `go`, `c`}. `output` is the path `otigen build` reads. Optional `[contract.lang.toolchain]` pins specific toolchain versions (surfaced in `manifest.json` for reproducible-build verification).
 
-**`[deploy]`** — defaults for `otigen deploy`. `gas_limit` caps the deploy tx's gas. `gas_price = "auto"` uses the current chain base fee; a fixed integer overrides. `owner_deposit` is only meaningful for parachain deploys.
+**`[deploy]`**: defaults for `otigen deploy`. `gas_limit` caps the deploy tx's gas. `gas_price = "auto"` uses the current chain base fee; a fixed integer overrides. `owner_deposit` is only meaningful for parachain deploys.
 
-**`[wallet]`** — points at the default keystore + the default account. Both fields are optional; the global `--keystore <path>` and per-command `--from <name>` flags override.
+**`[wallet]`**: points at the default keystore + the default account. Both fields are optional; the global `--keystore <path>` and per-command `--from <name>` flags override.
 
-**`[network.*]`** — `[network.default.name]` selects which other `[network.<name>]` table the toolchain talks to. Each named entry carries `rpc_url`, `chain_id`, and an optional `explorer_url`. The global `--network <name>` flag overrides at the command line.
+**`[network.*]`**: `[network.default.name]` selects which other `[network.<name>]` table the toolchain talks to. Each named entry carries `rpc_url`, `chain_id`, and an optional `explorer_url`. The global `--network <name>` flag overrides at the command line.
 
-**`[state]`** — the schema of the contract's storage. Used by `otigen build` to compute `state_schema_hash` (which the chain compares against on every state read for type-safety enforcement) and emitted in `abi.json` for explorers. The author's contract code still derives the storage slots itself — Pyde does not ship per-language storage bindings.
+**`[state]`**: the schema of the contract's storage. Used by `otigen build` to compute `state_schema_hash` (which the chain compares against on every state read for type-safety enforcement) and emitted in `abi.json` for explorers. The author's contract code still derives the storage slots itself — Pyde does not ship per-language storage bindings.
 
-**`[functions.<name>]`** — every callable function the runtime should dispatch to. `attributes` is the safety + dispatch attribute set documented in §5.6. `otigen build` cross-checks every `[functions.X]` has a matching WASM export named `X` and rejects exports that aren't declared. Optional `access_list` declares the storage slots the function touches; accurate lists optimize cache prefetch performance in the uniform Block-STM scheduler (declaring nothing still works — the chain just runs with a colder cache).
+**`[functions.<name>]`**: every callable function the runtime should dispatch to. `attributes` is the safety + dispatch attribute set documented in §5.6. `otigen build` cross-checks every `[functions.X]` has a matching WASM export named `X` and rejects exports that aren't declared. Optional `access_list` declares the storage slots the function touches; accurate lists optimize cache prefetch performance in the uniform Block-STM scheduler (declaring nothing still works — the chain just runs with a colder cache).
 
-**`[types.<Name>]`** — author-declared custom types. Two shapes: a struct declares `fields = [{ name, type }, ...]`; an enum declares `variants = [{ name = "X" }, ...]` (v1 is unit-only — no data-carrying variants). Functions reference custom types by **bare name** in `[functions.X].inputs` / `outputs` (e.g. `"Order"`); storage references them via the `struct(<Name>)` wrapper in `[state].schema` (e.g. `{ name = "current_order", type = "struct(Order)" }`), and `vec(<Name>)` similarly wraps for arrays. Rust contract code needs `#[derive(BorshSerialize, BorshDeserialize)]` on every custom type — the macro substrate's typed storage + entry-arg decoders depend on it.
+**`[types.<Name>]`**: author-declared custom types. Two shapes: a struct declares `fields = [{ name, type }, ...]`; an enum declares `variants = [{ name = "X" }, ...]` (v1 is unit-only — no data-carrying variants). Functions reference custom types by **bare name** in `[functions.X].inputs` / `outputs` (e.g. `"Order"`); storage references them via the `struct(<Name>)` wrapper in `[state].schema` (e.g. `{ name = "current_order", type = "struct(Order)" }`), and `vec(<Name>)` similarly wraps for arrays. Rust contract code needs `#[derive(BorshSerialize, BorshDeserialize)]` on every custom type — the macro substrate's typed storage + entry-arg decoders depend on it.
 
-**`[events.<name>]`** — emitted-event declarations. `signature` is the canonical string the chain hashes (Blake3) to derive the topic-0 value. Indexed fields are searchable via `pyde_getLogs`; non-indexed fields are Borsh-encoded into `data`.
+**`[events.<name>]`**: emitted-event declarations. `signature` is the canonical string the chain hashes (Blake3) to derive the topic-0 value. Indexed fields are searchable via `pyde_getLogs`; non-indexed fields are Borsh-encoded into `data`.
 
-**`[parachain]`** *(parachain only)* — consensus preset, validator constraints, slashing preset. Detailed in [Chapter 13](./13-cross-chain.md).
+**`[parachain]`** *(parachain only)*: consensus preset, validator constraints, slashing preset. Detailed in [Chapter 13](./13-cross-chain.md).
 
 ---
 
@@ -713,12 +713,12 @@ Both will land in a follow-up once the chain-side methods ship.
 
 Deliberately omitted:
 
-- **Language-native unit-test runner** — use `cargo test` / `npm test` / `go test` / the author's C test harness for pure-helper unit tests. `otigen test` covers contract behaviour (state changes, events, reverts), not language-internal function testing. The two layers are complementary, not overlapping (§5.1, [OTIGEN_TEST_SPEC](../companion/OTIGEN_TEST_SPEC.md)).
-- **Linter / formatter** — use the language's native tooling (`rustfmt`, `prettier`, `gofmt`, `clang-format`).
-- **IDE integration** — uses the language's standard LSP; no Otigen-specific IDE extension required.
-- **Documentation generator** — use the language's standard (`rustdoc`, `typedoc`, etc.).
-- **Dependency manager** — use the language's standard (`cargo`, `npm`, `go mod`, etc.).
-- **Custom syntax** — there is none; the contract is whatever the language allows.
+- **Language-native unit-test runner**: use `cargo test` / `npm test` / `go test` / the author's C test harness for pure-helper unit tests. `otigen test` covers contract behaviour (state changes, events, reverts), not language-internal function testing. The two layers are complementary, not overlapping (§5.1, [OTIGEN_TEST_SPEC](../companion/OTIGEN_TEST_SPEC.md)).
+- **Linter / formatter**: use the language's native tooling (`rustfmt`, `prettier`, `gofmt`, `clang-format`).
+- **IDE integration**: uses the language's standard LSP; no Otigen-specific IDE extension required.
+- **Documentation generator**: use the language's standard (`rustdoc`, `typedoc`, etc.).
+- **Dependency manager**: use the language's standard (`cargo`, `npm`, `go mod`, etc.).
+- **Custom syntax**: there is none; the contract is whatever the language allows.
 
 The toolchain wraps deployment-specific concerns + the chain-aware behaviour-test layer. Everything else stays in the language ecosystems the authors already know.
 
@@ -761,12 +761,12 @@ The full schema, name-resolution rules, cheatcode catalogue, mock host-function 
 
 ### What gets tested
 
-- **State changes** — assert balances / counters / mappings after a call sequence.
-- **Return values** — assert a function returned the expected scalar.
-- **Events** — assert `Transfer(from, to, amount)` (or any declared event) emitted with the right indexed + non-indexed fields.
-- **Reverts** — assert a call traps with a reason substring (`"InsufficientBalance"`).
-- **Multi-step scenarios** — assert "alice transfers to bob, then bob transfers to carol; final state is …" across multiple calls in one test.
-- **Time / wave / chain conditions** — cheatcode `now`, `wave_id`, `chain_id` per test.
+- **State changes**: assert balances / counters / mappings after a call sequence.
+- **Return values**: assert a function returned the expected scalar.
+- **Events**: assert `Transfer(from, to, amount)` (or any declared event) emitted with the right indexed + non-indexed fields.
+- **Reverts**: assert a call traps with a reason substring (`"InsufficientBalance"`).
+- **Multi-step scenarios**: assert "alice transfers to bob, then bob transfers to carol; final state is …" across multiple calls in one test.
+- **Time / wave / chain conditions**: cheatcode `now`, `wave_id`, `chain_id` per test.
 
 ### What it looks like
 
@@ -834,10 +834,10 @@ The three layers (unit / behaviour / integration) compose; each catches things t
 
 ## 5.13 Reading on
 
-- [Chapter 3: Execution Layer](./03-virtual-machine.md) — the runtime that contracts compile into.
-- [Chapter 4: State Model](./04-state-model.md) — what `sload` and `sstore` see.
-- [Chapter 11: Account Model](./11-account-model.md) — the ENS-style name registry that the toolchain registers against.
-- [Chapter 13: Cross-Chain (Parachains)](./13-cross-chain.md) — parachain-specific deploy and upgrade flows.
-- [`HOST_FN_ABI_SPEC.md`](../companion/HOST_FN_ABI_SPEC.md) — the locked binary contract between WASM modules and the engine; every imported function the toolchain accepts is in its allowlist.
-- [`OTIGEN_BINARY_SPEC.md`](../companion/OTIGEN_BINARY_SPEC.md) — the canonical specification for this binary. Every subcommand, flag, `otigen.toml` schema rule, bundle format, exit code, and validation pass is defined there. If the implementation and the spec disagree, the spec is right and the code is a bug.
-- [`OTIGEN_TEST_SPEC.md`](../companion/OTIGEN_TEST_SPEC.md) — the canonical specification for `otigen test`: TOML schema, name resolution, cheatcode catalogue, mock host functions, limitations.
+- [Chapter 3: Execution Layer](./03-virtual-machine.md), the runtime that contracts compile into.
+- [Chapter 4: State Model](./04-state-model.md), what `sload` and `sstore` see.
+- [Chapter 11: Account Model](./11-account-model.md), the ENS-style name registry that the toolchain registers against.
+- [Chapter 13: Cross-Chain (Parachains)](./13-cross-chain.md), parachain-specific deploy and upgrade flows.
+- [`HOST_FN_ABI_SPEC.md`](../companion/HOST_FN_ABI_SPEC.md): the locked binary contract between WASM modules and the engine; every imported function the toolchain accepts is in its allowlist.
+- [`OTIGEN_BINARY_SPEC.md`](../companion/OTIGEN_BINARY_SPEC.md): the canonical specification for this binary. Every subcommand, flag, `otigen.toml` schema rule, bundle format, exit code, and validation pass is defined there. If the implementation and the spec disagree, the spec is right and the code is a bug.
+- [`OTIGEN_TEST_SPEC.md`](../companion/OTIGEN_TEST_SPEC.md): the canonical specification for `otigen test`: TOML schema, name resolution, cheatcode catalogue, mock host functions, limitations.

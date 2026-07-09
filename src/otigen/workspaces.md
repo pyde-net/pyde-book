@@ -270,7 +270,7 @@ Members that haven't been deployed to the selected network show
 `(not deployed)`. `--network <name>` lists a different network's
 deployments; `--json` emits the raw `name → address` map for scripts.
 
-## 7. Call, inspect, verify — by member name
+## 7. Call, inspect, verify: by member name
 
 From the workspace root, address a member by its `[contract].name`.
 otigen resolves the member's manifest for the typed-arg schema and the

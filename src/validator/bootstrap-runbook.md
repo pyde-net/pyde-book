@@ -70,7 +70,7 @@ pyde genesis template \
 
 Then edit `genesis.toml` to fill in:
 
-- **`committee`** — one entry per founding operator. Each entry:
+- **`committee`**: one entry per founding operator. Each entry:
   ```toml
   [[committee]]
   member_id = 0
@@ -78,10 +78,10 @@ Then edit `genesis.toml` to fill in:
   operator_address = "0x<paste the validator address here>"
   stake_quanta = 10000000000000   # MIN_VALIDATOR_STAKE = 10,000 PYDE
   ```
-- **`prefund`** — at minimum every `operator_address` from the committee table above (each needs gas headroom). Plus dev accounts.
-- **`economic.epoch_length_waves`** — pick per § 1.
-- **`economic.dispute_window_epochs`** — pick per § 1.
-- **`genesis_timestamp_unix`** — `date +%s` at the moment of mint.
+- **`prefund`**: at minimum every `operator_address` from the committee table above (each needs gas headroom). Plus dev accounts.
+- **`economic.epoch_length_waves`**: pick per § 1.
+- **`economic.dispute_window_epochs`**: pick per § 1.
+- **`genesis_timestamp_unix`**: `date +%s` at the moment of mint.
 
 Validate the manifest:
 
@@ -215,9 +215,9 @@ sudo journalctl -u pyde-validator -f
 
 You should see, in order:
 
-1. `validator: chain seeded from genesis` — the validator's seed pass succeeds against the published manifest.
-2. `validator: bound + dialing` — listening on its public address, dialing the bootnodes list.
-3. `wave committer: ...` lines — committing waves once enough committee members are online (BFT-quorum from § 1).
+1. `validator: chain seeded from genesis`: the validator's seed pass succeeds against the published manifest.
+2. `validator: bound + dialing`: listening on its public address, dialing the bootnodes list.
+3. `wave committer: ...` lines: committing waves once enough committee members are online (BFT-quorum from § 1).
 
 When the chain commits its first wave, the testnet is alive.
 
@@ -227,10 +227,10 @@ When the chain commits its first wave, the testnet is alive.
 
 At this point downstream operators can follow [Joining a Public Testnet](joining-testnet.md). The bootstrap operator's remaining responsibilities:
 
-- **Run a public state-sync RPC endpoint** — at least one committee validator exposes `--rpc-listen 0.0.0.0:9933` behind TLS termination + rate limiting so downstream operators can `--state-sync https://state-sync.testnet.pyde.network`. Don't expose the raw RPC port — there's no auth on `pyde_sendRawTransaction`.
-- **Publish checkpoint refreshes weekly** — re-mint `checkpoint.txt` from a current validator + upload to the latest release.
-- **Watch the alerts** — set up Prometheus + the [shipped alert rules](operations.md#2-set-up-monitoring) so the bootstrap operator notices when the chain halts before downstream operators do.
-- **Coordinate hard upgrades** — when the engine releases a chain-breaking change, the bootstrap operator decides whether to re-tag, re-mint genesis, and coordinate a re-bootstrap or whether the change is backwards-compatible.
+- **Run a public state-sync RPC endpoint**: at least one committee validator exposes `--rpc-listen 0.0.0.0:9933` behind TLS termination + rate limiting so downstream operators can `--state-sync https://state-sync.testnet.pyde.network`. Don't expose the raw RPC port — there's no auth on `pyde_sendRawTransaction`.
+- **Publish checkpoint refreshes weekly**: re-mint `checkpoint.txt` from a current validator + upload to the latest release.
+- **Watch the alerts**: set up Prometheus + the [shipped alert rules](operations.md#2-set-up-monitoring) so the bootstrap operator notices when the chain halts before downstream operators do.
+- **Coordinate hard upgrades**: when the engine releases a chain-breaking change, the bootstrap operator decides whether to re-tag, re-mint genesis, and coordinate a re-bootstrap or whether the change is backwards-compatible.
 
 ---
 
@@ -267,6 +267,6 @@ The first 3–6 months of any new chain typically see 1–3 re-bootstraps. Plan 
 
 ## Where to go next
 
-- [Joining a Public Testnet](joining-testnet.md) — what downstream operators do once you've published.
-- [Day-2 Operations](operations.md) — the production-side of running a validator (systemd, monitoring, log rotation, key rotation).
-- The [Chain Halt & Recovery companion spec](../companion/CHAIN_HALT.md) — playbook for when the chain stops committing.
+- [Joining a Public Testnet](joining-testnet.md): what downstream operators do once you've published.
+- [Day-2 Operations](operations.md): the production-side of running a validator (systemd, monitoring, log rotation, key rotation).
+- The [Chain Halt & Recovery companion spec](../companion/CHAIN_HALT.md): playbook for when the chain stops committing.

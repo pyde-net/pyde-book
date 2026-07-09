@@ -1,4 +1,4 @@
-# 01 — The HotStuff Consensus Era
+# 01. The HotStuff Consensus Era
 
 The first consensus protocol Pyde adopted was an in-house variant of **HotStuff**. This document summarizes that design, why we chose it, what it taught us, and where the original material lives.
 
@@ -6,12 +6,12 @@ The first consensus protocol Pyde adopted was an in-house variant of **HotStuff*
 
 A linear, pipelined HotStuff variant tuned for Pyde's committee model:
 
-- **Three-phase commit pipeline** — prepare, pre-commit, commit, decide, with each phase carrying a quorum certificate (QC) from the prior phase.
-- **Leader-driven block production** — one leader per view, leaders rotate per view via deterministic rotation.
-- **128-validator committee** — the same committee size we still use today (preserved across the pivot).
-- **400ms slot timing** — target round duration of 400ms, with adaptive timeouts on view changes.
-- **FALCON-512 quorum certificates** — 85-of-128 signatures aggregated into a QC, with the FALCON signature scheme preserved across the pivot.
-- **Pipelined view changes** — to avoid the canonical HotStuff round-trip stall, view changes were pipelined into the steady-state flow.
+- **Three-phase commit pipeline**: prepare, pre-commit, commit, decide, with each phase carrying a quorum certificate (QC) from the prior phase.
+- **Leader-driven block production**: one leader per view, leaders rotate per view via deterministic rotation.
+- **128-validator committee**: the same committee size we still use today (preserved across the pivot).
+- **400ms slot timing**: target round duration of 400ms, with adaptive timeouts on view changes.
+- **FALCON-512 quorum certificates**: 85-of-128 signatures aggregated into a QC, with the FALCON signature scheme preserved across the pivot.
+- **Pipelined view changes**: to avoid the canonical HotStuff round-trip stall, view changes were pipelined into the steady-state flow.
 
 The architecture lived in a `consensus` crate inside the engine workspace, alongside the (then-) PVM execution layer and the state crate.
 
@@ -60,15 +60,15 @@ The pivot was localized to the consensus core. Everything that touched consensus
 
 ## Where the original material lives
 
-- **Source code** — `archive/crates/consensus/` (in the umbrella repo). The HotStuff implementation, including the QC types, view-change protocol, and leader-rotation logic.
-- **Design notes** — `archive/crates/consensus/CONSENSUS_INVARIANTS.md` documents the consensus invariants the HotStuff implementation upheld.
-- **Original whitepaper** — `archive/WHITEPAPER.md` describes the early-architecture vision including HotStuff as the consensus choice.
-- **Pre-pivot engine crates** — `archive/crates/` more broadly contains the consensus-adjacent crates from this era (mempool integration, transaction processing under HotStuff semantics).
+- **Source code**: `archive/crates/consensus/` (in the umbrella repo). The HotStuff implementation, including the QC types, view-change protocol, and leader-rotation logic.
+- **Design notes**: `archive/crates/consensus/CONSENSUS_INVARIANTS.md` documents the consensus invariants the HotStuff implementation upheld.
+- **Original whitepaper**: `archive/WHITEPAPER.md` describes the early-architecture vision including HotStuff as the consensus choice.
+- **Pre-pivot engine crates**: `archive/crates/` more broadly contains the consensus-adjacent crates from this era (mempool integration, transaction processing under HotStuff semantics).
 
 The archive directory is preserved with git history intact. Anyone wanting to study the HotStuff-era implementation can browse it directly or check out the git revision before the consensus pivot.
 
 ## Reading on
 
-- [02 — The Otigen Language Era](./02-otigen-language-era.md) — the second pivot, on the execution layer.
-- [Chapter 6: Consensus (Mysticeti DAG)](../chapters/06-consensus.md) — the current consensus design.
-- [Preface: The Pivot](../preface/pivot.md) — the narrative version of both pivots.
+- [02 — The Otigen Language Era](./02-otigen-language-era.md): the second pivot, on the execution layer.
+- [Chapter 6: Consensus (Mysticeti DAG)](../chapters/06-consensus.md), the current consensus design.
+- [Preface: The Pivot](../preface/pivot.md), the narrative version of both pivots.

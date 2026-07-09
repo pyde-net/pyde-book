@@ -1,13 +1,13 @@
 # Pyde Implementation Plan
 
-**Version 0.1** — written 2026-05-23 after design phase completion.
+**Version 0.1**, written 2026-05-23 after design phase completion.
 
 This document is the coordination artifact for **implementing** Pyde. The design phase is done (the rest of the book + the locked specs in this `companion/` directory define the protocol). This document defines:
 
-- **Who builds what** — three parallel work streams, with strict crate ownership
-- **In what order** — five sequential phases (MC-0 through MC-5)
-- **Against what specs** — every stream points at its canonical authoritative doc
-- **How to avoid clashes** — interface contracts frozen at Phase 0; branching protocol; coordination rules
+- **Who builds what**: three parallel work streams, with strict crate ownership
+- **In what order**: five sequential phases (MC-0 through MC-5)
+- **Against what specs**: every stream points at its canonical authoritative doc
+- **How to avoid clashes**: interface contracts frozen at Phase 0; branching protocol; coordination rules
 
 If this document and any other artifact disagree on *implementation logistics* (who owns what, branching rules), this document wins. If this document and a *design spec* (HOST_FN_ABI_SPEC, etc.) disagree on protocol semantics, the design spec wins.
 
@@ -60,7 +60,7 @@ Phase summaries in §3 below. Detailed per-phase checklists are tracked separate
 
 ## 3. Phase plan
 
-### 3.1 MC-0 — Interface Foundation (sequential, ~1 day)
+### 3.1 MC-0: Interface Foundation (sequential, ~1 day)
 
 The prerequisite to safe parallelism. Without MC-0 complete, the three streams clash on shared types and interface drift.
 
@@ -85,11 +85,11 @@ The prerequisite to safe parallelism. Without MC-0 complete, the three streams c
 
 **Bar to advance to MC-1:** `phase-0-foundation` tag landed on `main`; CI green; `types` and `interfaces` crates pass their own unit tests; all crate stubs compile.
 
-### 3.2 MC-1 — Protocol Core (parallel, three streams)
+### 3.2 MC-1: Protocol Core (parallel, three streams)
 
 The three streams (α, β, γ) work concurrently against the locked Phase 0 foundation.
 
-#### Stream α — Toolchain (`pyde-net/otigen` repo)
+#### Stream α: Toolchain (`pyde-net/otigen` repo)
 
 Implements [`OTIGEN_BINARY_SPEC.md`](./OTIGEN_BINARY_SPEC.md) end-to-end. Independent of engine internals — only depends on the locked Host Function ABI spec to validate WASM modules. Specific deliverables in §3.2 of the spec; first milestone is `otigen build` working against the canonical Rust hello-world contract.
 
@@ -110,45 +110,45 @@ External dependencies:
 - `serde`, `toml` — config parsing
 - `reqwest`, `tokio-tungstenite` — HTTP + WebSocket
 
-#### Stream β — Engine Execution (`pyde-net/engine`, branch `execution-side`)
+#### Stream β: Engine Execution (`pyde-net/engine`, branch `execution-side`)
 
 Crates owned:
-- `account` — 32-byte addresses, `AuthKeys` enum (with `Programmable` v2 reservation), 16-slot nonce window, name-registry interface
-- `state` — JMT dual-hash, `state_cf` + `jmt_cf` + `events_cf` + `events_by_topic_cf` + `events_by_contract_cf`, PIP-2 clustered keys, PIP-3 prefetch, PIP-4 write-back cache, snapshot generation
-- `tx` — transaction types (Transfer, ContractCall, ContractDeploy, ValidatorRegister, Multisig, etc.), canonical hashing, gas accounting, deploy/upgrade/lifecycle handlers
-- `wasm-exec` — wasmtime engine config (deterministic feature subset), `WasmExecutor`, every host function from [HOST_FN_ABI_SPEC §7-§8](./HOST_FN_ABI_SPEC.md), module cache, fuel-to-gas mapping, per-tx overlay
-- `mempool` — FALCON-verify pipeline, validation rules, gossip admission, gas-bond logic
+- `account`: 32-byte addresses, `AuthKeys` enum (with `Programmable` v2 reservation), 16-slot nonce window, name-registry interface
+- `state`: JMT dual-hash, `state_cf` + `jmt_cf` + `events_cf` + `events_by_topic_cf` + `events_by_contract_cf`, PIP-2 clustered keys, PIP-3 prefetch, PIP-4 write-back cache, snapshot generation
+- `tx`: transaction types (Transfer, ContractCall, ContractDeploy, ValidatorRegister, Multisig, etc.), canonical hashing, gas accounting, deploy/upgrade/lifecycle handlers
+- `wasm-exec`: wasmtime engine config (deterministic feature subset), `WasmExecutor`, every host function from [HOST_FN_ABI_SPEC §7-§8](./HOST_FN_ABI_SPEC.md), module cache, fuel-to-gas mapping, per-tx overlay
+- `mempool`: FALCON-verify pipeline, validation rules, gossip admission, gas-bond logic
 
 Spec map:
-- `HOST_FN_ABI_SPEC` — every host function this stream implements
-- Chapter 4 — state model + dual-hash JMT
-- PIPs 2, 3, 4 — state optimizations
-- Chapter 11 — account model, tx wire format
-- Chapter 10 — gas + fee model
-- Chapter 3 — execution layer architecture, per-tx overlay
+- `HOST_FN_ABI_SPEC`: every host function this stream implements
+- Chapter 4: state model + dual-hash JMT
+- PIPs 2, 3, 4: state optimizations
+- Chapter 11: account model, tx wire format
+- Chapter 10: gas + fee model
+- Chapter 3: execution layer architecture, per-tx overlay
 
-#### Stream γ — Engine Consensus + Networking (`pyde-net/engine`, branch `consensus-side`)
+#### Stream γ: Engine Consensus + Networking (`pyde-net/engine`, branch `consensus-side`)
 
 Crates owned:
-- `consensus` — Mysticeti DAG, vertex/round/anchor/wave logic, BFS subdag walk, slashing evidence collection, equivocation detection, missing-vertex fetch
-- `net` — libp2p + QUIC + Gossipsub, peer discovery (layered, no DHT), sentry-node pattern, vertex-fetch protocol
-- `dkg` — Pedersen DKG protocol (or import from `pyde-crypto` if it lands there first)
-- `slashing` — validator state machine, the 10-offense catalog, slashing escrow, jail mechanics, reward distribution
-- `node` — the binary, JSON-RPC server, validator role, `consensus_store` with `set_sync(true)`, persistence
+- `consensus`: Mysticeti DAG, vertex/round/anchor/wave logic, BFS subdag walk, slashing evidence collection, equivocation detection, missing-vertex fetch
+- `net`: libp2p + QUIC + Gossipsub, peer discovery (layered, no DHT), sentry-node pattern, vertex-fetch protocol
+- `dkg`: Pedersen DKG protocol (or import from `pyde-crypto` if it lands there first)
+- `slashing`: validator state machine, the 10-offense catalog, slashing escrow, jail mechanics, reward distribution
+- `node`: the binary, JSON-RPC server, validator role, `consensus_store` with `set_sync(true)`, persistence
 
 Spec map:
-- Chapter 6 — Mysticeti DAG consensus
-- `SLASHING.md` — full 10-offense catalog
-- `VALIDATOR_LIFECYCLE.md` — registration, bonding, unbonding, jail
-- `STATE_SYNC.md` — snapshot mechanics, chain-of-trust
-- `CHAIN_HALT.md` — halt detection, recovery paths
-- `NETWORK_PROTOCOL.md` — libp2p config, topics, peer scoring
-- Chapter 12 — networking
-- Chapter 16 — security (cross-references throughout)
+- Chapter 6: Mysticeti DAG consensus
+- `SLASHING.md`: full 10-offense catalog
+- `VALIDATOR_LIFECYCLE.md`: registration, bonding, unbonding, jail
+- `STATE_SYNC.md`: snapshot mechanics, chain-of-trust
+- `CHAIN_HALT.md`: halt detection, recovery paths
+- `NETWORK_PROTOCOL.md`: libp2p config, topics, peer scoring
+- Chapter 12: networking
+- Chapter 16: security (cross-references throughout)
 
 **MC-1 BAR:** Each of α / β / γ runs `cargo build && cargo test` clean on their branch. The β + γ branches build and link against the frozen `types` + `interfaces` crates. Mock-based integration tests pass within each stream.
 
-### 3.3 MC-2 — Integration (sequential)
+### 3.3 MC-2: Integration (sequential)
 
 Merge β and γ branches to `main`. Bring up a local devnet (4-7 validators on a single machine) producing sub-second commits with end-to-end tx flow:
 
@@ -162,22 +162,22 @@ Coordinated by the main session. Both β and γ contributors review the merge PR
 
 **MC-2 BAR:** Local devnet running end-to-end. All MC-1 deliverables integrated. Performance is *correct* (functional), not yet *measured* (that's MC-4).
 
-### 3.4 MC-3 — State Sync + Parachain Activation (sequential)
+### 3.4 MC-3: State Sync + Parachain Activation (sequential)
 
 Add the two protocol-level extensions that depend on MC-2 being functional:
 
-- **State sync** — snapshot generation, weak-subjectivity checkpoints, fresh-validator flow. Spec: `STATE_SYNC.md`.
-- **Parachain framework activation** — parachain registry, deployment + lifecycle, cross-parachain messaging, governance flow. Spec: `PARACHAIN_DESIGN.md`.
+- **State sync**: snapshot generation, weak-subjectivity checkpoints, fresh-validator flow. Spec: `STATE_SYNC.md`.
+- **Parachain framework activation**: parachain registry, deployment + lifecycle, cross-parachain messaging, governance flow. Spec: `PARACHAIN_DESIGN.md`.
 
 Owner: shared between β and γ as the changes touch both sides. Coordinated by the main session.
 
-### 3.5 MC-4 — Performance + Failure Handling (parallel within)
+### 3.5 MC-4: Performance + Failure Handling (parallel within)
 
-- **Performance harness build-out** — multi-region workload generation, soak testing, and the publishing discipline (publish only what the harness measures under sustained, production-realistic conditions — never lab extrapolations or microbenchmark peaks). Spec: `PERFORMANCE_HARNESS.md`.
-- **Chaos / failure injection** — failure-scenarios catalog walkthroughs (`FAILURE_SCENARIOS.md`).
-- **Chain halt recovery drills** — `CHAIN_HALT.md` playbooks executed in test environments.
+- **Performance harness build-out**: multi-region workload generation, soak testing, and the publishing discipline (publish only what the harness measures under sustained, production-realistic conditions — never lab extrapolations or microbenchmark peaks). Spec: `PERFORMANCE_HARNESS.md`.
+- **Chaos / failure injection**: failure-scenarios catalog walkthroughs (`FAILURE_SCENARIOS.md`).
+- **Chain halt recovery drills**: `CHAIN_HALT.md` playbooks executed in test environments.
 
-### 3.6 MC-5 — Validation + Mainnet Launch (sequential)
+### 3.6 MC-5: Validation + Mainnet Launch (sequential)
 
 - Five external audits (consensus, execution layer, cryptography, networking, otigen toolchain).
 - Incentivized testnet (multi-month soak test with reference dApps + bug bounty at mainnet tier).
@@ -335,11 +335,11 @@ main                ← integration branch; both streams merge here
 
 ### 6.2 Tagged checkpoints
 
-- `phase-0-foundation` — end of MC-0
-- `phase-1-α-milestone-N` — α stream milestones
-- `phase-1-β-milestone-N` — β stream milestones
-- `phase-1-γ-milestone-N` — γ stream milestones
-- `phase-2-integration-bar` — local devnet running end-to-end
+- `phase-0-foundation`: end of MC-0
+- `phase-1-α-milestone-N`: α stream milestones
+- `phase-1-β-milestone-N`: β stream milestones
+- `phase-1-γ-milestone-N`: γ stream milestones
+- `phase-2-integration-bar`: local devnet running end-to-end
 - `phase-3-state-sync-live`, `phase-3-parachain-activation`
 - `phase-4-perf-harness-baseline`, `phase-4-chaos-drills-passed`
 - `phase-5-audit-N-passed`, `phase-5-mainnet-launch`
@@ -704,8 +704,8 @@ CHAIN_HALT.md. Verify branch + workspace state. Begin with
 
 | Risk | Severity | Mitigation |
 |---|---|---|
-| **Interface drift during MC-1** — β or γ realizes a needed change to `interfaces` mid-implementation | High | Both sides write tests against the locked traits early. If a change is genuinely required, both sides + main session co-sign the PR. |
-| **`types` crate creep** — new fields added ad-hoc as implementation reveals needs | High | All type additions are PRs against `types` crate, reviewed by both other streams. Pre-MC-1 we lock the "v1 type set" via thorough walk-through. |
+| **Interface drift during MC-1**: β or γ realizes a needed change to `interfaces` mid-implementation | High | Both sides write tests against the locked traits early. If a change is genuinely required, both sides + main session co-sign the PR. |
+| **`types` crate creep**: new fields added ad-hoc as implementation reveals needs | High | All type additions are PRs against `types` crate, reviewed by both other streams. Pre-MC-1 we lock the "v1 type set" via thorough walk-through. |
 | **One stream lags substantially** | Medium | Weekly merges to `main` make lag visible early. If γ lags, β still ships; integration happens when both are ready. No artificial gating. |
 | **Spec ambiguity blocks implementation** | Medium | Open a PR against the relevant spec in `pyde-net/pyde-book`; both streams read updated spec from there. Treat spec as the contract. |
 | **Cross-stream blocker not surfaced** | Medium | GitHub issue tags both stream agents; weekly merge reviews catch silent blockers. |
@@ -733,12 +733,12 @@ Quick reference for things the implementation must hold to:
 
 ## 10. References
 
-- [HOST_FN_ABI_SPEC.md](./HOST_FN_ABI_SPEC.md) — chain-facing ABI
-- [OTIGEN_BINARY_SPEC.md](./OTIGEN_BINARY_SPEC.md) — toolchain spec
-- [OTIGEN_TEST_SPEC.md](./OTIGEN_TEST_SPEC.md) — contract behaviour test framework
-- [PARACHAIN_DESIGN.md](./PARACHAIN_DESIGN.md) — parachain framework
-- [STATE_SYNC.md](./STATE_SYNC.md), [CHAIN_HALT.md](./CHAIN_HALT.md), [SLASHING.md](./SLASHING.md), [VALIDATOR_LIFECYCLE.md](./VALIDATOR_LIFECYCLE.md), [NETWORK_PROTOCOL.md](./NETWORK_PROTOCOL.md), [THREAT_MODEL.md](./THREAT_MODEL.md), [FAILURE_SCENARIOS.md](./FAILURE_SCENARIOS.md), [PERFORMANCE_HARNESS.md](./PERFORMANCE_HARNESS.md) — operational specs
-- The 20 book chapters + 4 PIPs — full design
+- [HOST_FN_ABI_SPEC.md](./HOST_FN_ABI_SPEC.md): chain-facing ABI
+- [OTIGEN_BINARY_SPEC.md](./OTIGEN_BINARY_SPEC.md): toolchain spec
+- [OTIGEN_TEST_SPEC.md](./OTIGEN_TEST_SPEC.md): contract behaviour test framework
+- [PARACHAIN_DESIGN.md](./PARACHAIN_DESIGN.md): parachain framework
+- [STATE_SYNC.md](./STATE_SYNC.md), [CHAIN_HALT.md](./CHAIN_HALT.md), [SLASHING.md](./SLASHING.md), [VALIDATOR_LIFECYCLE.md](./VALIDATOR_LIFECYCLE.md), [NETWORK_PROTOCOL.md](./NETWORK_PROTOCOL.md), [THREAT_MODEL.md](./THREAT_MODEL.md), [FAILURE_SCENARIOS.md](./FAILURE_SCENARIOS.md), [PERFORMANCE_HARNESS.md](./PERFORMANCE_HARNESS.md): operational specs
+- The 20 book chapters + 4 PIPs: full design
 
 ---
 

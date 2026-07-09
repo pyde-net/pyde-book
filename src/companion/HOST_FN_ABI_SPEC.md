@@ -47,9 +47,9 @@ Example: `0x0001_0000` = ABI v1.0.
 
 ### 2.2 Compatibility rules
 
-- **Major version bump (v1 → v2)** — breaking change. *Not permitted post-mainnet.* If a future protocol upgrade fundamentally re-shapes the ABI, it ships as v2 alongside v1; the engine supports both forever; old contracts continue to execute under v1 semantics. Major bumps cost the network a hard fork.
+- **Major version bump (v1 → v2)**: breaking change. *Not permitted post-mainnet.* If a future protocol upgrade fundamentally re-shapes the ABI, it ships as v2 alongside v1; the engine supports both forever; old contracts continue to execute under v1 semantics. Major bumps cost the network a hard fork.
 
-- **Minor version bump (v1.0 → v1.1)** — backwards-compatible addition. New host functions may be added. Existing function signatures, semantics, gas costs, and error codes are **frozen**. Old contracts continue to execute without re-deployment.
+- **Minor version bump (v1.0 → v1.1)**: backwards-compatible addition. New host functions may be added. Existing function signatures, semantics, gas costs, and error codes are **frozen**. Old contracts continue to execute without re-deployment.
 
 - **No deprecation, no removal.** Once a function is in the ABI, it exists forever at the same signature with the same semantics. This is a one-way ratchet, identical in spirit to Ethereum's opcode discipline.
 
@@ -317,11 +317,11 @@ bitflags! {
 
 **Deploy-time:** the deploy validator extracts and parses the `pyde.abi` section and runs a three-layer validation pipeline (the build-time check is best-effort author ergonomics; the deploy-time re-check is the chain-facing defense; the runtime is the definitive guarantee):
 
-1. **Schema check** — version compatibility (`pyde_abi_version` ≤ engine's max supported), well-formed Borsh decoding, every required field present.
-2. **Cross-reference check** — every `FunctionAbi.name` matches a WASM `(export "name" (func ...))`; every WASM-exported function (other than internal helpers — TBD how to mark) appears in `functions[*]`. No drift between declarations and code.
-3. **Attribute compatibility check** — every function's `attributes` bitfield is a legal combination per §3.5.1. At most one `FALLBACK`, at most one `RECEIVE`, `RECEIVE` implies `PAYABLE`, etc.
-4. **Static call-graph check (view enforcement)** — for each function with the `VIEW` attribute, build the call graph from its body. Walk every transitively-reachable function. If any reachable function imports `pyde::sstore`, `pyde::sdelete`, `pyde::transfer`, `pyde::emit_event`, `pyde::parachain_storage_write`, `pyde::parachain_storage_delete`, or `pyde::parachain_emit_event`, REJECT the deploy with `DeployRejected: ViewMutatesState(<fn_name>, <mutating_import>)`. Indirect calls (`call_indirect`) are conservatively treated as potentially-anything; a view that uses `call_indirect` is rejected unless every possible target is also statically provable to be view-safe.
-5. **Static access-list check (best-effort)** — for each function with a declared access list, scan all statically-resolvable `pyde::sload`/`sstore` call sites; verify the slot pattern matches the declared list. Dynamic slot computation can't be checked statically — runtime enforcement (Layer 3, below) is the actual guarantee.
+1. **Schema check**: version compatibility (`pyde_abi_version` ≤ engine's max supported), well-formed Borsh decoding, every required field present.
+2. **Cross-reference check**: every `FunctionAbi.name` matches a WASM `(export "name" (func ...))`; every WASM-exported function (other than internal helpers — TBD how to mark) appears in `functions[*]`. No drift between declarations and code.
+3. **Attribute compatibility check**: every function's `attributes` bitfield is a legal combination per §3.5.1. At most one `FALLBACK`, at most one `RECEIVE`, `RECEIVE` implies `PAYABLE`, etc.
+4. **Static call-graph check (view enforcement)**: for each function with the `VIEW` attribute, build the call graph from its body. Walk every transitively-reachable function. If any reachable function imports `pyde::sstore`, `pyde::sdelete`, `pyde::transfer`, `pyde::emit_event`, `pyde::parachain_storage_write`, `pyde::parachain_storage_delete`, or `pyde::parachain_emit_event`, REJECT the deploy with `DeployRejected: ViewMutatesState(<fn_name>, <mutating_import>)`. Indirect calls (`call_indirect`) are conservatively treated as potentially-anything; a view that uses `call_indirect` is rejected unless every possible target is also statically provable to be view-safe.
+5. **Static access-list check (best-effort)**: for each function with a declared access list, scan all statically-resolvable `pyde::sload`/`sstore` call sites; verify the slot pattern matches the declared list. Dynamic slot computation can't be checked statically — runtime enforcement (Layer 3, below) is the actual guarantee.
 
 On any check failure: deploy is rejected with a specific error code identifying the failing step. On success: the entire .wasm (with custom section intact) is stored in `state_cf` at the contract's code slot.
 
@@ -1327,7 +1327,7 @@ Pyde reserves the module name **`pyde`** for all host functions. A contract that
 
 is saying: "Give me a function named `sload` from module `pyde`, taking (i32, i32, i32) and returning i32 (the `(slot_ptr, out_ptr, out_max_len) -> actual_len` shape)." At instantiation time, wasmtime walks the import section and looks each one up in a host-provided `Linker`. If the entry exists, the contract's call is wired to the host's Rust implementation. If not, instantiation fails — and the deploy validator rejects the contract before it ever reaches a node.
 
-### 12.2 Rust contract — declaring imports
+### 12.2 Rust contract: declaring imports
 
 ```rust
 // All host functions go under module "pyde"
@@ -1369,7 +1369,7 @@ Import[5]:
 
 No Pyde library dependency. No code generation. Just `extern` declarations and the attribute that targets the `pyde` import namespace.
 
-### 12.3 AssemblyScript contract — same imports
+### 12.3 AssemblyScript contract: same imports
 
 ```typescript
 // AssemblyScript uses @external decorators
@@ -1411,7 +1411,7 @@ export function store_and_read(): i32 {
 
 Compile with `npx asc store_and_read.ts -o store_and_read.wasm --target release`. Resulting WASM has the same import structure. The runtime can't tell which language produced it.
 
-### 12.4 Go (TinyGo) contract — same imports
+### 12.4 Go (TinyGo) contract: same imports
 
 ```go
 //go:wasmimport pyde sload
@@ -1442,7 +1442,7 @@ func StoreAndRead() int32 {
 
 Compile with `tinygo build -target=wasm-unknown -o store_and_read.wasm`. Same WASM output shape.
 
-### 12.5 C / C++ contract — same imports
+### 12.5 C / C++ contract: same imports
 
 ```c
 __attribute__((import_module("pyde"), import_name("sload")))
@@ -1468,7 +1468,7 @@ int32_t store_and_read(void) {
 
 Compile with `clang --target=wasm32 -nostdlib -Wl,--no-entry -o store_and_read.wasm store_and_read.c`. Same WASM output shape.
 
-### 12.6 Host side — how the engine handles invocations
+### 12.6 Host side: how the engine handles invocations
 
 In Pyde's `wasm-exec` Rust crate, every function in this spec is registered with wasmtime's `Linker` at engine startup. When a contract is instantiated, wasmtime walks the contract's import section and binds each one to its registered handler:
 
@@ -1731,8 +1731,6 @@ Examples:
 ```
 
 The signature string is **not stored on chain** — only `Blake3(signature)` is, as `topic[0]`. Indexers and SDKs maintain a registry of signatures they care about and hash them locally to match against event topics. The `pyde.abi` custom section of the deployed contract carries the full signature for any explorer that wants to render the event with field names.
-
-### 14.2 Data
 
 ### 14.2 Data
 
@@ -2272,8 +2270,8 @@ Functions known to be useful but requiring substantial design work (e.g., a stre
 
 Pyde ships two first-party SDKs:
 
-- **`pyde-rust-sdk`** — host-side authoring substrate, used by `#[pyde::entry]` / `pyde::declare_storage!()` / `pyde::declare_events!()` to hide this ABI from contract authors. Vendored via `pyde-host`.
-- **`pyde-ts-sdk`** — client-side (browser / Node) for talking to a Pyde node. Pure-language SDK like ethers v6; not a contract-author surface.
+- **`pyde-rust-sdk`**: host-side authoring substrate, used by `#[pyde::entry]` / `pyde::declare_storage!()` / `pyde::declare_events!()` to hide this ABI from contract authors. Vendored via `pyde-host`.
+- **`pyde-ts-sdk`**: client-side (browser / Node) for talking to a Pyde node. Pure-language SDK like ethers v6; not a contract-author surface.
 
 Contract-side bindings for AssemblyScript, Go (TinyGo), and C/C++ are community-maintained against this spec. Each binding library translates this spec's WAT signatures into idiomatic language-native function declarations; the canonical example projects under [`otigen/examples/counter-{go,as,c}/`](https://github.com/pyde-net/otigen/tree/main/examples) demonstrate the expected wrapping for each language.
 
@@ -2281,15 +2279,15 @@ Contract-side bindings for AssemblyScript, Go (TinyGo), and C/C++ are community-
 
 ## 18. References
 
-- [Chapter 3 — Execution Layer](../chapters/03-virtual-machine.md) — conceptual overview, wasmtime config, per-tx overlay model
-- [Chapter 5 — Otigen Toolchain](../chapters/05-otigen-toolchain.md) — how authors declare host imports in their language of choice
-- [Chapter 10 — Gas and Fee Model](../chapters/10-gas-and-fee-model.md) — fuel-to-gas mapping, EIP-1559, no-refund policy
-- [Chapter 13 — Parachains](../chapters/13-cross-chain.md) — parachain framework overview
-- [companion/PARACHAIN_DESIGN.md](./PARACHAIN_DESIGN.md) — full parachain design + ABI extension rationale
-- [companion/PERFORMANCE_HARNESS.md](./PERFORMANCE_HARNESS.md) — gas-table calibration authority
-- [companion/THREAT_MODEL.md](./THREAT_MODEL.md) — security review of every host function
-- [WebAssembly Core Specification](https://webassembly.github.io/spec/) — the WASM ISA itself
-- [wasmtime documentation](https://docs.wasmtime.dev/) — the runtime Pyde uses
+- [Chapter 3 — Execution Layer](../chapters/03-virtual-machine.md): conceptual overview, wasmtime config, per-tx overlay model
+- [Chapter 5 — Otigen Toolchain](../chapters/05-otigen-toolchain.md): how authors declare host imports in their language of choice
+- [Chapter 10 — Gas and Fee Model](../chapters/10-gas-and-fee-model.md): fuel-to-gas mapping, EIP-1559, no-refund policy
+- [Chapter 13 — Parachains](../chapters/13-cross-chain.md): parachain framework overview
+- [companion/PARACHAIN_DESIGN.md](./PARACHAIN_DESIGN.md): full parachain design + ABI extension rationale
+- [companion/PERFORMANCE_HARNESS.md](./PERFORMANCE_HARNESS.md): gas-table calibration authority
+- [companion/THREAT_MODEL.md](./THREAT_MODEL.md): security review of every host function
+- [WebAssembly Core Specification](https://webassembly.github.io/spec/): the WASM ISA itself
+- [wasmtime documentation](https://docs.wasmtime.dev/): the runtime Pyde uses
 
 ---
 

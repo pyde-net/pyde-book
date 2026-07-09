@@ -1,6 +1,6 @@
-# 03 — Running the Pivot-Era Benchmarks
+# 03. Running the Pivot-Era Benchmarks
 
-This document is the reproducer for the benchmark numbers cited in the [pivot preface](../preface/pivot.md) and in [02 — The Otigen Language Era](./02-otigen-language-era.md).
+This document is the reproducer for the benchmark numbers cited in the [pivot preface](../preface/pivot.md) and in [02. The Otigen Language Era](./02-otigen-language-era.md).
 
 The benchmarks measure the **pre-pivot PVM execution layer** (the now-retired `pyde-vm` interpreter and `pyde-aot` Cranelift-AOT compiler) in isolation. The benchmark code lives in the `archive` repository at `archive/crates/pvm/benches/` and `archive/crates/aot/benches/` (preserved after engine cleanup). You can run it today on any machine that has Rust installed.
 
@@ -126,18 +126,18 @@ What you should **not** take from them:
 
 The benchmarks above are deliberately simple — they were enough to drive the pivot decision. A more sophisticated suite is part of the planned performance harness work, covering:
 
-- **Per-host-function micro-benchmarks** — measuring the cost of each WASM host function (sload, sstore, transfer, threshold_*, hashing primitives, etc.) in isolation, so the gas-cost table can be calibrated against real hardware.
-- **Sequential vs parallel execution** — measuring how the Block-STM parallel scheduler, optimized with access-list prefetch, scales with core count on workloads with various access-conflict ratios.
-- **Memory read vs memory write vs disk IO** — splitting state-layer cost by category, so the JMT + RocksDB + write-back cache (PIP-4) stack can be profiled independently.
-- **Workload mixes** — realistic blends of transfer / token-op / DEX / NFT-mint / encrypted txs, with the realistic-mix fraction tracked over time.
-- **Multi-region full-chain TPS** — the end-to-end measurement with consensus, network, and IO all under load.
+- **Per-host-function micro-benchmarks**: measuring the cost of each WASM host function (sload, sstore, transfer, threshold_*, hashing primitives, etc.) in isolation, so the gas-cost table can be calibrated against real hardware.
+- **Sequential vs parallel execution**: measuring how the Block-STM parallel scheduler, optimized with access-list prefetch, scales with core count on workloads with various access-conflict ratios.
+- **Memory read vs memory write vs disk IO**: splitting state-layer cost by category, so the JMT + RocksDB + write-back cache (PIP-4) stack can be profiled independently.
+- **Workload mixes**: realistic blends of transfer / token-op / DEX / NFT-mint / encrypted txs, with the realistic-mix fraction tracked over time.
+- **Multi-region full-chain TPS**: the end-to-end measurement with consensus, network, and IO all under load.
 
 Those benchmarks live with the performance harness, not in the engine bench files. See the [Performance Harness](../companion/PERFORMANCE_HARNESS.md) document for the full testing methodology, what's planned, and the publishing discipline that governs how numbers are released — publish only what the harness measures under sustained, production-realistic conditions, never lab extrapolations or microbenchmark peaks.
 
 ## What you can do with this guide
 
-- **Reproduce the pivot-decision numbers on your own hardware** — see the ratios for yourself.
-- **Sanity-check the WASM-pivot reasoning** — confirm that storage-bound workloads neutralize the AOT advantage, the empirical observation that drives the "VM choice does not move TPS" claim.
+- **Reproduce the pivot-decision numbers on your own hardware**: see the ratios for yourself.
+- **Sanity-check the WASM-pivot reasoning**: confirm that storage-bound workloads neutralize the AOT advantage, the empirical observation that drives the "VM choice does not move TPS" claim.
 - **Establish a baseline** for comparing future WASM-execution numbers — once the WASM execution layer ships, equivalent benchmarks can be run against it; the numbers should sit in the same ballpark (within ~10%) per the pivot's expected outcome.
 
 ## Where the benchmark code lives
@@ -154,7 +154,7 @@ The benchmark files live in the `archive` repository under `archive/crates/pvm/b
 
 ## Reading on
 
-- [Preface: The Pivot](../preface/pivot.md) — narrative context for these numbers.
-- [02 — The Otigen Language Era](./02-otigen-language-era.md) — the full design record for the system being benchmarked.
-- [Performance Harness](../companion/PERFORMANCE_HARNESS.md) — the multi-layer testing methodology that succeeds these micro-benchmarks.
-- [Chapter 3: Execution Layer](../chapters/03-virtual-machine.md) — the WASM execution architecture that replaces what's being measured here.
+- [Preface: The Pivot](../preface/pivot.md), narrative context for these numbers.
+- [02. The Otigen Language Era](./02-otigen-language-era.md): the full design record for the system being benchmarked.
+- [Performance Harness](../companion/PERFORMANCE_HARNESS.md): the multi-layer testing methodology that succeeds these micro-benchmarks.
+- [Chapter 3: Execution Layer](../chapters/03-virtual-machine.md), the WASM execution architecture that replaces what's being measured here.

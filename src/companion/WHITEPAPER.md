@@ -1,6 +1,6 @@
 # Pyde: A Post-Quantum, MEV-Resistant Layer 1 with Mysticeti-style Consensus
 
-**Version 0.2 — 2026**
+**Version 0.2, 2026**
 Pyde Network · Apache-2.0
 
 ---
@@ -45,11 +45,11 @@ These four problems are not independent items. They converge in time. NIST's 202
 
 Every design choice in this document follows from four axioms.
 
-**Axiom 1 — Post-quantum cryptography is the default.** No application-layer signature, encryption, or hash in Pyde uses pre-quantum primitives. FALCON-512 signs every consensus vote, every transaction, every validator key registration. Kyber-768 / ML-KEM encrypts every encrypted-mempool transaction. Poseidon2 (Goldilocks field) hashes ZK-bearing commitments; Blake3 hashes the high-volume native paths where ZK-friendliness is not in scope. Ed25519 appears only in libp2p's noise transport for peer routing — a quantum attacker who breaks Ed25519 learns the network topology but cannot forge a vertex, decrypt a transaction, or compromise an account.
+**Axiom 1: Post-quantum cryptography is the default.** No application-layer signature, encryption, or hash in Pyde uses pre-quantum primitives. FALCON-512 signs every consensus vote, every transaction, every validator key registration. Kyber-768 / ML-KEM encrypts every encrypted-mempool transaction. Poseidon2 (Goldilocks field) hashes ZK-bearing commitments; Blake3 hashes the high-volume native paths where ZK-friendliness is not in scope. Ed25519 appears only in libp2p's noise transport for peer routing — a quantum attacker who breaks Ed25519 learns the network topology but cannot forge a vertex, decrypt a transaction, or compromise an account.
 
 The trade-off is signature size: 666 bytes for FALCON-512 versus 64 bytes for Ed25519, 1,088 bytes per Kyber-768 ciphertext versus negligible plaintext overhead. Pyde absorbs that cost in the layers that matter and avoids it everywhere it does not (e.g., gossip-level message authentication uses Blake3 + libp2p noise). For users, this means funds and identities remain secure as quantum hardware matures; for the ecosystem, long-tail agreements signed on Pyde — insurance policies, multi-year escrows, intellectual-property registries, legal records — don't carry an unbudgeted future-migration cost.
 
-**Axiom 2 — MEV is a protocol bug.** No committee validator must be able to read, reorder, or selectively include unconfirmed transactions. This is a security property, not a market-design problem. Pyde achieves it with three interlocking mechanisms (Section 8 has the details):
+**Axiom 2: MEV is a protocol bug.** No committee validator must be able to read, reorder, or selectively include unconfirmed transactions. This is a security property, not a market-design problem. Pyde achieves it with three interlocking mechanisms (Section 8 has the details):
 
 1. Transactions can be encrypted under a Kyber-768 threshold public key held jointly by the 128-validator committee — no fewer than 85 of 128 shares can decrypt.
 2. The committee commits to a canonical order at the DAG anchor before any decryption share is released. The order is fixed by the time content is visible.
@@ -57,9 +57,9 @@ The trade-off is signature size: 666 bytes for FALCON-512 versus 64 bytes for Ed
 
 The combination removes the surface MEV extraction needs to exist on. Encryption is opt-in per transaction; simple transfers go plaintext for lower fees, MEV-sensitive operations (DEX swaps, NFT mints, liquidations) opt into encryption. For applications building exchange, swap, or trading infrastructure, this removes the choice between accepting a hidden tax on customer trades and opting into a third-party relayer they must trust to behave.
 
-**Axiom 3 — Throughput requires parallel execution in a single binary.** Consensus and execution share a single process. The execution layer is a WebAssembly execution (wasmtime + Cranelift AOT) with a **uniform Block-STM scheduler**: every tx runs optimistically in parallel through an MVCC layer, conflicts caught at validation, losers re-execute until fixpoint. Wallet-attached access lists from `pyde_simulateTransaction` drive PIP-3 multiget prefetch into the dashmap cache before workers start; the lists are performance hints, not scheduling decisions. The choice is monolithic over modular: every cross-layer boundary is a trust boundary and a latency cost; for an L1 whose target is high-throughput low-latency MEV-resistant execution, coherence is worth more than heterogeneity. Cross-chain interoperability is added back as a separate permissionless parachain layer above the coherent base, not as a structural premise that fragments the chain at genesis. For investors evaluating execution-layer maturity, the monolithic-binary choice means one operational surface — one team's runbook, one set of audits, one performance harness — rather than the coordination cost of a microservices-style L1.
+**Axiom 3: Throughput requires parallel execution in a single binary.** Consensus and execution share a single process. The execution layer is a WebAssembly execution (wasmtime + Cranelift AOT) with a **uniform Block-STM scheduler**: every tx runs optimistically in parallel through an MVCC layer, conflicts caught at validation, losers re-execute until fixpoint. Wallet-attached access lists from `pyde_simulateTransaction` drive PIP-3 multiget prefetch into the dashmap cache before workers start; the lists are performance hints, not scheduling decisions. The choice is monolithic over modular: every cross-layer boundary is a trust boundary and a latency cost; for an L1 whose target is high-throughput low-latency MEV-resistant execution, coherence is worth more than heterogeneity. Cross-chain interoperability is added back as a separate permissionless parachain layer above the coherent base, not as a structural premise that fragments the chain at genesis. For investors evaluating execution-layer maturity, the monolithic-binary choice means one operational surface — one team's runbook, one set of audits, one performance harness — rather than the coordination cost of a microservices-style L1.
 
-**Axiom 4 — Decentralization is the protocol's burden, not the user's.** Validators run on commodity hardware. Every committee member has exactly one vote regardless of stake — the validator bond is anti-Sybil cost, not a power multiplier. Cross-chain infrastructure is permissionless: any operator who stakes PYDE and runs a Pyde-published spec joins the parachain operator set, no auctioned slots, no gatekeeping team. The cost of participating in Pyde — running a node, validating, building a parachain — is a function of will and a small fixed bond, not access to data-center capital or auction proceeds. For developer teams wanting to launch their own execution environment, that means no slot auction to win and no foundation shortlist to make; for enterprises wanting to verify Pyde independently, the validator hardware sits comfortably inside the IT budget.
+**Axiom 4: Decentralization is the protocol's burden, not the user's.** Validators run on commodity hardware. Every committee member has exactly one vote regardless of stake — the validator bond is anti-Sybil cost, not a power multiplier. Cross-chain infrastructure is permissionless: any operator who stakes PYDE and runs a Pyde-published spec joins the parachain operator set, no auctioned slots, no gatekeeping team. The cost of participating in Pyde — running a node, validating, building a parachain — is a function of will and a small fixed bond, not access to data-center capital or auction proceeds. For developer teams wanting to launch their own execution environment, that means no slot auction to win and no foundation shortlist to make; for enterprises wanting to verify Pyde independently, the validator hardware sits comfortably inside the IT budget.
 
 ---
 
@@ -134,7 +134,7 @@ Pyde's encrypted mempool uses Kyber-768 (NIST FIPS 203) with a threshold variant
 
 Transactions can optionally be encrypted under `PK` before submission. Decryption requires 85 committee members to compute partial decryptions and combine them by Lagrange interpolation. **No coalition of fewer than 85 can decrypt anything** — the unique secret only exists in distributed form.
 
-**Critical invariant — commit-before-reveal.** Consensus commits to an order at the DAG anchor before any decryption share is released. By the time content is revealed, the order is fixed and irreversible. This is what eliminates MEV at the protocol layer.
+**Critical invariant: commit-before-reveal.** Consensus commits to an order at the DAG anchor before any decryption share is released. By the time content is revealed, the order is fixed and irreversible. This is what eliminates MEV at the protocol layer.
 
 ### 5.3 Hybrid Hashing: Blake3 + Poseidon2
 
@@ -267,8 +267,8 @@ Pyde executes smart contracts under **wasmtime**, the Bytecode Alliance's produc
 
 - WebAssembly Core Specification: linear memory, structured control flow, validated bytecode, no syscalls
 - **Cranelift AOT** compilation inside wasmtime — every module is compiled to native machine code at deploy time and cached; subsequent invocations re-use the compiled artifact, no JIT, no runtime recompile
-- **Fuel-based gas metering** — every WASM instruction decrements a fuel counter at the basic-block level; when fuel hits zero, wasmtime traps and the transaction reverts
-- **Per-instance sandbox** — each transaction runs in its own wasmtime instance with bounded linear memory (default 64 MB cap); the host (validator) decides which host functions are importable
+- **Fuel-based gas metering**: every WASM instruction decrements a fuel counter at the basic-block level; when fuel hits zero, wasmtime traps and the transaction reverts
+- **Per-instance sandbox**: each transaction runs in its own wasmtime instance with bounded linear memory (default 64 MB cap); the host (validator) decides which host functions are importable
 - **Host Function ABI** for all chain interaction — storage (`sload`/`sstore`/`sdelete`), balance and transfers, crypto (Blake3, Poseidon2, Keccak256, FALCON verify, threshold encrypt/decrypt), events, cross-contract and cross-chain calls
 - The retired Otigen language and custom `pyde-vm` register-based VM are preserved in the historical pivot record only; the active execution layer is wasmtime end-to-end
 
@@ -347,11 +347,11 @@ The block witness — every state slot touched by a wave plus a single batched J
 
 Three structural defenses, layered:
 
-**Layer 1 — Threshold encryption.** Users can encrypt transactions before submission. The encrypted blob is opaque even to committee members. Mempool sees only encrypted bytes; attackers cannot observe content to position around.
+**Layer 1: Threshold encryption.** Users can encrypt transactions before submission. The encrypted blob is opaque even to committee members. Mempool sees only encrypted bytes; attackers cannot observe content to position around.
 
-**Layer 2 — Commit-before-reveal.** Consensus orders encrypted transactions at the DAG anchor before any decryption share is released. By the time content is revealed, the order is fixed and irreversible.
+**Layer 2: Commit-before-reveal.** Consensus orders encrypted transactions at the DAG anchor before any decryption share is released. By the time content is revealed, the order is fixed and irreversible.
 
-**Layer 3 — No proposer.** Pyde's DAG consensus has no single party empowered to choose which transactions enter a commit or in what order. The canonical order emerges deterministically from the DAG; no committee member can selectively reorder, exclude, or front-run.
+**Layer 3: No proposer.** Pyde's DAG consensus has no single party empowered to choose which transactions enter a commit or in what order. The canonical order emerges deterministically from the DAG; no committee member can selectively reorder, exclude, or front-run.
 
 The combination eliminates the structural conditions for sandwich attacks, front-running, and proposer extraction. MEV is not policed or auctioned — it is structurally impossible at the protocol layer.
 

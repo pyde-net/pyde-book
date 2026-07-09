@@ -111,11 +111,11 @@ Components:
 - **prev_state_root:** state root from N=3 rounds ago (limits anchor predictability to ~450ms)
 
 Properties:
-- **Deterministic** — every honest validator computes the same answer
-- **Unpredictable** — depends on state root that wasn't known until recently
-- **No single proposer authority** — anchor doesn't propose, it's just a starting point for the subdag walk
+- **Deterministic:** every honest validator computes the same answer
+- **Unpredictable:** depends on state root that wasn't known until recently
+- **No single proposer authority:** anchor doesn't propose, it's just a starting point for the subdag walk
 
-## 5b. Round vs Wave — terminology
+## 5b. Round vs Wave: terminology
 
 The distinction matters because the two terms diverge under skips:
 
@@ -293,7 +293,7 @@ The number 85 appears throughout the protocol:
 - State root signatures
 - DKG share threshold
 
-**Consistent across the protocol** — avoids attack edges from boundary mismatches.
+**Consistent across the protocol:** avoids attack edges from boundary mismatches.
 
 ### Safety
 
@@ -320,7 +320,7 @@ Each epoch's beacon is produced by the **previous** epoch's committee. The beaco
 Properties of the target design:
 - **Deterministic** given any 85 of 128 shares (Lagrange invariance — same aggregated sig regardless of which 85 contribute)
 - **Unpredictable** until ≥85 shares combine (no single party knows it)
-- **Bias-resistant** — shares determined by DKG-derived keys, no individual member can grind by choosing whether to participate; the aggregated output doesn't depend on subset selection
+- **Bias-resistant:** shares determined by DKG-derived keys, no individual member can grind by choosing whether to participate; the aggregated output doesn't depend on subset selection
 
 ### v1 implementation (FALCON-aggregate approximation)
 
@@ -512,6 +512,6 @@ Recommendation: Option A for v1. The work is audit + adaptation for FALCON sigs;
 - Slashing: [SLASHING.md](../companion/SLASHING.md)
 - Validator lifecycle: [VALIDATOR_LIFECYCLE.md](../companion/VALIDATOR_LIFECYCLE.md)
 - Research papers:
-  - Mysticeti (Babel et al., 2024) — `https://arxiv.org/abs/2310.14821`
+  - Mysticeti (Babel et al., 2024): `https://arxiv.org/abs/2310.14821`
   - Bullshark (Spiegelman et al., 2022)
   - Narwhal (Danezis et al., 2021)

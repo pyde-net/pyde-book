@@ -1,4 +1,4 @@
-# Pivot — Historical Design References
+# Pivot: Historical Design References
 
 This directory preserves Pyde's earlier architectural iterations as first-class historical material. Pyde has gone through two clean pivots that materially changed the protocol design, and the work that preceded each pivot is documented here so it can be studied, learned from, and properly credited.
 
@@ -8,8 +8,8 @@ Read [the preface](../preface/pivot.md) first if you have not already — it is 
 
 | Document | Era | Status |
 |----------|-----|--------|
-| [01 — The HotStuff Consensus Era](./01-hotstuff-consensus-era.md) | Pre-Mysticeti consensus design | Retired |
-| [02 — The Otigen Language Era](./02-otigen-language-era.md) | Pre-WASM execution design (custom language + VM + AOT) | Retired |
+| [01. The HotStuff Consensus Era](./01-hotstuff-consensus-era.md) | Pre-Mysticeti consensus design | Retired |
+| [02. The Otigen Language Era](./02-otigen-language-era.md) | Pre-WASM execution design (custom language + VM + AOT) | Retired |
 
 Each document summarizes what was designed, what was built, what was learned, and where the deep technical material lives (which archived repos, which book, which design docs). The summaries are not re-derivations of the original work — they are pointers + context for reading the originals correctly.
 
@@ -27,15 +27,15 @@ Three reasons:
 
 Each document follows the same shape:
 
-- **What we built** — the design, in summary form.
-- **Why we built it that way** — the constraints and reasoning at the time.
-- **What we learned** — what survived the pivot, intellectually.
-- **Where the original material lives** — links to archived code, archived docs, and the otigen-book for language-specific content.
+- **What we built**: the design, in summary form.
+- **Why we built it that way**: the constraints and reasoning at the time.
+- **What we learned**: what survived the pivot, intellectually.
+- **Where the original material lives**: links to archived code, archived docs, and the otigen-book for language-specific content.
 
 Read in the order presented (01 then 02). The two pivots happened in sequence; the second was informed by lessons from the first.
 
 ## Reading order for the whole pivot story
 
-1. [Preface: The Pivot](../preface/pivot.md) — the narrative.
-2. This directory's [01 — HotStuff Era](./01-hotstuff-consensus-era.md) and [02 — Otigen Era](./02-otigen-language-era.md) — the design records.
+1. [Preface: The Pivot](../preface/pivot.md), the narrative.
+2. This directory's [01. HotStuff Era](./01-hotstuff-consensus-era.md) and [02. Otigen Era](./02-otigen-language-era.md): the design records.
 3. The main book chapters — the current architecture.

@@ -22,7 +22,7 @@ Three constraints shape every choice:
 2. **No trusted setup.** No ceremony, no toxic waste. Every public parameter
    is either a NIST standard or a transparent algebraic constant.
 
-3. **Hybrid hashing — Blake3 for speed, Poseidon2 for ZK.** Bitwise hashes
+3. **Hybrid hashing: Blake3 for speed, Poseidon2 for ZK.** Bitwise hashes
    (Blake3) saturate modern CPUs at multi-GB/s and dominate the
    high-volume native paths (JMT internals, gossip de-dup, batch hashes).
    Algebraic hashes (Poseidon2) are 30-50× slower in native execution but
@@ -111,18 +111,18 @@ context to prevent cross-protocol signature reuse.
 
 ### Where FALCON-512 is used
 
-1. **Transaction signing** — every transaction carries a FALCON-512 sig from
+1. **Transaction signing:** every transaction carries a FALCON-512 sig from
    the sender's account.
-2. **Vertex production** — every DAG vertex is FALCON-signed by its producer.
-3. **State-root attestations** — committee members sign `(wave_id,
+2. **Vertex production:** every DAG vertex is FALCON-signed by its producer.
+3. **State-root attestations:** committee members sign `(wave_id,
    blake3_state_root, poseidon2_state_root)` after each commit;
    ≥ 85 sigs constitute the `HardFinalityCert`.
-4. **Decryption share authentication** — threshold partial decryptions
+4. **Decryption share authentication:** threshold partial decryptions
    are FALCON-signed by their producer.
-5. **PSS resharing contributions** — contributors sign their shares.
-6. **P2P peer authentication** — the FALCON handshake (`crates/net/src/auth.rs`).
-7. **VRF proofs** — every VRF output is paired with a FALCON proof.
-8. **Slashing evidence** — submitters sign their evidence transactions.
+5. **PSS resharing contributions:** contributors sign their shares.
+6. **P2P peer authentication:** the FALCON handshake (`crates/net/src/auth.rs`).
+7. **VRF proofs:** every VRF output is paired with a FALCON proof.
+8. **Slashing evidence:** submitters sign their evidence transactions.
 
 ### Batch verification
 
@@ -207,15 +207,15 @@ or inside a trusted committee-signed structure.
 
 Key Pyde-specific uses:
 
-- **JMT internal nodes** — `blake3_pair(left, right)` per Merkle level.
+- **JMT internal nodes:** `blake3_pair(left, right)` per Merkle level.
   At commodity CPU speed, an entire JMT update batch hashes in microseconds.
-- **Batch hashes referenced from vertices** — the worker batches transactions
+- **Batch hashes referenced from vertices:** the worker batches transactions
   and identifies each batch by its Blake3 hash.
-- **Vertex hashes in the DAG** — every consensus vertex is identified by
+- **Vertex hashes in the DAG:** every consensus vertex is identified by
   its Blake3 hash.
-- **Gossip message de-duplication** — Gossipsub uses Blake3 to detect
+- **Gossip message de-duplication:** Gossipsub uses Blake3 to detect
   duplicate broadcasts.
-- **RocksDB cache keys** — Blake3 fingerprint of (key, version) for the
+- **RocksDB cache keys:** Blake3 fingerprint of (key, version) for the
   LRU value cache.
 
 ### Poseidon2: ZK-Friendly Hashing
@@ -272,20 +272,20 @@ bytes at a time (avoiding values that exceed the Goldilocks modulus).
 
 ### Where Poseidon2 is used
 
-1. **State root commitment** — the dual-rooted state has a Poseidon2 root
+1. **State root commitment:** the dual-rooted state has a Poseidon2 root
    alongside the Blake3 root, signed by the committee.
-2. **Account address derivation** — `Poseidon2(falcon_pubkey)`.
-3. **CREATE / CREATE2 address derivation** — `Poseidon2(deployer || nonce)`
+2. **Account address derivation:** `Poseidon2(falcon_pubkey)`.
+3. **CREATE / CREATE2 address derivation:** `Poseidon2(deployer || nonce)`
    or `Poseidon2(0xFF || deployer || salt || code_hash)`.
-4. **Storage key derivation** — `Poseidon2(contract, slot)` for single
+4. **Storage key derivation:** `Poseidon2(contract, slot)` for single
    fields, doubled for maps. Encoded as build-time constants by the
    `otigen` developer toolchain's state binding generator.
-5. **Transaction hashing** — the canonical tx hash used for replay
+5. **Transaction hashing:** the canonical tx hash used for replay
    prevention and the wallet's signing target.
-6. **Threshold MAC** — `Poseidon2(0xFF...0xFF || secret || ciphertext)`.
-7. **VRF output** — `Poseidon2(domain || fingerprint || input)`.
-8. **Epoch randomness combination** — `Poseidon2_many(sorted_shares)`.
-9. **`poseidon2` WASM host function** — exposed to user-space contracts via the host-function ABI.
+6. **Threshold MAC:** `Poseidon2(0xFF...0xFF || secret || ciphertext)`.
+7. **VRF output:** `Poseidon2(domain || fingerprint || input)`.
+8. **Epoch randomness combination:** `Poseidon2_many(sorted_shares)`.
+9. **`poseidon2` WASM host function:** exposed to user-space contracts via the host-function ABI.
 
 ---
 
@@ -299,9 +299,9 @@ but the active committee acting collectively can.
 
 The scheme combines three pieces:
 
-1. **Shamir Secret Sharing** over the Goldilocks field — splits a secret
+1. **Shamir Secret Sharing** over the Goldilocks field: splits a secret
    into 128 shares of which any 85 reconstruct.
-2. **Kyber-768 KEM** — the underlying public-key primitive.
+2. **Kyber-768 KEM:** the underlying public-key primitive.
 3. **Poseidon2** as a counter-mode keystream and as the MAC.
 
 Implementation: `crates/crypto/src/threshold.rs`.
@@ -363,7 +363,7 @@ unblind during recovery.
 
 ---
 
-## 8.6 PSS — Proactive Secret Sharing and Resharing
+## 8.6 PSS: Proactive Secret Sharing and Resharing
 
 The committee rotates each epoch; the threshold public key does not change.
 PSS is what makes that work — at every epoch boundary the shares are
@@ -498,7 +498,7 @@ All symmetric encryption uses **AES-256-GCM**:
 ### Properties
 
 - 256-bit key (128-bit post-quantum security against Grover).
-- AEAD — authenticated encryption with additional data; tampering is detected.
+- AEAD: authenticated encryption with additional data; tampering is detected.
 - AES-NI hardware acceleration on every modern CPU.
 
 ---

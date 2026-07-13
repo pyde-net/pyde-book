@@ -25,7 +25,7 @@ otigen --version
 ```
 
 ```text
-otigen 0.1.0 (sha be73970a, release)
+otigen 0.1.0-alpha.6 (sha be73970a, release)
 ```
 
 The version line carries the git SHA + build profile so two contributors can compare binaries when something looks wrong.
@@ -107,7 +107,7 @@ Anonymous `curl -L` against the asset's `browser_download_url` works the same wa
 Every release publishes binaries for all four platforms, each accompanied by:
 
 - `.sha256`: checksum (auto-verified by the install script).
-- `.sig` + `.pem`: sigstore-keyless OIDC signature + certificate. The install script doesn't currently verify these (cosign is an optional install on the user side); manual verification flow lives in the [mirror README](https://github.com/pyde-net/test-releases#verifying-a-download-manually) and is normatively specified in [`OTIGEN_BINARY_SPEC §11.4`](../companion/OTIGEN_BINARY_SPEC.md).
+- `.sig` + `.pem`: sigstore-keyless OIDC signature + certificate. The install script verifies these with `cosign verify-blob` when cosign is on `PATH` (on by default; `--no-verify-sig` opts out for air-gapped installs, where the sha256 check still runs). The full verification flow lives in the [mirror README](https://github.com/pyde-net/test-releases#verifying-a-download-manually) and is normatively specified in [`OTIGEN_BINARY_SPEC §11.4`](../companion/OTIGEN_BINARY_SPEC.md).
 
 ### Build from source
 

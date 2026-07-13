@@ -30,7 +30,7 @@ otigen new --list           # show the template catalog
 | --- | --- | --- | --- |
 | `[NAME]` | string | prompt on TTY | Project name (ENS-style: lowercase + hyphens, 1–32 chars). |
 | `--lang <LANG>` | enum | prompt on TTY | Target language (`rust`, `as`, `go`, `c`). Only Rust has canonical example templates; `--lang go` / `as` / `c` scaffold the language's minimal counter starter. |
-| `--from <TEMPLATE>` | name | minimal counter | Canonical example to clone (Rust). `otigen new --list` shows what's available (currently 8: counter, erc20-token, erc721-token, simple-multisig, upgradeable-proxy, merkle-claim-airdrop, vesting, dao-governance). Omitted ⇒ minimal counter. |
+| `--from <TEMPLATE>` | name / git URL | prompt (Rust) · counter (other langs) | Canonical example to clone, or a `git` URL to clone a community template. `otigen new --list` shows the built-ins (currently 8: counter, erc20-token, erc721-token, simple-multisig, upgradeable-proxy, merkle-claim-airdrop, vesting, dao-governance). Omitted: Rust prompts for a template on a TTY; other languages default to the minimal counter (their only starter). |
 | `--list` | — | — | Print the template catalog and exit. Mutually exclusive with `<NAME>` / `--lang` / `--from` / `--dir`. |
 | `--dir <DIR>` | path | `./<name>` | Target directory. Created if missing; refuses to overwrite an existing path. |
 
@@ -101,7 +101,7 @@ otigen build [OPTIONS]
 | Flag | Default | What it does |
 | --- | --- | --- |
 | `--release` | (currently no-op) | Reserved for future release-build validation. Today both `--release` and bare `otigen build` produce the same bundle; the debug-vs-release split is enforced at deploy time only. |
-| `--debug` | off | Compile with debug profile. Reject at deploy time, useful for inspection only. |
+| `--debug` | (currently no-op) | Reserved for future debug-build validation. Like `--release`, it doesn't change today's bundle; both are hidden from `--help`. |
 | `--no-compile` | off | Skip the language compiler — package the existing `.wasm` as-is. |
 | `--no-strict` | off | Disable the production gate that rejects test-only host fns (e.g. `pyde::debug_log`). Default is strict so the bundle is chain-deploy-safe. Escape hatch for bundling chain-unsafe wasm for local inspection / fuzzing; never use for a bundle that will reach a network. |
 | `--out <PATH>` | `<config-dir>/artifacts/` | Override the bundle output **directory** — `<name>.bundle/` is created inside it. Anchored on the parent of `--config` so invocations from outside the project dir (`otigen --config path/to/otigen.toml build`) write next to the project, not the cwd. |
@@ -168,7 +168,7 @@ Manage FALCON-512 signing accounts in `~/.pyde/keystore.json`.
 otigen wallet <ACTION> [OPTIONS]
 ```
 
-Subactions: `new`, `import`, `list`, `show`, `delete`, `password`, `export`, `sign`, `verify`.
+Subactions: `new`, `register`, `import`, `list`, `show`, `delete`, `password`, `export`, `sign`, `verify`.
 
 ### `wallet new`
 
@@ -184,6 +184,23 @@ otigen wallet new [NAME] [--password-stdin]
 otigen wallet new deployer
 printf 'pw\npw\n' | otigen wallet new alice --password-stdin
 ```
+
+### `wallet register`
+
+Install the account's FALCON-512 public key on-chain as its `auth_keys`
+entry. Per `OTIGEN_BINARY_SPEC §11`, every non-genesis account must submit
+this as its **first** transaction — until it does, the chain rejects all
+other transactions from that sender (`sender has no auth keys; submit
+RegisterPubkey first`). Ownership is proven by `from == Poseidon2(pubkey)`,
+so the transaction carries no signature and needs no password.
+
+```text
+otigen wallet register [--from <NAME>] [--network <NET>] [--rpc-url <URL> --chain-id <ID>]
+```
+
+`--from` selects the account (falls back to `[wallet.default_account]`, then
+prompts on a TTY). Defaults to the project's network; `--rpc-url` (with
+`--chain-id`) targets a specific node.
 
 ### `wallet import`
 
@@ -235,10 +252,10 @@ Remove an account. Asks for confirmation (re-type the account name) unless `--ye
 ### `wallet password`
 
 ```text
-otigen wallet password <NAME>
+otigen wallet password <NAME> [--password-stdin]
 ```
 
-Re-encrypt the account under a new password. The keypair itself is unchanged. Password rotation requires a real PTY today — no `--password-stdin` on this subcommand yet.
+Re-encrypt the account under a new password. The keypair itself is unchanged. `--password-stdin` reads two lines from stdin — the current password, then the new one — for scripts / CI; interactive sessions get prompts that confirm the new password.
 
 ### `wallet export`
 
@@ -594,9 +611,9 @@ otigen devnet [OPTIONS]
 | `--prefund-count <N>` | `10` | Number of pre-funded accounts (`devnet-0`..`devnet-N-1`). |
 | `--prefund-amount <QUANTA>` | engine default | Per-account genesis balance. |
 | `--chain-id <ID>` | `31337` | Chain id this devnet signs against. |
-| `--tick-ms <MS>` | `1000` | Idle-wave tick interval. Empty waves still commit every `--tick-ms` so `wave_id` advances. |
+| `--tick-ms <MS>` | `50` | Idle-wave tick interval. Empty waves still commit every `--tick-ms` so `wave_id` advances. |
 | `--fork <FILE_OR_URL>` | none | Bootstrap state from an existing chain snapshot. Local borsh file or HTTP(S) URL pointing at `pyde_getSnapshot`. Mutually exclusive with `--prefund-*`. *(See [Lifecycle](./lifecycle.md) — there is a known state-root-mismatch issue forking a live devnet; the file path is the more reliable mode today.)* |
-| `--no-auto-import-wallets` | off | Skip the startup auto-import of `devnet-0..devnet-9` into the local keystore (password `"devnet"`). Default is to import — the anvil-style one-command UX. Set this when running against a pre-populated keystore or in CI. |
+| `--no-auto-import-wallets` | off | Skip the startup auto-import of `devnet-0..devnet-9` into the local keystore (password `"devnet"`). Default is to import — the zero-config one-command UX. Set this when running against a pre-populated keystore or in CI. |
 
 On startup, `devnet` auto-imports `devnet-0..devnet-9` into the local keystore with password `"devnet"` so `otigen deploy --from devnet-0` works without a separate `wallet import --from-devnet` step. Pass `--no-auto-import-wallets` to skip this when running against a populated keystore or in CI.
 

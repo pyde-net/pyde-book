@@ -336,6 +336,8 @@ otigen deploy [OPTIONS]
 
 Receipt poll timeout is 60 s (constant, not CLI-configurable). On success the contract address appears in the receipt; the CLI prints it.
 
+> **A deploy returns the contract address, not the constructor's return value.** A deploy receipt's `return_data` is set to the newly-created contract's 32-byte address, so anything a `constructor` returns is discarded on-chain — declaring `outputs` on a `constructor` is a no-op (`otigen build`/`check` warn when you do). To surface a value computed during construction, store it and read it back through a `view` function.
+
 ```bash
 otigen deploy --from devnet-0 --password-stdin <<< pw
 otigen deploy --from devnet-0 \

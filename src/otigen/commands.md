@@ -19,7 +19,7 @@ Path defaults that say `<config-dir>/...` are resolved against the parent of `--
 
 ## `otigen new`
 
-Scaffold a **single contract**. By default it's a minimal counter; `--from <template>` clones a canonical example instead. Run inside a workspace to add the contract as a new member (see [`otigen init`](#otigen-init) and [Workspaces](./workspaces.md)).
+Scaffold a **single contract**. By default it scaffolds the language's minimal counter — Rust instead prompts for a template on a TTY; `--from <template>` clones a canonical example directly. Run inside a workspace to add the contract as a new member (see [`otigen init`](#otigen-init) and [Workspaces](./workspaces.md)).
 
 ```text
 otigen new [OPTIONS] [NAME]
@@ -363,7 +363,7 @@ otigen addresses [OPTIONS]
 | --- | --- | --- |
 | `--network <NAME>` | workspace `[network.default]` | Which network's deployments to list. |
 
-Every workspace member is listed with its deployed address, or `(not deployed)` if it hasn't been deployed to the selected network. `--json` emits the raw `name → address` map for scripts.
+Every workspace member is listed with its deployed address, or `(not deployed)` if it hasn't been deployed to the selected network. `--json` emits one NDJSON event, `{"event":"addresses","network":"<name>","deployments":{"<member>":"<address>",…}}`, with the `name → address` map under `deployments` for scripts. `--quiet` suppresses output entirely (and wins over `--json`).
 
 ```bash
 otigen addresses

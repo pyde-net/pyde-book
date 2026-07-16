@@ -33,12 +33,12 @@ A token author will not write token code. They will write a manifest:
 
 ```toml
 [contract]
-name    = "acme-token"        # registered chain-side → pyde_resolveName
-version = "1.0.0"
-type    = "token"             # otigen generates + enforces PTS-F
+name     = "acme-token"       # registered chain-side → pyde_resolveName
+version  = "1.0.0"
+type     = "token"            # contract | token — selects the build pipeline
+standard = "pts-f/1"          # which generated surface; required for tokens
 
 [token]
-standard       = "pts-f/1"
 name           = "Acme Credits"
 symbol         = "ACME"
 decimals       = 9            # display hint; omit → 9 (1 PYDE = 10⁹ quanta)
@@ -65,17 +65,32 @@ compiles it to a normal contract WASM. The chain never learns what a
 "token" is; the artifact deploys, dispatches, and meters exactly like
 any hand-written contract.
 
-Two manifest types, two standards:
+An NFT is a token too — non-fungible is in the name — so both
+standards live under one `type = "token"`, differentiated by the
+`standard` field:
 
-| `type =`  | Standard   | Surface                                    |
-|-----------|------------|--------------------------------------------|
-| `"token"` | `pts-f/1`  | Fungible: balances, expiring allowances,   |
-|           |            | `transfer` / `transfer_call` / pull path   |
-| `"nft"`   | `pts-n/1`  | Non-fungible: per-id owners, approvals,    |
-|           |            | on-chain `token_uri`                       |
+| `type =`     | `standard =` | Result                                     |
+|--------------|--------------|--------------------------------------------|
+| `"contract"` | *(absent — presence is a build error)* | ordinary hand-written contract |
+| `"token"`    | `"pts-f/1"`  | generated fungible surface: balances, expiring allowances, `transfer` / `transfer_call` / pull path |
+| `"token"`    | `"pts-n/1"`  | generated non-fungible surface: per-id owners, approvals, on-chain `token_uri` |
+| `"token"`    | *(missing or unknown)* | build error listing the known standards — fungible vs non-fungible is not a guessable default |
 
-The types are mutually exclusive by construction — there is no fused
-fungible/NFT hybrid, deliberately.
+`type` stays a tiny, stable vocabulary (which build pipeline);
+`standard` is where the family grows (a future multi-token `pts-m/1`
+adds a value, not a keyword). And because `standard` is a single
+scalar field, a fused fungible/NFT hybrid is not merely forbidden —
+it is unrepresentable.
+
+The `[token]` section is shared by both standards, but its **allowed
+keys are a function of the declared standard**, enforced at build
+time: `decimals` in a `pts-n/1` manifest is a build error ("a pts-f
+field — non-fungible tokens have no fractional units"), per-id
+metadata knobs in a `pts-f/1` manifest likewise, and every such error
+names the offending key and the standard that owns it. The same wall
+rejects hand-written `[state]`/`[events]` sections on tokens (they are
+generated) and `[functions.*]` names that collide with the generated
+surface.
 
 ## What the generated surface fixes
 
@@ -157,7 +172,7 @@ its byte-level conformance vectors.
    marketplace) as the reference receivers.
 2. **The PIP:** frozen surface, byte-level conformance vectors, and a
    malicious-receiver test battery.
-3. **`type = "token"` / `type = "nft"` generation** in otigen across
+3. **`type = "token"` generation** (both standards) in otigen across
    all four languages, with per-language byte-parity vectors
    (identical manifest → identical state writes, events, and ABI) and
    an independent audit of the generator itself — one audited

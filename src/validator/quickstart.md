@@ -94,7 +94,7 @@ pyde keys generate \
   --password-stdin <<< 'change-me-to-a-real-passphrase'
 ```
 
-This writes an Argon2id + ChaCha20-Poly1305 encrypted FALCON keypair. Treat it the way you'd treat a hardware-wallet seed phrase — it's the single secret that controls your validator's stake.
+This writes an Argon2id + AES-256-GCM encrypted FALCON keypair. Treat it the way you'd treat a hardware-wallet seed phrase — it's the single secret that controls your validator's stake.
 
 To inspect the public material (no password required):
 

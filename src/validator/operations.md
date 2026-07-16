@@ -282,7 +282,7 @@ Your FALCON keypair is the single secret controlling your validator's stake. Tre
 
 ### At-rest encryption
 
-The keypair file is encrypted with Argon2id + ChaCha20-Poly1305 — the password you supplied to `pyde keys generate --password-stdin`. Without the password the file is opaque.
+The keypair file is encrypted with Argon2id + AES-256-GCM — the password you supplied to `pyde keys generate --password-stdin`. Without the password the file is opaque.
 
 ### Backups
 

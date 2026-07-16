@@ -1,8 +1,9 @@
 # Token Standard (PTS) — Planned
 
-> **Status: future work.** This page documents the design intent for
+> **Status: accepted, pre-implementation.** This page introduces
 > Pyde's native token standard — **PTS** (Pyde Token Standard) — and
-> the otigen features that will enforce it. None of it is shipped yet.
+> the otigen features that will enforce it. The specification is
+> ratified; none of the tooling is shipped yet.
 > The normative specification is
 > [PIP-0005](https://github.com/pyde-net/pips/blob/main/pip-0005-pyde-token-standard.md);
 > the deep explainer — full surface, storage layout, receiver

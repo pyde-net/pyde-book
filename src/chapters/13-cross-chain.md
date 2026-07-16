@@ -5,7 +5,7 @@ This chapter covers two distinct (and sometimes conflated) topics:
 1. **Pyde's parachain framework** — the v1 mechanism for app-specific execution contexts that run as WebAssembly modules with their own state subtrees, their own governance, and their own validator sets opting in from Pyde's main committee.
 2. **Cross-chain bridges to other L1s** — the post-mainnet path to interoperability with Ethereum, Bitcoin, and other chains.
 
-These are different things. A Pyde parachain is an on-chain WASM module with extra privileges (its own state space, cross-parachain messaging, threshold-crypto access). A cross-chain bridge is infrastructure that ferries proofs between Pyde and a foreign chain.
+These are different things. A Pyde parachain is an on-chain WASM module with extra privileges (its own state space, cross-parachain messaging, governance hooks). A cross-chain bridge is infrastructure that ferries proofs between Pyde and a foreign chain.
 
 **For parachains: the framework ships at v1** — the on-chain registry, governance, lifecycle, and execution environment are all part of mainnet. Authors write parachain logic in any wasm32-target language (Rust, AssemblyScript, Go, C/C++) and deploy via the `otigen` toolchain. The full design is in [`memory/parachain-v1-design`](https://github.com/pyde-net/.github/blob/main/memory-references.md) and the upcoming PPIPs (Pyde Parachain Improvement Proposals).
 
@@ -27,7 +27,7 @@ At mainnet, Pyde does **not** ship:
 What it **does** ship:
 
 - A sovereign L1 with the full execution model (WASM contracts via wasmtime,
-  encrypted mempool, FALCON-quorum finality, JMT state).
+  keyless commit-reveal private mempool, FALCON-quorum finality, JMT state).
 - The parachain framework (registry, governance, lifecycle, execution environment) — see §13.5 below.
 - Hard-finality certificates suitable for use as cross-chain proof inputs
   by any future bridge contract.
@@ -161,7 +161,7 @@ Pyde's parachain framework is **not** a Polkadot-style slot-auction model and is
 The distinction matters because the "parachain" word is overloaded in the L1 ecosystem. In Pyde:
 
 - **Smart contracts** are WASM modules with the standard host-function ABI. They share Pyde's state space, follow Pyde's transaction lifecycle, are scheduled by Pyde's main executor.
-- **Parachains** are WASM modules with an extended host-function allowlist (cross-parachain messaging, threshold-crypto access, governance hooks) and their own state subtree partitioned by `parachain_id[..16]` under PIP-2 clustering. They have their own validator committees (subsets of the main Pyde committee that opt in), their own consensus instance (chosen from a preset menu at deploy time), and their own upgrade governance (equal-power voting among their validators).
+- **Parachains** are WASM modules with an extended host-function allowlist (cross-parachain messaging, governance hooks) and their own state subtree partitioned by `parachain_id[..16]` under PIP-2 clustering. They have their own validator committees (subsets of the main Pyde committee that opt in), their own consensus instance (chosen from a preset menu at deploy time), and their own upgrade governance (equal-power voting among their validators).
 
 ### What ships at v1
 
@@ -199,7 +199,7 @@ quorum_threshold = "2/3"
 [parachain.slashing]
 preset = "standard"                  # minimal / standard / strict
 
-# parachain host fns (send_xparachain_message, threshold_decrypt, etc.) are
+# parachain host fns (send_xparachain_message, parachain_storage_read, etc.) are
 # auto-allowed by `type = "parachain"`; no per-import declaration needed.
 ```
 

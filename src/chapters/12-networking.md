@@ -95,8 +95,8 @@ type. Pyde splits traffic into four channels, each tuned for its workload.
 
 | Topic                    | Participants            | Size limit | What it carries                          |
 | ------------------------ | ----------------------- | ---------- | ---------------------------------------- |
-| `pyde/vertices/1`        | Committee primaries     | 256 KB     | DAG vertices (batch refs + parent refs + state-root sigs + decryption shares + FALCON sig) |
-| `pyde/transactions/1`    | All nodes               | 128 KB     | User transactions (plaintext or encrypted) |
+| `pyde/vertices/1`        | Committee primaries     | 256 KB     | DAG vertices (batch refs + parent refs + state-root sigs + beacon commits + FALCON sig) |
+| `pyde/transactions/1`    | All nodes               | 128 KB     | User transactions (plaintext, or private-mempool commit / reveal) |
 | `pyde/batches/1`         | Workers + primaries     | 4 MB       | Worker batches (hard cap; preserves modest-hardware claim) |
 | `pyde/sync/1`            | All nodes (req/resp)    | 16 MB      | Snapshot chunks (4 MB typical), historical vertices |
 | `pyde/evidence/1`        | Validators              | 64 KB      | Slashing evidence (double-sign, equivocation, etc.) |
@@ -111,7 +111,7 @@ current committee set. A non-validator that subscribes to the topic gets
 `ValidationResult::Reject` on every publish.
 
 This matters: the vertex channel carries committee FALCON sigs,
-piggybacked decryption shares, and state-root attestations. A malicious
+piggybacked beacon commits, and state-root attestations. A malicious
 non-validator that could flood the channel could DoS the commit
 pipeline. The validator-only filter prevents this by construction.
 

@@ -4,8 +4,8 @@
 
 Pyde is a Layer 1 blockchain built greenfield to deliver four properties no chain in production combines today:
 
-1. **Post-quantum cryptography by default** — FALCON-512 signatures, Kyber-768 threshold encryption, Poseidon2 hashing
-2. **MEV resistance by structure** — threshold-encrypted mempool + commit-before-reveal ordering eliminates proposer extraction
+1. **Post-quantum cryptography by default** — FALCON-512 signatures, Poseidon2 + Blake3 hashing
+2. **MEV resistance by structure** — a keyless commit-reveal private mempool with deterministic commit-order execution eliminates proposer extraction
 3. **Sub-second finality** — Mysticeti-style consensus, ~500ms median finality
 4. **Commodity decentralization** — modest hardware for validators not currently on the active committee; equal voting power within the active committee
 
@@ -30,7 +30,7 @@ Every major Layer 1 in production today — Bitcoin, Ethereum, Solana, Cardano, 
 
 ### The MEV Problem
 
-Maximum Extractable Value has hardened into a multi-billion-dollar tax paid by retail users to validator-builder coalitions. Sandwich attacks, front-running, and proposer extraction are not bugs — they are structural consequences of public mempools and single-proposer block production. **Pyde eliminates the structural conditions** via threshold encryption + commit-before-reveal ordering with no single proposer to exploit.
+Maximum Extractable Value has hardened into a multi-billion-dollar tax paid by retail users to validator-builder coalitions. Sandwich attacks, front-running, and proposer extraction are not bugs — they are structural consequences of public mempools and single-proposer block production. **Pyde eliminates the structural conditions** via a keyless commit-reveal private mempool — commit order is fixed by the DAG before content is revealed — with no single proposer to exploit.
 
 ### The Decentralization Problem
 
@@ -44,7 +44,7 @@ Chains optimizing for throughput have ended up requiring datacenter-class valida
 - **Uniform Block-STM scheduler** — optimistic parallel execution + MVCC validation; access lists from `pyde_simulateTransaction` drive PIP-3 prefetch into the dashmap cache before workers start
 - **JMT state tree** (Jellyfish Merkle Tree, radix-16) replaces fixed-depth SMT — with dual Blake3 + Poseidon2 roots so standard light clients and future ZK light clients verify against the same tree
 - **PIP-2 clustered slot keys + PIP-3 prefetch + PIP-4 write-back cache** — three-layer state performance stack
-- **Encryption opt-in** per-tx — MEV protection where needed, no overhead where not
+- **Private mempool opt-in** per-tx — keyless commit-reveal MEV protection where needed, no overhead where not
 - **`otigen` developer toolchain** — zero-extra-code authoring: write contract logic + `otigen.toml`, the tool handles everything else
 - **Honest performance targets** — the v1 throughput target is validated by a multi-region performance harness before any number is published
 - **Phased mainnet plan** — external audit + incentivized testnet before launch
@@ -59,7 +59,7 @@ This book describes **designed architecture**, with implementation in various st
 | WASM execution layer (wasmtime + Cranelift) | Functional — substrate macros (`#[pyde::entry]` + typed storage + events) + cross-contract calls + typed-storage host fns all shipped |
 | State layer (JMT, hybrid Blake3 + Poseidon2 hashing) | In place; hybrid hashing wired |
 | Mysticeti-style consensus | Rebuild in progress post-pivot |
-| Post-quantum cryptography (`pyde-crypto`) | Functional; threshold-decryption path is research-grade |
+| Post-quantum cryptography (`pyde-crypto`) | Functional — FALCON-512, Poseidon2, Blake3 (the keyless commit-reveal MEV lane needs only Blake3 + FALCON) |
 | Network protocol (libp2p + QUIC + Gossipsub) | In place; layered peer discovery (no DHT) in flight |
 | Devnet (`otigen devnet`) | Shipped — chain runtime embedded in the `otigen` binary (no separate `pyde` download), one-command local devnet, 10 prefunded accounts |
 | `otigen` developer toolchain (WASM-era) | Shipped — scaffold / build / check / test / deploy / call / inspect / verify / wallet / console / validator across Rust / TinyGo / AssemblyScript / C; lifecycle commands (`upgrade` / `pause` / `unpause` / `kill`) scaffold a signed tx but refuse to submit (`EngineNotReady`) until the chain-side `TxType::Lifecycle` handler lands — v1 ships the proxy-pattern + author-declared paused/killed booleans |
@@ -75,7 +75,7 @@ Throughput is validated by a multi-region production-realistic harness (mandator
 | Mode | v1 | v2 | Aspirational |
 |---|---|---|---|
 | Plaintext throughput (commodity) | awaiting harness | awaiting harness | awaiting harness |
-| Encrypted throughput (commodity) | awaiting harness | awaiting harness | awaiting harness |
+| Private-mempool throughput (commodity) | awaiting harness | awaiting harness | awaiting harness |
 | Median finality | ~500ms | ~400ms | ~300ms |
 
 **The HotStuff Lesson:** the pre-pivot implementation hit ~4K TPS in practice despite a higher claimed design target. Pyde now adopts the discipline of publishing only what the harness measures under sustained, production-realistic conditions — never lab extrapolations or microbenchmark peaks. No external TPS claim without harness evidence.

@@ -132,8 +132,8 @@ Spec map:
 Crates owned:
 - `consensus`: Mysticeti DAG, vertex/round/anchor/wave logic, BFS subdag walk, slashing evidence collection, equivocation detection, missing-vertex fetch
 - `net`: libp2p + QUIC + Gossipsub, peer discovery (layered, no DHT), sentry-node pattern, vertex-fetch protocol
-- `dkg`: Pedersen DKG protocol (or import from `pyde-crypto` if it lands there first)
-- `slashing`: validator state machine, the 10-offense catalog, slashing escrow, jail mechanics, reward distribution
+- `beacon`: per-member beacon keypairs + aggregated-signature combine (no DKG — the private mempool is keyless)
+- `slashing`: validator state machine, the offense catalog, slashing escrow, jail mechanics, reward distribution
 - `node`: the binary, JSON-RPC server, validator role, `consensus_store` with `set_sync(true)`, persistence
 
 Spec map:
@@ -207,7 +207,7 @@ The load-bearing table of this document. Every crate has exactly one owning stre
 | `mempool` | **β** | `execution-side` | `types`, `interfaces`, `account`, `tx` |
 | `consensus` | **γ** | `consensus-side` | `types`, `interfaces`, `pyde-crypto` |
 | `net` | **γ** | `consensus-side` | `types`, `interfaces` |
-| `dkg` | **γ** | `consensus-side` | `types`, `pyde-crypto` |
+| `beacon` | **γ** | `consensus-side` | `types`, `pyde-crypto` |
 | `slashing` | **γ** | `consensus-side` | `types`, `interfaces` |
 | `node` | **γ** | `consensus-side` | (all of the above) |
 
@@ -224,7 +224,7 @@ The load-bearing table of this document. Every crate has exactly one owning stre
 
 ### `pyde-net/pyde-crypto` (existing polyrepo)
 
-Already in place. Both engine streams + α import from it. Out of scope for new implementation work in MC-1 — only additions (DKG, PSS) added as needed.
+Already in place. Both engine streams + α import from it. Out of scope for new implementation work in MC-1 — only additions (Blake3 commit-reveal helpers, beacon aggregation) added as needed.
 
 ### Top-level files in `pyde-net/engine`
 
@@ -374,7 +374,7 @@ implementation streams are running concurrently; you own Stream α
 
 ## What Pyde is
 
-Post-quantum L1 (FALCON-512 sigs, Kyber-768 threshold encryption,
+Post-quantum L1 (FALCON-512 sigs, keyless commit-reveal private mempool,
 Poseidon2+Blake3 hashing). Mysticeti-style consensus with 128/85 quorum
 and sub-second commits. WASM execution via wasmtime. MEV-resistant
 by structure. Pre-mainnet, solo-founder-led (zarah). Workspace at the
@@ -474,7 +474,7 @@ implementation streams are running concurrently; you own Stream β
 
 ## What Pyde is
 
-Post-quantum L1 (FALCON-512 sigs, Kyber-768 threshold encryption,
+Post-quantum L1 (FALCON-512 sigs, keyless commit-reveal private mempool,
 Poseidon2+Blake3 hashing). Mysticeti-style consensus with 128/85 quorum
 and sub-second commits. WASM execution via wasmtime. MEV-resistant
 by structure. Pre-mainnet, solo-founder-led (zarah). Workspace at the
@@ -497,7 +497,7 @@ Implement the execution side of `pyde-net/engine`. Crates you own:
 You work on branch `execution-side` of `pyde-net/engine`.
 
 Stream γ (consensus side) works on branch `consensus-side` in the
-same repo. **Do not touch γ's crates** (`consensus`, `net`, `dkg`,
+same repo. **Do not touch γ's crates** (`consensus`, `net`, `beacon`,
 `slashing`, `node`). Communicate cross-stream needs via GitHub
 issues; do not edit interfaces or shared types unilaterally.
 
@@ -584,7 +584,7 @@ implementation streams are running concurrently; you own Stream γ
 
 ## What Pyde is
 
-Post-quantum L1 (FALCON-512 sigs, Kyber-768 threshold encryption,
+Post-quantum L1 (FALCON-512 sigs, keyless commit-reveal private mempool,
 Poseidon2+Blake3 hashing). Mysticeti-style consensus with 128/85 quorum
 and sub-second commits. WASM execution via wasmtime. MEV-resistant
 by structure. Pre-mainnet, solo-founder-led (zarah). Workspace at the
@@ -596,12 +596,12 @@ Implement the consensus + networking side of `pyde-net/engine`.
 Crates you own:
 - `consensus` — Mysticeti DAG, vertex/anchor/wave logic, BFS subdag
   walk, slashing evidence collection, equivocation detection,
-  missing-vertex fetch, threshold-decryption coordination
+  missing-vertex fetch, commit-reveal resolution pass + expiry scan
 - `net` — libp2p + QUIC + Gossipsub, peer discovery (layered, no
   DHT), sentry-node pattern, vertex-fetch protocol
-- `dkg` — Pedersen DKG protocol (or thin wrapper if it lands in
-  pyde-crypto first)
-- `slashing` — validator state machine, 10-offense catalog,
+- `beacon` — per-member beacon keypairs + aggregated-signature combine
+  (no DKG; the private mempool is keyless)
+- `slashing` — validator state machine, offense catalog,
   slashing escrow, jail mechanics, reward distribution
 - `node` — the binary, JSON-RPC server, validator role,
   `consensus_store` with `set_sync(true)`, persistence,
@@ -625,8 +625,8 @@ In priority order:
    doc (your scope, crate ownership, branching protocol, interface
    contracts).
 2. `pyde-book/src/chapters/06-consensus.md` — Mysticeti DAG,
-   anchor selection, wave commit, BFS subdag walk, threshold
-   decryption ceremony, HardFinalityCert.
+   anchor selection, wave commit, BFS subdag walk, commit-reveal
+   resolution pass, HardFinalityCert.
 3. `pyde-book/src/companion/SLASHING.md` — full 10-offense catalog.
 4. `pyde-book/src/companion/VALIDATOR_LIFECYCLE.md` —
    registration, bonding, unbonding, jail mechanics, key rotation.
@@ -637,8 +637,8 @@ In priority order:
 7. `pyde-book/src/companion/NETWORK_PROTOCOL.md` — libp2p config,
    Gossipsub topics, peer scoring, sentry pattern.
 8. `pyde-book/src/chapters/12-networking.md` — networking detail.
-9. `pyde-book/src/chapters/08-cryptography.md` — DKG, threshold
-   decryption, VRF (your consumer; pyde-crypto is the impl).
+9. `pyde-book/src/chapters/08-cryptography.md` — FALCON, Blake3
+   commit-reveal, beacon aggregation (your consumer; pyde-crypto is the impl).
 10. `pyde-book/src/companion/THREAT_MODEL.md` — security context.
 
 ## Constraints
@@ -664,7 +664,7 @@ In priority order:
 
 Implement the `consensus` crate with the Mysticeti DAG core:
 - Vertex structure (round, member_id, parent_refs, batch_refs,
-  state_root_sigs, decryption_shares, prev_anchor_attestation, sig).
+  state_root_sigs, beacon_share, prev_anchor_attestation, sig).
 - Local DAG view (in-memory graph with vertex insertion + lookup).
 - Round advancement (peer-attestation triggered, data-driven —
   NOT clock-driven).
@@ -692,7 +692,7 @@ then wire it all up in `node`.
 ## First action
 
 Read IMPLEMENTATION_PLAN.md. Read chapter 6 end-to-end (the spec
-is dense and the BFS / anchor / threshold-decryption mechanics
+is dense and the BFS / anchor / commit-reveal resolution mechanics
 are subtle). Read SLASHING.md + VALIDATOR_LIFECYCLE.md +
 CHAIN_HALT.md. Verify branch + workspace state. Begin with
 `consensus` crate (foundational for everything else in γ).

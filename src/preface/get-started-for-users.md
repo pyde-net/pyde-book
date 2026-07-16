@@ -13,8 +13,10 @@ Three things, in plain language:
 ### 1. It survives the quantum era
 
 Every signature on Pyde uses **FALCON-512**, a NIST-standardised
-post-quantum signature scheme. Every encryption uses **Kyber-768
-(ML-KEM)**, NIST's post-quantum key-encapsulation scheme.
+post-quantum signature scheme. Hashing uses **Blake3** and
+**Poseidon2**, and transport-layer session keys use **Kyber-768
+(ML-KEM)**, NIST's post-quantum key-encapsulation scheme. Every
+primitive on a consensus or account path is post-quantum.
 
 Translation: when a quantum computer powerful enough to break Bitcoin
 + Ethereum signatures shows up, Pyde keeps working. There is no
@@ -29,12 +31,13 @@ by whoever proposes the block — and that ordering is profitable. MEV
 bots pay validators to insert their trade in front of yours, drain
 your slippage, and move on.
 
-Pyde encrypts transactions in the mempool with a key only the
-committee collectively holds. The committee commits to an order
-**before** any decryption share is released. By the time anyone can
+Pyde runs a **keyless private mempool**. You submit a Blake3
+commitment to your transaction first; the DAG fixes its order, and
+only **then** do you reveal the content. By the time anyone can
 read what's inside a transaction, the ordering is already final.
-There is no profitable front-run because there's no information to
-front-run on.
+No committee holds a decryption key — the safety of this doesn't
+depend on validators declining to collude. There is no profitable
+front-run because there's no information to front-run on.
 
 Read more: [Chapter 9 — MEV Protection](../chapters/09-mev-protection.md).
 

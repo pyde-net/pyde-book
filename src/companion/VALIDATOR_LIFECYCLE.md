@@ -8,7 +8,7 @@ This document specifies the validator state machine, operations, parameters, and
 
 ```
 [NOT REGISTERED]
-    ↓ register_validator(stake ≥ MIN_VALIDATOR_STAKE, falcon_pubkey, threshold_key)
+    ↓ register_validator(stake ≥ MIN_VALIDATOR_STAKE, falcon_pubkey, beacon_pubkey)
     ↓   (single tier; MIN_VALIDATOR_STAKE = 10,000 PYDE)
 [PENDING ACTIVATION] (1 epoch bonding period)
     ↓ next epoch boundary
@@ -59,7 +59,7 @@ Default state. Account is a user wallet, not a validator.
 
 Registered with stake, waiting to become eligible.
 
-- Triggered by: `register_validator(stake, falcon_pubkey, threshold_verify_key, operator_identity)`
+- Triggered by: `register_validator(stake, falcon_pubkey, beacon_pubkey, operator_identity)`
 - Stake is locked
 - Earns nothing during pending
 - Auto-transitions to ACTIVE-WAITING at next epoch boundary
@@ -78,7 +78,7 @@ In the pool, eligible for VRF selection into committee.
 
 Selected for current epoch as one of 128 active members.
 
-- Duties: vertex production, decryption shares, DKG participation, state-root signing
+- Duties: vertex production, beacon shares, state-root signing
 - Earns: activity-weighted share of 70% committee pool + flat 30% pool yield + inflation share
 - Subject to full slashing (safety + liveness)
 - Loops back to ACTIVE-WAITING at next epoch boundary unless re-selected
@@ -126,7 +126,7 @@ Stake unlocked, claim available.
 fn register_validator(
     stake: u64,
     falcon_pubkey: FalconPubkey,
-    threshold_verify_key: ThresholdVerifyKey,
+    beacon_pubkey: BeaconPubkey,
     operator_identity: Address,  // anti-Sybil binding
 ) -> ValidatorId
 
@@ -182,7 +182,7 @@ fn withdraw(validator_id: ValidatorId) -> u64
 fn rotate_keys(
     validator_id: ValidatorId,
     new_falcon_pubkey: FalconPubkey,
-    new_threshold_verify_key: ThresholdVerifyKey,
+    new_beacon_pubkey: BeaconPubkey,
 ) -> Result
 
 // Preconditions:

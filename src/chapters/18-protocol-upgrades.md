@@ -89,7 +89,7 @@ by design.
 
 A hard fork is a change that nodes running the old rules cannot accept
 under any circumstances — e.g., a new gas cost, a new transaction type
-the old code doesn't recognize, a change to the encryption scheme.
+the old code doesn't recognize, a change to the signature scheme.
 
 For a hard fork:
 
@@ -143,7 +143,7 @@ Per Chapter 15:
 | Gas target / ceiling           | `crates/tx/src/fee.rs`                |
 | Tx / calldata size limits      | `crates/tx/src/validation.rs`         |
 | Max batch size (4 MB)          | `crates/mempool/src/batch.rs`         |
-| Cryptographic primitives       | `pyde-crypto` polyrepo (FALCON, Kyber, Blake3, Poseidon2) |
+| Cryptographic primitives       | `pyde-crypto` polyrepo (FALCON, Blake3, Poseidon2) |
 | WASM host function ABI         | `crates/wasm-exec/src/host_fns.rs` + Host Function ABI spec doc |
 
 Changing any of these requires a release + voluntary upgrade.

@@ -33,8 +33,8 @@ with full specifications for the parts the chapters summarize.
 | 5 | [Otigen Toolchain](src/chapters/05-otigen-toolchain.md) | Developer toolchain: scaffolding, build, deploy, wallet |
 | 6 | [Consensus (Mysticeti DAG)](src/chapters/06-consensus.md) | DAG vertices, anchor selection, commit ceremony |
 | 7 | [State Sync & Chain Halt](src/chapters/07-state-sync.md) | Snapshot sync, halt types, recovery procedures |
-| 8 | [Cryptography](src/chapters/08-cryptography.md) | FALCON-512, Kyber-768, Blake3, Poseidon2, threshold, DKG |
-| 9 | [MEV Protection](src/chapters/09-mev-protection.md) | Commit-before-reveal DAG, optional encryption |
+| 8 | [Cryptography](src/chapters/08-cryptography.md) | FALCON-512, Kyber-768, Blake3, Poseidon2, lattice VRF |
+| 9 | [MEV Protection](src/chapters/09-mev-protection.md) | Keyless commit-reveal private mempool, structural ordering |
 | 10 | [Gas and Fee Model](src/chapters/10-gas-and-fee-model.md) | EIP-1559, no tips, 70/20/10 split |
 | 11 | [Account Model](src/chapters/11-account-model.md) | 32-byte addresses, 16-slot nonce window, multisig |
 | 12 | [Networking](src/chapters/12-networking.md) | libp2p + QUIC, layered discovery (no DHT), sentry pattern |
@@ -45,7 +45,8 @@ with full specifications for the parts the chapters summarize.
 | 17 | [Developer Tools](src/chapters/17-developer-tools.md) | `otigen` toolchain, JSON-RPC, SDKs |
 | 18 | [Protocol Upgrades](src/chapters/18-protocol-upgrades.md) | Voluntary validator upgrade, hard/soft fork |
 | 19 | [Launch Strategy](src/chapters/19-launch-strategy.md) | 10-phase mainnet plan, audits, testnet |
-| 20 | [Appendix](src/chapters/20-appendix.md) | Glossary, constants, post-mainnet plan |
+| 20 | [Future Direction](src/chapters/20-future-direction.md) | v2+ research: Threshold-LWE one-shot mempool, ZK validity proofs, parachains |
+| 21 | [Appendix](src/chapters/21-appendix.md) | Glossary, constants, post-mainnet plan |
 
 Pivot reference: [MIGRATION_NOTES.md](src/MIGRATION_NOTES.md) — what
 changed in the 2026 HotStuff → Mysticeti DAG rewrite.
@@ -104,7 +105,7 @@ specifications the narrative chapters summarize.
 | Devnet binary (`pyde devnet`) | Shipped — one-command local devnet, 10 prefunded accounts |
 | Developer toolchain (`otigen`) | Shipped — scaffold / build / test / deploy / inspect / verify / console / wallet; engine-by-default test runtime |
 | Mysticeti DAG consensus | Rebuild in flight post-pivot |
-| Threshold cryptography (PQ) | Research-grade — bleeding edge |
+| MEV protection (keyless commit-reveal) | Private mempool implemented — Blake3 commitment + FALCON, no committee key |
 | Network protocol | Existing; libp2p + QUIC migration in flight |
 | Performance harness (multi-region, chain-throughput) | Not yet built (mandatory before TPS claims) |
 

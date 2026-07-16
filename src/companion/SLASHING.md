@@ -23,16 +23,13 @@ This document specifies all slashable offenses, detection mechanisms, slash amou
 | 2 | Bad state-root signature — two contradictory state roots for same commit | **10%** | 50% | 1 epoch | Same as above |
 | 3 | Bad anchor attestation — vertex's prev_anchor_attestation contradicts 85+ honest majority | **5%** | 20% | 1 epoch | Same as above |
 | 4 | Invalid vertex structure — parent refs out of order, refs to non-existent batches | **5%** | 30% | 1 epoch | 100% burn |
-| 5 | Bad decryption share — partial that provably doesn't combine correctly | **5%** | 30% | 1 epoch | 50% burn / 30% treasury / 20% reporter |
 
 ### Liveness Offenses (Auto-Detected, Graduated)
 
 | # | Offense | Per-event | Per-epoch cap | Jail | Distribution |
 |---|---|---|---|---|---|
-| 6 | DKG participation failure — invalid or missing shares during DKG | 2% | 10% | Until next epoch | 100% burn |
-| 7 | Share withholding — no decryption share when expected | 0.1%/round missed | 5%/epoch | After 100 consecutive missed | 100% burn |
-| 8 | Extended downtime — no vertices produced for N consecutive rounds | 0.05%/round | 10%/epoch | After 5% reached | 100% burn |
-| 9 | Bad batch attestation — worker gossips batch with invalid txs | 2% | 5% | None (warning) | 100% burn |
+| 5 | Extended downtime — no vertices produced for N consecutive rounds | 0.05%/round | 10%/epoch | After 5% reached | 100% burn |
+| 6 | Bad batch attestation — worker gossips batch with invalid txs | 2% | 5% | None (warning) | 100% burn |
 
 ### Future / Deferred
 
@@ -117,7 +114,6 @@ fn submit_evidence(evidence: Evidence) -> Result<()> {
 
 - **Safety offenses:** 21 days
 - **Liveness offenses:** 1 epoch (real-time only)
-- **DKG failures:** 1 epoch (same as ceremony)
 
 Outside the window: cannot slash. Evidence becomes historical record but no enforcement.
 
@@ -230,9 +226,9 @@ Max correlated attack across epoch (42 offenders × 5 events × 2× correlation,
 ```
 
 These dollar numbers are intentionally not the load-bearing deterrent.
-Pyde's security argument (Chapter 16 §16.4) is that threshold encryption
-removes the *attack-profit motive* entirely — there is no MEV-extraction
-revenue to recoup. Stake serves as a credible-commitment deposit
+Pyde's security argument (Chapter 16 §16.4) is that the keyless
+commit-reveal private mempool removes the *attack-profit motive*
+entirely — there is no MEV-extraction revenue to recoup. Stake serves as a credible-commitment deposit
 against slashable misbehavior plus the input the slashing mechanism
 has to slash. The operator-identity cap, KYC binding, and slashing-with-
 finder's-fee do the heavy lifting on Sybil resistance.

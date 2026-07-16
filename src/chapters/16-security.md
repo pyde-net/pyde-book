@@ -25,10 +25,10 @@ the post-mainnet hardening list rather than live, the chapter says so.
 | --------------------------- | --------- | --------------------------------------------------------- |
 | 51% / Byzantine takeover    | Critical  | BFT `f < n/3` with equal-vote committee, Mysticeti-style safety|
 | Long-range attack           | High      | Weak-subjectivity checkpoints; hard-finality irreversibility|
-| Sybil attack                | High      | Layered: threshold encryption removes attack incentive + operator-identity cap (max 3/operator) + slashing + minimum stake floor |
+| Sybil attack                | High      | Layered: structural MEV-resistance removes attack incentive + operator-identity cap (max 3/operator) + slashing + minimum stake floor |
 | Eclipse attack              | High      | Layered discovery (no DHT) + FALCON peer auth + sentry pattern |
 | DDoS (network-level)        | Medium    | Rate limiting, peer scoring, per-channel size caps, sentry  |
-| Front-running / MEV         | High      | Optional threshold encryption + commit-before-reveal DAG (Ch 9)|
+| Front-running / MEV         | High      | Keyless commit-reveal private mempool + DAG-fixed ordering (Ch 9)|
 | State manipulation          | Critical  | JMT batched Merkle proofs, deterministic replay, 2 state roots (Blake3+Poseidon2) |
 | Quantum attacks              | Critical  | Entire stack is post-quantum from genesis (Ch 8)            |
 | Smart contract exploit       | High      | Default safety attributes (no reentrancy, checked arithmetic) enforced at runtime via the WASM execution layer |
@@ -36,7 +36,6 @@ the post-mainnet hardening list rather than live, the chapter says so.
 | Consensus persistence loss    | Critical  | `WriteOptions::set_sync(true)` + panic-on-persist-failure  |
 | Replay across chains          | High      | Mandatory `chain_id` in every tx hash                       |
 | Treasury drain                | Critical  | Multisig-only spend + `data_digest` audit trail             |
-| Threshold crypto break        | Critical  | Hard halt + emergency pause + key rotation procedure        |
 
 Each of these is covered in more detail below.
 
@@ -164,16 +163,22 @@ which lets the stake floor sit at a modest 10,000 PYDE (single tier) and
 shifts the security burden onto a stack of qualitative defenses. Five
 layers:
 
-**1. Threshold encryption removes the attack incentive.**
+**1. Structural MEV-resistance removes the attack incentive.**
 The dominant reason adversaries attack BFT consensus on production
 chains is MEV extraction — front-running, sandwich attacks, transaction
 reordering. On Pyde, this attack value is structurally near-zero. Even
 a Byzantine 1/3 cannot:
-- Decrypt encrypted-mempool ciphertexts (requires 85 of 128 shares — see
-  Chapter 8 §8.5);
+- Read a committed-but-unrevealed transaction — a commit is a Blake3
+  hash, and the inner transaction is disclosed only after the DAG has
+  already fixed its order (Chapter 9);
 - Reorder transactions after the DAG anchor commits the canonical order
-  (Chapter 9 §9.4);
-- Profitably front-run any opt-in-encrypted transaction.
+  (Chapter 9);
+- Profitably front-run any transaction routed through the private mempool.
+
+Crucially, this safety is **unconditional**: it does not depend on any
+threshold of committee members staying honest. There is no decryption key
+for a colluding quorum to combine — the mechanism is keyless commit-reveal,
+and a commit is just a hash.
 
 This collapses the attack-profit equation that drives Ethereum-scale
 stake floors (32 ETH → ~$80–120K). Pyde does not need to price stake
@@ -216,14 +221,15 @@ that other chains lead with does not apply here. Pyde's claim is
 different and stronger: **the protocol is designed such that there is no
 profitable attack to fund.** Stake economics back this up at the
 margin. Operator identity binding does the heavy lifting on Sybil
-specifically. The threshold-encryption property does the work of
+specifically. The keyless commit-reveal private mempool does the work of
 removing the attack value entirely.
 
 This shifts the trust assumption from "stake is large enough to deter
 attack" to "operator-identity binding + slashing + structural
 MEV-resistance jointly make attack unprofitable and detectable." The
 second is a substantively different argument and worth being explicit
-about.
+about — and, unlike a threshold-encryption scheme, the commit-reveal
+private mempool adds no honest-quorum trust assumption of its own.
 
 ### Genesis Sybil resistance
 
@@ -345,12 +351,15 @@ quota blocks further submissions until the window slides.
 
 Covered in detail in Chapter 9. The short version:
 
-- **Optional threshold-encrypted mempool.** Tx payload hidden from
-  everyone until 85-of-128 Kyber shares combine. Users opt in per tx.
-- **Commit-before-reveal DAG ordering.** The DAG anchor commit at round
-  R+3 fixes the canonical order; decryption shares are released only at
-  R+4. No actor has both "can read contents" and "can alter order" at
-  any single round.
+- **Keyless commit-reveal private mempool.** A commit publishes only a
+  Blake3 hash of the transaction; the plaintext is disclosed only after
+  ordering is fixed. There is no committee decryption key and no
+  decryption shares, so safety is unconditional — it never depends on a
+  threshold of committee members staying honest. Users opt in per tx.
+- **DAG-fixed ordering.** The DAG fixes a commit's position in the
+  canonical order at commit time — before its contents are known. Reveals
+  execute in commit order, never reveal order, so no actor can both read a
+  transaction and still change where it lands.
 - **Structural inclusion.** No single proposer to censor; censoring a tx
   requires ≥ 44 colluding committee members.
 - **No tips.** The wire format has no priority-fee field.
@@ -619,7 +628,6 @@ Pre-mainnet hardening work tracked in the launch plan (chapter 19):
 | ml-kem 0.3.0-rc -> stable upgrade | Post-standards-release         |
 | Persistent receipt store (archive mode) | Post-mainnet            |
 | Signed-commitment mandatory inclusion | Post-mainnet (Ch 9)     |
-| Pedersen / KZG commitments for PSS   | Post-mainnet                   |
 | Algebraic batch FALCON verify         | Post-mainnet                   |
 
 The honest shape at mainnet: a small, audited, heavily-tested core with a
@@ -636,7 +644,7 @@ mainnet:
 | --------------------------------------------------------------------------------- |
 | Consensus layer (Mysticeti DAG, anchor selection, finality, slashing)             |
 | Execution layer (Pyde's host-function ABI, the `wasm-exec` integration, fuel-to-gas mapping, Block-STM scheduler + MVCC layer + determinism contract) |
-| Crypto implementations (FALCON, Kyber, Blake3, Poseidon2, threshold, PSS) — in `pyde-crypto` polyrepo |
+| Crypto implementations (FALCON, Blake3, Poseidon2) — in `pyde-crypto` polyrepo |
 | Networking layer (libp2p config, gossipsub, layered discovery, sentry pattern, DDoS) |
 | `otigen` developer toolchain (binding generators, ABI extraction, deploy flow, wallet) |
 
@@ -671,7 +679,6 @@ flooding, RPC DoS, eclipse simulations) runs in parallel.
 | 1 MB witness size cap                         | Shipped                          |
 | Separate MAX_CALLDATA cap                    | Shipped                          |
 | Signed mempool commitments                   | Post-mainnet                     |
-| Pedersen / KZG PSS commitments               | Post-mainnet                     |
 | Algebraic batch FALCON verify                 | Post-mainnet                     |
 | Archive-node receipt store                   | Post-mainnet                     |
 | External audits (5 specialists)              | Pre-mainnet, Phase 8             |

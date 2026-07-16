@@ -290,7 +290,7 @@ validator upgrade:
 | `MAX_TX_SIZE` (128 KB)         | `crates/tx/src/validation.rs`         |
 | `MAX_CALLDATA` (64 KB)         | `crates/tx/src/validation.rs`         |
 | `MAX_BATCH_SIZE` (4 MB)        | `crates/mempool/src/batch.rs`         |
-| Cryptographic primitives       | `pyde-crypto` polyrepo (FALCON, Kyber, Blake3, Poseidon2) |
+| Cryptographic primitives       | `pyde-crypto` polyrepo (FALCON, Blake3, Poseidon2) |
 | WASM host function ABI         | `crates/wasm-exec/src/host_fns.rs` + Host Function ABI spec doc |
 
 Changing any of these requires a code release. Validators choose whether

@@ -807,7 +807,7 @@ Named accounts resolve to 32-byte addresses via the chain's name registry; stora
 - Real `hash_poseidon2` / `hash_blake3` / `falcon_verify` (via `pyde-crypto`) so author-side slot derivation + signature verification match the runner exactly.
 - Mock storage (`sload` / `sstore` / `sdelete`), account (`balance` / `transfer`), context (`caller` / `self_address` / `wave_id` / `wave_timestamp` / `chain_id`), tx (`tx_value`), events (`emit_event`), halt (`revert`), cross-call (`cross_call` / `delegate_call`), and parachain §8 host fns (`parachain_storage_{read,write,delete}` / `parachain_id` / `parachain_version` / `parachain_emit_event`) against an in-memory state map.
 - Test-only `pyde::debug_log` printf-style host fn captured in the call's debug log buffer; rejected by `otigen build` (strict is the default) and always rejected by `otigen deploy`. Use `otigen build --no-strict` for local inspection only.
-- Host fns that trap with `UnsupportedHostFn` in v1: `origin`, `tx_hash`, `tx_gas_remaining`, `calldata_size`, `calldata_copy`, `hash_keccak256`, `cross_call_static`, `consume_gas`, `beacon_get`, plus the DKG / threshold-encryption surface. Each either depends on chain-derived state the runner doesn't model, or no canonical example exercises it yet.
+- Host fns that trap with `UnsupportedHostFn` in v1: `origin`, `tx_hash`, `tx_gas_remaining`, `calldata_size`, `calldata_copy`, `hash_keccak256`, `cross_call_static`, `consume_gas`, `beacon_get`, plus the reserved `threshold_encrypt` / `threshold_decrypt` surface (not in v1; a v2+ research direction — see [Chapter 20](./20-future-direction.md)). Each either depends on chain-derived state the runner doesn't model, or no canonical example exercises it yet.
 
 ### What it doesn't do (v1)
 

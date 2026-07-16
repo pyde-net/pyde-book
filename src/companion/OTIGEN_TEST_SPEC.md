@@ -500,7 +500,7 @@ For spec-compliant void-void entries (`HOST_FN_ABI §3.5.2`), the runner writes 
 | `parachain_id(out_ptr)` | Writes the active parachain's 32-byte ID. In the v1 runner this equals `caller.data().contract_address` (same as `self_address()`); the spec §8.2 derivation uses the `"pyde-parachain:"` prefix when real chain code computes it — contract code is byte-identical between prefixes since it just calls the host fn. |
 | `parachain_version()` | Returns `TestEnv.parachain_version` as i32 (defaults to 1; future cheat enables upgrade-flow demos). |
 | `parachain_emit_event(topics_ptr, topics_count, data_ptr, data_len)` | Delegates to the core `emit_event` mock. The §8.3 difference — event record carries the parachain ID as `contract_addr` — is implicit because the active address IS the parachain's at call time. |
-| Other host fns (`origin`, `tx_hash`, `tx_gas_remaining`, `calldata_*`, `hash_keccak256`, `cross_call_static`, `consume_gas`, `beacon_get`, DKG, `send_xparachain_message`, `threshold_encrypt`, `threshold_decrypt`) | **Not mocked on the legacy path.** Calls trap with `UnsupportedHostFn`. Use the default engine path (drop `--no-engine`) — it implements all of these at chain fidelity. |
+| Other host fns (`origin`, `tx_hash`, `tx_gas_remaining`, `calldata_*`, `hash_keccak256`, `cross_call_static`, `consume_gas`, `beacon_get`, `send_xparachain_message`, and the reserved v2 `threshold_encrypt` / `threshold_decrypt`) | **Not mocked on the legacy path.** Calls trap with `UnsupportedHostFn`. Use the default engine path (drop `--no-engine`) — it implements the v1 surface at chain fidelity; the reserved threshold host fns stay unavailable until the v2+ ciphertext lane (Chapter 20). |
 
 **Slot-derivation invariant.** Both the legacy raw `sload` / `sstore` host fns and the typed-storage family (`sstore_scalar` / `sload_scalar` / `sstore_map1`…`map3`) derive slots via `Poseidon2(self_address ‖ field_name ‖ keys...)`. The macro substrate (`pyde::declare_storage!()` field access) emits the same hash. The engine path exercises the typed family end-to-end; the legacy mock above stubs it for `--no-engine` runs.
 
@@ -758,7 +758,7 @@ What `otigen test` deliberately does NOT do today:
 | **No multi-tx context.** Each test starts from fresh state; no "deploy contract in tx1, then call from a different sender in tx2" within a single test. | Tx-level isolation keeps the in-process model simple. | Explicit tx boundaries (`[[tests.tx]]` blocks) are a planned future expansion. For today's needs, drive multi-tx flows through `otigen devnet` + `otigen call` / `otigen console` against a real node. |
 | **No simulating chain-side validators.** `expect.revert` matches the contract's own revert; it doesn't simulate "this tx would be rejected at mempool / by the access-list check / by the nonce window". | Mempool + admit-tx validation runs on a real node; out of scope for behaviour tests. | Devnet integration tests via `otigen devnet [--fork <FILE_OR_URL>]` for real-chain-state context. |
 | **Test files can't share helpers.** Every `.test.toml` is standalone. | TOML is data, not code. | Authors who need shared setup copy the `[accounts]` + `[cheats]` blocks between files. A future `[include]` is reserved. |
-| **No mock for DKG / threshold-encryption host fns on the legacy path.** | Real DKG state is committee-derived; the legacy runner has no committee. | Use the default engine path — but note threshold-decrypt / DKG host fns are themselves still planned for engine v2, so contracts exercising them will see them surface there. |
+| **No mock for the reserved threshold-crypto host fns on the legacy path.** | They depend on a committee threshold-decryption ceremony the legacy runner has no committee for. | Use the default engine path — but note `threshold_encrypt` / `threshold_decrypt` are reserved for the v2+ ciphertext lane (Chapter 20) and are not live in v1; the keyless commit-reveal private mempool is exercised via ordinary Commit/Reveal transactions. |
 
 What `otigen test` is NOT trying to be:
 
@@ -831,7 +831,7 @@ v2 may add `[invariants]` declared once at the file level, auto-asserted after e
 - Foundry-style verbosity ladder (`-v` / `-vv` / `-vvv` / `-vvvv`).
 - `--filter` substring filter; `--bundle` override; `--json` NDJSON event stream; `--watch` continuous re-run; `--no-engine` legacy-mock opt-out.
 
-Reserved for future expansion (parsed-but-noop or noted in §9): fuzz / invariant modes (`[[tests.property]]`), explicit multi-tx context (`[[tests.tx]]`), shared-helper includes, full DKG / threshold-crypto host-fn surface.
+Reserved for future expansion (parsed-but-noop or noted in §9): fuzz / invariant modes (`[[tests.property]]`), explicit multi-tx context (`[[tests.tx]]`), shared-helper includes, the reserved v2+ threshold-crypto host-fn surface (Chapter 20).
 
 ---
 

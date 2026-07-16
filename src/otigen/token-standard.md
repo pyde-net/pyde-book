@@ -87,12 +87,12 @@ keys are a function of the declared standard**, enforced at build
 time: `decimals` in a `pts-n/1` manifest is a build error ("a pts-f
 field — non-fungible tokens have no fractional units"), per-id
 metadata knobs in a `pts-f/1` manifest likewise, and every such error
-names the offending key and the standard that owns it. Hand-written
-additions are **additive, never overriding**: authors may declare
-extra `[functions.*]`, `[state]` fields, and `[events]` beside the
-standard, but any name colliding with the generated surface —
-`transfer`, `balances`, `Transfer`, and the rest of the reserved set —
-is a build error. Replacing standard logic is not an option the schema
+names the offending key and the standard that owns it. And a token
+manifest is **config-only**: any `[functions.*]`, `[state]`, or
+`[events]` section — or a source directory at all — on
+`type = "token"` is a build error. Custom behaviour lives in a
+companion contract beside the token (below), never inside it, so
+overriding or extending standard logic is not something the schema
 can express.
 
 ## What the generated surface fixes
@@ -126,23 +126,35 @@ class:
   under Block-STM. Generation also emits correct per-function access
   lists — the prefetch hint humans get wrong.
 
-## Custom logic beside the standard
+## Custom logic lives beside the token, not inside it
 
-A token that needs extra behaviour adds ordinary `[functions.*]`
-entries — plus its own additive `[state]` fields and `[events]` — and
-writes only those functions, in whichever language the project
-declares. The build merges both halves into one module: one WASM, one
-`pyde.abi` carrying the generated surface and the custom additions
-side by side. Custom code mutates token state only through generated
-internal APIs that preserve invariants (supply accounting, event
-emission); its own declared fields it accesses normally. Conformance
-checking still passes — the standard subset must be present and
-byte-conformant — and the tooling enumerates the extras, because a
-custom function's *authorization* logic is the author's code: wallets
-and scanners surface "conformant, plus N custom functions" with the
-same prominence as an upgradeable-proxy flag. For a pure config-only
-token the language choice is immaterial — same manifest, same
-canonical implementation.
+A PTS token contains exactly the generated surface — nothing else.
+This is a hard line, not a missing feature. The moment author code
+shares a module with the token, the reproducibility guarantee — *same
+manifest, same bytes: verify any deployed token by rebuilding its
+manifest and comparing hashes* — degrades into "the standard subset is
+conformant, plus unreviewed extras", and every wallet and scanner
+inherits the job of flagging the extras. A config-only token cannot
+contain a drain function, because it cannot contain any function the
+generator didn't write. The patterns that genuinely require code
+inside a token — fee-on-transfer, rebasing, reflection — are precisely
+the pathologies the standard exists to kill.
+
+Custom behaviour is a **companion contract**: a vesting schedule, a
+staking pool, a governance vault — an ordinary `type = "contract"`
+member that holds and moves tokens through the same standard surface
+every other integrator uses (`transfer_call` deposits in, `transfer`
+out, allowances where standing delegation is genuinely needed).
+[Multi-contract workspaces](workspaces.md) make the pairing one
+project: the companion takes the token's deployed address as a
+constructor reference, and build, test, and deploy run across both
+members with one command.
+
+If a future need genuinely belongs inside the token — the way
+vote-checkpointing hooks balance changes on other chains — it enters
+as a **declared standard extension** in a `pts-f/2`: generated,
+audited, and consent-visible in the artifact like freeze and pause.
+Never as author code.
 
 Contracts that want to *react* to incoming deposits (vaults, escrows,
 marketplaces) opt in from the receiving side. The author declares the
@@ -182,11 +194,13 @@ its byte-level conformance vectors.
    marketplace) as the reference receivers.
 2. **The PIP:** frozen surface, byte-level conformance vectors, and a
    malicious-receiver test battery.
-3. **`type = "token"` generation** (both standards) in otigen across
-   all four languages, with per-language byte-parity vectors
-   (identical manifest → identical state writes, events, and ABI) and
-   an independent audit of the generator itself — one audited
-   implementation is only as good as its generator.
+3. **`type = "token"` generation** (both standards) in otigen from
+   one canonical implementation — tokens carry no author code, so the
+   build is language-independent and every deployed token verifies by
+   rebuilding its manifest and comparing bytes. Per-language work
+   shrinks to the receiver wrapper macros. Includes an independent
+   audit of the generator itself — one audited implementation is only
+   as good as its generator.
 4. **`otigen verify --standard`** and playground templates that start
    from a manifest, not from copied token code.
 

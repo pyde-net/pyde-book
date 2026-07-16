@@ -1,15 +1,12 @@
 # PTS — The Pyde Token Standard
 
-> **Status: Accepted
-> ([PIP-0005](https://github.com/pyde-net/pips/blob/main/pip-0005-pyde-token-standard.md))
-> — implementation in progress.** The PIP is the normative
-> specification; this document is the deep explainer — the flow, the
-> design reasoning, and the integration guide. The guide-level
-> introduction lives at
-> [Token Standard (PTS)](../otigen/token-standard.md). Tooling is not
-> shipped yet: reference implementations land first, manifest
-> generation second, and conformance claims are premature until the
-> vectors freeze.
+> **Status: Draft.** The normative specification is
+> [PIP-0005](https://github.com/pyde-net/pips/blob/main/pip-0005-pyde-token-standard.md);
+> this document is the deep explainer — the flow, the design
+> reasoning, and the integration guide. The guide-level introduction
+> lives at [Token Standard (PTS) — Planned](../otigen/token-standard.md).
+> Nothing here is deployed yet; reference implementations land first,
+> manifest generation second.
 
 PTS is Pyde's native standard for on-chain assets: **PTS-F**
 (`pts-f/1`) for fungible tokens and **PTS-N** (`pts-n/1`) for

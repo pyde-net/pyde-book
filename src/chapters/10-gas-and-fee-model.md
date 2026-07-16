@@ -171,12 +171,13 @@ target┤----+                 +---+----  target line
 
 ### Why 4× and not higher
 
-- **Validator memory.** A 4× block has up to 4× more transactions to buffer,
-  decrypt, and execute. The per-validator memory ceiling caps how high this
+- **Validator memory.** A 4× block has up to 4× more transactions to buffer
+  and execute. The per-validator memory ceiling caps how high this
   can safely go on commodity hardware.
-- **Decryption + voting timing.** Threshold decryption shares for a 4× block
-  take longer to combine; the commit timing budget assumes the worst
-  case fits.
+- **Reveal-resolution + voting timing.** A 4× wave's private-mempool
+  reveal-resolution pass — re-executing revealed inner transactions in
+  deterministic commit order — takes longer; the commit timing budget assumes
+  the worst case fits.
 - **State growth.** Larger blocks drive faster state growth. The 4× ceiling
   bounds worst-case growth by the same factor.
 
@@ -542,7 +543,7 @@ access list.
 | Treasury share           | None                        | 10% of total fee                  |
 | Native account abstraction| No (ERC-4337 add-on)       | Yes (gas tanks + paymaster)       |
 | Storage rent             | None                        | None (gas pays for the SSTORE)    |
-| MEV bribery resistance   | None (tip-based ordering)   | Structural (no tip; encrypted pool)|
+| MEV bribery resistance   | None (tip-based ordering)   | Structural (no tip; commit-reveal private mempool)|
 
 ---
 

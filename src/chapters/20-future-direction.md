@@ -135,7 +135,9 @@ breaking existing resolution.
 ## 20.2 Cryptography
 
 Three families of work: tightening existing primitives, adding
-zero-knowledge proofs, and the long-tail polish on threshold crypto.
+zero-knowledge proofs, and the open research direction that would let
+the private mempool offer one-shot ciphertext UX without giving up its
+trustless, keyless guarantee.
 
 ### 20.2.1 Algebraic Batch FALCON Verification
 
@@ -171,56 +173,44 @@ cheaply). The state model is already a Merkle structure (JMT). No wire
 change needed when ZK lands; proofs become a new RPC and a new vertex
 field.
 
-### 20.2.3 PSS Share-Extension Optimization
+### 20.2.3 Threshold-LWE One-Shot Private Mempool
 
-What it is. A protocol optimization for the case when the committee
-grows or shrinks within a threshold tier (where `t = 2f+1` stays
-constant). Instead of running a fresh DKG, the existing committee
-performs a one-round share extension to give the new member their
-share of the existing polynomial — without changing the threshold
-public key.
+What it is. A lattice-based (LWE / threshold ML-KEM) threshold
+encryption scheme that would let a user submit a **single ciphertext
+transaction** — encrypted to a validator-committee key, decrypted only
+after the DAG has fixed its order — instead of the two-phase
+commit-then-reveal flow v1 ships. Same front-running guarantee
+(ordering locked before contents are visible), but **one-shot**: no
+second reveal transaction, and the sender's address can be hidden too,
+not just the payload.
 
-Why deferred. v1 ships fresh DKG on any committee size change, which
-is correct and fits comfortably in the 30-min DKG tail. The
-optimization is a single-round protocol versus a three-round DKG; it
-saves network bandwidth and avoids invalidating in-flight encrypted
-transactions across the resize.
+Why it is future, not v1. This is the "encrypted mempool" the original
+design attempted and v1 deliberately does **not** ship. Making it
+trustless requires a *distributed* threshold key with no trusted
+dealer, and post-quantum threshold keygen is an open research problem:
+lattice public keys do not combine homomorphically the way BLS keys
+do, so there is no clean DKG that yields a shared threshold ML-KEM/LWE
+key without either a trusted setup or an unproven construction. v1's
+keyless [commit-reveal private mempool](./09-mev-protection.md) exists
+precisely because it needs none of this — no committee key, nothing to
+collude over, nothing to reconstruct — and delivers the same ordering
+guarantee today.
 
-What it brings. During bootstrap (when committee size grows
-validator-by-validator), encrypted transactions in the mempool stay
-valid across resize epochs instead of being invalidated by a new
-threshold public key. Once the committee stabilizes at the cap, the
-optimization is dormant.
+What it would add, and its cost. One-shot UX and sender-metadata
+hiding, offered as an **optional** lane *alongside* — never replacing —
+the keyless commit-reveal default. The trade is explicit: a user who
+chooses the ciphertext lane accepts a `t`-of-`n` honest-committee
+assumption (the committee *can* decrypt early if it colludes), whereas
+commit-reveal is unconditional. The trustless, keyless path stays the
+default; the ciphertext lane is convenience for those who want it.
 
-When ships. After v1 mainnet is stable and PSS adversarial review is
-complete. The math is standard Lagrange interpolation — reuses the
-same path the decryption-share combine already uses.
-
-### 20.2.4 Pedersen / KZG Commitments for PSS Resharing
-
-What it is. Polynomial commitments attached to each resharing
-contribution, so a malicious old-committee member can't lie about the
-share they claim to be re-sharing without being caught.
-
-Why deferred. v1's PSS-refresh relies on the participation-detector
-plus the resharing-contribution store to catch most equivocation. A
-polynomial-commitment scheme closes the remaining edge case where a
-malicious member emits a syntactically-valid contribution that
-doesn't actually correspond to the right share.
-
-What v1 reserves. The resharing-contribution wire format has a
-forward-compatible `commitment` slot (currently empty); future
-contributions populate it without breaking older readers.
-
-### 20.2.5 ML-KEM Stable Upgrade
-
-What it is. The Kyber-768 implementation Pyde uses for threshold
-mempool encryption is at `0.3.0-rc` of the NIST FIPS 203 reference
-crate. When the stable release ships, Pyde follows.
-
-Why deferred. Operational, not protocol. The wire format is
-specification-locked at FIPS 203 finalization, so the upgrade is a
-dependency bump plus regression testing.
+Status. Research-gated. Blocked on a practical trustless post-quantum
+threshold-keygen primitive (or a deliberate decision to accept a
+one-time trusted-setup ceremony). Not a near-term item; tracked here so
+the door to one-shot private-tx UX stays explicit if and when the
+primitive matures. Adjacent operational work — following the NIST FIPS
+203 (ML-KEM) reference crate from its release-candidate to its stable
+release — only becomes relevant if this lane is built.
 
 ---
 
@@ -470,10 +460,13 @@ that ties them together is the one stated at the top:
 
 Each capability above either lands additively (new RPC, new SDK, new
 contract type) or slots into a reservation v1 has already made
-(`AuthKeys::Programmable` tag, `FeePayer::Paymaster` variant,
-`commitment` slot on resharing contributions). The pieces that need
-protocol-level breaking changes — Sui-style objects, gas refunds,
-on-chain governance — are not planned and aren't coming.
+(`AuthKeys::Programmable` tag, `FeePayer::Paymaster` variant). The
+pieces that need protocol-level breaking changes — Sui-style objects,
+gas refunds, on-chain governance — are not planned and aren't coming.
+The one exception the list keeps deliberately open is a threshold-LWE
+one-shot ciphertext lane (§20.2.3): a purely additive *optional* lane,
+gated on a research primitive, that would sit beside — never replace —
+the keyless commit-reveal default.
 
 This is the bet: a small, correct, audited v1 surface is worth more
 than a feature-rich one. Everything in this chapter is an addition to

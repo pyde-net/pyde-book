@@ -43,11 +43,10 @@ Pyde crypto stack:
   Key exchange: Kyber-768 / ML-KEM        lattice (NIST FIPS 203)
   Hashing:      Blake3 + Poseidon2        hybrid: speed + ZK-friendly
                   Blake3 (Goldilocks-free, ~3 GB/s)
-                    JMT internals, batch hashes, vertex hashes, gossip
+                    JMT internals, batch hashes, vertex hashes, gossip,
+                    commit-reveal commitments
                   Poseidon2 (Goldilocks field, ZK-native)
-                    state root, addresses, MAC, VRF output, RNG mix
-  Threshold:    Shamir over Goldilocks + Kyber + Poseidon2 KDF/MAC
-  PSS resharing: Lagrange interpolation over Goldilocks
+                    state root, addresses, VRF output, RNG mix
   Randomness:   Lattice VRF (FALCON-proof + Poseidon2 output)
   Symmetric:    AES-256-GCM (hardware-accelerated)
 ```
@@ -103,7 +102,7 @@ pub fn falcon_batch_verify(items: &[(&FalconPublicKey, &[u8], &FalconSignature)]
 Signing is deterministic. The implementation ties the FALCON Gaussian sampler
 to a deterministic context derived from the input message, so the same
 `(secret_key, message)` always produces the same signature. This is what
-makes the lattice VRF (§8.7) work — the output is a deterministic function of
+makes the lattice VRF (§8.6) work — the output is a deterministic function of
 the inputs.
 
 The domain-separation tag `b"pyde-falcon-v1"` is mixed into the signing
@@ -117,12 +116,12 @@ context to prevent cross-protocol signature reuse.
 3. **State-root attestations:** committee members sign `(wave_id,
    blake3_state_root, poseidon2_state_root)` after each commit;
    ≥ 85 sigs constitute the `HardFinalityCert`.
-4. **Decryption share authentication:** threshold partial decryptions
-   are FALCON-signed by their producer.
-5. **PSS resharing contributions:** contributors sign their shares.
-6. **P2P peer authentication:** the FALCON handshake (`crates/net/src/auth.rs`).
-7. **VRF proofs:** every VRF output is paired with a FALCON proof.
-8. **Slashing evidence:** submitters sign their evidence transactions.
+4. **Beacon contributions:** each committee member signs its per-member
+   beacon share with a `BeaconKeypair`; ≥ quorum aggregated FALCON sigs
+   form the epoch beacon (see Chapter 6).
+5. **P2P peer authentication:** the FALCON handshake (`crates/net/src/auth.rs`).
+6. **VRF proofs:** every VRF output is paired with a FALCON proof.
+7. **Slashing evidence:** submitters sign their evidence transactions.
 
 ### Batch verification
 
@@ -182,9 +181,10 @@ post-mainnet hardening (`task 057` in the mainnet plan).
    connection, the QUIC handshake uses a hybrid Ed25519 + Kyber key exchange
    (Ed25519 for the libp2p PeerId, Kyber for forward-secure session keys).
    See Chapter 12.
-2. **Threshold encryption for the encrypted mempool.** The committee's
-   threshold public key is a Kyber-768 key whose secret has been
-   Shamir-split across 128 validators. See §8.5.
+
+Kyber's role is confined to transport-layer key agreement. It is **not** part
+of the MEV-protection path: Pyde's private mempool is a keyless commit-reveal
+scheme (§8.5) that uses no key encapsulation at all.
 
 ---
 
@@ -195,7 +195,7 @@ Pyde uses **two** hash functions, each chosen for a class of paths:
 | Function    | Speed (native) | ZK cost (constraints) | Used for |
 |-------------|----------------|------------------------|----------|
 | **Blake3**  | ~3 GB/s        | ~150k per hash (huge) | JMT internal nodes, batch hashes, vertex hashes, gossip de-dup, RocksDB keys |
-| **Poseidon2** | ~60 MB/s     | ~400 (small)          | State root commitment, address derivation, threshold MAC, VRF output, FALCON sig hashing inside ZK circuits, `poseidon2` WASM host function |
+| **Poseidon2** | ~60 MB/s     | ~400 (small)          | State root commitment, address derivation, VRF output, FALCON sig hashing inside ZK circuits, `poseidon2` WASM host function |
 
 ### Blake3
 
@@ -229,9 +229,9 @@ Inside an algebraic system (a STARK, an MPC protocol, a future ZK validity
 proof), bitwise hash functions like Keccak-256 are catastrophically expensive
 — roughly 150,000 algebraic constraints per Keccak hash compared to a few
 hundred for Poseidon2. Even though Pyde doesn't ship a STARK at mainnet, the
-threshold-encryption MAC and the lattice VRF both benefit from a hash that's
-cheap inside an algebraic field, and the JMT itself amortizes the per-Merkle
-work better when the hash is field-native.
+lattice VRF benefits from a hash that's cheap inside an algebraic field, and
+the JMT itself amortizes the per-Merkle work better when the hash is
+field-native.
 
 ### Construction
 
@@ -282,165 +282,121 @@ bytes at a time (avoiding values that exceed the Goldilocks modulus).
    `otigen` developer toolchain's state binding generator.
 5. **Transaction hashing:** the canonical tx hash used for replay
    prevention and the wallet's signing target.
-6. **Threshold MAC:** `Poseidon2(0xFF...0xFF || secret || ciphertext)`.
-7. **VRF output:** `Poseidon2(domain || fingerprint || input)`.
-8. **Epoch randomness combination:** `Poseidon2_many(sorted_shares)`.
-9. **`poseidon2` WASM host function:** exposed to user-space contracts via the host-function ABI.
+6. **VRF output:** `Poseidon2(domain || fingerprint || input)`.
+7. **Epoch randomness combination:** `Poseidon2_many(sorted_shares)`.
+8. **`poseidon2` WASM host function:** exposed to user-space contracts via the host-function ABI.
 
 ---
 
-## 8.5 Threshold Encryption (Mempool MEV Protection)
+## 8.5 Commit-Reveal Commitment Scheme (Mempool MEV Protection)
 
-Threshold encryption is what lets the encrypted mempool work: messages are
-encrypted such that no single validator (or coalition of < 85) can decrypt,
-but the active committee acting collectively can.
+Pyde's front-running protection is a **keyless commit-reveal** private mempool.
+It uses no encryption key, no committee decryption, and no threshold ceremony:
+the only primitives involved are Blake3 hashing and FALCON signatures — both
+post-quantum. Safety never depends on any set of validators declining to
+collude, because there is no shared secret to collude over. This makes the
+scheme **unconditionally trustless**.
 
-### Construction
+The mechanism works in two phases and is specified end-to-end in Chapter 9
+(MEV Protection). This section covers only the cryptographic commitment: how a
+transaction is bound to a hiding commitment and later opened.
 
-The scheme combines three pieces:
+### The commitment
 
-1. **Shamir Secret Sharing** over the Goldilocks field: splits a secret
-   into 128 shares of which any 85 reconstruct.
-2. **Kyber-768 KEM:** the underlying public-key primitive.
-3. **Poseidon2** as a counter-mode keystream and as the MAC.
-
-Implementation: `crates/crypto/src/threshold.rs`.
-
-### Setup (per epoch)
-
-```
-1. Generate a Kyber-768 keypair: (pk, sk_seed)
-2. Split sk_seed into 128 shares using Shamir SSS:
-     - Random degree-(t-1) polynomial f over Goldilocks where t = 85
-     - f(0) = sk_seed
-     - share_i = (i, f(i)) for i in 1..=128
-3. Distribute share_i to validator i
-4. Publish pk as the committee's threshold public key
-```
-
-### Encryption (user wallet)
+A user who wants front-running protection first publishes a **Commit** (TxType
+`0x11`) that carries only a hash, never the transaction body:
 
 ```
-(ciphertext, shared_secret) = Kyber.Encaps(pk)
-keystream = Poseidon2_keystream(shared_secret, message_length)
-encrypted_payload = message XOR keystream
-mac = Poseidon2(0xFF...0xFF || shared_secret || ciphertext)
-wire = (ciphertext, encrypted_payload, mac)
+commitment = Blake3("pyde-commit-reveal-v1" || borsh(inner_tx) || nonce)
 ```
 
-### Decryption (committee)
+- `inner_tx` is the real transaction the user wants to run, serialized with
+  borsh.
+- `nonce` is a fresh random `[u8; 32]` that hides the commitment (so equal
+  inner transactions do not produce equal commitments) and makes the
+  commitment non-malleable.
+- `"pyde-commit-reveal-v1"` is the domain-separation tag, preventing a
+  commitment from being replayed as any other Blake3 digest in the protocol.
+
+Blake3 is preimage- and collision-resistant, so the commitment reveals nothing
+about `inner_tx` and cannot later be opened to a different transaction.
+
+### The reveal
+
+Once the commit's DAG position is fixed, the sender (or **any** account —
+the reveal need not come from the committer) publishes a **Reveal** (TxType
+`0x12`) carrying `RevealPayload { commitment, nonce, inner_tx }`. The protocol
+recomputes `Blake3("pyde-commit-reveal-v1" || borsh(inner_tx) || nonce)` and
+accepts the reveal only if it equals the committed hash. This binding is what
+guarantees the revealed transaction is exactly the one committed to.
+
+### Why this defeats MEV
+
+Order is fixed **before** content is known. The DAG deterministically sequences
+commits at commit time; in the reveal wave's resolution pass, revealed inner
+transactions execute **in commit order**, not reveal order. An adversary who
+sees a commit sees only an opaque Blake3 digest — the payload is hidden — and
+by the time the payload is revealed, its execution position is already locked.
+There is no window in which an attacker can observe a pending transaction's
+content and reorder around it. Front-running is not "discouraged"; it is
+unexpressible.
+
+### Bond
+
+A commit escrows a bond, sized to disincentivize spam and abandonment:
 
 ```
-For each ciphertext in the encrypted block:
-    Each validator i computes a blinded share:
-        blinded_i = raw_share_i + H(ct_hash || i || elem_idx)
-    Validator broadcasts blinded share on the consensus channel.
-    Combiner collects >= 85 shares, unblinds them by subtracting the
-    same H() values, then Lagrange-interpolates at x=0 to recover the
-    Kyber decapsulation seed.
-    Kyber.Decaps(seed, ciphertext) -> shared_secret
-    Verify MAC; on success, decrypt payload with the keystream.
+required_bond(value_ceiling) = max(MIN_COMMIT_BOND, value_ceiling × 1%)
+MIN_COMMIT_BOND = 1e9 quanta = 1 PYDE
 ```
 
-### Share blinding
+`value_ceiling` is declared in the `CommitPayload` and caps the value the
+inner transaction may move. The bond is **refunded** when the reveal is
+accepted and **burned** if the commit is abandoned or expires.
 
-Each share is blinded with a per-ciphertext, per-element mask
-(`H(ct_hash || validator_idx || element_idx)`) before transmission. This
-prevents a validator's share from ciphertext A from being reused against a
-different ciphertext B — even if a validator's share leaked, an attacker
-couldn't apply it to other blocks. The combiner has the ciphertext and can
-unblind during recovery.
+### Window
+
+```
+COMMIT_REVEAL_WINDOW_WAVES = 120
+```
+
+The reveal must land within 120 waves of the commit's inclusion wave. Past
+that, the commit expires, its slot is dropped, and the bond is forfeit.
+Expiry is evaluated as a view predicate over wave height, not a background
+timer.
 
 ### Parameters
 
-| Parameter          | Value                       |
-| ------------------ | --------------------------- |
-| Underlying KEM     | Kyber-768                   |
-| Committee size n   | 128                         |
-| Threshold t        | 85 (~2/3, matches BFT quorum)|
-| Per-share size     | ~256 bytes (blinded)        |
-| Decryption latency | ~10–15 ms once t shares present |
+| Parameter                    | Value                                     |
+| ---------------------------- | ----------------------------------------- |
+| Commitment hash              | Blake3, domain `"pyde-commit-reveal-v1"`  |
+| Commit tx type               | `0x11` (to = ZERO, value = required_bond) |
+| Reveal tx type               | `0x12` (to = ZERO, value = 0)             |
+| `MIN_COMMIT_BOND`            | 1e9 quanta = 1 PYDE                       |
+| Bond ceiling                 | `value_ceiling × 1%` (whichever is larger)|
+| `COMMIT_REVEAL_WINDOW_WAVES` | 120                                       |
+
+### Why not threshold encryption
+
+Earlier Pyde drafts protected the mempool with a threshold-encrypted lane —
+transactions encrypted to a committee Kyber-768 key whose secret was
+Shamir-split across the validator set and reconstructed after ordering. That
+lane has been **removed** from the protocol. The blocker is fundamental:
+there is no *trustless* post-quantum distributed key generation. Lattice
+public keys (Kyber/ML-KEM) do not combine homomorphically the way BLS keys
+do, so a committee cannot generate a threshold ML-KEM key without a trusted
+dealer. Commit-reveal sidesteps the problem entirely by holding **no key at
+all**.
+
+A one-shot ciphertext mempool ("Threshold-LWE") remains a **v2+ research
+direction** — it would run as an *optional* lane alongside the keyless
+commit-reveal default, gated on a trustless PQ threshold-keygen breakthrough.
+See Chapter 20, "Threshold-LWE One-Shot Private Mempool," for that future
+work.
 
 ---
 
-## 8.6 PSS: Proactive Secret Sharing and Resharing
-
-The committee rotates each epoch; the threshold public key does not change.
-PSS is what makes that work — at every epoch boundary the shares are
-refreshed without anyone learning the underlying secret.
-
-### Why PSS
-
-Without PSS, every committee rotation would require a fresh distributed key
-generation (DKG), which is `O(n^2)` interactive and slow. PSS achieves the
-same goal with a single round of asynchronous contributions per validator.
-
-### Same-committee refresh
-
-Used for routine forward-security refresh:
-
-```
-Each member generates a degree-(t-1) polynomial f_i with f_i(0) = 0.
-Each member sends f_i(j) to every other member j.
-Each member j updates: new_share_j = old_share_j + Σ f_i(j)
-Because every f_i(0) = 0, the underlying secret is unchanged.
-But every share is now drawn from a fresh combined polynomial.
-```
-
-The verification check `verify_refresh_contribution` confirms the first
-`t` evaluations interpolate back to zero — catching contributors who tried
-to inject a non-zero free term.
-
-### Cross-committee resharing
-
-Used at epoch boundaries when membership changes:
-
-```
-Each old member i with share s_i picks a fresh degree-(new_t - 1)
-polynomial g_i with g_i(0) = s_i. They evaluate at the indices of
-the new committee and ship the resulting sub-shares.
-
-Each new member j collects threshold contributions, applies a
-canonical-subset rule (lowest-from_old_index first), and aggregates:
-    new_share_j = Σ (lambda_i × g_i(j))
-where lambda_i are Lagrange coefficients at x=0 over the OLD indices.
-
-Result: H(0) = original secret; H is the new polynomial; the new
-committee sits on H.
-```
-
-The canonical-subset rule is critical. Different new members must
-deterministically agree on which `t` contributions to use, or they end up on
-different polynomials. The rule: sort contributions by `from_old_index`, take
-the first `t`. This is implemented as `canonical_resharing_subset()` in
-`crates/crypto/src/threshold.rs`.
-
-### The aggregation delay
-
-Because the network delivers contributions asynchronously, every new member
-waits `RESHARE_AGGREGATION_DELAY_ROUNDS = 5` rounds after entering the new
-epoch before aggregating. This guarantees that the same canonical set is
-visible to every new member when aggregation begins.
-
-### Known limitation: no VSS / KZG commitments
-
-The current `verify_refresh_contribution` and `verify_resharing_contribution`
-detect polynomial **inconsistency** — if the sub-shares aren't all on the
-claimed polynomial, the check fails. They do **not** detect a malicious
-member who consistently presents a polynomial whose constant term is not
-their actual share `s_i`. This would silently cause the new committee to
-derive shares of a *different* secret, and threshold decryption would stop
-working at the start of the next epoch.
-
-The mitigation requires Pedersen or KZG commitments on the shares — a
-substantial crypto upgrade. For mainnet, the assumption is "committee-member
-compromise is rare," and any such corruption surfaces as a hard decryption
-failure within the first block of the affected epoch (highly visible). The
-upgrade is tracked as post-mainnet research.
-
----
-
-## 8.7 Lattice VRF
+## 8.6 Lattice VRF
 
 Pyde's VRF is built on FALCON-512. The construction:
 
@@ -471,9 +427,10 @@ Verify(pk, input, output, proof):
 
 1. **Anchor selection (indirect).** Each round, the canonical anchor is
    computed as `Hash(beacon, round, prev_state_root) mod 128` (see
-   Chapter 6 §3). The beacon itself is the threshold-aggregated VRF
-   output of the prior epoch's committee — so VRF underpins anchor
-   selection one step removed, not per-round.
+   Chapter 6 §3). The beacon itself is the quorum-aggregated VRF
+   output of the prior epoch's committee (an aggregate of ≥ quorum
+   per-member contributions, not a threshold-shared secret) — so VRF
+   underpins anchor selection one step removed, not per-round.
 2. **Epoch randomness contributions.** Each member of the previous epoch's
    committee contributes a VRF share that, combined with 84 others, seeds
    the next epoch's beacon.
@@ -484,16 +441,14 @@ Verify(pk, input, output, proof):
 
 ---
 
-## 8.8 Symmetric Encryption: AES-256-GCM
+## 8.7 Symmetric Encryption: AES-256-GCM
 
 All symmetric encryption uses **AES-256-GCM**:
 
-1. **Threshold-encrypted transaction payloads.** Once the Kyber KEM gives
-   the wallet a 32-byte shared secret, the payload is encrypted with
-   AES-256-GCM under that secret.
-2. **P2P channel encryption** (after the libp2p QUIC handshake — see
+1. **P2P channel encryption** (after the libp2p QUIC handshake — see
    Chapter 12).
-3. **Wallet keystore encryption** (`crates/pyde-rust-sdk/src/wallet.rs`).
+2. **Wallet keystore encryption** (`crates/pyde-rust-sdk/src/wallet.rs`) —
+   protecting a FALCON secret key at rest on disk.
 
 ### Properties
 
@@ -503,7 +458,7 @@ All symmetric encryption uses **AES-256-GCM**:
 
 ---
 
-## 8.9 Key Derivation and Address Format
+## 8.8 Key Derivation and Address Format
 
 ### From keypair to address
 
@@ -544,7 +499,7 @@ is a wallet-side concern; the protocol doesn't care.
 
 ---
 
-## 8.10 The Stack at a Glance
+## 8.9 The Stack at a Glance
 
 ```
    +----------------+     +----------------+
@@ -554,10 +509,10 @@ is a wallet-side concern; the protocol doesn't care.
         |                       |
         v                       v
    tx sigs               P2P session keys
-   vertex sigs           threshold pubkey (mempool)
-   state root attest         |
-   PSS contributions          |
-        |                       |
+   vertex sigs           (transport only)
+   state root attest
+   beacon shares
+        |
         +-> Lattice VRF (FALCON sign + Poseidon2 output)
               anchor seeding, epoch randomness, committee scoring
 
@@ -569,26 +524,28 @@ is a wallet-side concern; the protocol doesn't care.
         v                       v
    JMT internals          state root commit,
    batch hashes           addresses, storage keys,
-   vertex hashes          MAC, VRF output, RNG mix
+   vertex hashes          VRF output, RNG mix
    gossip dedup           poseidon2 host function
+   commit-reveal hash
 
    +----------------+
    | AES-256-GCM    |
    +----------------+
-   payload AEAD,
+   transport AEAD,
    wallet keystore
 ```
 
 No elliptic curves anywhere. No trusted setup. Every primitive is either a
 NIST FIPS-standardized scheme (FALCON, ML-KEM, AES) or a widely-studied
-algebraic construction (Poseidon2, Shamir SSS, PSS).
+algebraic construction (Poseidon2). The MEV-protection path (§8.5) holds no
+key at all — it is pure Blake3 + FALCON.
 
 ---
 
-## 8.11 Cryptographic Agility
+## 8.10 Cryptographic Agility
 
 Each primitive is accessed through a small, well-defined module
-(`crates/crypto/src/falcon.rs`, `kyber.rs`, `poseidon2.rs`, `threshold.rs`,
+(`crates/crypto/src/falcon.rs`, `kyber.rs`, `poseidon2.rs`, `blake3.rs`,
 `vrf.rs`). If a serious break is discovered in any one of them, the
 affected module can be replaced through a protocol upgrade without
 restructuring the rest of the system.
@@ -609,14 +566,13 @@ happen if a substantive cryptanalytic break appeared.
 
 | Primitive          | Use                                              | Where                            |
 | ------------------ | ------------------------------------------------ | -------------------------------- |
-| FALCON-512         | All signatures (txs, vertices, state roots, attestations)| `crates/crypto/src/falcon.rs` |
-| Kyber-768 / ML-KEM | P2P session keys + threshold mempool encryption  | `crates/crypto/src/kyber.rs`     |
-| Blake3             | High-volume native hashes (JMT, batches, vertices, gossip) | `crates/crypto/src/blake3.rs` |
-| Poseidon2          | ZK-bearing hashes (state root, addresses, MAC, VRF, opcode)| `crates/crypto/src/poseidon2.rs` |
-| Threshold scheme   | 85-of-128 mempool decryption (Kyber + Shamir)    | `crates/crypto/src/threshold.rs` |
-| PSS (refresh + reshare)| Forward security + cross-committee handoff   | `crates/crypto/src/threshold.rs` |
+| FALCON-512         | All signatures (txs, vertices, state roots, attestations, beacon)| `crates/crypto/src/falcon.rs` |
+| Kyber-768 / ML-KEM | P2P transport session keys (transport only)      | `crates/crypto/src/kyber.rs`     |
+| Blake3             | High-volume native hashes (JMT, batches, vertices, gossip) + commit-reveal commitments | `crates/crypto/src/blake3.rs` |
+| Poseidon2          | ZK-bearing hashes (state root, addresses, VRF, opcode)| `crates/crypto/src/poseidon2.rs` |
+| Commit-reveal      | Keyless private mempool (Blake3 commitment + bond)| see Chapter 9 (MEV Protection)   |
 | Lattice VRF        | Anchor seeding, randomness, committee score      | `crates/crypto/src/vrf.rs`       |
-| AES-256-GCM        | Symmetric AEAD (mempool payload, wallet keystore)| (via the `aes-gcm` crate)        |
+| AES-256-GCM        | Symmetric AEAD (P2P transport, wallet keystore)  | (via the `aes-gcm` crate)        |
 
 The next chapter walks through MEV protection end-to-end — how these
 primitives combine in the DAG commit pipeline to make front-running

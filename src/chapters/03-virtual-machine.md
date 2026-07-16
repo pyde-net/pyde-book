@@ -49,7 +49,7 @@ Execution sits inside the `wasm-exec` crate of the engine workspace. The crate e
   │  lift)   │  │ contract) │     │ — sstore        │
   └─────────┘  └──────────┘     │ — transfer       │
                                   │ — emit_event    │
-                                  │ — threshold_*    │
+                                  │ — falcon_verify │
                                   │ — hash_*         │
                                   │ — cross_call    │
                                   │ — ...            │
@@ -131,9 +131,8 @@ This section gives the conceptual surface; the spec gives the binary signatures.
 - `hash_poseidon2(input) -> hash32` — ZK-friendly hashing (used in state commitments).
 
 **Post-quantum cryptography:**
-- `threshold_encrypt(plaintext) -> ciphertext` — encrypt a payload under the current committee's threshold key. Available to parachains only.
-- `threshold_decrypt(ciphertext) -> plaintext` — combine pre-collected committee shares to decrypt. Available to parachains only.
 - `falcon_verify(pubkey, message, signature) -> bool` — verify a FALCON-512 signature.
+- `threshold_encrypt` / `threshold_decrypt` — **reserved, not in v1.** These names are held for a possible optional one-shot ciphertext lane, which remains a v2+ research direction gated on a trustless PQ threshold-keygen breakthrough (see [Chapter 20 — Threshold-LWE One-Shot Private Mempool](./20-future-direction.md)). v1's MEV protection is the keyless commit-reveal private mempool, which uses no committee decryption key.
 
 **Cross-contract calls:**
 - `cross_call(target, fn_name, calldata, value, gas_limit, ...)` — synchronous call into another contract. Sub-call runs in a nested overlay; merges on success, discards on trap.
@@ -395,7 +394,7 @@ The honest numbers, measured against PVM-era proxies (WASM-era numbers will repl
 - Paid once per contract per node startup, then cached forever.
 
 **End-to-end TPS:**
-The v1 honest throughput target on commodity validator hardware (for both the plaintext and encrypted regimes) is to be established by the multi-region performance harness — it comes from the full-chain harness (consensus + execution + state + network), not from VM microbenchmarks alone. The VM is approximately the fifth-most-important contributor to that number, behind signature verification, network bandwidth, consensus latency, and disk I/O.
+The v1 honest throughput target on commodity validator hardware (for both the plaintext and private-mempool commit-reveal regimes) is to be established by the multi-region performance harness — it comes from the full-chain harness (consensus + execution + state + network), not from VM microbenchmarks alone. The VM is approximately the fifth-most-important contributor to that number, behind signature verification, network bandwidth, consensus latency, and disk I/O.
 
 The publishing discipline applies: published TPS numbers are derived conservatively from sustained measurement under realistic conditions, never from microbenchmark peaks or lab extrapolations.
 
@@ -523,5 +522,5 @@ These are tracked as planned work and resolved as the execution layer matures:
 - [Chapter 4: State Model](./04-state-model.md) — how `sload` and `sstore` reach the JMT.
 - [Chapter 5: Otigen Toolchain](./05-otigen-toolchain.md) — how authors interact with the execution layer through the developer tool.
 - [Chapter 6: Consensus](./06-consensus.md) — how execution outcomes commit to the chain.
-- [Chapter 8: Cryptography](./08-cryptography.md) — what FALCON, Kyber, and Poseidon2 actually do, and how the host functions expose them.
+- [Chapter 8: Cryptography](./08-cryptography.md) — what FALCON, Poseidon2, and Blake3 actually do, and how the host functions expose them.
 - [Preface: The Pivot](../preface/pivot.md) — why the execution layer is WebAssembly rather than a custom VM.

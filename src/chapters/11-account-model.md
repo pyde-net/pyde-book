@@ -622,7 +622,7 @@ Step 2 — RPC ingress
   -> ENQUEUE on gossip channel BEFORE returning Ok
 
 Step 3 — Mempool propagation
-  Encrypted payload reaches every node's mempool via gossipsub.
+  Transaction payload reaches every node's mempool via gossipsub.
 
 Step 4 — DAG vertex production (round R)
   Tx referenced by batch hash in worker batch; each committee member's
@@ -631,8 +631,12 @@ Step 4 — DAG vertex production (round R)
 Step 5 — Commit (round R+3, ~500 ms after submission)
   Deterministic anchor commits the subdag; canonical order emitted.
 
-Step 6 — Threshold decryption (rounds R+4 to R+5)
-  85+ Kyber shares -> shared_secret -> AES decrypt payload.
+Step 6 — Private-mempool resolution (only for commit-reveal txs)
+  This Standard tx skips it. A privacy-seeking swap would instead be a
+  Commit (0x11) whose order is fixed here by the DAG, then a Reveal (0x12)
+  within COMMIT_REVEAL_WINDOW_WAVES; revealed inner txs execute in commit
+  order, so content is never known before order is locked. No committee key
+  or decryption is involved. See Chapter 9.
 
 Step 7 — Execution (Block-STM)
   - Gas charged from DEX.gas_tank (FeePayer::GasTank); accounted via wasmtime fuel.

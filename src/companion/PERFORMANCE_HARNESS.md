@@ -29,7 +29,7 @@ pyde-bench/
 ├── workloads/           # Workload generators
 │   ├── transfers.rs         (simple PYDE transfers)
 │   ├── contract_calls.rs    (WASM contract interactions)
-│   ├── encrypted_swaps.rs   (Kyber-encrypted, MEV-sensitive)
+│   ├── private_swaps.rs     (commit-reveal, MEV-sensitive)
 │   ├── nft_mint_burst.rs    (burst pattern simulation)
 │   └── mixed.rs             (realistic distribution)
 ├── metrics/             # Metrics collection + reporting
@@ -79,13 +79,13 @@ trait Workload {
 Concrete workloads:
 - **TransferWorkload:** simple A→B transfers; baseline
 - **ContractWorkload:** realistic WASM contract interactions
-- **EncryptedSwapWorkload:** ~80% encrypted (worst-case for decryption)
+- **PrivateSwapWorkload:** ~80% commit-reveal pairs (worst-case for reveal-resolution)
 - **NFTMintBurstWorkload:** ramps from idle to a high burst and back over 60s
-- **MixedWorkload:** 70% transfers / 15% contracts / 10% encrypted / 5% complex
+- **MixedWorkload:** 70% transfers / 15% contracts / 10% commit-reveal / 5% complex
 
 **Workload realism:**
 - Real FALCON sig generation (not pre-computed)
-- Real Kyber encryption (not pre-computed)
+- Real Blake3 commitments + two-phase commit/reveal (not pre-computed)
 - Variable tx sizes (not all minimum)
 - Account hot-spotting (some accounts get more traffic — tests parallel execution)
 
@@ -102,7 +102,8 @@ Concrete workloads:
 - `batch_to_vertex_latency` — batch → referenced by vertex
 - `vertex_to_commit_latency` — vertex → commit
 - `commit_to_execution_latency` — commit → wasmtime executed
-- `decryption_ceremony_latency` — start partial → ≥85 received
+- `reveal_resolution_latency` — reveal committed → commitment matched + inner tx slotted
+- `commit_to_reveal_waves` — waves elapsed between a Commit and its Reveal (bounded by the 120-wave window)
 
 ### Consensus Metrics
 - `round_advance_rate` — rounds/sec per validator
@@ -132,7 +133,6 @@ Concrete workloads:
 
 ### Validator-Specific
 - `slashing_events_per_epoch`
-- `dkg_ceremony_time_ms`
 - `epoch_transition_time_ms`
 
 ## Soak Test Schedule
@@ -178,11 +178,11 @@ All must pass with publishable evidence before any TPS claim:
 | Burst above target | 60s burst absorbed, queue drains in 5 min |
 | Validator restart loop | 24h with restarts every 5 min, no stall |
 | Network partition | 30% partition for 5 min, both recover, no fork |
-| DKG under load | Epoch transition at the v1 throughput target, no commit stall |
+| Epoch transition under load | Committee handover at the v1 throughput target, no commit stall |
 | State sync under load | New node joins under sustained load, syncs in <1 hour |
 | Slashing under load | Equivocation slashed within 1 epoch |
 | 7-day soak test | Sustained load for 7 days, no memory leak, no drift |
-| Encrypted tx mix | 30% encrypted at the v1 throughput target, decrypt latency <500ms |
+| Private-mempool tx mix | 30% commit-reveal at the v1 throughput target, reveal-resolution latency <500ms |
 | Modest hardware | Single committee validator on 1 Gbps, 8c/16GB |
 
 ## Honest Reporting Discipline
@@ -195,7 +195,7 @@ All must pass with publishable evidence before any TPS claim:
 
 **Publication format:**
 
-> *"Pyde sustained [harness-measured] TPS over a 4-hour test on a 16-validator multi-region testnet (US-East, EU-West, AP-Southeast), with median finality of 480ms and p99 of 950ms. Workload: 70% transfers, 15% contract calls, 10% encrypted, 5% complex. Test methodology and raw data available at `pyde.network/perf/{run-id}`."*
+> *"Pyde sustained [harness-measured] TPS over a 4-hour test on a 16-validator multi-region testnet (US-East, EU-West, AP-Southeast), with median finality of 480ms and p99 of 950ms. Workload: 70% transfers, 15% contract calls, 10% commit-reveal, 5% complex. Test methodology and raw data available at `pyde.network/perf/{run-id}`."*
 
 Specific numbers, methodology referenced, reproducible. **NOT** "Pyde supports [huge number] TPS" with no caveats.
 

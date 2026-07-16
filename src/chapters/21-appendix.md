@@ -15,33 +15,33 @@ and the post-mainnet plan.
 | **otigen**           | Pyde's developer toolchain (the binary). Scaffolds projects, builds WASM artifacts, deploys, manages wallets. Name carried forward from the retired Otigen language. |
 | **WASM**             | WebAssembly. Pyde's execution layer; smart contracts and parachains compile to WASM and execute under wasmtime. |
 | **wasmtime**         | The WebAssembly runtime used by Pyde. Bytecode Alliance project, production-vetted at Microsoft / Fastly / Shopify. |
-| **Host Function ABI**| The stable interface contracts use to interact with chain state (sload, sstore, transfer, threshold crypto, hashing, cross_call, etc.). See the Host Function ABI spec. |
+| **Host Function ABI**| The stable interface contracts use to interact with chain state (sload, sstore, transfer, hashing, FALCON verify, cross_call, etc.). See the Host Function ABI spec. |
 | **Cranelift**        | The code generator used by wasmtime for ahead-of-time WASM-to-native compilation. |
 | **Otigen** (retired) | Was Pyde's domain-specific smart-contract language. Retired in the WASM pivot; see [The Pivot preface](../preface/pivot.md). The Otigen Book is preserved as a historical artifact. |
 | **JMT**              | Jellyfish Merkle Tree. The state commitment structure (radix-16, path-compressed). |
 | **Blake3**           | Fast bitwise hash. Used for JMT internals, batch hashes, vertex hashes, gossip de-dup. |
 | **Poseidon2**        | Algebraic hash over the Goldilocks field. State root commit, addresses, MAC, VRF, ZK-bearing paths. |
 | **FALCON-512**       | NIST FIPS 206 post-quantum signature scheme. ~666-byte sigs, 897-byte pks.   |
-| **Kyber-768**        | NIST FIPS 203 post-quantum KEM. P2P session keys and threshold mempool.    |
-| **Threshold encryption** | Mempool encryption such that any 85 of 128 committee members combine to decrypt.|
-| **PSS**              | Proactive Secret Sharing — refresh key shares without changing the public key.|
-| **DKG**              | Distributed Key Generation. Pedersen DKG ceremony each epoch for threshold pubkey. |
+| **Kyber-768**        | NIST FIPS 203 post-quantum KEM. P2P / transport session keys.              |
+| **Threshold encryption** *(retired)* | A committee-key encrypted mempool (Kyber + Shamir 85-of-128) from earlier drafts. Removed from the protocol — trustless PQ threshold keygen is research-blocked (lattice pubkeys do not combine homomorphically). MEV protection is now the keyless private mempool (commit-reveal, Chapter 9). A one-shot ciphertext lane stays v2+ research; see [Chapter 20](20-future-direction.md). |
+| **PSS** *(retired)*  | Proactive Secret Sharing — refreshed threshold key shares in the retired encrypted-mempool design. Gone with the threshold lane. |
+| **DKG** *(retired)*  | Distributed Key Generation — per-epoch threshold-pubkey ceremony in the retired encrypted-mempool design. Gone with the threshold lane. |
 | **VRF**              | Verifiable Random Function. Lattice-based; built from FALCON + Poseidon2.   |
 | **Mysticeti**        | The DAG-based consensus protocol Pyde uses (post-2026 pivot, formerly HotStuff). |
 | **DAG**              | Directed Acyclic Graph. Every round, each committee member produces a vertex; parents must be strictly prior rounds. |
-| **Vertex**           | A committee member's per-round output: batch refs + parent refs + state-root sigs + decryption shares + FALCON sig. |
+| **Vertex**           | A committee member's per-round output: batch refs + parent refs + state-root sigs + FALCON sig. |
 | **Round**            | A ~150 ms DAG cycle. Each member produces one vertex per round.            |
 | **Wave**             | The Mysticeti commit unit. Anchor at round R+3 commits the subdag rooted at round R. |
 | **Anchor**           | Deterministically-selected committee member whose round-R vertex commits the wave. `Hash(beacon, round, prev_state_root) mod 128`. |
 | **Worker / Primary** | Narwhal pattern: workers gossip tx batches, primary produces vertices and runs consensus. |
 | **HardFinalityCert** | ≥ 85 FALCON sigs over `(wave_id, blake3_state_root, poseidon2_state_root)`. |
 | **Committee**        | The 128 active validators per epoch. Equal vote weight; uniform random selection. |
-| **Epoch**            | ~3 hours of waves. PSS resharing fires at epoch boundary.                   |
+| **Epoch**            | ~3 hours of waves. Committee rotation + next-epoch beacon fire at the boundary. |
 | **Validator**        | Node staking ≥ `MIN_VALIDATOR_STAKE` (10,000 PYDE). Single tier — uniform-random committee selection picks 128 from the eligible pool each epoch. |
 | **Full node**        | Node that executes waves and serves RPC, but does not stake.                |
 | **MEV**              | Maximal Extractable Value. The MEV class is structurally closed in Pyde.    |
-| **Encrypted mempool**| Optional Kyber-encrypted submission. Decryption deferred until after DAG anchor commit. |
-| **Commit-before-reveal**| DAG anchor commits canonical ordering before threshold-decryption shares are released. |
+| **Private mempool**  | Optional keyless commit-reveal lane for MEV-sensitive txs: Commit (0x11) locks a Blake3 commitment + bond, Reveal (0x12) discloses the inner tx after DAG order is fixed. No committee key, no decryption. See Chapter 9. |
+| **Commit-reveal**    | The private-mempool mechanism: the DAG fixes commit order before inner-tx content is revealed, so revealed txs execute in that fixed order (not reveal order). Front-running is structurally impossible; no committee key involved. |
 | **Block-STM scheduler** | Execution model: uniform optimistic parallel execution through an MVCC layer; conflicts detected at validation, losers re-execute until fixpoint. Access lists from `pyde_simulateTransaction` drive PIP-3 multiget prefetch but never partition the wave. |
 | **Sentry node**      | Public-facing proxy in front of a committee validator. Hides validator's real IP. |
 | **Treasury**         | The system account at `Poseidon2("pyde-treasury")`. Spent via on-chain multisig.|
@@ -69,8 +69,9 @@ and the post-mainnet plan.
 | `COMMITTEE_SIZE` (mainnet)         | 128                             | `consensus/committee.rs`            |
 | `THRESHOLD` (2f+1)                 | 85                              | `consensus/quorum.rs`               |
 | `EQUIVOCATION_THRESHOLD` (n-2f)    | 44                              | `consensus/quorum.rs`               |
-| `RANDOMNESS_THRESHOLD`             | 85 (sorted before combine)     | `consensus/epoch_randomness.rs`     |
-| `RESHARE_AGGREGATION_DELAY_WAVES`  | 5                               | `crypto/threshold.rs` / validator   |
+| `RANDOMNESS_THRESHOLD`             | 85 (beacon sigs sorted before combine) | `consensus/epoch_randomness.rs`  |
+| `COMMIT_REVEAL_WINDOW_WAVES`       | 120                             | `tx/commit_reveal.rs`               |
+| `MIN_COMMIT_BOND`                  | 1e9 quanta (1 PYDE)             | `tx/commit_reveal.rs`               |
 | `MIN_VALIDATOR_STAKE`              | 10,000 PYDE                     | `tx/pipeline.rs` (single tier)      |
 | `MAX_VALIDATORS_PER_OPERATOR`      | 3                               | `tx/pipeline.rs` (anti-Sybil cap)   |
 | `UNBONDING_PERIOD`                 | 30 days                          | `consensus/validator.rs`            |
@@ -109,6 +110,9 @@ and the post-mainnet plan.
 | `RATE_WINDOW_MS`                          | 1000       | `mempool/pool.rs`  |
 | `WINDOW_SIZE` (nonce bitmap)              | 16         | `account/nonce.rs` |
 | `MAX_RECEIPT_SLOTS`                       | 10,000     | `node/receipt_store.rs` |
+| `MIN_COMMIT_BOND`                         | 10^9 quanta (1 PYDE) | `mempool/commit_reveal.rs` |
+| `COMMIT_REVEAL_WINDOW_WAVES`              | 120        | `mempool/commit_reveal.rs` |
+| `required_bond(value_ceiling)`            | max(`MIN_COMMIT_BOND`, 1% × value_ceiling) | `mempool/commit_reveal.rs` |
 
 ## E. WASM Execution Constants
 
@@ -190,6 +194,8 @@ fails decode.
 | 11  | `EmergencyPause`  | Halt block production (multisig-signed)                  |
 | 12  | `EmergencyResume` | Resume normal processing                                  |
 | 13  | `RegisterPubkey`  | First-time pubkey binding for a funded-but-unregistered account (no sig, no gas; proof is address-derivation) |
+| 17 (`0x11`) | `Commit`  | Private-mempool commit: `to` = zero, `value` = required_bond, `data` = borsh(`CommitPayload { commitment, value_ceiling }`). Bond escrowed on inclusion; refunded on accepted reveal, burned on expiry. |
+| 18 (`0x12`) | `Reveal`  | Private-mempool reveal: `to` = zero, `value` = 0, `data` = borsh(`RevealPayload { commitment, nonce, inner_tx }`). Any account may submit; inner tx executes in DAG commit order within `COMMIT_REVEAL_WINDOW_WAVES`. |
 
 ---
 
@@ -215,7 +221,7 @@ The full Host Function ABI specification (signatures, memory layout conventions,
 `keccak256`, `blake3`, `poseidon2`
 
 ### Post-quantum cryptography
-`threshold_encrypt`, `threshold_decrypt_share`, `falcon_verify`
+`falcon_verify`
 
 ### Cross-contract / cross-parachain
 `cross_call`
@@ -256,7 +262,6 @@ Full reference in Chapter 17. The methods, prefixed `pyde_`:
 | `pyde_mempoolSize`              | pending tx count                        |
 | `pyde_sendRawTransaction`       | tx hash                                |
 | `pyde_sendTransaction`          | (dev only) tx hash                     |
-| `pyde_sendEncryptedTransaction` | tx hash                                |
 | `pyde_call`                     | view-function return data (FREE off-chain) |
 | `pyde_estimateGas`              | gas estimate                           |
 | `pyde_createAccessList`         | inferred access list                   |
@@ -280,9 +285,7 @@ resumes a `logs` stream after disconnect. Full mechanics:
 | Key encapsulation      | Kyber-768 / ML-KEM (FIPS 203)   | pk 1184 B, sk seed 64 B, ct 1088 B|
 | High-volume hashing    | Blake3                           | 256-bit output, ~3 GB/s native     |
 | ZK-bearing hashing     | Poseidon2 over Goldilocks       | 256-bit output, ~400 constraints/hash|
-| Threshold encryption   | Shamir SSS + Kyber + Poseidon2  | 85-of-128, ~250 B per share        |
-| PSS resharing          | Lagrange interpolation over Goldilocks | preserves underlying secret       |
-| DKG                    | Pedersen DKG over Kyber-768     | per-epoch threshold pubkey         |
+| Private mempool (MEV)  | Blake3 commitment + FALCON sig   | keyless commit-reveal; 32-byte commitment, no committee key |
 | VRF                    | FALCON-proof + Poseidon2 output | inherits FALCON security           |
 | Symmetric AEAD         | AES-256-GCM (hardware-accelerated)| 32-byte key, 16-byte tag          |
 | Address                | `Poseidon2(falcon_pubkey)`       | 32 bytes                           |
@@ -302,7 +305,7 @@ priority each is tracked at:
 | ML-KEM upgrade from 0.3.0-rc to stable                    | High     | Task 057. Once NIST stable releases.       |
 | Algebraic batch FALCON verification                       | High     | Per-block verification cost reduction.      |
 | Signed-mempool commitments + censorship slashing          | High     | Replaces local-view mandatory inclusion.    |
-| Pedersen / KZG commitments for PSS resharing              | High     | Closes the malicious-contributor edge case. |
+| Threshold-LWE one-shot ciphertext mempool                 | Research | Optional lane beside the keyless commit-reveal default; gated on a trustless PQ threshold-keygen breakthrough. See [Chapter 20](20-future-direction.md). |
 | Graceful drain-and-shutdown on persist failure            | Medium   | Task 014e. Operational polish.              |
 | Two-dimensional gas (exec + prove)                        | Medium   | Depends on ZK proving landing.              |
 | Off-chain Merkle builder CLI for airdrop ops              | Medium   | Operator tooling, ~150 LOC.                 |
@@ -337,7 +340,7 @@ the future post-pivot workspace for `wasm-exec`).
 
 | Subsystem            | Key files                                                    |
 | -------------------- | ------------------------------------------------------------ |
-| Crypto stack         | `crates/crypto/src/{falcon,kyber,poseidon2,threshold,vrf}.rs` |
+| Crypto stack         | `crates/crypto/src/{falcon,kyber,poseidon2,blake3,beacon}.rs` |
 | State commitment     | `crates/state/src/jmt_store.rs`, `witness.rs`, `keys.rs`      |
 | Account record       | `crates/account/src/{types,address,nonce}.rs`                 |
 | Slashing constants   | `crates/slashing/src/lib.rs`                                  |
@@ -346,7 +349,7 @@ the future post-pivot workspace for `wasm-exec`).
 | Airdrop              | `crates/tx/src/airdrop.rs`                                    |
 | Consensus            | `crates/consensus/src/{dag,vertex,wave,anchor,subdag,validator,finality,slashing,epoch_randomness,committee,quorum,round}.rs` |
 | Networking           | `crates/net/src/{node,channels,auth,peer,ddos,discovery,config}.rs` |
-| Mempool              | `crates/mempool/src/{pool,block_builder,inclusion,encrypted}.rs` |
+| Mempool              | `crates/mempool/src/{pool,block_builder,inclusion,commit_reveal}.rs` |
 | Node binary + RPC    | `crates/node/src/{main,cli,rpc,validator,consensus_store,receipt_store}.rs` |
 | WASM execution layer (to be implemented) | `wasm-exec/src/{lib,host_fns,module_cache,gas_meter,validate}.rs` (post-pivot) |
 | `otigen` developer toolchain | `pyde-net/otigen` (separate repo): subcommand framework, otigen.toml schema, language detection, state binding generators (Rust/AS/Go/C), deploy flow, wallet |
@@ -367,7 +370,7 @@ The key headline figures, with their sources:
 | ~150 ms DAG round period            | `ROUND_PERIOD_MS` in `consensus/round.rs`     |
 | ~500 ms median commit          | `COMMIT_TARGET_MS` in `consensus/commit.rs`|
 | v1 plaintext throughput target      | Awaiting multi-region performance harness measurement; publish only what the harness measures under sustained, production-realistic conditions ([companion/PERFORMANCE_HARNESS.md](../companion/PERFORMANCE_HARNESS.md)) |
-| v1 encrypted throughput target       | Same harness; reduced by threshold-decryption serial cost |
+| v1 private-mempool throughput        | Same harness; Commit + Reveal are two ordinary txs — no decryption stage |
 | 70 / 20 / 10 fee split              | `FEE_BURN_PCT` etc in `tx/execution.rs`        |
 | 5% → 1% inflation schedule          | `INFLATION_BPS` in `tx/fee.rs`                 |
 | 10,000 PYDE validator min stake     | `MIN_VALIDATOR_STAKE` in `tx/pipeline.rs` (single tier)|
@@ -381,7 +384,7 @@ The key headline figures, with their sources:
 | wasmtime + Cranelift AOT            | Pinned wasmtime version in `Cargo.toml`         |
 | Module cache size                   | `MODULE_CACHE_SIZE` in `wasm-exec/src/module_cache.rs` (post-pivot) |
 | Committee 128, threshold 85          | `COMMITTEE_SIZE`, `THRESHOLD` in `consensus/quorum.rs`|
-| 85-of-128 threshold for decryption  | `RANDOMNESS_THRESHOLD` (and equivalent for Kyber) |
+| 85-of-128 beacon quorum             | `RANDOMNESS_THRESHOLD` in `consensus/epoch_randomness.rs` |
 
 ---
 
@@ -404,11 +407,11 @@ Pyde is a sovereign post-quantum L1. Mainnet ships:
 - **No elliptic curves** — FALCON-512, Kyber-768, Blake3, Poseidon2, lattice VRF.
 - **Mysticeti-style consensus, no proposers** — each round every committee member produces a vertex; canonical order is structural.
 - **Uniform Block-STM execution** — optimistic parallel exec + MVCC validation; access lists from `pyde_simulateTransaction` drive PIP-3 multiget prefetch into the dashmap cache, never partition the wave.
-- **Optional threshold encryption** — opt in per-tx for MEV protection; plaintext supported at lower cost.
+- **Private mempool (keyless commit-reveal)** — opt in per-tx for MEV protection; no committee decryption key. Commit then reveal; inner txs execute in DAG commit order (Chapter 9). A one-shot ciphertext lane stays v2+ research (Chapter 20).
 - **No tip mechanism** — fees are exactly `gas_used × base_fee`.
 - **No on-chain stake-weighted vote** — governance is PIPs + on-chain multisig.
 - **No bridge at v1** — `cross_call!` macro stable; parachain operator layer ships post-mainnet.
-- **Structural MEV protection** — commit-before-reveal + structural ordering + no tips = unexpressible MEV.
+- **Structural MEV protection** — commit-reveal + structural ordering + no tips = unexpressible MEV.
 
 Everything that doesn't ship at mainnet is tracked, scoped, and
 prioritized for post-launch work. Honesty about what's in vs out is the

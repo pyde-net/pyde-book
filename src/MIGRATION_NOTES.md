@@ -2,10 +2,19 @@
 
 This page is the migration log between the pre-pivot Pyde architecture
 (in-house HotStuff consensus) and the post-pivot architecture (Mysticeti
-DAG consensus + hybrid hashing + optional encryption). The book itself
+DAG consensus + hybrid hashing + keyless private mempool). The book itself
 has been rewritten in place; this page exists as a single reference for
 **what changed and why**, useful for readers who came in mid-flight or
 who need to reconcile against pre-pivot artifacts.
+
+> **Note on MEV protection.** An interim post-pivot draft carried an
+> *optional threshold-encrypted mempool* (Kyber-768 + Shamir shares). That
+> lane was later removed from the protocol — trustless post-quantum
+> threshold keygen is research-blocked. MEV protection is now the **keyless
+> commit-reveal private mempool** ([Chapter 9](chapters/09-mev-protection.md));
+> a one-shot ciphertext lane remains v2+ research
+> ([Chapter 20](chapters/20-future-direction.md)). The cells below that
+> mention threshold encryption reflect that interim draft, annotated inline.
 
 ## The Pivot, In One Page
 
@@ -21,7 +30,8 @@ who need to reconcile against pre-pivot artifacts.
 **After (Mysticeti DAG):**
 - DAG consensus — every round every committee member produces one vertex.
 - No proposers, no view changes. Anchor selection is deterministic.
-- Optional threshold encryption per-tx (plaintext or encrypted).
+- Keyless commit-reveal private mempool for MEV-sensitive transactions
+  (plaintext by default; opt into the private lane per-tx).
 - Single-tier staking — 10,000 PYDE minimum, uniform-random committee selection per epoch, operator-identity cap (3 per operator).
 - Jellyfish Merkle Tree (radix-16, path-compressed).
 - Hybrid hashing — Blake3 (high-volume native) + Poseidon2 (ZK-bearing).
@@ -49,7 +59,7 @@ protocol that Sui has been running in production since 2024.
 | Slot timing | 400 ms slot | ~150 ms round, ~500 ms median commit |
 | Ordering | Proposer-asserted ordering commitment | Structural via committed subdag |
 | Validator architecture | Monolithic | Worker (tx batching) + Primary (consensus) |
-| Mempool | Always-encrypted | Optional encryption per-tx |
+| Mempool | Always-encrypted | Plaintext default + opt-in keyless commit-reveal private lane |
 | State tree | Fixed-depth Sparse Merkle Tree | Jellyfish Merkle Tree (radix-16, path-compressed) |
 | Hashing | Poseidon2 everywhere | Blake3 (native) + Poseidon2 (ZK-bearing) |
 | State root | Single Poseidon2 root | Dual: Blake3 + Poseidon2 |
@@ -64,8 +74,9 @@ protocol that Sui has been running in production since 2024.
 ## What Stayed the Same
 
 - **FALCON-512** signatures everywhere. Untouched.
-- **Kyber-768** threshold encryption primitive. Untouched (now opt-in
-  per-tx instead of mandatory).
+- **Kyber-768** KEM. Retained for transport-layer session keys. (The
+  post-pivot interim threshold-encrypted mempool that also used Kyber has
+  since been removed; MEV protection is now the keyless commit-reveal lane.)
 - **70/20/10 fee split**. Recipient of 20% changed (proposer → reward
   pool) but the percentages held.
 - **16-slot nonce window** per account. Untouched.
@@ -108,8 +119,8 @@ Chapters that changed less:
 ## Honest Status
 
 The post-pivot architecture is now substantially implemented. Devnet runs
-a multi-validator Mysticeti committee with WASM execution, threshold
-encryption, per-epoch DKG resharing, and state-sync. Credible public
+a multi-validator Mysticeti committee with WASM execution, the keyless
+commit-reveal private mempool, and state-sync. Credible public
 performance numbers are still gated on the multi-region harness.
 
 | Component | Status |
@@ -118,7 +129,7 @@ performance numbers are still gated on the multi-region harness.
 | WASM execution (wasmtime + Cranelift AOT, Block-STM) | 🟢 Live; pooled `Engine`, Host Function ABI v1.0 frozen, Block-STM wired into the commit walk |
 | State (JMT + hybrid Blake3 / Poseidon2 dual root) | 🟢 Wired; `StateRoot { blake3, poseidon2 }` end-to-end |
 | Mysticeti DAG consensus | 🟡 Vertex / anchor / beacon / committee / wave commit live; multi-validator genesis DKG + state-sync replay shipped; soak-test hardening and resharing edge cases in flight |
-| Threshold cryptography (Kyber-768 + PSS-refresh) | 🟡 DKG + per-epoch resharing + live hot-swap shipped; encrypted-tx survival across rotation still tracked as an open bug |
+| MEV protection (keyless commit-reveal private mempool) | 🟢 Commit/Reveal tx types, bond escrow, and commit-order reveal resolution live; no committee key, no DKG (the earlier threshold-encryption lane was removed) |
 | Network protocol (libp2p + QUIC + Gossipsub) | 🟢 Migrated; layered discovery, peer scoring, sentry-friendly topology |
 | Performance harness | 🟡 Local soak-test driver + multi-validator cluster CLI live; multi-region rig + chaos scenarios not yet built |
 | SDKs (TypeScript + Rust) | 🟡 `pyde-ts-sdk` 0.1.0 staged; Rust SDK in progress |

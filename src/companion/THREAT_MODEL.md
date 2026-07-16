@@ -15,9 +15,9 @@ This is a living document. Update on new threats discovered, protocol changes, a
 - User funds (PYDE balances + staked amounts)
 - State integrity (no fork, no double-spend)
 - Transaction ordering integrity (no proposer-MEV)
-- Encryption invariants (commit-before-reveal)
+- Private-mempool invariants (commit-before-reveal)
 - Validator stake (fair slashing)
-- Privacy of encrypted transaction contents
+- Pre-reveal confidentiality of private-mempool transaction contents
 - Liveness (chain progress)
 - Cross-chain finality (HardFinalityCert correctness)
 
@@ -28,7 +28,7 @@ This is a living document. Update on new threats discovered, protocol changes, a
 - RPC provider failures (orthogonal infrastructure)
 - Single-node hardware failures (operator responsibility, mitigated by redundancy)
 - Social engineering of multisig holders (organizational responsibility)
-- Future quantum compute attacks on archived encrypted transactions (no defense possible)
+- Future quantum compute attacks on archived data (out of scope; consensus/account primitives are all PQ)
 - Application-layer DDoS (dApp choosing weak rate limits)
 
 ### Asset Value Classification
@@ -40,7 +40,7 @@ This is a living document. Update on new threats discovered, protocol changes, a
 | MEV resistance | Critical | Core value proposition |
 | Validator stake | High | Slashing must be fair |
 | Liveness | High | Chain stops being useful |
-| Privacy | High | Encryption promise violated |
+| Privacy | High | Pre-reveal confidentiality promise violated |
 | Cross-chain integrity | High | Bridges hacks have caused $3B+ historical losses |
 
 ## 2. Adversary Model
@@ -53,7 +53,7 @@ This is a living document. Update on new threats discovered, protocol changes, a
 | Economic actor | Profit (large) | Significant capital, can stake | Medium |
 | Coordinated cartel | Combined economic gain | Large stake + infrastructure | Medium |
 | State adversary | Geopolitical, censorship | Nation-state resources, BGP control | Low but high-impact |
-| Insider (validator) | Profit, sabotage | Has stake, share, software access | Low but high-impact |
+| Insider (validator) | Profit, sabotage | Has stake, software access | Low but high-impact |
 | Cryptographic adversary | Research or destruction | Mathematician + compute | Low |
 | Quantum adversary | Long-term destruction | Future quantum computer | Very low (decade+) |
 | Network adversary | Disruption | ISP / BGP position | Low |
@@ -67,26 +67,24 @@ This is a living document. Update on new threats discovered, protocol changes, a
 - ✅ Delay, reorder, drop, duplicate messages
 - ✅ Spoof network packets
 - ❌ Cannot forge FALCON signatures
-- ❌ Cannot decrypt without ≥85 shares
+- ❌ Cannot read a commitment's content (it is a Blake3 hash; no key exists)
 - ❌ Cannot find hash collisions in Blake3 or Poseidon2
 
 **Insider validator (single):**
 - ✅ Has one FALCON private key
-- ✅ Has one threshold decryption share `s_i`
 - ✅ Has validator software access
-- ❌ Cannot reconstruct shared SK alone
+- ❌ Cannot read private-mempool content before reveal (no committee key exists)
 - ❌ Cannot forge other validators' signatures
 - ❌ Cannot violate determinism alone (constrained by protocol rules)
 
 **Coordinated insiders (≤42 validators, below BFT threshold):**
-- ✅ Can collectively decrypt nothing (need 85)
 - ✅ Can equivocate (each commits slashable offense)
 - ✅ Can collude on transactions (but ordering is deterministic)
+- ❌ Cannot read private-mempool content before reveal (no key to collude on — the property is unconditional)
 - ❌ Cannot violate safety (need 85+ for any commit)
 - ❌ Cannot censor (other 86+ can include any transaction)
 
 **Coordinated insiders (≥85 validators, above BFT threshold):**
-- ✅ Can decrypt encrypted transactions
 - ✅ Can commit to invalid states (others detect and halt)
 - ✅ Can censor
 - ✅ Can fork the chain
@@ -96,10 +94,9 @@ This is a living document. Update on new threats discovered, protocol changes, a
 
 ### Cryptographic
 - FALCON-512 is EUF-CMA secure (NIST standard)
-- Kyber-768 is IND-CCA2 secure (NIST FIPS 203)
-- Blake3 and Poseidon2 are collision-resistant
-- DKG produces a valid threshold key under honest majority
-- Random beacon is unpredictable until reveal
+- Blake3 and Poseidon2 are collision- and preimage-resistant (the private mempool's commitment hiding rests on this alone — no committee key is assumed)
+- Kyber-768 is IND-CCA2 secure (NIST FIPS 203) — used only for transport-layer session keys
+- Random beacon is unpredictable until the last signer contributes
 
 ### Network
 - Partially synchronous: messages eventually delivered (no permanent partition)
@@ -137,20 +134,18 @@ This is a living document. Update on new threats discovered, protocol changes, a
 | ID | Threat | Severity | Detection | Mitigation |
 |---|---|---|---|---|
 | T-CRYPT-1 | FALCON key compromise (single validator) | Medium | Anomaly detection | Key rotation, HSM recommended |
-| T-CRYPT-2 | Kyber threshold compromise (≥85) | Critical | DKG output | Honest BFT majority assumption; per-epoch refresh |
+| T-CRYPT-2 | Commitment preimage / second-preimage (read or grind a commit before reveal) | Very low | Cryptanalysis | Blake3 preimage resistance + domain-separated tag; no key to compromise |
 | T-CRYPT-3 | Hash collision (Blake3 / Poseidon2) | Very low | Cryptanalysis | Standardized primitives, dual hash strategy |
-| T-CRYPT-4 | Threshold decryption side-channel | Low | Audit | Constant-time implementation |
-| T-CRYPT-5 | DKG manipulation (force bad key) | Medium | DKG validation | Pedersen DKG with public commitments, slashing |
-| T-CRYPT-6 | Random beacon bias | Medium | Output analysis | Threshold-sig beacon (no single party controls) |
-| T-CRYPT-7 | Future quantum on archived encrypted txs | Long-term | N/A | Out of scope; PQ primitives best available |
+| T-CRYPT-4 | Random beacon bias | Medium | Output analysis | Aggregated per-member FALCON beacon (no single party controls) |
+| T-CRYPT-5 | Future quantum on stored data | Long-term | N/A | Out of scope; all consensus/account primitives are PQ |
 
 ### MEV / Economic Layer
 
 | ID | Threat | Severity | Detection | Mitigation |
 |---|---|---|---|---|
-| T-MEV-1 | Front-running via early decryption | High | N/A | Commit-before-reveal invariant enforced |
-| T-MEV-2 | Sandwich attacks | High | N/A | Plaintexts hidden until order committed |
-| T-MEV-3 | Liquidation racing | Medium | N/A | Mitigated by encryption + commit-before-reveal |
+| T-MEV-1 | Front-running via early content disclosure | High | N/A | Commit-before-reveal invariant enforced; content is a Blake3 hash until reveal |
+| T-MEV-2 | Sandwich attacks | High | N/A | Content hidden behind commitment until order committed |
+| T-MEV-3 | Liquidation racing | Medium | N/A | Mitigated by keyless commit-reveal ordering |
 | T-MEV-4 | Time-bandit attacks | High | Finality | Bounded rollback, slashing |
 | T-MEV-5 | Validator-builder collusion | Medium | N/A | No proposer-builder separation; DAG eliminates surface |
 | T-MEV-6 | Stake concentration → control 43+ committee | High | Public stake state | Anti-Sybil (operator identity cap), stake cap |
@@ -217,7 +212,7 @@ Session keys ship at v2. The threats below are catalogued now so the v2 implemen
 |---|---|
 | BFT 85/128 quorum + Mysticeti-style consensus | See WHITEPAPER §5 |
 | Slashing | See SLASHING.md |
-| Threshold encryption + commit-before-reveal | See WHITEPAPER §4, §8 |
+| Keyless commit-reveal private mempool + commit-before-reveal | See WHITEPAPER §5.2, §9 |
 | Anti-Sybil (operator identity binding) | See VALIDATOR_LIFECYCLE.md |
 | State sync verification (chain-of-trust) | See STATE_SYNC.md |
 | Chain halt + recovery procedures | See CHAIN_HALT.md |

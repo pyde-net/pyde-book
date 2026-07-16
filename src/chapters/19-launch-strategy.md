@@ -44,7 +44,8 @@ Each phase's deliverables and exit criteria are tracked to the smallest actionab
 
 Pyde mainnet ships with:
 
-- Post-quantum cryptography: FALCON signatures, Kyber threshold encryption, Poseidon2 + Blake3 hashing.
+- Post-quantum cryptography: FALCON signatures, Poseidon2 + Blake3 hashing.
+- MEV resistance via the keyless commit-reveal private mempool — commit order is fixed by the DAG before content is revealed; no committee decryption key.
 - Mysticeti-style consensus with sub-second median commit and 85-of-128 FALCON quorum certificates.
 - WASM execution via wasmtime + Cranelift AOT, with the host-function ABI v1.0.
 - JMT state with dual-hash (Blake3 + Poseidon2) per node, PIP-2 clustered keys, PIP-3 prefetch, PIP-4 write-back cache.

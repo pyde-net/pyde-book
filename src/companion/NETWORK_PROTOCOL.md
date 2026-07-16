@@ -85,10 +85,9 @@ Comparable approaches: Bitcoin, Cosmos, Solana all use layered (no DHT). Ethereu
 | BatchAnnouncement | Med | 40B | 64B |
 | BatchRequest | Med | 32B | 64B |
 | BatchData | Med | 50-200KB | **4MB** |
-| DecryptionShare | High | 1KB | 2KB |
 | StateRootSig | High | 738B | 1KB |
 | TxSubmission (plain) | Med | 500B | 8KB |
-| TxSubmission (encrypted) | Med | 1.5KB | 8KB |
+| TxSubmission (Commit/Reveal) | Med | 700B | 8KB |
 | ManifestRequest | Low | 32B | 64B |
 | ManifestData | Low | 5KB | 64KB |
 | ChunkData (state sync) | Low | 4MB | 4MB |
@@ -120,7 +119,7 @@ Memory safety, DoS resistance, predictability, audit-friendliness all depend on 
 | 8 MB | Mixed | Higher |
 | 16 MB | Aspirational | Highest |
 
-**4 MB hard limit** balances modest-hardware committee promise (≥500 Mbps NIC sufficient for v1's honest throughput target, which is to be established by the multi-region performance harness, with headroom in the batch size for post-mainnet scaling) with realistic burst scenarios (NFT mints up to ~2000 encrypted txs in one batch). The theoretical-ceiling column above is implied by the batch limit; the v1 *honest target* is much lower (see [honest throughput reset](../chapters/01-introduction.md)).
+**4 MB hard limit** balances modest-hardware committee promise (≥500 Mbps NIC sufficient for v1's honest throughput target, which is to be established by the multi-region performance harness, with headroom in the batch size for post-mainnet scaling) with realistic burst scenarios (NFT mints up to ~2000 txs in one batch). The theoretical-ceiling column above is implied by the batch limit; the v1 *honest target* is much lower (see [honest throughput reset](../chapters/01-introduction.md)).
 
 For batches >4 MB: chunked transfer (BatchAnnouncement → multiple BatchChunk messages of 4 MB each).
 
@@ -140,10 +139,8 @@ Pyde uses libp2p's **Gossipsub** for message propagation. Industry standard.
 |---|---|
 | `pyde/vertices/<epoch>` | All committee + full nodes |
 | `pyde/batches/<shard>` | All committee workers + RPC nodes |
-| `pyde/decryption_shares/<commit>` | All committee |
 | `pyde/state_root_sigs/<commit>` | All committee + full + light |
-| `pyde/mempool/plain` | All validators + RPC nodes |
-| `pyde/mempool/encrypted` | All validators + RPC nodes |
+| `pyde/mempool/tx` | All validators + RPC nodes (plaintext + Commit/Reveal) |
 | `pyde/state_sync/manifests` | Sync-mode nodes |
 
 ### Parameters (Battle-Tested Defaults)
@@ -213,11 +210,10 @@ Points decay over time (1 point per hour) — rewards good behavior over time.
 Priority queue (top = highest):
   1. State root sigs (consensus finality)
   2. Vertex broadcasts (consensus structure)
-  3. Decryption shares (encrypted tx finality)
-  4. Batch announcements + small data
-  5. Tx submissions (mempool)
-  6. State sync chunks (background)
-  7. PEX, ping/pong (low frequency)
+  3. Batch announcements + small data
+  4. Tx submissions (mempool — includes Commit/Reveal)
+  5. State sync chunks (background)
+  6. PEX, ping/pong (low frequency)
 ```
 
 Per-peer bandwidth caps prevent any single peer from monopolizing.

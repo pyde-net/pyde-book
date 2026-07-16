@@ -47,15 +47,15 @@ Pyde underwent a major architectural pivot:
 
 ## Honest Status
 
-The post-pivot architecture is now substantially implemented. Devnet runs a multi-validator Mysticeti committee with WASM execution, threshold encryption, per-epoch DKG resharing, and state-sync. Credible public performance numbers are still gated on the multi-region harness.
+The post-pivot architecture is now substantially implemented. Devnet runs a multi-validator Mysticeti committee with WASM execution, the keyless commit-reveal private mempool, and state-sync. Credible public performance numbers are still gated on the multi-region harness.
 
 | Aspect | Status |
 |---|---|
 | Architecture design | ✅ Complete |
 | WASM execution (wasmtime + Cranelift AOT, Block-STM) | 🟢 Live; pooled `Engine`, Host Function ABI v1.0 frozen, Block-STM wired into the commit walk |
 | State (JMT + hybrid Blake3 / Poseidon2 dual root) | 🟢 Wired; `StateRoot { blake3, poseidon2 }` end-to-end |
-| Consensus (Mysticeti DAG) | 🟡 Vertex / anchor / beacon / committee / wave commit live; multi-validator genesis DKG + state-sync replay shipped; soak-hardening and resharing edge cases in flight |
-| Threshold crypto (Kyber-768 + PSS-refresh) | 🟡 DKG + per-epoch resharing + live hot-swap shipped; encrypted-tx survival across rotation still tracked as an open bug |
+| Consensus (Mysticeti DAG) | 🟡 Vertex / anchor / beacon / committee / wave commit live; multi-validator genesis + state-sync replay shipped; soak-hardening edge cases in flight |
+| Private mempool (keyless commit-reveal) | 🟢 Commit (0x11) / Reveal (0x12) lane; Blake3 commitment + FALCON, no committee key. Inner txs execute in DAG commit order. A one-shot ciphertext lane is v2+ research (Chapter 20) |
 | Network protocol (libp2p + QUIC + Gossipsub) | 🟢 Migrated; layered discovery, peer scoring, sentry-friendly topology |
 | Performance harness | 🟡 Local soak driver + multi-validator cluster CLI live; multi-region rig + chaos scenarios not yet built |
 | SDKs (TypeScript + Rust) | 🟡 `pyde-ts-sdk` 0.1.0 staged; Rust SDK in progress |

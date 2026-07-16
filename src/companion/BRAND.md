@@ -120,7 +120,7 @@ When the brand needs a "voice" beyond system fonts (a presentation cover, a mark
 
 ## 6. The factory illustration system
 
-The factory metaphor (see [How Pyde Works](../preface/how-pyde-works.md)) is a teaching illustration, not a brand surface. The animated SVG at `src/assets/factory-loop.svg` predates the grayscale-only discipline (§4) and retains its original color cues — droplets for transactions, an amber flash for wave commit, a green pillar for state, a gold lock for threshold encryption — as didactic shortcuts that help readers visualize Pyde mechanics at a glance.
+The factory metaphor (see [How Pyde Works](../preface/how-pyde-works.md)) is a teaching illustration, not a brand surface. The animated SVG at `src/assets/factory-loop.svg` predates the grayscale-only discipline (§4) and retains its original color cues — droplets for transactions, an amber flash for wave commit, a green pillar for state, a gold lock for the private mempool's sealed commitment — as didactic shortcuts that help readers visualize Pyde mechanics at a glance.
 
 These colors live in the animation only. They are not brand tokens. New illustrations default to the §4 grayscale palette; if differentiation beyond gray is needed, prefer pattern, opacity, line weight, or texture over color.
 
@@ -148,7 +148,7 @@ This is the brand's voice — apply it to any official copy or external comms.
 
 **Examples:**
 
-> ✓ Pyde commits in waves through a 128-validator Mysticeti-style consensus. Encrypted transactions stay sealed until the wave commits.  
+> ✓ Pyde commits in waves through a 128-validator Mysticeti-style consensus. Private-mempool transactions stay sealed behind a commitment until their order is locked, then reveal.  
 > ✓ v1 ships realistic numbers, not aspirational ones. The throughput target is published only once the multi-region harness measures it on commodity hardware.  
 > ✗ Pyde is the world's first post-quantum, MEV-resistant, infinitely scalable Web3 platform of the future.  
 > ✗ We are revolutionizing how the world thinks about blockchain.  

@@ -986,8 +986,9 @@ Gas: 50 base.
 
 Semantics: deterministic, public randomness, identical across all validators. Use as
 a chain-derived random source. Note that the beacon is *publicly predictable* within a
-wave — adversaries cannot bias it, but they *can* observe it. Use threshold encryption
-if you need adversary-private randomness.
+wave — adversaries cannot bias it, but they *can* observe it. For adversary-private
+ordering, route the transaction through the private mempool (commit-reveal); a
+one-shot ciphertext lane for adversary-private randomness is v2+ research (Chapter 20).
 ```
 
 ---
@@ -1125,10 +1126,18 @@ Rate limit: 64 outgoing messages per wave per parachain by default
 (parachain-configurable).
 ```
 
-### 8.5 Threshold cryptography
+### 8.5 Threshold cryptography (reserved, v2+)
 
-These are exposed to parachains for application-level confidentiality use cases
-(blinded auctions, sealed-bid markets, MEV-protected DEX matching at parachain layer).
+> **Status: reserved / not live in v1.** These entries reserve the ABI surface
+> for an application-level confidentiality primitive (blinded auctions, sealed-bid
+> markets, MEV-protected DEX matching at parachain layer). They depend on a
+> committee threshold-decryption ceremony that is **not** part of the v1 protocol —
+> L1 MEV protection is the keyless commit-reveal private mempool (Chapter 9), which
+> needs no committee key. A one-shot ciphertext lane (Threshold-LWE) that would back
+> these host functions remains v2+ research, gated on a trustless PQ threshold-keygen
+> breakthrough; see [Chapter 20](../chapters/20-future-direction.md). The signatures
+> below are frozen so contracts compiled against them remain forward-compatible, but
+> a v1 engine surfaces them as unavailable.
 
 #### `threshold_encrypt`
 
@@ -1143,9 +1152,9 @@ Returns: 0 on success, ERR_OUTPUT_BUFFER_TOO_SMALL if buffer insufficient.
 
 Gas: 80,000 base + 100 per byte.
 
-Semantics: encrypt under the current epoch's threshold public key. Result is a
-Kyber-768 KEM envelope + ChaCha20-Poly1305 ciphertext. Decryption requires ≥85
-shares (combined by the chain at appropriate ceremony points).
+Semantics (v2+, reserved): would encrypt under a committee threshold public key,
+producing a Kyber-768 KEM envelope + ChaCha20-Poly1305 ciphertext decryptable only
+after the committee combines ≥85 shares. Not live in v1 — see the §8.5 status note.
 ```
 
 #### `threshold_decrypt`
@@ -1163,10 +1172,9 @@ Returns: 0 on success, ERR_CIPHERTEXT_INVALID if malformed,
 
 Gas: 100,000 base + 50 per byte.
 
-Semantics: decrypt a ciphertext for which the committee has already executed the
-threshold-decryption ceremony. The combined plaintext is materialized into the
-output buffer. This is parachain-only because cross-parachain ceremony coordination
-requires the parachain-specific committee infrastructure.
+Semantics (v2+, reserved): would decrypt a ciphertext for which the committee has
+already executed a threshold-decryption ceremony, materializing the plaintext into
+the output buffer. Not live in v1 — see the §8.5 status note.
 ```
 
 ---

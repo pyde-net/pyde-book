@@ -474,9 +474,9 @@ A few things deliberately do **not** live in the JMT:
   history. Persistent receipt storage (archive-node mode) is tracked as
   post-mainnet hardening.
 
-- **Mempool contents.** Encrypted transactions live in process memory,
-  bounded per sender by the rate-limiting subsystem (10 tx/s, 100 concurrent
-  per sender).
+- **Mempool contents.** Pending transactions — including private-mempool
+  commit and reveal transactions — live in process memory, bounded per sender
+  by the rate-limiting subsystem (10 tx/s, 100 concurrent per sender).
 
 - **Consensus protocol state.** `pending_votes`, `seen_proposals`,
   `seen_votes`, and pending evidence live in their own RocksDB column under

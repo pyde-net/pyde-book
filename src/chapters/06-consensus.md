@@ -22,7 +22,7 @@ The DAG approach removes the fragile parts:
 | Throughput limited by leader bandwidth | Scales with committee size |
 | HotStuff bugs cluster in view-change code | DAG doesn't have view-change code |
 
-The same lab/laptop devnet that hit ~4K TPS under pre-pivot HotStuff is the baseline against which DAG performance will be measured. The v1 honest throughput target (to be established by the multi-region performance harness) covers both plaintext and encrypted regimes under production-realistic conditions.
+The same lab/laptop devnet that hit ~4K TPS under pre-pivot HotStuff is the baseline against which DAG performance will be measured. The v1 honest throughput target (to be established by the multi-region performance harness) covers both the plaintext path and the commit-reveal private-mempool path (Chapter 9) under production-realistic conditions.
 
 ## 2. Worker / Primary Split (Narwhal Pattern)
 
@@ -39,10 +39,10 @@ Each validator runs:
 │  │  (N parallel) │   │                        │ │
 │  │               │   │  - One vertex / round  │ │
 │  │ - Tx ingress  │◄──┤  - Tracks local DAG    │ │
-│  │ - Encryption  │   │  - Anchor selection    │ │
-│  │   (if needed) │   │  - State root signing  │ │
-│  │ - Batches     │   │  - DKG participation   │ │
-│  │ - Gossip      │   └────────────────────────┘ │
+│  │ - Batches     │   │  - Anchor selection    │ │
+│  │ - Gossip      │   │  - State root signing  │ │
+│  │               │   │  - Beacon signing      │ │
+│  │               │   └────────────────────────┘ │
 │  └───────────────┘                                │
 └──────────────────────────────────────────────────┘
 ```
@@ -59,7 +59,6 @@ struct Vertex {
     parent_vertex_refs: Vec<VertexHash>,     // ≥85 round-(N-1) hashes
     state_root_sigs: Vec<StateRootSig>,      // attestations on recent commits
     prev_anchor_attestation: VertexHash,     // attests prior anchor
-    decryption_shares: Vec<DecryptionShare>, // piggybacked partials
     falcon_sig: FalconSig,                   // sig over the vertex
 }
 ```
@@ -75,7 +74,7 @@ A vertex is dual-role: **header** (declaring what data I have) AND **attestation
 
 Compact-encoded (parent refs as bitmap, hash truncation):
 - Minimal: ~830 bytes
-- Heavy (50 batches + 5 sigs + 85 partials): ~25 KB
+- Heavy (50 batches + 5 sigs + state-root attestations): ~25 KB
 - Hard limit: 64 KB
 
 ## 4. Rounds
@@ -226,8 +225,8 @@ When the anchor vertex collects sufficient support from later rounds (Mysticeti 
      - secondary key: member_id
      - tertiary key: list order within vertex
 4. For each vertex in sorted order, dereference batch_refs
-5. For each batch, threshold-decrypt (pipelined ceremony — partials already in flight)
-6. wasmtime executes decrypted batches in canonical order
+5. Run the commit-reveal resolution pass: revealed inner txs splice into their DAG-fixed commit order (private mempool — Chapter 9)
+6. wasmtime executes all transactions in canonical order
 7. State root computed (Blake3 + Poseidon2 dual)
 8. ≥85 committee FALCON-sign state root (piggybacked on next-round vertices)
 9. ≥85 state-root sigs collected → finality declared
@@ -262,7 +261,7 @@ for slot in 0..128:
     member = uniform_random_pick(eligible, seed)
     committee[slot] = member
     eligible.remove(member)  # without replacement
-# Committee N+1 immediately begins DKG — see §10 for the boundary timing.
+# Committee N+1 is now fully determined and takes over at the boundary — see §10.
 ```
 
 ### Equal Power Within Committee
@@ -284,14 +283,13 @@ Activity rewards within the committee are **contribution-weighted, not stake-wei
 
 For n=128 validators:
 - `f = ⌊(n-1)/3⌋ = 42` (maximum Byzantine)
-- `threshold = 2f+1 = 85` (quorum for commit / vertex cert / threshold decrypt)
+- `threshold = 2f+1 = 85` (quorum for commit / vertex cert / state-root finality)
 
 The number 85 appears throughout the protocol:
 - Vertex certification (parent refs in next round)
 - Commit support
-- Threshold decryption shares
 - State root signatures
-- DKG share threshold
+- Beacon-share combine quorum
 
 **Consistent across the protocol:** avoids attack edges from boundary mismatches.
 
@@ -305,7 +303,7 @@ Holds under partial synchrony (messages eventually delivered, bounded clock skew
 
 ## 9. Randomness Beacon
 
-Each epoch's beacon is produced by the **previous** epoch's committee. The beacon for epoch N+1 must be finalized with enough lead time for committee N+1 to be selected (via VRF on `beacon_N+1`) and run DKG before the epoch boundary. The architectural target uses a threshold-signature primitive; v1 ships a FALCON-aggregate approximation (called out below).
+Each epoch's beacon is produced by the **previous** epoch's committee. The beacon for epoch N+1 must be finalized with enough lead time for committee N+1 to be selected (via VRF on `beacon_N+1`) before the epoch boundary. The architectural target uses a threshold-signature primitive; v1 ships a FALCON-aggregate approximation (called out below).
 
 ### Target design (threshold-sig — long-term)
 
@@ -341,97 +339,42 @@ The v1 approximation deviates from the target design in two ways:
 
 When `pyde-crypto` ships threshold-FALCON or an equivalent post-quantum threshold-sig primitive, the `BeaconScheme` trait swaps cleanly to the target design without consensus-side changes.
 
-## 10. DKG (Distributed Key Generation)
+## 10. Epoch Transition & Committee Handover
 
-Each epoch transition, the **new** committee runs DKG to produce a fresh threshold encryption key. The "old committee makes beacon, new committee runs DKG" split keeps key generation truly distributed (only the new committee members contribute their own per-member randomness to the new key) while the old committee handles the bootstrap randomness via the beacon.
-
-```
-Pedersen DKG, multi-round protocol (~30-60s in background):
-
-Round 1: Each member i picks random secret polynomial f_i(x), degree 84
-Round 2: Each member broadcasts public commitments to f_i's coefficients
-Round 3: Member i sends f_i(j) to each other member j (encrypted point-to-point)
-Round 4: Member j verifies received shares against public commitments,
-         sums valid shares: s_j = Σ f_i(j) = f(j)
-         where f(x) = Σ f_i(x) is the combined polynomial
-
-Result:
-  - Each member j holds s_j = f(j) (private share)
-  - Public key PK derived from public commitments
-  - SK = f(0) is NEVER computed
-  - Threshold = 85 of 128
-```
-
-Mathematical foundation: any 85 points on a degree-84 polynomial uniquely determine it (Lagrange interpolation). 84 points don't.
-
-### Timing: ~30 min tail window of the prior epoch
-
-DKG runs during the **last ~30 minutes of epoch N** so committee N+1 has its threshold key ready by the epoch boundary. The full chicken-and-egg sequence:
+Each epoch transition hands consensus from committee N to committee N+1. Because Pyde's private mempool is a **keyless commit-reveal** design (Chapter 9), there is **no threshold decryption key to generate** — so there is no DKG, no Shamir shares, and no per-epoch key ceremony. The handover is purely: publish the beacon, select the next committee, swap in.
 
 ```
 T-30min (last 30 min of epoch N):
   ├── beacon_N+1 finalized (see §9 — old committee's combine ceremony)
   ├── every staked validator runs VRF(validator_sk, beacon_N+1)
   ├── lowest 128 VRF outputs become committee N+1
-  ├── committee N+1 begins DKG IMMEDIATELY
-  │   (Pedersen-style rounds + complaint window propagate within minutes;
-  │    ~30 min leaves comfortable margin for stragglers and retries)
-  └── committee N continues serving consensus + threshold decryption
+  └── committee N continues serving consensus
 
 EPOCH BOUNDARY (T=3hr):
-  ├── DKG complete → committee N+1 has threshold encryption key
+  ├── committee N+1 is fully determined and ready
   ├── committee N hands over instantly
-  └── threshold decryption continuous — no downtime
+  └── no key ceremony gates the boundary — consensus is continuous
 ```
 
-**Important:** beacon production in v1 does NOT depend on DKG — each member signs beacon shares with their individual FALCON beacon keypair (the `BeaconKeypair`, distinct from the consensus FALCON keypair). DKG is purely for threshold *decryption*. So:
+Committee selection needs only the beacon and each validator's own VRF, so the handover has **no cryptographic dependency that can stall it**. Beacon production in v1 uses each member's individual FALCON `BeaconKeypair` (distinct from the consensus FALCON keypair); it does not depend on any distributed key setup.
 
-- Consensus + beacon handover is instant at epoch boundary
-- DKG propagation delay only blocks threshold decryption (encrypted txs), never consensus
-- If DKG ever fails to complete in the tail window (network partition, complaint storm), encrypted txs queue until DKG finishes — plaintext consensus continues unaffected
+> **Historical note.** Earlier drafts ran a Pedersen DKG here to produce a per-epoch threshold *decryption* key for an encrypted mempool. That mechanism has been removed from the protocol: trustless post-quantum threshold key generation is research-blocked (lattice public keys do not combine homomorphically the way BLS does, and there is no trustless DKG for ML-KEM). The keyless commit-reveal design (Chapter 9) needs no such key. A one-shot ciphertext lane remains a v2+ research direction ([Chapter 20](./20-future-direction.md)).
 
-**Why ~30 min and not less:** DKG rounds + complaints + gossip diameter across a 128-member global committee land in the 30-60 second range under good conditions, but the complaint protocol can re-run if any member is contested. 30 min absorbs the worst-case retry path at the 3-hour epoch length.
+## 11. Private Mempool Resolution (Commit-Reveal)
 
-## 11. Threshold Decryption Ceremony
+Pyde's MEV protection is a **keyless commit-reveal private mempool** — there is no committee decryption key and no per-transaction decryption ceremony. Safety is unconditionally trustless: it never depends on any quorum of committee members declining to collude, because a commit is just a hash. [Chapter 9](./09-mev-protection.md) is the full specification; the consensus-relevant mechanics are:
 
-**Encryption is per-transaction, not per-batch.** A batch can contain any mix of plaintext and encrypted transactions. The threshold-decryption ceremony runs per encrypted transaction.
+- A **Commit** transaction (TxType `0x11`) carries only a Blake3 `commitment` plus a bond; the DAG fixes its position in the total order at commit time, before anyone knows the contents.
+- A **Reveal** transaction (TxType `0x12`) later supplies the inner transaction. Any account may submit it, and it must land within `COMMIT_REVEAL_WINDOW_WAVES = 120` waves of the commit's inclusion wave, else the commit expires and the bond is forfeit.
+- In the reveal wave's resolution pass, revealed inner transactions execute **in commit order** — the DAG-sequenced order of the commits — **not reveal order**. Order is locked before content is known, so front-running is structurally impossible.
 
-After commit fires, for each encrypted transaction across the canonical-ordered subdag:
-
-```
-Each committee member i (during prior rounds — pipelined):
-  - For each encrypted tx observed in mempool batches:
-      partial_i = ApplyShare(s_i, ciphertext_of_tx)
-      (single elliptic-curve op or polynomial multiplication, ~100μs-1ms)
-      + FALCON sig over (partial_i, tx_hash)
-  - Piggyback the partial(s) on next-round vertex (no separate message channel)
-
-At commit time:
-  - Subdag walk identifies all encrypted txs in the wave
-  - Collect their partials from the subdag's vertices (decryption_shares field)
-  - For each encrypted tx:
-      - Verify each partial's FALCON sig (~80μs per share)
-      - Once ≥85 valid partials collected: Lagrange interpolation → plaintext
-  - Batch the combine work: share-application math vectorizes well on SIMD/GPU
-  - wasmtime executes decrypted (plus already-plaintext) txs in canonical order
-```
+Both primitives are already post-quantum: Blake3 for the commitment, FALCON for authorization. There is no lattice encryption, no Shamir split, and no share combine on this path.
 
 ### Pipelining
 
-Partials are computed **as soon as the encrypted tx enters the mempool DAG**, before the commit fires. By commit time, partials are typically 80%+ propagated through vertex gossip. Effective post-commit decryption latency: tens of milliseconds.
+Because resolution is deterministic bookkeeping (match reveals to open commits, splice into commit order), it adds only a few milliseconds of post-commit work per wave. No shares propagate ahead of the commit and there is no ceremony to pipeline.
 
-### Scale via batched share-combine
-
-> **Headroom analysis, not a v1 claim.** v1's honest encrypted-throughput target is to be established by the multi-region performance harness. The math below sizes what it would take to push encrypted throughput well beyond that — useful for understanding the scaling lever, *not* a v1 promise.
-
-At encrypted throughput well beyond the v1 target:
-
-- Per-tx ceremony: 85 partials × ~80μs verify + ~1ms Lagrange = ~8ms CPU work
-- Multiplied across a high transaction rate, that per-tx cost overruns a single core's per-second budget — naive sequential combine isn't feasible. But share-combine vectorizes:
-  - Group partials by ciphertext, combine in parallel across cores
-  - GPU acceleration on the share-combine path is the realistic post-v1 scale lever
-
-See [WHITEPAPER §11](../companion/WHITEPAPER.md#11-performance) for honest scaling limits.
+> **Future work.** A one-shot ciphertext ("Threshold-LWE") lane — an *optional* private-mempool alternative alongside the keyless commit-reveal default, gated on a trustless PQ threshold-keygen breakthrough — is a v2+ research direction documented in [Chapter 20](./20-future-direction.md). It is not part of the shipping protocol.
 
 ## 12. State Root Attestation
 
@@ -467,7 +410,7 @@ See [CHAIN_HALT.md](../companion/CHAIN_HALT.md) for full halt + recovery procedu
 
 ## 14. Slashing
 
-Equivocation, bad state-root signatures, invalid vertices, bad decryption shares, DKG failure, share withholding, extended downtime — all slashable. See [SLASHING.md](../companion/SLASHING.md) for the full catalog.
+Equivocation, bad state-root signatures, invalid vertices, extended downtime — all slashable. See [SLASHING.md](../companion/SLASHING.md) for the full catalog.
 
 Correlated slashing applies a 2× multiplier when many validators offend simultaneously (punishes coordination, protects isolated failures).
 
@@ -490,7 +433,7 @@ The chain self-heals from any subset failure that maintains ≥85 functional val
 | Finality | ~1s+ (chained QCs) | ~500ms (per-round) |
 | Throughput ceiling | Leader bandwidth | Committee parallelism |
 | Censorship resistance | Proposer-dependent | 127-of-128 can include |
-| MEV resistance | Proposer + threshold-enc | Structural (no proposer) |
+| MEV resistance | Proposer + threshold-enc (planned, never shipped) | Structural (no proposer) + keyless commit-reveal (Ch 9) |
 | Liveness under failure | View-change cascades | Graceful (lag, no halt) |
 
 ## 17. Implementation Status

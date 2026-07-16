@@ -9,7 +9,7 @@ For deep documentation on the primary developer-facing tool (the `otigen` binary
 - **`otigen`**: the developer toolchain binary. Handles project scaffolding, builds in any supported language, state binding generation, deployments, wallet management, REPL access, *and* an embedded chain runtime for one-command local devnets. The single tool most contract developers use day-to-day.
 - **`pyde-rust-sdk`**: the Rust client SDK for talking to a Pyde node programmatically.
 - **`pyde-ts-sdk`**: the TypeScript / JavaScript client SDK.
-- **`pyde-crypto-wasm`**: WASM bindings exposing post-quantum cryptography (FALCON signing, Kyber encryption, Poseidon2/Blake3 hashing) to browser and Node.js environments.
+- **`pyde-crypto-wasm`**: WASM bindings exposing post-quantum cryptography (FALCON signing, Poseidon2/Blake3 hashing) to browser and Node.js environments.
 
 A standalone `pyde` node binary (light / full / validator profiles) is planned post-public-testnet. For v1, the chain runtime lives inside `otigen` and is reached via `otigen devnet`.
 
@@ -120,9 +120,7 @@ WASM bindings exposing post-quantum cryptography to JavaScript. Used internally 
 
 Surface area:
 - FALCON-512 keypair generation, sign, verify
-- Kyber-768 encryption / decryption
-- Threshold-encryption shares (where used by client-side encrypted-tx submission)
-- Poseidon2 and Blake3 hashing
+- Poseidon2 and Blake3 hashing (Blake3 is also what builds a private-mempool commitment client-side)
 
 ### Contract-side SDKs (community)
 
@@ -144,7 +142,7 @@ Community SDKs publish under their own org (e.g., `pyde-go/`, `pyde-ts-contracts
 The node exposes a JSON-RPC interface over HTTP and WebSocket. Method surface includes:
 
 - Standard query methods: `pyde_getAccount`, `pyde_getBalance`, `pyde_getTransactionCount`, `pyde_getContractCode`, `pyde_getStorageSlot`, `pyde_resolveName`
-- Transaction submission: `pyde_sendRawTransaction`, `pyde_sendRawEncryptedTransaction`, `pyde_estimateAccess`
+- Transaction submission: `pyde_sendRawTransaction` (also carries private-mempool Commit / Reveal transactions), `pyde_estimateAccess`
 - View-function calls: `pyde_call(contract, fn, calldata)` — **free**, off-chain execution against current state; no tx, no gas, no consensus. Mirrors EVM's `eth_call`. Bounded by RPC-layer rate limits + per-call instruction cap.
 - Archival reads (full + archive nodes): `pyde_getTx(hash)`, `pyde_getReceipt(hash)`
 - Subscription methods (WebSocket on `/ws`): `pyde_subscribe`:

@@ -3,9 +3,11 @@
 > **Status: future work.** This page documents the design intent for
 > Pyde's native token standard — **PTS** (Pyde Token Standard) — and
 > the otigen features that will enforce it. None of it is shipped yet.
-> The surface described here will be ratified as a PIP before the
-> toolchain work lands; until then, treat every name and field as a
-> proposal. The interface itself ships first as ordinary reference
+> The normative specification is
+> [PIP-0005](https://github.com/pyde-net/pips/blob/main/pip-0005-pyde-token-standard.md);
+> the deep explainer — full surface, storage layout, receiver
+> protocol, conformance — is the
+> [Token Standard companion](../companion/TOKEN_STANDARD.md). The interface itself ships first as ordinary reference
 > examples (`fungible-token`, `nft-token`); the manifest type described
 > below is the second phase.
 

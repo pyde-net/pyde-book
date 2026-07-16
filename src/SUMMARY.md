@@ -89,6 +89,7 @@
 - [Slashing](companion/SLASHING.md)
 - [State Sync](companion/STATE_SYNC.md)
 - [Chain Halt & Recovery](companion/CHAIN_HALT.md)
+- [Token Standard (PTS)](companion/TOKEN_STANDARD.md)
 - [Threat Model](companion/THREAT_MODEL.md)
 - [Failure Scenarios](companion/FAILURE_SCENARIOS.md)
 - [Network Protocol](companion/NETWORK_PROTOCOL.md)

@@ -203,8 +203,8 @@ All of it at build time, each error naming the offending key:
 | Function | Semantics |
 |---|---|
 | `transfer(to, amount)` | Debit caller, credit `to`; exactly two balance slots; **never invokes recipient code**. Reverts on `to == ZERO` (burn must be explicit) and `to == self` (the largest measured stuck-token class). |
-| `transfer_call(to, amount, data) → [u8;4]` | Settle-then-notify: balances fully written and `Transfer` emitted **first**, then `cross_call on_token_received(operator, from, amount, data)` on `to`; reverts `token:bad_receiver` unless the 4-byte acknowledgement returns. `data` is size-capped. Replaces approve-then-pull for deposits — no standing authority is ever created. |
-| `transfer_from(from, to, amount)` | Spends a live (unexpired) allowance, decrements, moves balance; three pair-unique slots. The `Transfer` event carries `by = caller` in its data. |
+| `transfer_call(to, amount, data) → u32` | Settle-then-notify: balances fully written and `Transfer` emitted **first**, then `cross_call on_token_received(operator, from, amount, data)` on `to`; reverts `token:bad_receiver` unless the 4-byte acknowledgement returns. `data` is size-capped. Replaces approve-then-pull for deposits — no standing authority is ever created. |
+| `transfer_from(from, to, amount)` | Spends a live (unexpired) allowance, decrements, moves balance; three pair-unique slots. Operator attribution is derivable from the enclosing transaction, not the event. |
 | `approve(spender, amount)` | Compatibility sugar: sets the allowance with the maximum TTL auto-applied. Routers pattern-match the name; "unlimited forever" stays unrepresentable. |
 | `increase_allowance(spender, amount, expiry_wave)` / `decrease_allowance(spender, amount)` / `revoke_allowance(spender)` | Delta-based — the approve race is dead by construction. Every allowance carries a mandatory expiry wave, TTL-capped (≈ one year of waves). Amount + expiry live in one Borsh slot. Revoke writes zero. |
 | `set_allowance_exact(spender, expected_remaining, new_remaining, expiry_wave)` | Compare-and-set: reverts unless current remaining equals `expected_remaining` — closes the delta-accumulation footgun. Documented interaction: under commit-reveal, the CAS can fail at reveal time if state moved. |
@@ -243,11 +243,12 @@ The recipient side implements one standardized entry:
 
 ```rust
 fn on_token_received(operator: Address, from: Address,
-                     amount: u128, data: Vec<u8>) -> [u8; 4]
+                     amount: u128, data: Vec<u8>) -> u32
 ```
 
 Arguments are filled by the **token**, never spoofable by the sender.
-The 4-byte acknowledgement exists because of Pyde's dispatch rule
+The acknowledgement (a `u32` whose little-endian bytes are the
+Blake3-derived protocol tag) exists because of Pyde's dispatch rule
 that a function-name miss routes to the recipient's `fallback`: a
 fallback cannot return the acknowledgement, so a `transfer_call` to a
 contract that does not genuinely handle tokens **reverts and
@@ -316,9 +317,9 @@ Events (Borsh data payloads; `topic0 = Blake3(signature)`):
 
 | Event | Indexed | Data | Notes |
 |---|---|---|---|
-| `Transfer(address,address,uint128)` | `from`, `to` | `{amount, by}` | Mint: `from = ZERO`. Burn: `to = ZERO`. One family carries all supply accounting. `by` = operator, for drain forensics. The signature is byte-identical to the pre-PTS example — existing subscriptions survive. The 4th topic is **reserved** for a pts-f/2 additive extension. |
+| `Transfer(address,address,uint128)` | `from`, `to` | `{amount}` | Mint: `from = ZERO`. Burn: `to = ZERO`. One family carries all supply accounting. The signature is byte-identical to the pre-PTS example — existing subscriptions survive. The 4th topic is **reserved** for a pts-f/2 additive extension. |
 | `Approval(address,address,uint128,uint64)` | `owner`, `spender` | `{remaining, expiry_wave}` | absolute post-state on every explicit allowance mutation |
-| `RoleTransfer(string,address,address)` | `role`, `new` | `{previous}` | renounce is publicly provable as `new = ZERO` |
+| `RoleTransfer(bytes32,address,address)` | `role`, `new` | `{previous}` | `role` is a precomputed 32-byte identifier (`Blake3("minter")`, …); renounce is publicly provable as `new = ZERO` |
 | `Freeze(address,bool)` / `Registration(address,bool,uint128)` | account | — | extensions only |
 
 A wallet enumerates holdings with one `pyde_getLogs` scan
@@ -396,7 +397,7 @@ Same philosophy, per-id state:
   metadata viable), `next_id: u64`.
 - Surface: `owner_of(id)`, `balance_of(owner)`,
   `transfer_from(from, to, id)`, `transfer_call(to, id, data)` →
-  `on_nft_received(operator, from, id, data) → [u8;4]` under
+  `on_nft_received(operator, from, id, data) → u32` under
   identical settle-then-notify + acknowledgement rules,
   `approve(spender, id)`, `set_approval_for_all` /
   `is_approved_for_all`, `mint(to, uri)` (minter role), `burn(id)`.

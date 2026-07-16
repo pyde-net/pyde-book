@@ -113,7 +113,7 @@ class:
   survives as compatibility sugar that auto-applies the maximum TTL.
 - **Settle-then-notify deposits.** `transfer_call` writes balances and
   emits the event *first*, then cross-calls the recipient's
-  `on_token_received`, which must return a 4-byte acknowledgement —
+  `on_token_received`, which must return a protocol acknowledgement —
   a name-miss falling through to a fallback cannot silently swallow
   tokens. Plain `transfer` never invokes recipient code.
 - **Consent-visible control.** Mint/freeze/pause capabilities are

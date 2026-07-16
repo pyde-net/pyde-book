@@ -30,14 +30,14 @@ otigen new --list           # show the template catalog
 | --- | --- | --- | --- |
 | `[NAME]` | string | prompt on TTY | Project name (ENS-style: lowercase + hyphens, 1–32 chars). |
 | `--lang <LANG>` | enum | prompt on TTY | Target language (`rust`, `as`, `go`, `c`). Only Rust has canonical example templates; `--lang go` / `as` / `c` scaffold the language's minimal counter starter. |
-| `--from <TEMPLATE>` | name / git URL | prompt (Rust) · counter (other langs) | Canonical example to clone, or a `git` URL to clone a community template. `otigen new --list` shows the built-ins (currently 8: counter, erc20-token, erc721-token, simple-multisig, upgradeable-proxy, merkle-claim-airdrop, vesting, dao-governance). Omitted: Rust prompts for a template on a TTY; other languages default to the minimal counter (their only starter). |
+| `--from <TEMPLATE>` | name / git URL | prompt (Rust) · counter (other langs) | Canonical example to clone, or a `git` URL to clone a community template. `otigen new --list` shows the built-ins (currently 8: counter, fungible-token, nft-token, simple-multisig, upgradeable-proxy, merkle-claim-airdrop, vesting, dao-governance). Omitted: Rust prompts for a template on a TTY; other languages default to the minimal counter (their only starter). |
 | `--list` | — | — | Print the template catalog and exit. Mutually exclusive with `<NAME>` / `--lang` / `--from` / `--dir`. |
 | `--dir <DIR>` | path | `./<name>` | Target directory. Created if missing; refuses to overwrite an existing path. |
 
 ```bash
 otigen new --list
 otigen new my-counter --from counter
-otigen new my-token --from erc20-token --dir ./projects/my-token
+otigen new my-token --from fungible-token --dir ./projects/my-token
 ```
 
 The scaffold is a full single-contract project tree (Cargo.toml, otigen.toml, src/, tests/, Makefile). **Run from inside a workspace**, `otigen new <name>` instead scaffolds the contract under `contracts/<name>/` and registers it in the root manifest's `[workspace].members` + `order`.
@@ -510,7 +510,7 @@ In `--json` mode the `call_included` event carries the `return_data` hex. The co
 A revert — view or tx — prints the string the contract passed to `pyde::revert`, never a wasm backtrace:
 
 ```text
-otigen [ERROR] Reverted: erc721: nonexistent token
+otigen [ERROR] Reverted: token:nonexistent
 ```
 
 This works across `call`, `deploy` (constructor reverts included), `send`, and the console.

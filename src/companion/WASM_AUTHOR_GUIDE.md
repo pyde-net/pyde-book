@@ -28,7 +28,7 @@ For Rust contracts, the `pyde-host` crate ships every host fn declared in this g
 - **`pyde::declare_storage!()`** reads `[state]` from `otigen.toml` at compile time and emits typed accessors (`storage::balances().read(&owner)`, `storage::balances().write(&owner, amount)`) that delegate to the chain's typed-storage host fns (`sstore_scalar` / `sload_scalar` / `sstore_map1`…`map3`). Field-type vocabulary: `u8`…`u128`, `i8`…`i128`, `bool`, `address`, `hash32`, `bytes`, `string`, `vec(<fixed-width-inner>)`, `struct(<Name>)` — see [`OTIGEN_BINARY_SPEC §4.6`](./OTIGEN_BINARY_SPEC.md#46-state-table) for the full table.
 - **`pyde::declare_events!()`** reads `[events.*]` blocks, computes `Blake3(canonical_signature)` for topic-0 at expansion time, emits typed structs with `.emit()` — no manual topic buffer arithmetic.
 
-Rust contracts on the macro substrate (the default since the substrate batch — see [`examples/erc20-token/`](https://github.com/pyde-net/otigen/tree/main/examples/erc20-token) for a canonical reference) skip §5 (host-fn declarations), §6 (staging buffers), and most of §7 (slot derivation) — the macros generate all of it. The patterns in §8 / §9 / §10 still apply because cross-contract calls / FALCON-verify / `delegate_call` proxies have author-side logic that no macro can ship.
+Rust contracts on the macro substrate (the default since the substrate batch — see [`examples/fungible-token/`](https://github.com/pyde-net/otigen/tree/main/examples/fungible-token) for a canonical reference) skip §5 (host-fn declarations), §6 (staging buffers), and most of §7 (slot derivation) — the macros generate all of it. The patterns in §8 / §9 / §10 still apply because cross-contract calls / FALCON-verify / `delegate_call` proxies have author-side logic that no macro can ship.
 
 **This guide describes the raw WASM-ABI pattern.** The raw pattern stays fully supported and is the right shape for:
 
@@ -830,7 +830,7 @@ sX(slot.as_ptr(), ...);  // sload / sstore / sdelete with the new variable-lengt
 
 Mixing forms in the same contract is fine — they read/write the same JMT.
 
-The [`erc20-token`](https://github.com/pyde-net/otigen/tree/main/examples/erc20-token) example exercises all three storage layouts in one contract: scalar `total_supply`, mapping `balances[owner]`, and composite-key mapping `allowances[owner][spender]`. The same `read_u128(field, key)` helper handles all three by passing different `key` byte slices.
+The [`fungible-token`](https://github.com/pyde-net/otigen/tree/main/examples/fungible-token) example exercises all three storage layouts in one contract: scalar `total_supply`, mapping `balances[owner]`, and composite-key mapping `allowances[owner][spender]`. The same `read_u128(field, key)` helper handles all three by passing different `key` byte slices.
 
 ---
 
@@ -912,7 +912,7 @@ pub fn transfer_via_token(
 
     // ── 3. Reserve a return-data buffer + length slot ──────────────
     //
-    // `transfer` returns no data in most ERC20-style contracts, but
+    // `transfer` returns no data — PTS-F mutations are revert-only — but
     // we provision a small buffer anyway in case the target returns
     // a status code. Sized at 32 bytes (one word).
     let mut return_buf = [0u8; 32];
@@ -1106,7 +1106,7 @@ When a primary contract calls `pyde::cross_call(target, fn_name, calldata, value
 3. **Value transfer.** The `value` parameter debits the caller's native-PYDE balance and credits the target's. Inside the callee, `tx_value()` returns the same `value`. The transfer happens in the parent's frame, so even if the sub-call reverts (and the runner snapshots state), the transfer rolls back too.
 4. **Revert rollback.** Sub-call trap (revert / unreachable / out-of-fuel / etc.) does NOT propagate to the parent. Instead the host fn returns `ERR_CROSS_CALL_FAILED = -10` and rolls back all of the sub-call's storage / balance / event mutations. The parent observes the rc and decides whether to handle the failure or revert further.
 
-The four invariants land cleanly in any caller / callee pair where the caller drives a `cross_call` into the callee — `erc20-token` (transfer paths) and `upgradeable-proxy` (`delegate_call`) ship as the canonical reference templates that exercise the storage-namespace + caller-shift + value-transfer + revert-rollback rules end-to-end. The proxy's `forward(fn, calldata)` dispatcher is the readable cross-contract harness; the ERC-20 transfer is the readable payable + state-mutation harness. Read them side-by-side as a calibration point for any cross-contract design.
+The four invariants land cleanly in any caller / callee pair where the caller drives a `cross_call` into the callee — `fungible-token` (transfer paths) and `upgradeable-proxy` (`delegate_call`) ship as the canonical reference templates that exercise the storage-namespace + caller-shift + value-transfer + revert-rollback rules end-to-end. The proxy's `forward(fn, calldata)` dispatcher is the readable cross-contract harness; the ERC-20 transfer is the readable payable + state-mutation harness. Read them side-by-side as a calibration point for any cross-contract design.
 
 #### Sub-call dispatch convention
 
@@ -2149,7 +2149,7 @@ Run `otigen test -v` and watch stderr for `[debug] <fn>: alice_balance=100`. Str
 - [WebAssembly Core Specification](https://webassembly.github.io/spec/core/) — the upstream WASM spec for value types, linear memory, instruction semantics.
 - **Examples catalog**: [`pyde-book/otigen/examples`](../otigen/examples.md) — full table of every canonical example with what each demonstrates, host fns exercised, and per-language test counts.
 - [`otigen/examples/counter`](https://github.com/pyde-net/otigen/tree/main/examples/counter) — the canonical minimal-viable Rust template demonstrating §2.3, §6.1, §6.2 patterns end-to-end. Per-language `counter-{go,as,c}` siblings live under [`examples/`](https://github.com/pyde-net/otigen/tree/main/examples) and run the same TOML test suite against each port; the four ports stay aligned by hand (no shared scaffold today).
-- [`otigen/examples/erc20-token`](https://github.com/pyde-net/otigen/tree/main/examples/erc20-token) — full ERC20-style fungible token on the macro substrate. Canonical real-contract reference: exercises typed-arg marshalling (`address` / `uint128`) via `#[pyde::entry]`, three storage layouts (scalar / mapping / composite-key) via `pyde::declare_storage!()`, multi-topic events via `pyde::declare_events!()`, and the `transfer_from` allowance flow.
+- [`otigen/examples/fungible-token`](https://github.com/pyde-net/otigen/tree/main/examples/fungible-token) — full ERC20-style fungible token on the macro substrate. Canonical real-contract reference: exercises typed-arg marshalling (`address` / `uint128`) via `#[pyde::entry]`, three storage layouts (scalar / mapping / composite-key) via `pyde::declare_storage!()`, multi-topic events via `pyde::declare_events!()`, and the `transfer_from` allowance flow.
 - [`otigen/examples/simple-multisig`](https://github.com/pyde-net/otigen/tree/main/examples/simple-multisig) — 3-signer FALCON-512 multisig (§9 canonical example).
 - [`otigen/examples/upgradeable-proxy`](https://github.com/pyde-net/otigen/tree/main/examples/upgradeable-proxy) — upgradeable proxy via `delegate_call` (§10 canonical example).
 - [`otigen/examples/merkle-claim-airdrop`](https://github.com/pyde-net/otigen/tree/main/examples/merkle-claim-airdrop) — Merkle-tree airdrop claim with `hash_blake3` host fn (§11 canonical example).

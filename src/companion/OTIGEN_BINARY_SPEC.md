@@ -557,8 +557,8 @@ Canonical templates exposed by `otigen new --list` — the binary's template reg
 | Template | Status | Highlights |
 |---|---|---|
 | `counter` | ✅ builds + tests | Minimum viable contract. Single `u64` slot via typed `storage::counter()` accessor. Equivalent of `otigen init --lang rust`. |
-| `erc20-token` | ✅ builds + tests | Canonical real-contract reference. Scalar + 1-key + 2-key map storage shapes, indexed-field event encoding, typed-arg calldata. |
-| `erc721-token` | ✅ builds + tests | ERC721-shape NFT. Per-token ownership + balance_of + single-spender approval cleared atomically on `transfer_from`. |
+| `fungible-token` | ✅ builds + tests | PTS-F reference (pts-f/1). Scalar + 1-key + 2-key map storage shapes, indexed-field event encoding, typed-arg calldata. |
+| `nft-token` | ✅ builds + tests | PTS-N reference (pts-n/1). Per-id ownership + balance_of + single-spender approval cleared atomically on `transfer_from`. |
 | `upgradeable-proxy` | ⚠️ builds, shipped tests broken | `delegate_call`-based upgrade pattern. Admin-controlled implementation slot. The shipped `tests/contract.test.toml` references entrypoint names that no longer match the source — tests fail 0/7 until the fixture is regenerated. The contract itself deploys + delegates fine. |
 | `dao-governance` | ✅ builds + tests | FALCON-signed votes + time phases + `hash_blake3`-committed execution. The most-composed v1 reference. |
 | `simple-multisig` | ✅ builds + tests | 3-signer FALCON-512 multisig via `pyde::raw::falcon_verify` + signer-ID lookup on typed-storage maps; `Hash32` (`bytes32` alias) keys + values. |

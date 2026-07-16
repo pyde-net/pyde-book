@@ -22,7 +22,7 @@ If you're brand-new to programming, this isn't the entry point — see the [Get 
 
 | Subcommand | What it does |
 | --- | --- |
-| `otigen new` | Scaffold a single contract — minimal counter by default, or clone a canonical example (counter, erc20-token, vesting, dao-governance, …) with `--from <name>`. Run inside a workspace to add the contract as a new `contracts/<name>/` member (registered in `[workspace].members` + `order`). |
+| `otigen new` | Scaffold a single contract — minimal counter by default, or clone a canonical example (counter, fungible-token, vesting, dao-governance, …) with `--from <name>`. Run inside a workspace to add the contract as a new `contracts/<name>/` member (registered in `[workspace].members` + `order`). |
 | `otigen init` | Scaffold a new multi-contract **workspace**: a root `otigen.toml` with a `[workspace]` table, root `.gitignore` / `README.md` / `Makefile`, and a starter member at `contracts/counter/`. See [Workspaces](./workspaces.md). |
 | `otigen addresses` | List a workspace's deployed member addresses (from `artifacts/deployments/<network>.json`). |
 | `otigen check` | Validate the project without packaging. Fast pre-commit gate. |

@@ -62,6 +62,19 @@
 - [Public Testnet Bootstrap Runbook](validator/bootstrap-runbook.md)
 - [Joining a Public Testnet](validator/joining-testnet.md)
 - [Day-2 Operations](validator/operations.md)
+- [Incident Runbooks](validator/runbooks/index.md)
+  - [chain-halted](validator/runbooks/chain-halted.md)
+  - [validator-OOM](validator/runbooks/validator-OOM.md)
+  - [validator-disk-full](validator/runbooks/validator-disk-full.md)
+  - [state-root-divergence-detected](validator/runbooks/state-root-divergence-detected.md)
+  - [epoch-handover-wedge](validator/runbooks/epoch-handover-wedge.md)
+  - [state-sync-mismatch](validator/runbooks/state-sync-mismatch.md)
+  - [faucet-out-of-funds](validator/runbooks/faucet-out-of-funds.md)
+  - [explorer-indexer-behind](validator/runbooks/explorer-indexer-behind.md)
+  - [public-rpc-DDoS](validator/runbooks/public-rpc-DDoS.md)
+  - [private-key-leak](validator/runbooks/private-key-leak.md)
+  - [bootnode-down](validator/runbooks/bootnode-down.md)
+  - [postgres-corruption](validator/runbooks/postgres-corruption.md)
 
 ---
 

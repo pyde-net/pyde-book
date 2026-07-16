@@ -87,10 +87,13 @@ keys are a function of the declared standard**, enforced at build
 time: `decimals` in a `pts-n/1` manifest is a build error ("a pts-f
 field — non-fungible tokens have no fractional units"), per-id
 metadata knobs in a `pts-f/1` manifest likewise, and every such error
-names the offending key and the standard that owns it. The same wall
-rejects hand-written `[state]`/`[events]` sections on tokens (they are
-generated) and `[functions.*]` names that collide with the generated
-surface.
+names the offending key and the standard that owns it. Hand-written
+additions are **additive, never overriding**: authors may declare
+extra `[functions.*]`, `[state]` fields, and `[events]` beside the
+standard, but any name colliding with the generated surface —
+`transfer`, `balances`, `Transfer`, and the rest of the reserved set —
+is a build error. Replacing standard logic is not an option the schema
+can express.
 
 ## What the generated surface fixes
 
@@ -126,13 +129,20 @@ class:
 ## Custom logic beside the standard
 
 A token that needs extra behaviour adds ordinary `[functions.*]`
-entries and writes only those functions, in whichever language the
-project declares. Hand-written code cannot collide with generated
-state: standard fields are reserved, and custom functions mutate token
-state only through generated internal APIs that preserve invariants
-(supply accounting, event emission). For a pure config-only token the
-language choice is immaterial — same manifest, same canonical
-implementation.
+entries — plus its own additive `[state]` fields and `[events]` — and
+writes only those functions, in whichever language the project
+declares. The build merges both halves into one module: one WASM, one
+`pyde.abi` carrying the generated surface and the custom additions
+side by side. Custom code mutates token state only through generated
+internal APIs that preserve invariants (supply accounting, event
+emission); its own declared fields it accesses normally. Conformance
+checking still passes — the standard subset must be present and
+byte-conformant — and the tooling enumerates the extras, because a
+custom function's *authorization* logic is the author's code: wallets
+and scanners surface "conformant, plus N custom functions" with the
+same prominence as an upgradeable-proxy flag. For a pure config-only
+token the language choice is immaterial — same manifest, same
+canonical implementation.
 
 Contracts that want to *react* to incoming deposits (vaults, escrows,
 marketplaces) opt in from the receiving side. The author declares the

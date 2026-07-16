@@ -292,7 +292,7 @@ Typed-storage layout (slots host-derived as
 | `token_name`, `token_symbol`, `token_decimals` | scalars | init only |
 | `total_supply`, `max_supply` | `u128` scalars | **mint/burn only — never the transfer path** |
 | `balances` | `map<address → u128>` | transfer paths (exactly the two parties' slots) |
-| `allowances` | `map<(address, address) → {amount: u128, expiry_wave: u64}>` | approval family + `transfer_from` |
+| `allowance_amounts` / `allowance_expiries` | sibling `map<(address, address)>` → `u128` / `u64` | approval family + `transfer_from` |
 | `minter`, `manager`, `freezer` | address scalars | role ops only |
 | `frozen` | `map<address → bool>` | freeze extension only — absent otherwise |
 | `registered` | `map<address → u128 bond>` | registration extension only |

@@ -1,12 +1,14 @@
 # PTS — The Pyde Token Standard
 
-> **Status: Draft.** The normative specification is
-> [PIP-0005](https://github.com/pyde-net/pips/blob/main/pip-0005-pyde-token-standard.md);
+> **Status: Accepted (`pts-f/1` active).** The normative specification
+> is [PIP-0005](https://github.com/pyde-net/pips/blob/main/pip-0005-pyde-token-standard.md);
 > this document is the deep explainer — the flow, the design
 > reasoning, and the integration guide. The guide-level introduction
-> lives at [Token Standard (PTS) — Planned](../otigen/token-standard.md).
-> Nothing here is deployed yet; reference implementations land first,
-> manifest generation second.
+> lives at [Token Standard (PTS)](../otigen/token-standard.md).
+> `pts-f/1` has shipped end to end: reference implementation,
+> config-only `type = "token"` generation, `otigen verify`
+> conformance, and the frozen vector suite. `pts-n/1` is specified
+> with a merged reference; its generation + verifier are v1.1.
 
 PTS is Pyde's native standard for on-chain assets: **PTS-F**
 (`pts-f/1`) for fungible tokens and **PTS-N** (`pts-n/1`) for

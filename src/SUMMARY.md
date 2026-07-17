@@ -90,7 +90,7 @@
 - [Contract Lifecycle](otigen/lifecycle.md)
 - [Debugging Contracts](otigen/debugging.md)
 - [Otigen Examples](otigen/examples.md)
-- [Token Standard (PTS) — Planned](otigen/token-standard.md)
+- [Token Standard (PTS)](otigen/token-standard.md)
 
 ---
 

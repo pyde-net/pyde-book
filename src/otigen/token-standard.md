@@ -1,15 +1,16 @@
-# Token Standard (PTS) — Planned
+# Token Standard (PTS)
 
-> **Status: future work.** This page documents the design intent for
+> **Status: Accepted — `pts-f/1` shipped.** This page introduces
 > Pyde's native token standard — **PTS** (Pyde Token Standard) — and
-> the otigen features that will enforce it. None of it is shipped yet.
-> The normative specification is
-> [PIP-0005](https://github.com/pyde-net/pips/blob/main/pip-0005-pyde-token-standard.md);
-> the deep explainer — full surface, storage layout, receiver
-> protocol, conformance — is the
-> [Token Standard companion](../companion/TOKEN_STANDARD.md). The interface itself ships first as ordinary reference
-> examples (`fungible-token`, `nft-token`); the manifest type described
-> below is the second phase.
+> the otigen features that enforce it. The normative specification is
+> [PIP-0005](https://github.com/pyde-net/pips/blob/main/pip-0005-pyde-token-standard.md)
+> (Accepted); the deep explainer — full surface, storage layout,
+> receiver protocol, conformance — is the
+> [Token Standard companion](../companion/TOKEN_STANDARD.md). For
+> `pts-f/1` everything below is live: the `fungible-token` reference,
+> config-only `type = "token"` generation, and `otigen verify`
+> conformance. `pts-n/1` (`nft-token`) has a merged reference; its
+> config-only generation is v1.1.
 
 Pyde does not inherit ERC-20. The research behind that decision is a
 long catalog of structural losses — standing-approval drains, tokens

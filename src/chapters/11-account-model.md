@@ -93,6 +93,42 @@ CREATE2 address = Poseidon2(0xFF || deployer_address || salt || code_hash)
 The leading `0xFF` is a domain separator that distinguishes CREATE2 outputs
 from CREATE outputs (so two different derivation inputs can never collide).
 
+### Child address (factory `instantiate`, PIP-0006)
+
+A deployed contract can create **child contracts** at runtime by calling the
+`pyde::instantiate` host function — a contract that deploys contracts. The
+child shares a **template** contract's code by reference (its `code_hash`
+points at the template's already-cached module; no bytecode is copied or
+recompiled) but gets its own address, its own account record, and its own
+**isolated** storage.
+
+```
+child address = Poseidon2("pyde-child:" || parent_address || template_address || salt)
+```
+
+- `parent_address` — the factory contract's own frame address. Children are
+  namespaced under their factory, so cross-namespace minting is
+  cryptographically impossible.
+- `template_address` — the address of the already-deployed template (a
+  reference, **not** a code hash).
+- `salt` — a caller-supplied 32-byte value. There is **no deploy nonce** in
+  Pyde; child identity is salt-only, which keeps addresses counterfactual.
+
+The 107-byte preimage is fixed-width with no length prefixes or separators.
+Because the derivation is a pure function of public inputs, an off-chain
+caller can precompute a child's address *before* it exists (a pre-funded,
+code-less balance at that address is adopted into the child on creation).
+Pinned conformance vector:
+`parent = 0x11…11, template = 0x22…22, salt = 0x33…33 →
+child = 354ab9a58e3fb76b484390a2ef277594042e12fd0b74343e5bf34dba492f3dfe`.
+
+A failed instantiation is **atomic in value**: if the child's constructor
+reverts, the whole instantiate unwinds — the child leaves no trace and the
+endowment is refunded to the factory (a failed instantiate costs gas only,
+never value). The factory receives an error code (`-40`) and decides whether
+to revert or handle it. See the `HOST_FN_ABI_SPEC` factory section for the
+full host-fn contract (9-param wire, error codes, the `Instantiated` event).
+
 ### Why 32 bytes (not 20)
 
 A 20-byte address provides 80-bit collision resistance, which is marginal at
@@ -550,6 +586,14 @@ wasmtime instantiates `init_bytecode` against a fresh context. The init code's
 return value is stored as the contract's runtime bytecode. The deployed
 contract address is `Poseidon2(deployer || nonce)` (see §11.2). The
 `code_hash` is set to `Poseidon2(runtime_bytecode)`.
+
+**Value on a failed deploy is refunded.** If the constructor reverts (or
+traps / runs out of gas), the deploy is rolled back — the contract account
+never materialises — and the deployer is charged the gas actually consumed
+**only**; the attached `value` is returned. A failed deploy costs gas, never
+value. (This is the same "value is atomic with the call" rule that governs
+`cross_call`, the factory `instantiate`, and ordinary payable calls: a revert
+refunds the value; only gas is non-refundable.)
 
 After deployment, the `code_hash` is **immutable**. Upgradeability is
 handled at the application layer with the proxy pattern:

@@ -356,9 +356,7 @@ the artifact.
   standard and is specified **revert-free by construction**
   (idempotent double-registration, validation before any failure
   path) so bonding stays predictable and atomic for wallets and
-  integrators. (Since attached value now refunds on revert, the
-  original fund-burn concern is moot; relaxing this revert-free
-  requirement is a design option deferred to the PIP-0005 owner.)
+  integrators.
 - **Upgradeability**: token code is immutable. Issuers wanting
   upgrade paths use the delegate-call proxy pattern, and wallets MUST
   surface proxied tokens as loudly as freeze/mint flags — a proxy can

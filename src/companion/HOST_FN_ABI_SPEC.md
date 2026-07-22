@@ -366,6 +366,12 @@ Negative i32 values returned by host functions. Each function lists which codes 
 | `-15` | `ERR_PARACHAIN_ONLY` | Function callable only from parachain context |
 | `-16` | `ERR_CIPHERTEXT_INVALID` | Threshold-decryption input malformed |
 | `-17` | `ERR_SIGNATURE_INVALID` | FALCON signature verification failed |
+| `-40` | `ERR_INSTANTIATE_CTOR_REVERTED` | Child constructor reverted during `instantiate`. The whole instantiate unwinds atomically — no child account, endowment refunded to the factory; the ctor's revert payload flows back verbatim in `return_data` (§7.12) |
+| `-43` | `ERR_TEMPLATE_NOT_FOUND` | `instantiate` template address is not a deployed contract / has no code |
+| `-44` | `ERR_CHILD_ADDRESS_OCCUPIED` | Derived child address is occupied by a NON-mergeable account (code-bearing, keyed, nonce-used, or non-EOA). A balance-only EOA shell is NOT occupied — it merges into the child (§7.12) |
+| `-45` | `ERR_CTOR_MISMATCH` | Non-empty `init_calldata` passed to a template with no constructor |
+| `-46` | `ERR_PIP2_PREFIX_COLLISION` | Child address's 16-byte prefix collides in the PIP-2 prefix registry |
+| `-48` | `ERR_INSTANTIATE_CAP_EXCEEDED` | Per-transaction instantiate cap (`MAX_INSTANTIATES_PER_TX = 64`) exceeded |
 | `-100` | `ERR_INTERNAL` | Engine-side bug or unexpected state. Should never occur in a correct implementation; surfaces as a trap in practice. Document for completeness. |
 
 Critical failures (`MemoryOutOfBounds`, `StackOverflow`, `OutOfFuel`, `IntegerDivideByZero`, `UnreachableCodeReached`, host-fn-invariant violations) **trap**. Traps are unrecoverable; the transaction reverts; gas is consumed up to the trap point.
@@ -990,6 +996,154 @@ wave — adversaries cannot bias it, but they *can* observe it. For adversary-pr
 ordering, route the transaction through the private mempool (commit-reveal); a
 one-shot ciphertext lane for adversary-private randomness is v2+ research (Chapter 20).
 ```
+
+### 7.12 Factory (`instantiate`, PIP-0006)
+
+Added in ABI v1.3 — the 41st core host function. A contract (the FACTORY) creates a
+child instance of an already-deployed TEMPLATE contract **by reference**: the child is
+a full first-class contract (own address, own account, own isolated storage) whose
+`code_hash` points at the template's one cached blob. No bytes cross the wire; nothing
+is re-validated or re-compiled. Children are addressed by **salt** (no registry name).
+
+#### `instantiate`
+
+```text
+pyde::instantiate(
+    template_addr_ptr: i32,            — pointer to 32-byte address of a DEPLOYED template
+    salt_ptr: i32,                     — pointer to 32 opaque caller-derived bytes (see below)
+    init_calldata_ptr: i32,
+    init_calldata_len: i32,            — borsh ctor args; ≤ MAX_INIT_CALLDATA_BYTES = 16,384
+    value_ptr: i32,                    — pointer to 16-byte LE u128 endowment (quanta)
+    gas_limit: i64,                    — ctor fuel budget; NEGATIVE = forward all remaining
+    child_addr_out_ptr: i32,           — 32-byte out; written immediately after derivation,
+                                         so it is populated on 0, -40, -43, -44, -45, -46
+                                         AND -3 (every path past the early cap/bounds
+                                         checks; NOT populated on -48)
+    return_data_out_ptr: i32,
+    return_data_out_len_ptr: i32       — u32 LE: capacity in / actual out
+) -> i32
+
+Returns: 0 on success (child created; ctor's return value in return_data);
+         ERR_INSTANTIATE_CTOR_REVERTED if the child constructor reverted — the
+         instantiate unwinds ATOMICALLY (no child account, no child storage, no
+         PIP-2 prefix entry; the endowment is refunded to the factory) and the
+         ctor's revert payload is copied to return_data VERBATIM;
+         ERR_TEMPLATE_NOT_FOUND if template_addr is not a code-bearing contract;
+         ERR_CHILD_ADDRESS_OCCUPIED if the derived child address holds a
+         NON-mergeable account;
+         ERR_CTOR_MISMATCH if init_calldata is non-empty but the template has no
+         constructor;
+         ERR_PIP2_PREFIX_COLLISION on a 16-byte prefix-registry collision;
+         ERR_INSTANTIATE_CAP_EXCEEDED past MAX_INSTANTIATES_PER_TX = 64;
+         ERR_INSUFFICIENT_BALANCE if the factory's balance < endowment.
+
+Gas: GAS_INSTANTIATE_BASE = 20,000 base + GAS_INSTANTIATE_PER_BYTE = 8 per byte of
+init_calldata + the ctor's actual gas_used. Charged before work; all failure paths
+cost at least base + per-byte.
+
+Traps (frame dies, not an error code): called from a view/static frame; call depth
+≥ MAX_CROSS_CALL_DEPTH = 1024; out-of-bounds pointers; out-of-fuel; u128 overflow
+when merging the endowment into a pre-funded shell.
+
+Semantics: synchronous, in-frame, atomic. The engine resolves template_addr →
+code_hash → cached module (loading from persistent state on a cache miss — a cold
+cache is never a behavioral difference), derives the child address (below), then
+stages the child inside a discardable overlay layer: fresh account with the
+template's code_hash, balance = endowment, isolated storage. The constructor (if
+any) runs on the cross-call rails — depth+1, caller = factory, origin preserved,
+the factory's reentrancy guard stays armed. Success commits the layer and merges
+the ctor's events into the factory's frame; ANY failure discards it wholesale
+(atomic refund — a failed instantiate costs gas only, never value).
+
+Endowment: value funds the CHILD ACCOUNT (like top-level deploy value), it is not
+a payable-gated call — there is no payable check and no -12 here. The child's ctor
+observes it via pyde::tx_value.
+
+Mergeability (counterfactual funding): if the derived address already holds a
+balance-only EOA shell (no code, fresh nonce, no auth keys — e.g. someone
+pre-funded the predicted address), the shell's balance MERGES into the new child
+(overflow traps). ERR_CHILD_ADDRESS_OCCUPIED fires only for code-bearing, keyed,
+nonce-used, or non-EOA occupants. Funding a child address before it exists is
+safe and can never brick it.
+
+Repetition: same (parent, template, salt) → same address → -44 once created. The
+idempotent-factory idiom: keep a mapping(identity → child) in the factory's own
+storage (the UniswapV2 getPair pattern), or blind-instantiate and treat -44 as
+"already exists" — child_addr_out carries the address either way, no re-derivation.
+```
+
+#### Deriving child addresses
+
+The child address is a **pure function** — computable on-chain (via
+`hash_poseidon2`), off-chain, and by the engine, with byte-identical results:
+
+```text
+child_address = Poseidon2( PREIMAGE )
+
+PREIMAGE = 107 bytes, fixed-width, NO length prefixes, NO separators:
+  [0..11)   = ASCII "pyde-child:"   (70 79 64 65 2D 63 68 69 6C 64 3A)
+  [11..43)  = parent_address        (the factory's own frame address)
+  [43..75)  = template_address      (an ADDRESS, not a code hash)
+  [75..107) = salt
+```
+
+- **Namespacing**: `parent` comes from the executing frame, so a contract can only
+  mint into its OWN namespace — cross-namespace minting is cryptographically
+  impossible. Under `delegate_call`, the frame address is the DELEGATOR.
+- **Poseidon2 binding**: the digest is `pyde-crypto`'s Poseidon2 (PaddingFreeSponge
+  over Goldilocks, WIDTH=8 / RATE=4 / OUT=4, the HL round-constant set). Variable-
+  length input packs as **7-byte little-endian chunks** — one field element each,
+  zero-padded — **plus a trailing input-length field element** (load-bearing for
+  injectivity); the empty input is the single exception: one zero element, NO length
+  element. Output = 4 canonical u64, little-endian, 32 bytes. **Do NOT hand-roll the
+  permutation** — bind `pyde-crypto` (Rust / engine) or `pyde-crypto-wasm` (TS / AS);
+  a third-party Poseidon2 that disagrees forks every address. Implementations
+  without a Poseidon2 binding (Go, C) conformance-test their PREIMAGE assembly —
+  every vector carries the `preimage` field for exactly this — and inherit digest
+  correctness from the bound library's own KATs plus the live-network parity tests.
+- **Salt** is exactly 32 opaque bytes; the engine never interprets it. Deriving it
+  is the caller's job: identity salts (`Poseidon2(borsh(identity))` — deterministic,
+  counterfactual) or a factory-owned storage counter. There is **no nonce anywhere**.
+  - **Identity encoding**: borsh of the typed identity value, encoded ONCE as a
+    single value (tuples are frameless field concatenation, matching the calldata
+    convention).
+  - **Unordered pairs** (one child per pair of addresses — the UniswapV2 case):
+    sort the two 32-byte values **ascending BYTEWISE** (lexicographic on bytes),
+    concatenate (raw 64 bytes, no framing), hash. `(a, b)` and `(b, a)` MUST yield
+    the same salt; skipping the sort silently forks the "same" pair into two
+    different children.
+- **Conformance vectors are the drift guard**: `vectors/child_address.json` (repo
+  root) is the golden set every implementation replays — engine KAT, all four
+  language bindings, both off-chain SDKs, the CLI. Identity-salt vectors carry
+  `salt_source_typed` (the normative description of the typed value) +
+  `salt_source_borsh`; the unordered-pair vector additionally records its two
+  arguments UNSORTED (`salt_source_pair_args`), so replaying from the args
+  requires implementing the sort. Anchor vector (pinned from the engine KAT):
+
+```text
+parent   = 0x11 × 32
+template = 0x22 × 32
+salt     = 0x33 × 32
+child    = 354ab9a58e3fb76b484390a2ef277594042e12fd0b74343e5bf34dba492f3dfe
+```
+
+#### `Instantiated` event (engine-emitted)
+
+On success the engine emits the child's SOLE provenance record into the factory's
+frame (children have no registry name and no Deploy tx), BEFORE the ctor's own
+events:
+
+```text
+contract (emitter) = parent (the factory)
+topic[0] = 622a0a9e1e2b487288904a22b18174d6e45b3749c756a94209ef9a9cf768847a
+           = Blake3("pyde.Instantiated")                                — PINNED
+topic[1] = child_address     (32 bytes)
+topic[2] = template_address  (32 bytes)
+data     = parent(32) ‖ salt(32) ‖ value_le(16)   = 80 bytes, no length prefixes
+```
+
+Decoder drift here forks explorers (not consensus) — all SDK decoders and the
+explorer mirror this exact split.
 
 ---
 

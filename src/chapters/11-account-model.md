@@ -75,23 +75,22 @@ The input is the raw 897-byte FALCON-512 public key. The output is 32
 bytes of Poseidon2 over the Goldilocks field — the natural output size, no
 truncation.
 
-### CREATE (deploy from a deployer's nonce)
+### Named contract (deploy)
 
 ```
-CREATE address = Poseidon2(deployer_address || nonce_bytes)
+contract address = Poseidon2("pyde-contract:" || name_bytes)
 ```
 
-The deployer's address and the deployer's current nonce — the same scheme
-as Ethereum, but Poseidon2 instead of Keccak.
-
-### CREATE2 (deterministic deploy with a salt)
-
-```
-CREATE2 address = Poseidon2(0xFF || deployer_address || salt || code_hash)
-```
-
-The leading `0xFF` is a domain separator that distinguishes CREATE2 outputs
-from CREATE outputs (so two different derivation inputs can never collide).
+Pyde has **no CREATE / CREATE2 and no deploy nonce.** A deployed contract is
+addressed by its ENS-style **name**, not by `(deployer, nonce)`. The deploy
+tx carries the name in its `DeployData` envelope (§11.10), and the address is
+a deterministic function of that name alone — so a wallet or indexer resolves
+`name → address` straight from the string, no chain query. The
+`"pyde-contract:"` domain prefix keeps this family disjoint from raw system
+names (§11.3); the deploy handler's registry-uniqueness gate rejects a name
+that is already taken, so two deployers can never collide on one derived
+address. Factory-instantiated instances use the salt-based **Child address**
+scheme below.
 
 ### Child address (factory `instantiate`, PIP-0006)
 
@@ -529,7 +528,7 @@ variants. Tag `2` is intentionally vacant — `Batch` was prototyped pre-mainnet
 | ID  | Name              | What it does                                                |
 | --- | ----------------- | ----------------------------------------------------------- |
 | 0   | `Standard`        | Value transfer or contract call                             |
-| 1   | `Deploy`          | Contract deployment (`to == Address::ZERO`, data == initcode)|
+| 1   | `Deploy`          | Contract deployment (`to == Address::ZERO`, `data` = borsh-encoded `DeployData`)|
 | 3   | `StakeDeposit`    | Lock ≥ `MIN_VALIDATOR_STAKE` (10,000 PYDE) and register as validator (data = FALCON pubkey 897 B). Single-tier — any validator meeting the floor is eligible for the per-epoch uniform-random committee selection (see Chapter 14 §14.5). |
 | 4   | `StakeWithdraw`   | Begin 30-day unbonding                                       |
 | 5   | `Slash`           | Submit double-sign evidence (data = serialized evidence)    |
@@ -574,7 +573,7 @@ Transaction {
     from:    deployer,
     to:      Address::ZERO,                  // signals deployment
     value:   ...,
-    data:    init_bytecode,                  // executed once at deploy
+    data:    borsh(DeployData),              // name + wasm + type + init_calldata
     gas_limit: ...,
     nonce:   ...,
     tx_type: TransactionType::Deploy,
@@ -582,10 +581,16 @@ Transaction {
 }
 ```
 
-wasmtime instantiates `init_bytecode` against a fresh context. The init code's
-return value is stored as the contract's runtime bytecode. The deployed
-contract address is `Poseidon2(deployer || nonce)` (see §11.2). The
-`code_hash` is set to `Poseidon2(runtime_bytecode)`.
+The `data` field is a borsh-encoded `DeployData` envelope: the contract's
+ENS-style `name`, its `wasm_bytes` (with the embedded `pyde.abi` custom
+section), a `contract_type` discriminant, and `init_calldata` for the
+constructor. Unlike Ethereum there is **no init-bytecode-returns-runtime-
+bytecode step** — the submitted `wasm_bytes` *are* the runtime code. The
+handler validates the module (ABI + import allowlist), derives the address as
+`Poseidon2("pyde-contract:" || name)` (see §11.2 — no deployer nonce), writes
+the fresh contract account, and, if the ABI declares a constructor, invokes
+it once with `init_calldata` as its calldata. The `code_hash` commits to the
+deployed WASM module.
 
 **Value on a failed deploy is refunded.** If the constructor reverts (or
 traps / runs out of gas), the deploy is rolled back — the contract account
@@ -716,7 +721,7 @@ Step 11 — Receipt
 | Property                  | Value                                          |
 | ------------------------- | ---------------------------------------------- |
 | Address size              | 32 bytes (Poseidon2 hash, no truncation)        |
-| Address derivation        | EOA from FALCON pk; CREATE / CREATE2 from deployer |
+| Address derivation        | EOA from FALCON pk; contract from name; child from factory+template+salt |
 | Account types             | EOA, Contract, System                           |
 | Auth schemes              | `None`, `Single` FALCON pk, `MultiSig{keys, threshold}` |
 | Address mutability        | Immutable across key rotations                  |

@@ -274,9 +274,11 @@ bytes at a time (avoiding values that exceed the Goldilocks modulus).
 
 1. **State root commitment:** the dual-rooted state has a Poseidon2 root
    alongside the Blake3 root, signed by the committee.
-2. **Account address derivation:** `Poseidon2(falcon_pubkey)`.
-3. **CREATE / CREATE2 address derivation:** `Poseidon2(deployer || nonce)`
-   or `Poseidon2(0xFF || deployer || salt || code_hash)`.
+2. **Account address derivation:** `Poseidon2(falcon_pubkey)` for EOAs.
+3. **Contract / child address derivation:** `Poseidon2("pyde-contract:" ||
+   name)` for named deploys and `Poseidon2("pyde-child:" || parent ||
+   template || salt)` for factory children (no CREATE / CREATE2, no deploy
+   nonce — see Chapter 11).
 4. **Storage key derivation:** `Poseidon2(contract, slot)` for single
    fields, doubled for maps. Encoded as build-time constants by the
    `otigen` developer toolchain's state binding generator.
@@ -472,9 +474,9 @@ Master seed (user-provided or random)
         +-> Secret key (1281 bytes)
 
 Address derivation:
-    EOA address = Poseidon2(falcon_public_key)              // 32 bytes
-    CREATE      = Poseidon2(deployer_address || nonce)
-    CREATE2     = Poseidon2(0xFF || deployer || salt || code_hash)
+    EOA address      = Poseidon2(falcon_public_key)                            // 32 bytes
+    contract address = Poseidon2("pyde-contract:" || name)                     // named deploy
+    child address    = Poseidon2("pyde-child:" || parent || template || salt)  // factory
 ```
 
 ### Why 32-byte addresses

@@ -270,12 +270,14 @@ struct Account {
 
 Fixed portion: 141 bytes plus the variable `auth_keys` field.
 
-The address is a 32-byte Poseidon2 hash. Three derivation paths exist:
+The address is a 32-byte Poseidon2 hash. There are four domain-separated
+derivation families (no CREATE / CREATE2, no deploy nonce — see Chapter 11):
 
 ```
-EOA address     = Poseidon2(falcon_public_key_bytes)              // 897-byte FALCON pk
-CREATE address  = Poseidon2(deployer_address || nonce_bytes)
-CREATE2 address = Poseidon2(0xFF || deployer_address || salt || code_hash)
+EOA address      = Poseidon2(falcon_public_key_bytes)                       // 897-byte FALCON pk
+contract address = Poseidon2("pyde-contract:" || name)                      // named deploy
+child address    = Poseidon2("pyde-child:" || parent || template || salt)   // factory instantiate
+system address   = Poseidon2(name)                                          // genesis-seeded
 ```
 
 The 32-byte length matches the natural Poseidon2 output (4 Goldilocks field

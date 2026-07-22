@@ -169,7 +169,7 @@ All of it at build time, each error naming the offending key:
   inconsistent-boolean-return disease has no substrate.
 - **No core token function is `PAYABLE`.** The engine's own gate
   rejects attached native value on every standard entry, structurally
-  minimizing the value-forfeit-on-revert surface. The single
+  keeping native value out of code paths that never need to touch it. The single
   exception is the registration extension's `register()`, which is
   specified revert-free (§10).
 - **Names are exact `snake_case`.** Pyde dispatches by function name;
@@ -355,7 +355,10 @@ the artifact.
   kills airdrop UX. `register()` is the one payable function in the
   standard and is specified **revert-free by construction**
   (idempotent double-registration, validation before any failure
-  path) because attached value is forfeited on revert.
+  path) so bonding stays predictable and atomic for wallets and
+  integrators. (Since attached value now refunds on revert, the
+  original fund-burn concern is moot; relaxing this revert-free
+  requirement is a design option deferred to the PIP-0005 owner.)
 - **Upgradeability**: token code is immutable. Issuers wanting
   upgrade paths use the delegate-call proxy pattern, and wallets MUST
   surface proxied tokens as loudly as freeze/mint flags — a proxy can

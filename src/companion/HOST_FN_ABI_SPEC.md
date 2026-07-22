@@ -997,7 +997,7 @@ ordering, route the transaction through the private mempool (commit-reveal); a
 one-shot ciphertext lane for adversary-private randomness is v2+ research (Chapter 20).
 ```
 
-### 7.12 Factory (`instantiate`, PIP-0006)
+### 7.12 Factory instantiation
 
 Added in ABI v1.3 — the 41st core host function. A contract (the FACTORY) creates a
 child instance of an already-deployed TEMPLATE contract **by reference**: the child is

@@ -92,7 +92,7 @@ that is already taken, so two deployers can never collide on one derived
 address. Factory-instantiated instances use the salt-based **Child address**
 scheme below.
 
-### Child address (factory `instantiate`, PIP-0006)
+### Child address (factory `instantiate`)
 
 A deployed contract can create **child contracts** at runtime by calling the
 `pyde::instantiate` host function — a contract that deploys contracts. The

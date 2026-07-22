@@ -326,7 +326,7 @@ otigen deploy [OPTIONS]
 | `--from <WALLET>` | `[wallet.default_account]` | Signing account. |
 | `[ARGS...]` | none | Typed positional constructor args, marshalled per the constructor's declared inputs — the `[functions.<name>]` entry tagged `constructor`, any name — in declaration order. Same encoder + wallet-name address resolution as `otigen call`. Mutually exclusive with `--args`. |
 | `--args <HEX>` | empty | Pre-encoded borsh calldata for the constructor (`init`), hex-encoded. Renamed from `--init-arg` to match `otigen call --args`. Mutually exclusive with positional constructor args. |
-| `--value <QUANTA>` | `0` | Optional native PYDE transfer to the freshly-deployed contract account (decimal quanta — 1 PYDE = 10⁹ quanta). The constructor sees it via `pyde::ctx::value()`; forfeited per PIP-4 if the constructor reverts. |
+| `--value <QUANTA>` | `0` | Optional native PYDE transfer to the freshly-deployed contract account (decimal quanta — 1 PYDE = 10⁹ quanta). The constructor sees it via `pyde::ctx::value()`; refunded if the constructor reverts (only gas is charged — attached value is never forfeited). |
 | `--dry-run` | off | Build + sign the tx but don't submit. Useful for inspecting the wire bytes. |
 | `--no-wait` | off | Submit and exit without polling for the receipt. |
 | `--password-stdin` | off | Read wallet password from stdin. |

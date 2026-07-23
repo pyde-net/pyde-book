@@ -215,6 +215,10 @@ Properties:
 
 ## 6. Commit
 
+![The commit rule: rounds of DAG vertices, a deterministically selected anchor, a subdag walk into canonical order, execution, and quorum certification into wave finality.](../assets/diagrams/ch06-commit-rule.svg)
+
+*A wave is a successful commit: the round's deterministically selected anchor pins a subdag, execution runs in canonical order, and at least 85 of 128 committee members certify the same state root.*
+
 When the anchor vertex collects sufficient support from later rounds (Mysticeti 3-stage support), a commit fires:
 
 ```

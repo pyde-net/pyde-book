@@ -43,6 +43,10 @@ struct SnapshotManifest {
 
 ### Verification Flow
 
+![Snapshot sync phase by phase: trust bootstrap, manifest verification, chunk download, state reconstruction, tail sync, and active operation.](../assets/diagrams/ch07-state-sync.svg)
+
+*Snapshot sync, phase by phase: every artifact is verified against the committee-signed manifest before it touches local state.*
+
 ```
 Phase 1: Discover & Verify Manifest
   1. Bootstrap from seed peers

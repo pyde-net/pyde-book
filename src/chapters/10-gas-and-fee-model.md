@@ -1,5 +1,9 @@
 # Chapter 10: Gas and Fee Model
 
+![Where a fee goes: wasmtime fuel metering, the per-wave floating base fee, and the deterministic 70/20/10 split across burn, validator rewards, and treasury.](../assets/diagrams/ch10-fee-path.svg)
+
+*A fee's full path: wasmtime fuel meters execution, the per-wave base fee prices it, and every fee splits 70/20/10 across burn, rewards, and treasury.*
+
 Pyde meters every operation in **gas**. The economic model on top of gas is
 EIP-1559 with 4× elastic blocks, deterministic 70/20/10 fee distribution,
 and no priority fees. There is no tip field, no builder/proposer separation,

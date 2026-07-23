@@ -10,8 +10,9 @@ the base chain deliberately cannot do on its own, then reports the
 result back to Pyde in a form Pyde can check. One parachain speaks to a
 foreign chain through that chain's light client. Another publishes
 price data. Another reports real-world events or moves files. A
-contract on Pyde reaches any of them the same way, through `cross_call`
-with a callback, and what comes back is a verified result.
+contract on Pyde reaches any of them the same way, through
+`parachain_call` with a callback, and what comes back is a verified
+result.
 
 This unifies two topics that most ecosystems treat separately:
 
@@ -24,8 +25,9 @@ This unifies two topics that most ecosystems treat separately:
    consensus, and slashing rules as everything else in the layer.
 
 **Timing:** the parachain layer is v2, shipping post-mainnet. What v1
-locks in is the surface: the `cross_call` host function and its
-callback model, the `HardFinalityCert` primitive, the
+locks in is the surface: the `cross_call` host function and the
+callback model that `parachain_call` extends, the
+`HardFinalityCert` primitive, the
 `type = "parachain"` manifest schema in otigen, and the gated parachain
 host-function namespace. Contracts written against the interface today
 compile and deploy today. The deep mechanics live in
@@ -55,25 +57,10 @@ a promise.
 
 ## 13.2 The Shape of the Layer
 
-```text
-                       ┌────────────────────┐
-                       │  Chain X adapter    │──── light client ───► Chain X
-                       │  (parachain)        │
-                       └─────────▲──────────┘
-                                 │
- ┌────────────────┐    ┌─────────┴──────────┐    ┌────────────────────┐
- │  Price feeds    │◄───│       PYDE         │───►│  Chain Y adapter    │
- │  (parachain)    │    │   (base chain)     │    │  (parachain)        │
- └────────────────┘    └─────────┬──────────┘    └────────────────────┘
-                                 │
-                       ┌─────────▼──────────┐
-                       │  Events / file IO   │──── declared IO ────► real world
-                       │  (parachain)        │
-                       └────────────────────┘
+![Pyde in the center with parachains around it, each doing a different job: Chain X and Chain Y adapters running light clients, price feeds, events and file IO.](../assets/diagrams/parachain-concept.svg)
 
-  every parachain: its own validators, its own stake, its own
-  consensus, its own blocks — anchored to and re-validated by Pyde
-```
+*One off-chain layer, many jobs: every parachain is its own staked,
+decentralized network, anchored to and re-validated by Pyde.*
 
 Each parachain declares one **capability**: what job it does, what a
 request payload looks like, and how its validators agree on a result.
@@ -90,27 +77,13 @@ how to check the work.
 A contract on Pyde wants to run a swap on Chain X and act on the
 result:
 
-```text
- Pyde contract          parachain             Chain X       parachain          Pyde
-      │                     │                    │              │                │
-      │  cross_call         │                    │              │                │
-      │  (payload +         │                    │              │                │
-      │   callback spec)    │                    │              │                │
-      ├────────────────────►│                    │              │                │
-      │                     │  validate, sign,   │              │                │
-      │                     │  submit            │              │                │
-      │                     ├───────────────────►│              │                │
-      │                     │                    │  executes    │                │
-      │                     │                    ├─────────────►│                │
-      │                     │                    │              │ watch via      │
-      │                     │                    │              │ light client,  │
-      │                     │                    │              │ confirm receipt│
-      │                     │                    │              ├───────────────►│
-      │                     │                    │              │                │ run
-      │                     │                    │              │                │ callback
-```
+![A Pyde contract issues a parachain_call; the parachain signs and submits on Chain X, watches through its light client, confirms, and Pyde runs the callback while the parachain anchors the result in its own block.](../assets/diagrams/parachain-flow.svg)
 
-1. The contract issues a `cross_call` naming the parachain, the action,
+*A contract drives an action on another network and gets a verified
+result back; in parallel, the parachain seals the exchange into its own
+block and broadcasts it to Pyde for re-validation.*
+
+1. The contract issues a `parachain_call` naming the parachain, the action,
    the payload (target address, function, arguments), and the callback
    to run on the result.
 2. The parachain's validators pick up the forwarded request, validate
@@ -136,9 +109,10 @@ apply.
 
 ---
 
-## 13.4 The `cross_call` Host Function
+## 13.4 The Call Model: `cross_call` and `parachain_call`
 
-Cross-context invocation in Pyde is exposed as a WASM host function:
+Cross-context invocation in Pyde is exposed as a WASM host function.
+The v1 contract-to-contract form:
 
 ```rust
 // From the WASM contract author's perspective (Rust example):
@@ -155,31 +129,34 @@ let result = pyde::cross_call(
 )?;
 ```
 
-The same primitive serves three call shapes:
+The same callback model serves three call shapes:
 
-1. **Smart contract → smart contract** (same chain, fully working at
-   v1). Synchronous if both contracts are in the same wave;
-   asynchronous via callback if execution spans waves.
-2. **Smart contract → parachain** (v2, when the parachain layer ships).
-   Asynchronous; the parachain's validators process the call and the
-   callback carries the result back.
-3. **Smart contract → foreign chain** (v2, through an adapter
-   parachain). There is no separate "foreign transport": reaching
+1. **Smart contract → smart contract** via `cross_call` (same chain,
+   fully working at v1). Synchronous if both contracts are in the same
+   wave; asynchronous via callback if execution spans waves.
+2. **Smart contract → parachain** via `parachain_call` (v2, when the
+   parachain layer ships). Always asynchronous; the parachain's
+   validators process the call and the callback carries the result
+   back. `parachain_call` names the parachain, the action, the
+   payload, and the callback, and enters the ABI through its additive
+   path when the layer ships.
+3. **Smart contract → foreign chain** (v2, a `parachain_call` to an
+   adapter). There is no separate "foreign transport": reaching
    Chain X *is* a call to the parachain that adapts it. The contract
    never handles foreign formats; the adapter does.
 
-The host function signature is part of the v1 Host Function ABI
+The `cross_call` signature is part of the v1 Host Function ABI
 specification and is stable at genesis. Contracts written today against
 the v1 interface keep working as the parachain layer comes online.
 
 ### Callback context preserved
 
-Every `cross_call` carries enough context that the callback can
-reconstruct what happened:
+Every call, `cross_call` and `parachain_call` alike, carries enough
+context that the callback can reconstruct what happened:
 
 - `callback_id` (unique per call)
 - `original_caller` (address that initiated the original transaction)
-- `original_fn` (function that issued the cross_call)
+- `original_fn` (function that issued the call)
 - `original_args_hash` (hash of original args; full args retrievable from the chain log)
 - `issued_at_wave` (when the call was issued)
 - `target` (who was called)
@@ -242,6 +219,10 @@ changes. The image is public so anyone can pull, inspect, and join.
 
 ### Why the IO split is the whole trick
 
+![The parachain contract stays deterministic and declares the IO; the relay backend performs it against the external world; the validators agree on the returned result and seal it into the block.](../assets/diagrams/parachain-io-split.svg)
+
+*Determinism inside, reality outside, agreement at the boundary.*
+
 If the contract made the network call itself, every validator would get
 a slightly different answer (timing, peers, API jitter) and the
 parachain could never agree on a block. So the deterministic core
@@ -293,7 +274,7 @@ membership prerequisite: eligibility is the stake and the spec,
 enforced in code.
 
 **Economics.** PYDE remains the gas token across the layer. Contracts
-pay the parachain's declared gas charge when a `cross_call` is served;
+pay the parachain's declared gas charge when a `parachain_call` is served;
 parachain validators earn from serving honestly and lose stake for
 serving fraudulently. Parachain authors can layer their own token
 economies on top; that is an application concern, not protocol
@@ -431,7 +412,7 @@ on credible auditor capacity, not on a calendar.
 | --- | --- | --- |
 | Sovereign L1 | Yes | none |
 | Hard-finality certificate (format) | Yes | The outbound proof primitive for adapters |
-| `cross_call` host function (interface) | Yes | Same interface reaches parachains, then foreign chains through adapters |
+| `cross_call` host function (interface) | Yes | The callback model `parachain_call` extends to parachains, then foreign chains through adapters |
 | Smart-contract → smart-contract calls | Yes (working) | Performance optimizations |
 | Parachain layer (operator network) | Surface reserved | Ships as v2: staking, consensus, anchoring, slashing |
 | Smart-contract → parachain calls | Interface only | Live with the layer |

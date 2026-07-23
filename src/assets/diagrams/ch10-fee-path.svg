@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="560" viewBox="0 0 1200 560" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, sans-serif">
+  <defs>
+    <filter id="sh" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="3" stdDeviation="7" flood-color="#000000" flood-opacity="0.08"/></filter>
+    <marker id="ar" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#b2b2ba"/></marker>
+  </defs>
+  <rect width="1200" height="560" fill="#ffffff"/>
+  <text x="600" y="58" text-anchor="middle" font-size="30" font-weight="700" fill="#16161a">Where a fee goes</text>
+  <text x="600" y="92" text-anchor="middle" font-size="16" fill="#8a8a92">From wasmtime fuel to the deterministic split, with no tips anywhere on the path</text>
+
+  <!-- left chain arrows -->
+  <g stroke="#cfcfd6" stroke-width="2.2">
+    <line x1="290" y1="270" x2="328" y2="270" marker-end="url(#ar)"/>
+    <line x1="620" y1="270" x2="658" y2="270" marker-end="url(#ar)"/>
+  </g>
+  <text x="309" y="253" text-anchor="middle" font-size="12" fill="#9a9aa2">executes at commit</text>
+  <text x="639" y="253" text-anchor="middle" font-size="12" fill="#9a9aa2">gas used from fuel</text>
+
+  <g filter="url(#sh)"><rect x="20" y="215" width="270" height="110" rx="14" fill="#f6f6f7" stroke="#e4e4e8" stroke-width="1.5"/></g>
+  <text x="155" y="255" text-anchor="middle" font-size="18" font-weight="650" fill="#16161a">Transaction</text>
+  <text x="155" y="279" text-anchor="middle" font-size="12.5" fill="#7a7a82">carries only a gas limit;</text>
+  <text x="155" y="295" text-anchor="middle" font-size="12.5" fill="#7a7a82">no tip field exists</text>
+
+  <g filter="url(#sh)"><rect x="330" y="215" width="290" height="110" rx="14" fill="#f6f6f7" stroke="#e4e4e8" stroke-width="1.5"/></g>
+  <text x="475" y="255" text-anchor="middle" font-size="18" font-weight="650" fill="#16161a">Fuel metering</text>
+  <text x="475" y="279" text-anchor="middle" font-size="12.5" fill="#7a7a82">every WASM instruction pays;</text>
+  <text x="475" y="295" text-anchor="middle" font-size="12.5" fill="#7a7a82">out-of-fuel traps, no refunds</text>
+
+  <g filter="url(#sh)"><rect x="660" y="215" width="290" height="110" rx="14" fill="#16161a"/></g>
+  <text x="805" y="250" text-anchor="middle" font-size="17.5" font-weight="650" fill="#ffffff">charge = gas used x base fee</text>
+  <text x="805" y="276" text-anchor="middle" font-size="12.5" fill="#b6b6be">base fee floats per wave,</text>
+  <text x="805" y="292" text-anchor="middle" font-size="12.5" fill="#b6b6be">at most 12.5% per adjustment</text>
+
+  <!-- fan-out -->
+  <g stroke="#cfcfd6" stroke-width="2.2">
+    <path d="M950,240 C990,220 1000,185 1028,168" fill="none" marker-end="url(#ar)"/>
+    <line x1="950" y1="270" x2="1028" y2="270" marker-end="url(#ar)"/>
+    <path d="M950,300 C990,320 1000,355 1028,372" fill="none" marker-end="url(#ar)"/>
+  </g>
+
+  <g filter="url(#sh)"><rect x="1030" y="130" width="150" height="76" rx="13" fill="#f6f6f7" stroke="#e4e4e8" stroke-width="1.5"/></g>
+  <text x="1105" y="162" text-anchor="middle" font-size="16" font-weight="650" fill="#16161a">Burn 70%</text>
+  <text x="1105" y="184" text-anchor="middle" font-size="11.5" fill="#7a7a82">total-burned counter</text>
+
+  <g filter="url(#sh)"><rect x="1030" y="232" width="150" height="76" rx="13" fill="#f6f6f7" stroke="#e4e4e8" stroke-width="1.5"/></g>
+  <text x="1105" y="264" text-anchor="middle" font-size="16" font-weight="650" fill="#16161a">Rewards 20%</text>
+  <text x="1105" y="286" text-anchor="middle" font-size="11.5" fill="#7a7a82">staked validators</text>
+
+  <g filter="url(#sh)"><rect x="1030" y="334" width="150" height="76" rx="13" fill="#f6f6f7" stroke="#e4e4e8" stroke-width="1.5"/></g>
+  <text x="1105" y="366" text-anchor="middle" font-size="16" font-weight="650" fill="#16161a">Treasury 10%</text>
+  <text x="1105" y="388" text-anchor="middle" font-size="11.5" fill="#7a7a82">catches the dust</text>
+
+  <!-- callout -->
+  <rect x="130" y="440" width="940" height="60" rx="15" fill="#fafafa" stroke="#ececf0" stroke-width="1.5"/>
+  <text x="600" y="471" text-anchor="middle" font-size="16" font-weight="600" fill="#2a2a30">No tips, no builder auctions, no bidding for position: every fee is gas used at the wave's base fee,</text>
+  <text x="600" y="491" text-anchor="middle" font-size="16" font-weight="600" fill="#2a2a30">and the split is always 70 / 20 / 10.</text>
+</svg>

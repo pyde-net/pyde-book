@@ -186,6 +186,10 @@ For query semantics (`pyde_getLogs`), subscriptions (`pyde_subscribe`), and the 
 
 ## 4.2 Hybrid Hashing: Blake3 + Poseidon2
 
+![One Jellyfish Merkle Tree with two roots: a Blake3 native root for validators and light clients, and a Poseidon2 root kept ready for future ZK consumers.](../assets/diagrams/ch04-dual-root-jmt.svg)
+
+*One Jellyfish Merkle Tree, two roots: Blake3 for the high-volume native path, Poseidon2 for the ZK-facing commitment, both carried in every signed snapshot manifest.*
+
 Pyde uses two hashes in different layers, chosen for what each is best at:
 
 | Hash       | Speed (commodity CPU) | ZK-friendly | Where used |

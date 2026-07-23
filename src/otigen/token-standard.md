@@ -32,6 +32,10 @@ one manifest already drives contract generation in four languages.
 
 ## The standard is a manifest type
 
+![A token is a form, not a program: a manifest goes into otigen, one audited generator, and identical bytes come out as an ordinary contract.](../assets/diagrams/pts-flow-generate.svg)
+
+*One audited path from manifest to contract: the bytes are a function of the form, and nothing else.*
+
 A token author will not write token code. They will write a manifest:
 
 ```toml
@@ -87,10 +91,16 @@ it is unrepresentable.
 
 The `[token]` section is shared by both standards, but its **allowed
 keys are a function of the declared standard**, enforced at build
-time: `decimals` in a `pts-n/1` manifest is a build error ("a pts-f
-field; non-fungible tokens have no fractional units"), per-id
+time: `decimals` in a `pts-n/1` manifest is a build error, per-id
 metadata knobs in a `pts-f/1` manifest likewise, and every such error
-names the offending key and the standard that owns it. And a token
+names the offending key and the standard that owns it. The exact
+message for the first case:
+
+```text
+`decimals` is a pts-f field — non-fungible tokens have no fractional units
+```
+
+And a token
 manifest is **config-only**: any `[functions.*]`, `[state]`, or
 `[events]` section (or a source directory at all) on
 `type = "token"` is a build error. Custom behaviour lives in a
@@ -176,6 +186,10 @@ checks that history shows authors forget are exactly the ones that are
 no longer written by hand.
 
 ## Conformance is mechanical
+
+![Verifying a token is a checksum, not an audit: rebuild from the manifest, compare the bytes, identical means verified.](../assets/diagrams/pts-flow-verify.svg)
+
+*Verification collapses to a byte comparison: rebuild the manifest, compare, done.*
 
 Because the ABI, state schema, and events ship inside the artifact,
 standard-compliance is a static property of deployed bytes, with no

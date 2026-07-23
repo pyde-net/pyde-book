@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="640" viewBox="0 0 1200 640" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, sans-serif">
+  <defs>
+    <filter id="sh" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="3" stdDeviation="7" flood-color="#000000" flood-opacity="0.08"/></filter>
+    <marker id="ar" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#b2b2ba"/></marker>
+  </defs>
+  <rect width="1200" height="640" fill="#ffffff"/>
+  <text x="600" y="58" text-anchor="middle" font-size="30" font-weight="700" fill="#16161a">One tree, two roots</text>
+  <text x="600" y="92" text-anchor="middle" font-size="16" fill="#8a8a92">Blake3 carries the volume; Poseidon2 keeps the ZK door open</text>
+
+  <!-- top: JMT -->
+  <g filter="url(#sh)"><rect x="460" y="130" width="280" height="96" rx="15" fill="#16161a"/></g>
+  <text x="600" y="170" text-anchor="middle" font-size="19" font-weight="650" fill="#ffffff">Jellyfish Merkle Tree</text>
+  <text x="600" y="196" text-anchor="middle" font-size="12.5" fill="#b6b6be">one tree; every node hashed twice</text>
+
+  <!-- split arrows -->
+  <line x1="520" y1="226" x2="350" y2="290" stroke="#cfcfd6" stroke-width="2.2" marker-end="url(#ar)"/>
+  <line x1="680" y1="226" x2="850" y2="290" stroke="#cfcfd6" stroke-width="2.2" marker-end="url(#ar)"/>
+
+  <!-- two lanes -->
+  <g filter="url(#sh)"><rect x="180" y="295" width="300" height="96" rx="15" fill="#f6f6f7" stroke="#e4e4e8" stroke-width="1.5"/></g>
+  <text x="330" y="333" text-anchor="middle" font-size="18" font-weight="650" fill="#16161a">Blake3 state root</text>
+  <text x="330" y="358" text-anchor="middle" font-size="12.5" fill="#7a7a82">native lane, ~3 GB/s; the root</text>
+  <text x="330" y="374" text-anchor="middle" font-size="12.5" fill="#7a7a82">validators sign every wave</text>
+
+  <g filter="url(#sh)"><rect x="720" y="295" width="300" height="96" rx="15" fill="#f6f6f7" stroke="#e4e4e8" stroke-width="1.5"/></g>
+  <text x="870" y="333" text-anchor="middle" font-size="18" font-weight="650" fill="#16161a">Poseidon2 state root</text>
+  <text x="870" y="358" text-anchor="middle" font-size="12.5" fill="#7a7a82">ZK lane, circuit-friendly;</text>
+  <text x="870" y="374" text-anchor="middle" font-size="12.5" fill="#7a7a82">committed alongside</text>
+
+  <!-- consumers -->
+  <line x1="330" y1="391" x2="330" y2="448" stroke="#cfcfd6" stroke-width="2.2" marker-end="url(#ar)"/>
+  <text x="415" y="425" text-anchor="middle" font-size="12" fill="#9a9aa2">inclusion proofs, microseconds</text>
+  <line x1="870" y1="391" x2="870" y2="448" stroke="#cfcfd6" stroke-width="2.2" marker-end="url(#ar)"/>
+  <text x="950" y="425" text-anchor="middle" font-size="12" fill="#9a9aa2">validity proofs</text>
+
+  <g filter="url(#sh)"><rect x="180" y="453" width="300" height="88" rx="15" fill="#f6f6f7" stroke="#e4e4e8" stroke-width="1.5"/></g>
+  <text x="330" y="489" text-anchor="middle" font-size="16.5" font-weight="650" fill="#16161a">Validators, light clients</text>
+  <text x="330" y="513" text-anchor="middle" font-size="12.5" fill="#7a7a82">everyday native verification</text>
+
+  <g filter="url(#sh)"><rect x="720" y="453" width="300" height="88" rx="15" fill="#ffffff" stroke="#b8b8c0" stroke-width="1.6" stroke-dasharray="6 4"/></g>
+  <text x="870" y="489" text-anchor="middle" font-size="16.5" font-weight="650" fill="#16161a">Future ZK light clients</text>
+  <text x="870" y="513" text-anchor="middle" font-size="12.5" fill="#7a7a82">ready without a migration</text>
+
+  <!-- callout -->
+  <rect x="150" y="576" width="900" height="52" rx="15" fill="#fafafa" stroke="#ececf0" stroke-width="1.5"/>
+  <text x="600" y="609" text-anchor="middle" font-size="16" font-weight="600" fill="#2a2a30">Off-chain and committee-signed paths use Blake3; anything a ZK proof may touch uses Poseidon2.</text>
+</svg>

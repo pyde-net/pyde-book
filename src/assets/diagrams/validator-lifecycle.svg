@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="620" viewBox="0 0 1200 620" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, sans-serif">
+  <defs>
+    <filter id="sh" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="3" stdDeviation="7" flood-color="#000000" flood-opacity="0.08"/></filter>
+    <marker id="ar" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#b2b2ba"/></marker>
+  </defs>
+  <rect width="1200" height="620" fill="#ffffff"/>
+  <text x="600" y="58" text-anchor="middle" font-size="30" font-weight="700" fill="#16161a">The validator lifecycle</text>
+  <text x="600" y="92" text-anchor="middle" font-size="16" fill="#8a8a92">Every transition is one pyde stake subcommand away</text>
+
+  <!-- top row: entry path -->
+  <g stroke="#cfcfd6" stroke-width="2.2">
+    <line x1="250" y1="205" x2="288" y2="205" marker-end="url(#ar)"/>
+    <line x1="520" y1="205" x2="558" y2="205" marker-end="url(#ar)"/>
+    <line x1="790" y1="205" x2="828" y2="205" marker-end="url(#ar)"/>
+  </g>
+  <text x="269" y="176" text-anchor="middle" font-size="11.5" fill="#9a9aa2">register,</text>
+  <text x="269" y="190" text-anchor="middle" font-size="11.5" fill="#9a9aa2">stake 10K PYDE</text>
+  <text x="539" y="183" text-anchor="middle" font-size="11.5" fill="#9a9aa2">next epoch</text>
+  <text x="809" y="183" text-anchor="middle" font-size="11.5" fill="#9a9aa2">selected</text>
+
+  <g filter="url(#sh)"><rect x="20" y="155" width="230" height="100" rx="14" fill="#f6f6f7" stroke="#e4e4e8" stroke-width="1.5"/></g>
+  <text x="135" y="198" text-anchor="middle" font-size="16.5" font-weight="650" fill="#16161a">Not registered</text>
+  <text x="135" y="222" text-anchor="middle" font-size="12" fill="#7a7a82">an ordinary wallet</text>
+
+  <g filter="url(#sh)"><rect x="290" y="155" width="230" height="100" rx="14" fill="#f6f6f7" stroke="#e4e4e8" stroke-width="1.5"/></g>
+  <text x="405" y="198" text-anchor="middle" font-size="16.5" font-weight="650" fill="#16161a">Pending activation</text>
+  <text x="405" y="222" text-anchor="middle" font-size="12" fill="#7a7a82">one-epoch bonding,</text>
+  <text x="405" y="238" text-anchor="middle" font-size="12" fill="#7a7a82">stake locked</text>
+
+  <g filter="url(#sh)"><rect x="560" y="155" width="230" height="100" rx="14" fill="#f6f6f7" stroke="#e4e4e8" stroke-width="1.5"/></g>
+  <text x="675" y="198" text-anchor="middle" font-size="16.5" font-weight="650" fill="#16161a">Active, waiting</text>
+  <text x="675" y="222" text-anchor="middle" font-size="12" fill="#7a7a82">eligible pool,</text>
+  <text x="675" y="238" text-anchor="middle" font-size="12" fill="#7a7a82">earning pool yield</text>
+
+  <g filter="url(#sh)"><rect x="830" y="155" width="250" height="100" rx="14" fill="#16161a"/></g>
+  <text x="955" y="198" text-anchor="middle" font-size="16.5" font-weight="650" fill="#ffffff">Committee, active</text>
+  <text x="955" y="222" text-anchor="middle" font-size="12" fill="#b6b6be">one of 128: vertices, beacon</text>
+  <text x="955" y="238" text-anchor="middle" font-size="12" fill="#b6b6be">shares, state-root signing</text>
+
+  <!-- committee <-> waiting -->
+  <path d="M830,235 C790,260 740,260 700,255" fill="none" stroke="#cfcfd6" stroke-width="2" marker-end="url(#ar)"/>
+  <text x="762" y="278" text-anchor="middle" font-size="11.5" fill="#9a9aa2">epoch ends, not re-selected</text>
+
+  <!-- committee -> jailed -->
+  <line x1="955" y1="255" x2="955" y2="333" stroke="#cfcfd6" stroke-width="2.2" marker-end="url(#ar)"/>
+  <text x="1010" y="298" text-anchor="middle" font-size="11.5" fill="#9a9aa2">slashed</text>
+
+  <g filter="url(#sh)"><rect x="830" y="338" width="250" height="96" rx="14" fill="#ffffff" stroke="#b8b8c0" stroke-width="1.6" stroke-dasharray="6 4"/></g>
+  <text x="955" y="378" text-anchor="middle" font-size="16.5" font-weight="650" fill="#16161a">Jailed</text>
+  <text x="955" y="402" text-anchor="middle" font-size="12" fill="#7a7a82">24h, then 7d, then permanent;</text>
+  <text x="955" y="418" text-anchor="middle" font-size="12" fill="#7a7a82">stake stays locked</text>
+
+  <!-- jailed -> waiting -->
+  <path d="M830,386 C740,386 700,300 685,260" fill="none" stroke="#cfcfd6" stroke-width="2" marker-end="url(#ar)"/>
+  <text x="742" y="352" text-anchor="middle" font-size="11.5" fill="#9a9aa2">unjail after term</text>
+
+  <!-- waiting -> unbonding -> withdrawable -->
+  <line x1="675" y1="255" x2="675" y2="333" stroke="#cfcfd6" stroke-width="2.2" marker-end="url(#ar)"/>
+  <text x="625" y="298" text-anchor="middle" font-size="11.5" fill="#9a9aa2">unbond</text>
+
+  <g filter="url(#sh)"><rect x="560" y="338" width="230" height="96" rx="14" fill="#f6f6f7" stroke="#e4e4e8" stroke-width="1.5"/></g>
+  <text x="675" y="378" text-anchor="middle" font-size="16.5" font-weight="650" fill="#16161a">Unbonding</text>
+  <text x="675" y="402" text-anchor="middle" font-size="12" fill="#7a7a82">30 days; still slashable</text>
+  <text x="675" y="418" text-anchor="middle" font-size="12" fill="#7a7a82">for fresh offenses</text>
+
+  <line x1="560" y1="386" x2="522" y2="386" stroke="#cfcfd6" stroke-width="2.2" marker-end="url(#ar)"/>
+  <text x="541" y="369" text-anchor="middle" font-size="11.5" fill="#9a9aa2">elapsed</text>
+
+  <g filter="url(#sh)"><rect x="290" y="338" width="230" height="96" rx="14" fill="#f6f6f7" stroke="#e4e4e8" stroke-width="1.5"/></g>
+  <text x="405" y="378" text-anchor="middle" font-size="16.5" font-weight="650" fill="#16161a">Withdrawable</text>
+  <text x="405" y="402" text-anchor="middle" font-size="12" fill="#7a7a82">stake unlocked,</text>
+  <text x="405" y="418" text-anchor="middle" font-size="12" fill="#7a7a82">claim available</text>
+
+  <path d="M290,386 C200,386 135,330 135,260" fill="none" stroke="#cfcfd6" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#ar)"/>
+  <text x="185" y="352" text-anchor="middle" font-size="11.5" fill="#9a9aa2">withdraw</text>
+
+  <!-- callout -->
+  <rect x="150" y="490" width="900" height="52" rx="15" fill="#fafafa" stroke="#ececf0" stroke-width="1.5"/>
+  <text x="600" y="523" text-anchor="middle" font-size="16" font-weight="600" fill="#2a2a30">Flat 10,000 PYDE minimum, one validator one vote: the bond is an anti-Sybil cost, never a power multiplier.</text>
+</svg>

@@ -144,8 +144,12 @@ All of it at build time, each error naming the offending key:
   `"none"`) for `type = "contract"`; unknown values list the known
   set.
 - Cross-standard key contamination: `decimals` in a `pts-n/1`
-  manifest is an error ("a pts-f field: non-fungible tokens have no
-  fractional units"); per-id metadata knobs in `pts-f/1` likewise.
+  manifest is an error; per-id metadata knobs in `pts-f/1` likewise.
+  The toolchain's message, verbatim:
+
+  ```text
+  `decimals` is a pts-f field — non-fungible tokens have no fractional units
+  ```
 - Config-only: any `[functions.*]`, `[state]`, `[events]`, or a
   source directory on `type = "token"` is an error. Custom behaviour
   is a companion contract (§11).

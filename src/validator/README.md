@@ -16,6 +16,10 @@ The CLI surface for operating it lives under `pyde stake` (register, unbond, cla
 
 ## Lifecycle at a glance
 
+![The validator lifecycle state machine: registration, pending activation, the eligible pool, committee duty, jail, unbonding, and withdrawal.](../assets/diagrams/validator-lifecycle.svg)
+
+*The validator state machine: registration through committee duty, jail, and the 30-day unbonding exit.*
+
 ```text
                   pyde keys generate         pyde stake register
 unregistered  ────────────────────────▶  EOA  ──────────────────▶  Active

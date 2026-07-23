@@ -146,6 +146,10 @@ Accounts hold:
 
 ## Transaction Lifecycle
 
+![The life of a transaction, from wallet submission through worker batching, a DAG vertex, wave commit, parallel execution, and the dual-hash state root to finality.](../assets/diagrams/ch02-tx-lifecycle.svg)
+
+*The end-to-end life of a transaction: worker batching, a DAG vertex referencing batches by hash, a wave commit fixing canonical order, Block-STM parallel execution, a dual-hash state root, and finality at 85 of 128 committee signatures.*
+
 ```
 1. Wallet constructs tx
 2. Wallet → RPC: pyde_estimateAccess(tx) → returns gas_estimate + access_list

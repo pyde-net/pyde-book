@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="580" viewBox="0 0 1200 580" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, sans-serif">
+  <defs>
+    <filter id="s2" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="3" stdDeviation="7" flood-color="#000000" flood-opacity="0.08"/>
+    </filter>
+    <marker id="a2" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#b2b2ba"/>
+    </marker>
+  </defs>
+  <rect width="1200" height="580" fill="#ffffff"/>
+
+  <text x="600" y="58" text-anchor="middle" font-size="30" font-weight="700" fill="#16161a">How a cross-network call flows</text>
+  <text x="600" y="93" text-anchor="middle" font-size="16.5" fill="#8a8a92">A contract on Pyde drives an action on another network and gets a verified result back</text>
+
+  <!-- arrows -->
+  <g stroke="#cfcfd6" stroke-width="2.2">
+    <line x1="198" y1="230" x2="273" y2="230" marker-end="url(#a2)"/>
+    <line x1="441" y1="230" x2="516" y2="230" marker-end="url(#a2)"/>
+    <line x1="684" y1="230" x2="759" y2="230" marker-end="url(#a2)"/>
+    <line x1="927" y1="230" x2="1002" y2="230" marker-end="url(#a2)"/>
+  </g>
+
+  <!-- box 1 -->
+  <g filter="url(#s2)"><rect x="30" y="185" width="168" height="90" rx="14" fill="#f6f6f7" stroke="#e4e4e8" stroke-width="1.5"/></g>
+  <text x="114" y="224" text-anchor="middle" font-size="17.5" font-weight="650" fill="#16161a">Pyde contract</text>
+  <text x="114" y="247" text-anchor="middle" font-size="12.5" fill="#8a8a92">cross_call + callback</text>
+
+  <!-- box 2 (parachain, dark) -->
+  <g filter="url(#s2)"><rect x="273" y="185" width="168" height="90" rx="14" fill="#16161a"/></g>
+  <text x="357" y="224" text-anchor="middle" font-size="17.5" font-weight="650" fill="#ffffff">Parachain</text>
+  <text x="357" y="247" text-anchor="middle" font-size="12.5" fill="#b6b6be">sign &amp; submit</text>
+
+  <!-- box 3 (external, dashed) -->
+  <g filter="url(#s2)"><rect x="516" y="185" width="168" height="90" rx="14" fill="#ffffff" stroke="#b8b8c0" stroke-width="1.6" stroke-dasharray="6 4"/></g>
+  <text x="600" y="224" text-anchor="middle" font-size="17.5" font-weight="650" fill="#16161a">Chain X</text>
+  <text x="600" y="247" text-anchor="middle" font-size="12.5" fill="#8a8a92">executes</text>
+
+  <!-- box 4 (parachain, dark) -->
+  <g filter="url(#s2)"><rect x="759" y="185" width="168" height="90" rx="14" fill="#16161a"/></g>
+  <text x="843" y="224" text-anchor="middle" font-size="17.5" font-weight="650" fill="#ffffff">Parachain</text>
+  <text x="843" y="247" text-anchor="middle" font-size="12.5" fill="#b6b6be">watch, confirm</text>
+
+  <!-- box 5 -->
+  <g filter="url(#s2)"><rect x="1002" y="185" width="168" height="90" rx="14" fill="#f6f6f7" stroke="#e4e4e8" stroke-width="1.5"/></g>
+  <text x="1086" y="224" text-anchor="middle" font-size="17.5" font-weight="650" fill="#16161a">Pyde</text>
+  <text x="1086" y="247" text-anchor="middle" font-size="12.5" fill="#8a8a92">runs callback</text>
+
+  <!-- band -->
+  <rect x="110" y="395" width="980" height="104" rx="15" fill="#fafafa" stroke="#ececf0" stroke-width="1.5"/>
+  <text x="600" y="435" text-anchor="middle" font-size="16.5" font-weight="600" fill="#2a2a30">In parallel, the parachain records the result in its own block and broadcasts it to Pyde</text>
+  <text x="600" y="462" text-anchor="middle" font-size="16.5" font-weight="600" fill="#2a2a30">for re-validation.</text>
+  <text x="600" y="484" text-anchor="middle" font-size="14" fill="#8a8a92">A fraudulent or invalid block is slashed and cut off from future calls.</text>
+</svg>

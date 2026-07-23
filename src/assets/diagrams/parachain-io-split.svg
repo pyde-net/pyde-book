@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="600" viewBox="0 0 1200 600" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, sans-serif">
+  <defs>
+    <filter id="s3" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="3" stdDeviation="7" flood-color="#000000" flood-opacity="0.08"/>
+    </filter>
+    <marker id="a3" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#b2b2ba"/>
+    </marker>
+  </defs>
+  <rect width="1200" height="600" fill="#ffffff"/>
+
+  <text x="600" y="56" text-anchor="middle" font-size="29" font-weight="700" fill="#16161a">Where the IO happens, and where it doesn't</text>
+  <text x="600" y="90" text-anchor="middle" font-size="16" fill="#8a8a92">The contract stays deterministic. The messy part runs outside consensus. Validators agree on the result.</text>
+
+  <!-- consensus boundary -->
+  <line x1="382" y1="140" x2="382" y2="300" stroke="#cbcbd2" stroke-width="1.6" stroke-dasharray="6 5"/>
+  <text x="382" y="128" text-anchor="middle" font-size="12.5" fill="#a0a0a8">consensus boundary</text>
+
+  <!-- arrows top -->
+  <g stroke="#cfcfd6" stroke-width="2.2">
+    <line x1="322" y1="222" x2="438" y2="222" marker-end="url(#a3)"/>
+    <line x1="692" y1="222" x2="808" y2="222" marker-end="url(#a3)"/>
+  </g>
+  <text x="380" y="205" text-anchor="middle" font-size="12.5" fill="#9a9aa2">declares the IO</text>
+  <text x="750" y="205" text-anchor="middle" font-size="12.5" fill="#9a9aa2">performs it</text>
+
+  <!-- box 1: WASM (dark) -->
+  <g filter="url(#s3)"><rect x="72" y="167" width="250" height="110" rx="16" fill="#16161a"/></g>
+  <text x="197" y="215" text-anchor="middle" font-size="19" font-weight="650" fill="#ffffff">Parachain contract</text>
+  <text x="197" y="242" text-anchor="middle" font-size="13.5" fill="#b6b6be">WASM, deterministic</text>
+
+  <!-- box 2: relay backend -->
+  <g filter="url(#s3)"><rect x="440" y="167" width="252" height="110" rx="16" fill="#f6f6f7" stroke="#e4e4e8" stroke-width="1.5"/></g>
+  <text x="566" y="215" text-anchor="middle" font-size="19" font-weight="650" fill="#16161a">Relay backend</text>
+  <text x="566" y="242" text-anchor="middle" font-size="13.5" fill="#7a7a82">does the IO, any language</text>
+
+  <!-- box 3: external (dashed) -->
+  <g filter="url(#s3)"><rect x="810" y="167" width="250" height="110" rx="16" fill="#ffffff" stroke="#b8b8c0" stroke-width="1.6" stroke-dasharray="6 4"/></g>
+  <text x="935" y="215" text-anchor="middle" font-size="19" font-weight="650" fill="#16161a">External world</text>
+  <text x="935" y="242" text-anchor="middle" font-size="13.5" fill="#7a7a82">Chain X, an API, a file</text>
+
+  <!-- return path to consensus box -->
+  <path d="M935,277 C935,360 780,360 700,410" fill="none" stroke="#cfcfd6" stroke-width="2.2" marker-end="url(#a3)"/>
+  <text x="905" y="345" text-anchor="middle" font-size="12.5" fill="#9a9aa2">the result</text>
+
+  <!-- box 4: consensus on result (dark, wide) -->
+  <g filter="url(#s3)"><rect x="250" y="410" width="700" height="112" rx="16" fill="#16161a"/></g>
+  <text x="600" y="455" text-anchor="middle" font-size="20" font-weight="700" fill="#ffffff">Validators agree on the result, then seal it in the block</text>
+  <text x="600" y="486" text-anchor="middle" font-size="14.5" fill="#b6b6be">exact match for provable data, or agreed within tolerance for noisy data</text>
+</svg>

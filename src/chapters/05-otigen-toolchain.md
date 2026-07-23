@@ -48,6 +48,10 @@ Function attributes (`view`, `payable`, `reentrant`, `sponsored`, `constructor`,
 
 ## 5.2 Subcommand Surface
 
+![The otigen developer loop: init, build, test through the engine executor, deploy, verify, console, and back around.](../assets/diagrams/ch05-otigen-loop.svg)
+
+*The developer loop: scaffold with init, validate and package with build, behaviour-test through the engine's own executor, deploy signed with FALCON, prove the on-chain bytes with verify, then poke at it in the console.*
+
 Every row links to its canonical [`OTIGEN_BINARY_SPEC`](../companion/OTIGEN_BINARY_SPEC.md) section. The spec is authoritative on flag tables, exit codes, and the per-command pipeline. This chapter is the narrative companion.
 
 | Command | Purpose | Spec |

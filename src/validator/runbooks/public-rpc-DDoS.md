@@ -1,4 +1,4 @@
-# Runbook — public RPC under DDoS
+# Runbook: public RPC under DDoS
 
 `rpc.testnet.pyde.network` is being flooded. The validator behind it is paying CPU + memory cost to reject requests; legitimate users see 429 or timeout.
 

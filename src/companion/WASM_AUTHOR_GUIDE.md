@@ -1,20 +1,20 @@
 # WASM Contract Author Guide
 
 **Version:** v1.0 (draft)
-**Status:** Companion to [HOST_FN_ABI_SPEC.md](./HOST_FN_ABI_SPEC.md). Pedagogical / authoring reference. Non-normative — when this guide and the ABI spec disagree, the spec wins.
+**Status:** Companion to [HOST_FN_ABI_SPEC.md](./HOST_FN_ABI_SPEC.md). Pedagogical / authoring reference. Non-normative: when this guide and the ABI spec disagree, the spec wins.
 
 > **Applies equally to smart contracts and parachains.** This guide describes the WASM-level patterns a Pyde author must understand to write any on-chain code. The same patterns apply identically to:
 >
 > - Base-chain smart contracts deployed via `otigen` (`type = "contract"`)
 > - Parachain modules deployed via `otigen` (`type = "parachain"`)
 >
-> Parachains are simply WASM modules with an *extended* host-function allowlist (see [PARACHAIN_DESIGN.md §11](./PARACHAIN_DESIGN.md) and [HOST_FN_ABI_SPEC §8](./HOST_FN_ABI_SPEC.md)). The boundary mechanics — value types, linear memory, pointer + length conventions, byte staging, host-side reads — are identical in both contexts.
+> Parachains are simply WASM modules with an *extended* host-function allowlist (see [PARACHAIN_DESIGN.md §11](./PARACHAIN_DESIGN.md) and [HOST_FN_ABI_SPEC §8](./HOST_FN_ABI_SPEC.md)). The boundary mechanics (value types, linear memory, pointer + length conventions, byte staging, host-side reads) are identical in both contexts.
 
 ---
 
 ## Why this guide exists
 
-Pyde does not ship a maintained per-language SDK. The contract surface is a WASM ABI plus a bundling CLI (`otigen`) plus canonical examples — nothing more. Authors compile their own WASM in any `wasm32`-target language, declare host imports manually, and stage bytes into linear memory themselves.
+Pyde does not ship a maintained per-language SDK. The contract surface is a WASM ABI plus a bundling CLI (`otigen`) plus canonical examples, nothing more. Authors compile their own WASM in any `wasm32`-target language, declare host imports manually, and stage bytes into linear memory themselves.
 
 That design keeps the chain's surface minimal and audit-friendly, but it pushes more responsibility onto the author. This guide is the conceptual bridge between the formal [HOST_FN_ABI_SPEC](./HOST_FN_ABI_SPEC.md) (which is normative but terse) and the working code in [`otigen/examples/`](https://github.com/pyde-net/otigen/tree/main/examples).
 
@@ -25,15 +25,15 @@ If you only read one section: §5 (host-fn declarations), §7 (field-keyed stora
 For Rust contracts, the `pyde-host` crate ships every host fn declared in this guide, and the function-like macros `#[pyde::entry]`, `pyde::declare_storage!()`, and `pyde::declare_events!()` collapse the boilerplate every section below walks through:
 
 - **`#[pyde::entry]`** wraps a user fn with the calldata-decode + return-encode shim required by Pyde's `() -> ()` entry-point ABI ([HOST_FN_ABI_SPEC §3.0](./HOST_FN_ABI_SPEC.md)). Authors write `fn transfer(to: Address, amount: u128) -> bool { ... }`; the macro emits the sibling `extern "C" fn transfer()` plus the wasm-side calldata marshalling.
-- **`pyde::declare_storage!()`** reads `[state]` from `otigen.toml` at compile time and emits typed accessors (`storage::balances().read(&owner)`, `storage::balances().write(&owner, amount)`) that delegate to the chain's typed-storage host fns (`sstore_scalar` / `sload_scalar` / `sstore_map1`…`map3`). Field-type vocabulary: `u8`…`u128`, `i8`…`i128`, `bool`, `address`, `hash32`, `bytes`, `string`, `vec(<fixed-width-inner>)`, `struct(<Name>)` — see [`OTIGEN_BINARY_SPEC §4.6`](./OTIGEN_BINARY_SPEC.md#46-state-table) for the full table.
-- **`pyde::declare_events!()`** reads `[events.*]` blocks, computes `Blake3(canonical_signature)` for topic-0 at expansion time, emits typed structs with `.emit()` — no manual topic buffer arithmetic.
+- **`pyde::declare_storage!()`** reads `[state]` from `otigen.toml` at compile time and emits typed accessors (`storage::balances().read(&owner)`, `storage::balances().write(&owner, amount)`) that delegate to the chain's typed-storage host fns (`sstore_scalar` / `sload_scalar` / `sstore_map1`…`map3`). Field-type vocabulary: `u8`…`u128`, `i8`…`i128`, `bool`, `address`, `hash32`, `bytes`, `string`, `vec(<fixed-width-inner>)`, `struct(<Name>)`. See [`OTIGEN_BINARY_SPEC §4.6`](./OTIGEN_BINARY_SPEC.md#46-state-table) for the full table.
+- **`pyde::declare_events!()`** reads `[events.*]` blocks, computes `Blake3(canonical_signature)` for topic-0 at expansion time, emits typed structs with `.emit()`. No manual topic buffer arithmetic.
 
-Rust contracts on the macro substrate (the default since the substrate batch — see [`examples/fungible-token/`](https://github.com/pyde-net/otigen/tree/main/examples/fungible-token) for a canonical reference) skip §5 (host-fn declarations), §6 (staging buffers), and most of §7 (slot derivation) — the macros generate all of it. The patterns in §8 / §9 / §10 still apply because cross-contract calls / FALCON-verify / `delegate_call` proxies have author-side logic that no macro can ship.
+Rust contracts on the macro substrate (the default since the substrate batch: see [`examples/fungible-token/`](https://github.com/pyde-net/otigen/tree/main/examples/fungible-token) for a canonical reference) skip §5 (host-fn declarations), §6 (staging buffers), and most of §7 (slot derivation): the macros generate all of it. The patterns in §8 / §9 / §10 still apply because cross-contract calls / FALCON-verify / `delegate_call` proxies have author-side logic that no macro can ship.
 
 **This guide describes the raw WASM-ABI pattern.** The raw pattern stays fully supported and is the right shape for:
 
-- Non-Rust contract authors (TinyGo, AssemblyScript, C — the macros are Rust-only).
-- Community SDK porters targeting other languages — see [`SDK_AUTHOR_GUIDE.md`](./SDK_AUTHOR_GUIDE.md) for the bar a community SDK needs to clear.
+- Non-Rust contract authors (TinyGo, AssemblyScript, C), since the macros are Rust-only.
+- Community SDK porters targeting other languages: see [`SDK_AUTHOR_GUIDE.md`](./SDK_AUTHOR_GUIDE.md) for the bar a community SDK needs to clear.
 - Rust authors who need full control over slot derivation (e.g. matching another chain's layout) or who want to understand what the macros emit before depending on them.
 
 Read this guide top-to-bottom to learn the WASM ABI at the metal. Then, if you're writing Rust, drop into the macro substrate via [`examples/counter-rust/`](https://github.com/pyde-net/otigen/tree/main/examples/counter-rust) and the substrate batch's other Rust examples.
@@ -50,8 +50,8 @@ The WebAssembly core specification defines exactly five value types that can app
 |---|---|---|
 | `i32` | 32 | Signed or unsigned 32-bit integer. **Also serves as the type for linear-memory pointers** since Pyde uses the `wasm32` address space. |
 | `i64` | 64 | Signed or unsigned 64-bit integer. Used for gas budgets, timestamps, block heights, the low/high halves of `u128`. |
-| `f32` | 32 | IEEE-754 single-precision float. *Discouraged in contracts* — floating-point determinism across NaN encodings is fragile. |
-| `f64` | 64 | IEEE-754 double-precision float. *Discouraged in contracts* — same caveat. |
+| `f32` | 32 | IEEE-754 single-precision float. *Discouraged in contracts*: floating-point determinism across NaN encodings is fragile. |
+| `f64` | 64 | IEEE-754 double-precision float. *Discouraged in contracts*: same caveat. |
 | `v128` | 128 | SIMD vector. **Disabled in Pyde** (`config.wasm_simd(false)` per [Chapter 3 §3.2](../chapters/03-virtual-machine.md)). |
 
 That is the entire universe of types that can appear in the parameter list or return position of a function crossing the host ⇄ contract boundary. There are also reference types (`externref`, `funcref`) in the WASM spec, but they are also disabled in Pyde for the same determinism / footprint reasons SIMD is disabled.
@@ -84,7 +84,7 @@ fn example_export() -> u128 {
 }
 ```
 
-The same holds for AssemblyScript (classes, arrays, strings — all fine internally), TinyGo (structs, slices, maps — all fine internally), and C (structs, unions, function pointers — all fine internally). The only constraint is on the surface that the WASM runtime sees.
+The same holds for AssemblyScript (classes, arrays, strings are all fine internally), TinyGo (structs, slices, maps are all fine internally), and C (structs, unions, function pointers are all fine internally). The only constraint is on the surface that the WASM runtime sees.
 
 ### 1.3 Why the restriction exists
 
@@ -94,7 +94,7 @@ The WASM core specification is intentionally minimal. It exists to be a portable
 - The compiler backend (must lower the type to native code deterministically)
 - The host (must marshal the type across the FFI)
 
-By restricting boundary types to a tiny set of primitives, WASM keeps the runtime and the toolchain attack surface narrow. Anything richer — structs, lists, strings — is built on top of pointers + lengths, which the chain can audit byte-by-byte rather than trusting a typed serialization layer.
+By restricting boundary types to a tiny set of primitives, WASM keeps the runtime and the toolchain attack surface narrow. Anything richer (structs, lists, strings) is built on top of pointers + lengths, which the chain can audit byte-by-byte rather than trusting a typed serialization layer.
 
 ---
 
@@ -110,17 +110,17 @@ A common confusion: the WASM-primitives restriction is **separate from** the que
 | `wasm32-wasip1` | Yes | The WebAssembly System Interface provides an OS-shaped syscall ABI; std maps `std::fs`, `std::time`, `std::net`, etc. onto WASI imports. |
 | `wasm32-unknown-emscripten` | Yes | Emscripten provides a JavaScript-hosted faux-OS; std maps onto emscripten's runtime. |
 
-Pyde's wasmtime configuration explicitly does not enable any WASI snapshot (`// (No WASI imports allowed; not enabled at all.)` — see Chapter 3 §3.2 of the book), so even a `wasm32-wasip1`-compiled binary's WASI imports would be rejected at deploy time by the import allowlist check.
+Pyde's wasmtime configuration explicitly does not enable any WASI snapshot (`// (No WASI imports allowed; not enabled at all.)`, see Chapter 3 §3.2 of the book), so even a `wasm32-wasip1`-compiled binary's WASI imports would be rejected at deploy time by the import allowlist check.
 
 ### 2.2 Why Pyde uses `wasm32-unknown-unknown`
 
 Three reasons, in descending order of importance:
 
-1. **Determinism.** `std::time::SystemTime::now()` returns the wall clock — a value that differs across the 128 validators executing the same transaction. Threading primitives (`std::sync::Mutex`, `std::thread`) introduce scheduling non-determinism. The chain would halt the moment two validators diverged on `now()`. The import allowlist (HOST_FN_ABI_SPEC §3.1) enforces this by rejecting `wasi:*` imports at deploy time.
+1. **Determinism.** `std::time::SystemTime::now()` returns the wall clock, a value that differs across the 128 validators executing the same transaction. Threading primitives (`std::sync::Mutex`, `std::thread`) introduce scheduling non-determinism. The chain would halt the moment two validators diverged on `now()`. The import allowlist (HOST_FN_ABI_SPEC §3.1) enforces this by rejecting `wasi:*` imports at deploy time.
 
-2. **Audit surface.** A trivial `no_std` contract compiles to ~5 KB of WASM. The same contract with std drags in ~150–250 KB of runtime initialization code. Every byte costs gas to deploy + adds attack surface to audit.
+2. **Audit surface.** A trivial `no_std` contract compiles to ~5 KB of WASM. The same contract with std drags in ~150 to 250 KB of runtime initialization code. Every byte costs gas to deploy + adds attack surface to audit.
 
-3. **Sandbox cleanliness.** WASI's API surface (filesystem, network, environment, clocks) is exactly what a contract should *not* be able to touch. Even if individual imports were filtered, leaving the std-on-WASI scaffolding in place encourages authors to write code that would be portable to non-blockchain hosts — which is the wrong mental model for a contract.
+3. **Sandbox cleanliness.** WASI's API surface (filesystem, network, environment, clocks) is exactly what a contract should *not* be able to touch. Even if individual imports were filtered, leaving the std-on-WASI scaffolding in place encourages authors to write code that would be portable to non-blockchain hosts, which is the wrong mental model for a contract.
 
 ### 2.3 What you actually have in a `no_std` contract
 
@@ -196,7 +196,7 @@ You can implement contract-side logging by emitting an event via `pyde::emit_eve
 
 ### 3.1 The 64 MB sandbox
 
-Every contract instance has its own **linear memory** — a contiguous, byte-addressable region that starts at offset 0 and grows in 64 KB *pages* up to a hard cap of **64 MB** (1024 pages, per [Chapter 3 §3.5b](../chapters/03-virtual-machine.md)).
+Every contract instance has its own **linear memory**: a contiguous, byte-addressable region that starts at offset 0 and grows in 64 KB *pages* up to a hard cap of **64 MB** (1024 pages, per [Chapter 3 §3.5b](../chapters/03-virtual-machine.md)).
 
 ```
   Linear memory layout (conceptual):
@@ -220,7 +220,7 @@ Every contract instance has its own **linear memory** — a contiguous, byte-add
 
 This is the single most important mental model to internalize:
 
-> The host (engine) and the contract (WASM instance) live in **separate address spaces**. When the contract passes a "pointer" to a host function, it is passing a **32-bit offset into its own linear memory** — a number, not a memory address the host can dereference.
+> The host (engine) and the contract (WASM instance) live in **separate address spaces**. When the contract passes a "pointer" to a host function, it is passing a **32-bit offset into its own linear memory**: a number, not a memory address the host can dereference.
 
 When the host needs to *read* what the contract wrote, it goes through the wasmtime `Memory` API, which performs an **explicit byte copy** from the contract's linear memory into the host's regular Rust heap:
 
@@ -239,7 +239,7 @@ memory.write(&mut caller, offset as usize, &data)?;
 
 The implications:
 1. There is **no zero-copy shared buffer** between contract and host.
-2. Every byte that crosses the boundary in either direction is **metered** — the per-byte gas costs in the ABI table (e.g., `+ 8 per byte of calldata` for `cross_call`) are paying for these copies plus any host-side processing.
+2. Every byte that crosses the boundary in either direction is **metered**: the per-byte gas costs in the ABI table (e.g., `+ 8 per byte of calldata` for `cross_call`) are paying for these copies plus any host-side processing.
 3. The contract's linear memory is **opaque to the engine outside of explicit `memory.read` / `memory.write` calls**. Host functions cannot inspect contract state by reaching into linear memory uninvited.
 4. The sandbox is enforced: `memory.read` / `memory.write` perform a bounds check against the current memory size. Out-of-bounds access traps with `MemoryOutOfBounds` (HOST_FN_ABI_SPEC §3.4). Contracts cannot escape the sandbox via crafted offsets.
 
@@ -248,7 +248,7 @@ The implications:
 A contract's linear memory is **owned by the wasmtime Store** that wraps the contract's instance. The Store lives for the duration of a single transaction (or sub-call within a transaction). At the end of that scope:
 
 - Stack and heap are torn down (the Store is dropped).
-- Anything the contract wrote to linear memory is gone — unless the contract explicitly called `sstore` to persist a byte to the chain's state.
+- Anything the contract wrote to linear memory is gone, unless the contract explicitly called `sstore` to persist a byte to the chain's state.
 
 So passing a pointer to a host function works only because the host **synchronously copies the bytes out** before the WASM call frame is destroyed. There is no facility for the host to retain a contract-side pointer across calls.
 
@@ -314,7 +314,7 @@ All multi-byte integers crossing the boundary are **little-endian**, matching th
 - The 8 bytes of a `u64` block height or timestamp
 - The 4 bytes of an `i32` length written via `out_len_ptr`
 
-Big-endian encoding would require the host to byte-swap on every read/write — wasted cycles for no portability benefit, since the only consumer is the wasmtime instance that already speaks little-endian.
+Big-endian encoding would require the host to byte-swap on every read/write: wasted cycles for no portability benefit, since the only consumer is the wasmtime instance that already speaks little-endian.
 
 ### 4.6 Sizes summary
 
@@ -335,7 +335,7 @@ A "host function import" is the contract telling the WASM runtime: *"I want to c
 
 ### 5.1 Rust
 
-> **`pyde-host`** ships every host fn declared in [HOST_FN_ABI_SPEC §7](./HOST_FN_ABI_SPEC.md) under `pyde::raw::*`, plus ergonomic wrappers under `pyde::ctx::*` / `pyde::calldata::*` / `pyde::hash::*` / `pyde::call::*`. Rust contracts add `pyde-host` to their `Cargo.toml`, drop `use pyde_host as pyde;`, and skip writing the `extern "C"` block below entirely. The walkthrough that follows is the *under-the-hood shape* `pyde-host` emits — useful to understand even if you never write one by hand.
+> **`pyde-host`** ships every host fn declared in [HOST_FN_ABI_SPEC §7](./HOST_FN_ABI_SPEC.md) under `pyde::raw::*`, plus ergonomic wrappers under `pyde::ctx::*` / `pyde::calldata::*` / `pyde::hash::*` / `pyde::call::*`. Rust contracts add `pyde-host` to their `Cargo.toml`, drop `use pyde_host as pyde;`, and skip writing the `extern "C"` block below entirely. The walkthrough that follows is the *under-the-hood shape* `pyde-host` emits, useful to understand even if you never write one by hand.
 
 ```rust
 // Tell the Rust compiler that the FFI function `sload` is provided by the
@@ -407,7 +407,7 @@ func emitEvent(
 
 Notes:
 - TinyGo's `wasmimport` was stabilized in TinyGo 0.30 (March 2024). Earlier versions used the experimental `//go:wasm-module` directive with separate `//go:export-name` lines.
-- The function body MUST be empty / absent — `wasmimport` is a declaration, not a definition. The Go compiler will reject any body.
+- The function body MUST be empty / absent: `wasmimport` is a declaration, not a definition. The Go compiler will reject any body.
 - Go's `int` type is platform-dependent (32 or 64 bits); always use explicit `int32` / `int64` for WASM imports.
 
 ### 5.3 AssemblyScript
@@ -435,7 +435,7 @@ declare function emit_event(
 ```
 
 Notes:
-- The `declare` keyword tells AS this is a declaration only — no body.
+- The `declare` keyword tells AS this is a declaration only: no body.
 - AssemblyScript also supports declaring imports via the `@external.js` decorator (for hosted JS environments), but that's not applicable here. Always use plain `@external`.
 - AS does not have an `unsafe` keyword; all linear-memory access is implicitly unsafe. Use the `memory.fill`, `memory.copy`, `load<T>`, `store<T>` builtins to interact with memory.
 
@@ -640,7 +640,7 @@ pyde::sstore(slot_ptr, val_ptr, val_len)             // val_len capped at 16 KB
 pyde::sdelete(slot_ptr)                              // tombstone the slot
 ```
 
-Slot **keys** are always 32 bytes. Slot **values** are whatever the contract writes — `u64::to_be_bytes()` (8 bytes), `u128::to_be_bytes()` (16 bytes), an address (32 bytes), arbitrary bytes up to 16 KB. No 32-byte padding required.
+Slot **keys** are always 32 bytes. Slot **values** are whatever the contract writes: `u64::to_be_bytes()` (8 bytes), `u128::to_be_bytes()` (16 bytes), an address (32 bytes), arbitrary bytes up to 16 KB. No 32-byte padding required.
 
 Contracts derive their own slot keys via the canonical recipe:
 
@@ -710,7 +710,7 @@ k[32..].copy_from_slice(&spender);
 let allowed = read_u128(FIELD_ALLOWANCES, &k);                     // nested mapping
 ```
 
-`read_u64` / `write_u64` follow the same shape with 8-byte buffers; `read_address` / `write_address` use 32. Storage costs (5000 base + 32/byte on `sstore`) scale with what you write — pay for what you use, no 32-byte padding overhead.
+`read_u64` / `write_u64` follow the same shape with 8-byte buffers; `read_address` / `write_address` use 32. Storage costs (5000 base + 32/byte on `sstore`) scale with what you write: pay for what you use, no 32-byte padding overhead.
 
 ### 7.3 TinyGo: same shape, `//go:wasmimport`
 
@@ -819,7 +819,7 @@ static void derive_slot(const uint8_t* field, int32_t field_len,
 
 ### 7.6 Pre-migration: `*_by_field` is gone
 
-An earlier ABI revision shipped host-side convenience variants — `sload_by_field` / `sstore_by_field` / `sdelete_by_field` — that did the slot derivation inside the host. These were **dropped in the variable-length storage migration** to keep the host fn surface minimal and uniform with the engine's executor. The 5-line `derive_slot` helper above recovers the ergonomics without adding host fns; gas is comparable (a `hash_poseidon2` call replaces what was previously folded into the host base cost).
+An earlier ABI revision shipped host-side convenience variants (`sload_by_field` / `sstore_by_field` / `sdelete_by_field`) that did the slot derivation inside the host. These were **dropped in the variable-length storage migration** to keep the host fn surface minimal and uniform with the engine's executor. The 5-line `derive_slot` helper above recovers the ergonomics without adding host fns; gas is comparable (a `hash_poseidon2` call replaces what was previously folded into the host base cost).
 
 If you're updating an older contract, replace every `sX_by_field(field, field_len, key, key_len, ...)` call with:
 
@@ -828,7 +828,7 @@ let slot = derive_slot(field, key);
 sX(slot.as_ptr(), ...);  // sload / sstore / sdelete with the new variable-length signatures
 ```
 
-Mixing forms in the same contract is fine — they read/write the same JMT.
+Mixing forms in the same contract is fine: they read/write the same JMT.
 
 The [`fungible-token`](https://github.com/pyde-net/otigen/tree/main/examples/fungible-token) example exercises all three storage layouts in one contract: scalar `total_supply`, mapping `balances[owner]`, and composite-key mapping `allowances[owner][spender]`. The same `read_u128(field, key)` helper handles all three by passing different `key` byte slices.
 
@@ -1099,24 +1099,24 @@ export function transferViaToken(
 
 ### 8.5 The four cross_call invariants: pattern + example
 
-When a primary contract calls `pyde::cross_call(target, fn_name, calldata, value, ...)`, four properties hold per `HOST_FN_ABI_SPEC §7.8` — properties that distinguish cross_call from a regular function call within the same contract:
+When a primary contract calls `pyde::cross_call(target, fn_name, calldata, value, ...)`, four properties hold per `HOST_FN_ABI_SPEC §7.8`, properties that distinguish cross_call from a regular function call within the same contract:
 
 1. **Target's storage context.** Sub-call sstores land in the TARGET's slot namespace (`Poseidon2(target_address ‖ field ‖ key)`), not the caller's. Storage isolation is implicit because slot hashes include each contract's `self_address`.
-2. **`caller()` shift.** Inside the callee, `caller()` returns the **immediate** caller-contract's address — the contract that issued the `cross_call`, NOT the tx originator (`origin`). Useful for the callee to authorise the call source; common pitfall to confuse it with `origin()`.
+2. **`caller()` shift.** Inside the callee, `caller()` returns the **immediate** caller-contract's address: the contract that issued the `cross_call`, NOT the tx originator (`origin`). Useful for the callee to authorise the call source; common pitfall to confuse it with `origin()`.
 3. **Value transfer.** The `value` parameter debits the caller's native-PYDE balance and credits the target's. Inside the callee, `tx_value()` returns the same `value`. The transfer happens in the parent's frame, so even if the sub-call reverts (and the runner snapshots state), the transfer rolls back too.
 4. **Revert rollback.** Sub-call trap (revert / unreachable / out-of-fuel / etc.) does NOT propagate to the parent. Instead the host fn returns `ERR_CROSS_CALL_FAILED = -10` and rolls back all of the sub-call's storage / balance / event mutations. The parent observes the rc and decides whether to handle the failure or revert further.
 
-The four invariants land cleanly in any caller / callee pair where the caller drives a `cross_call` into the callee — `fungible-token` (transfer paths) and `upgradeable-proxy` (`delegate_call`) ship as the canonical reference templates that exercise the storage-namespace + caller-shift + value-transfer + revert-rollback rules end-to-end. The proxy's `forward(fn, calldata)` dispatcher is the readable cross-contract harness; the ERC-20 transfer is the readable payable + state-mutation harness. Read them side-by-side as a calibration point for any cross-contract design.
+The four invariants land cleanly in any caller / callee pair where the caller drives a `cross_call` into the callee. `fungible-token` (transfer paths) and `upgradeable-proxy` (`delegate_call`) ship as the canonical reference templates that exercise the storage-namespace + caller-shift + value-transfer + revert-rollback rules end-to-end. The proxy's `forward(fn, calldata)` dispatcher is the readable cross-contract harness; the ERC-20 transfer is the readable payable + state-mutation harness. Read them side-by-side as a calibration point for any cross-contract design.
 
 #### Sub-call dispatch convention
 
-The mock runner invokes the target's named export with the canonical `(calldata_ptr: i32, calldata_len: i32) -> i32` shape — `calldata_ptr` is an offset into the **callee's** linear memory (the mock copies bytes from caller's to callee's at the boundary), `calldata_len` is the byte count, and the return value is the rc. Production engine dispatch goes through the contract's ABI metadata instead; the calldata-driven shape is a v1 runner convenience that keeps every example uniform.
+The mock runner invokes the target's named export with the canonical `(calldata_ptr: i32, calldata_len: i32) -> i32` shape: `calldata_ptr` is an offset into the **callee's** linear memory (the mock copies bytes from caller's to callee's at the boundary), `calldata_len` is the byte count, and the return value is the rc. Production engine dispatch goes through the contract's ABI metadata instead; the calldata-driven shape is a v1 runner convenience that keeps every example uniform.
 
 ---
 
 ## 9. FALCON-512 verification pattern
 
-`pyde::falcon_verify` lets a contract check post-quantum signatures inside its own execution — the building block for multisig wallets, gasless / meta-transaction relayers, ZK-coupled off-chain authorizations, and anything else that needs in-contract sig checks against a known FALCON-512 public key.
+`pyde::falcon_verify` lets a contract check post-quantum signatures inside its own execution: the building block for multisig wallets, gasless / meta-transaction relayers, ZK-coupled off-chain authorizations, and anything else that needs in-contract sig checks against a known FALCON-512 public key.
 
 ### 9.1 Host function signature (recap)
 
@@ -1140,7 +1140,7 @@ extern "C" {
 }
 ```
 
-Per HOST_FN_ABI_SPEC §7.7. Gas: **50,000 base** — verification is intentionally expensive because FALCON's algebra is heavy; design contracts so authors can amortize multiple sigs in one tx rather than one-sig-per-tx.
+Per HOST_FN_ABI_SPEC §7.7. Gas: **50,000 base**. Verification is intentionally expensive because FALCON's algebra is heavy; design contracts so authors can amortize multiple sigs in one tx rather than one-sig-per-tx.
 
 ### 9.2 Storing FALCON pubkeys on-chain
 
@@ -1213,7 +1213,7 @@ A FALCON sig binds a public key to a specific message. If the contract and the o
 
 ### 9.5 Testing FALCON contracts
 
-`otigen test` mocks `falcon_verify` with `pyde_crypto::falcon::falcon_verify` — the same primitive the engine uses. Combined with the `[accounts]` keypair declaration (`OTIGEN_TEST_SPEC §4.1`) and the `@sig:NAME:args.IDX` DSL (§5.5), authors write multisig tests without ever hand-pasting kilobyte FALCON blobs:
+`otigen test` mocks `falcon_verify` with `pyde_crypto::falcon::falcon_verify`, the same primitive the engine uses. Combined with the `[accounts]` keypair declaration (`OTIGEN_TEST_SPEC §4.1`) and the `@sig:NAME:args.IDX` DSL (§5.5), authors write multisig tests without ever hand-pasting kilobyte FALCON blobs:
 
 ```toml
 [accounts]
@@ -1231,13 +1231,13 @@ args = [
 ]
 ```
 
-The full live example — including replay protection, duplicate-signer rejection, and malformed-sig handling — is in [`otigen/examples/simple-multisig/`](https://github.com/pyde-net/otigen/tree/main/examples/simple-multisig), on the `#[pyde::entry]` macro substrate with 9 passing behaviour tests.
+The full live example (including replay protection, duplicate-signer rejection, and malformed-sig handling) is in [`otigen/examples/simple-multisig/`](https://github.com/pyde-net/otigen/tree/main/examples/simple-multisig), on the `#[pyde::entry]` macro substrate with 9 passing behaviour tests.
 
 ---
 
 ## 10. Upgradeable proxy pattern
 
-The canonical upgradeable contract ships as two roles: a tiny **proxy** that owns the storage and an admin-controlled implementation pointer, plus one or more **implementation** contracts that hold the actual logic. Users always call the proxy; the proxy `delegate_call`s the current implementation to run that code against the proxy's own storage slots. Upgrading is a single sstore — point the slot at a new contract address.
+The canonical upgradeable contract ships as two roles: a tiny **proxy** that owns the storage and an admin-controlled implementation pointer, plus one or more **implementation** contracts that hold the actual logic. Users always call the proxy; the proxy `delegate_call`s the current implementation to run that code against the proxy's own storage slots. Upgrading is a single sstore: point the slot at a new contract address.
 
 ### 10.1 Why delegate_call (vs cross_call)
 
@@ -1260,7 +1260,7 @@ The proxy owns two reserved slots plus whatever the impl logic uses:
 | `impl` | `address` | Current implementation pointer. Mutated only by `upgrade()`. |
 | ...impl slots... | various | Whatever fields the impl writes via delegate_call (`value`, `balances`, `total_supply`, etc.). |
 
-**Storage-layout compatibility is a hard contract between the proxy and every impl.** An impl that reads/writes slot `X` for purpose A is fundamentally incompatible with one that uses `X` for purpose B — the upgrade silently corrupts state. Two mitigations:
+**Storage-layout compatibility is a hard contract between the proxy and every impl.** An impl that reads/writes slot `X` for purpose A is fundamentally incompatible with one that uses `X` for purpose B: the upgrade silently corrupts state. Two mitigations:
 
 1. **Field-keyed storage (§7).** Slots are derived from `Poseidon2(self_address ‖ field ‖ key)`. Two impls using the same field-name strings for the same data type collide cleanly; mismatched naming surfaces as obvious "fresh slot" reads.
 2. **Append-only impl evolution.** New impls may add fields (new names) but must never repurpose an existing name. Document the slot-name vocabulary explicitly.
@@ -1351,7 +1351,7 @@ fn forward(function: String, calldata: Vec<u8>) -> Vec<u8> {
 
 ### 10.4 The logic side
 
-Logic contracts look like any other contract — `#[pyde::entry]` functions with typed args, `storage::*` accessors, the works. They don't have to know they'll be delegate-called. Their `sstore` writes land on the **proxy's** slots automatically because `pyde::ctx::self_address()` resolves to the proxy under delegate semantics:
+Logic contracts look like any other contract: `#[pyde::entry]` functions with typed args, `storage::*` accessors, the works. They don't have to know they'll be delegate-called. Their `sstore` writes land on the **proxy's** slots automatically because `pyde::ctx::self_address()` resolves to the proxy under delegate semantics:
 
 ```rust
 #![no_std]
@@ -1375,31 +1375,31 @@ The proxy's `forward("set_value", borsh::to_vec(&42_u64))` ends up writing `42` 
 
 ### 10.5 Typed vs raw delegate-call: when to use which
 
-The substrate exposes two wrappers — pick by whether the call site knows the return shape at compile time:
+The substrate exposes two wrappers. Pick by whether the call site knows the return shape at compile time:
 
 | Wrapper | Return shape | When |
 |---|---|---|
 | `pyde::call::execute_delegate::<T>` | `Result<T: BorshDeserialize, CallError>` | The call site **knows** the return type. E.g. a proxy method that always calls one specific logic function: `let v: u64 = pyde::call::execute_delegate(&logic, "get_value", &[])?;`. |
-| `pyde::call::execute_delegate_raw` | `Result<Vec<u8>, CallError>` | The call site is a **type-erased forwarder**. E.g. the proxy's `forward(function, calldata) -> Vec<u8>` dispatcher above — it doesn't know what `function` returns and must hand the bytes back to its own caller verbatim. |
+| `pyde::call::execute_delegate_raw` | `Result<Vec<u8>, CallError>` | The call site is a **type-erased forwarder**. E.g. the proxy's `forward(function, calldata) -> Vec<u8>` dispatcher above: it doesn't know what `function` returns and must hand the bytes back to its own caller verbatim. |
 
 Both share the same `CallError` taxonomy and the same buffer / status / revert-payload handling; only the final borsh-decode differs.
 
 ### 10.6 Auth pitfalls
 
-- **`caller()` semantics across delegate_call**: the logic's `pyde::ctx::caller()` returns whoever called the **proxy**, not the proxy itself. If logic code gates a function on a specific caller, that gate triggers against the user — usually not what proxies want. Workaround: gate at the proxy layer (`upgrade_to` is admin-only above), and treat the logic as pure behaviour.
+- **`caller()` semantics across delegate_call**: the logic's `pyde::ctx::caller()` returns whoever called the **proxy**, not the proxy itself. If logic code gates a function on a specific caller, that gate triggers against the user, usually not what proxies want. Workaround: gate at the proxy layer (`upgrade_to` is admin-only above), and treat the logic as pure behaviour.
 - **Re-entrancy under upgrade**: if the logic is mid-execution when `upgrade_to()` swaps the pointer, the still-running frame reads the **old** code (`delegate_call` is per-invocation, not a permanent binding). New top-level calls run the new logic. Practical implication: don't make the upgrade behaviour depend on state half-touched by the old logic.
 - **Storage-layout compatibility**: two logic versions using the same field-name string for the same data type collide cleanly under `Poseidon2(self_address ‖ field [‖ key])` derivation (the chain's typed-storage slot hash, see HOST_FN_ABI_SPEC §7.1); **mismatched naming silently corrupts state.** New logic versions may add fields (new names) but must never repurpose an existing name. Document the field-name vocabulary explicitly.
 - **`init()` re-execution**: the `constructor` attribute prevents post-deploy calls on chain. In tests, each test starts from fresh state so re-running `init` is a clean overwrite.
 
 ### 10.7 The full live example
 
-The canonical end-to-end implementation is at [`otigen/examples/upgradeable-proxy/`](https://github.com/pyde-net/otigen/tree/main/examples/upgradeable-proxy) — three contracts (proxy + logic-v1 + logic-v2), the Python e2e harness that drives a fresh devnet through an admin-gated upgrade, and assertions that the proxy's `value` slot survives the logic swap end-to-end while both logic contracts' own storage stays untouched.
+The canonical end-to-end implementation is at [`otigen/examples/upgradeable-proxy/`](https://github.com/pyde-net/otigen/tree/main/examples/upgradeable-proxy): three contracts (proxy + logic-v1 + logic-v2), the Python e2e harness that drives a fresh devnet through an admin-gated upgrade, and assertions that the proxy's `value` slot survives the logic swap end-to-end while both logic contracts' own storage stays untouched.
 
 ---
 
 ## 11. Hash-based commitments and Merkle proofs
 
-Pyde exposes three hash host fns and a real PQ signature primitive — together they cover every commitment-style pattern devs reach for: airdrops, allowlists, batched offchain-state proofs, content-addressed storage, leaderboard snapshots, and ZK-coupled inclusion claims. This chapter ties the three hashes to their use cases and walks through the canonical pattern (Merkle inclusion) end-to-end so the surrounding tradeoffs aren't buried in a single example file.
+Pyde exposes three hash host fns and a real PQ signature primitive. Together they cover every commitment-style pattern devs reach for: airdrops, allowlists, batched offchain-state proofs, content-addressed storage, leaderboard snapshots, and ZK-coupled inclusion claims. This chapter ties the three hashes to their use cases and walks through the canonical pattern (Merkle inclusion) end-to-end so the surrounding tradeoffs aren't buried in a single example file.
 
 ### 11.1 The hash host fn surface
 
@@ -1420,13 +1420,13 @@ extern "C" {
 }
 ```
 
-`out_ptr` must point to at least 32 writable bytes. None of them return a value — the output lands in linear memory at `out_ptr`. Spec: HOST_FN_ABI_SPEC §7.6.
+`out_ptr` must point to at least 32 writable bytes. None of them return a value: the output lands in linear memory at `out_ptr`. Spec: HOST_FN_ABI_SPEC §7.6.
 
 ### 11.2 Domain separation: prepend a tag, always
 
-If you hash both `(claimant, amount)` *leaves* and `(left, right)` *internal nodes* with the same function and no distinguishing prefix, an attacker who knows two leaves can claim a forged "leaf" whose 64-byte preimage exactly matches the 64-byte preimage of an internal node. The resulting hash collides — a *second-preimage attack* against the structure, not the hash function itself.
+If you hash both `(claimant, amount)` *leaves* and `(left, right)` *internal nodes* with the same function and no distinguishing prefix, an attacker who knows two leaves can claim a forged "leaf" whose 64-byte preimage exactly matches the 64-byte preimage of an internal node. The resulting hash collides: a *second-preimage attack* against the structure, not the hash function itself.
 
-The fix is a domain-separation tag — a fixed byte prefix that's different for every distinct kind of input:
+The fix is a domain-separation tag, a fixed byte prefix that's different for every distinct kind of input:
 
 ```rust
 const LEAF_TAG: &[u8] = b"PYDE_LEAF";
@@ -1453,13 +1453,13 @@ fn node_hash(left: &[u8; 32], right: &[u8; 32]) -> [u8; 32] {
 }
 ```
 
-Tag length is irrelevant for security (Blake3 mixes input in 64 B chunks regardless). 4–16 bytes is conventional. The structure-level invariant the tag must hold: **any two inputs that play different roles in the protocol have non-overlapping byte prefixes**. Cross-protocol use too — `b"PYDE_FALCON_MSG"`, `b"PYDE_AIRDROP_LEAF"`, etc. — to keep separate apps from cross-colliding.
+Tag length is irrelevant for security (Blake3 mixes input in 64 B chunks regardless). 4 to 16 bytes is conventional. The structure-level invariant the tag must hold: **any two inputs that play different roles in the protocol have non-overlapping byte prefixes**. Cross-protocol use too (`b"PYDE_FALCON_MSG"`, `b"PYDE_AIRDROP_LEAF"`, etc.) to keep separate apps from cross-colliding.
 
 This is RFC 9162-style (Certificate Transparency v2) and the same approach OpenZeppelin, EIP-712, and Sigsum all use. Skipping it has bitten production systems.
 
 ### 11.3 Building a Merkle tree off-chain
 
-The contract never builds the tree — it only commits to a root and verifies inclusion against it. The tree-build happens in whatever tool generates the (claimant, amount) allocation list:
+The contract never builds the tree: it only commits to a root and verifies inclusion against it. The tree-build happens in whatever tool generates the (claimant, amount) allocation list:
 
 ```text
         root = node_hash(node_AB, node_CD)
@@ -1470,21 +1470,21 @@ The contract never builds the tree — it only commits to a root and verifies in
  (alice,100)    (bob,200)                     (carol,300)    (dave,400)
 ```
 
-Pad odd levels by hashing the lone child with itself (or with a sentinel like `[0u8; 32]` — pick one and document it; the verifier needs to do the same). Pre-sort the (claimant, amount) list by claimant address for determinism — two different orderings produce two different roots, and a launcher who picks the wrong order will mint an unusable commitment.
+Pad odd levels by hashing the lone child with itself (or with a sentinel like `[0u8; 32]`: pick one and document it; the verifier needs to do the same). Pre-sort the (claimant, amount) list by claimant address for determinism: two different orderings produce two different roots, and a launcher who picks the wrong order will mint an unusable commitment.
 
-The publisher commits `root` on-chain via a one-shot `set_root(bytes32)` call. They publish each `(claimant, amount, path)` tuple via whatever offchain channel makes sense (S3, IPFS, a Discord pin) — the path is just a witness, not a secret, so cheap-and-cheerful hosting is fine.
+The publisher commits `root` on-chain via a one-shot `set_root(bytes32)` call. They publish each `(claimant, amount, path)` tuple via whatever offchain channel makes sense (S3, IPFS, a Discord pin). The path is just a witness, not a secret, so cheap-and-cheerful hosting is fine.
 
 ### 11.4 Encoding a proof
 
 A merkle proof from leaf `i` to the root is `log₂(N)` levels deep. At each level you need:
 1. The **sibling** at that level (32 bytes), and
-2. The **position** of your current running hash — left or right child (1 bit).
+2. The **position** of your current running hash: left or right child (1 bit).
 
 The simplest sound encoding: pack each level as a 33-byte step, `[position_byte][sibling_32B]`. Total proof length is `33 × depth`. For a 1 M-leaf tree, the proof is `33 × 20 = 660 bytes`. Cheap.
 
 Two common alternatives, and why I'd avoid them:
 
-- **Sorted-pair hashing** (OpenZeppelin's default): hash `(min(a, b), max(a, b))` at each level so the position bit isn't needed. Saves a byte per level but lets attackers permute proofs — there's only one valid hash for any `(a, b)` regardless of which side `a` lives on. Easier to forge if the tree-builder later changes orderings; harder to extend with auxiliary metadata.
+- **Sorted-pair hashing** (OpenZeppelin's default): hash `(min(a, b), max(a, b))` at each level so the position bit isn't needed. Saves a byte per level but lets attackers permute proofs: there's only one valid hash for any `(a, b)` regardless of which side `a` lives on. Easier to forge if the tree-builder later changes orderings; harder to extend with auxiliary metadata.
 - **Bit-packed positions**: stash all the position bits in a single 4-byte prefix, then sibling-array. Saves `depth - 4` bytes (negligible at depth 10) at the cost of a manual bit-unpacking loop. Pick this only if proof size genuinely matters (block-space-sensitive proofs, on-chain *every* tx).
 
 Stick with the byte-per-step encoding unless you have a concrete reason not to.
@@ -1536,31 +1536,31 @@ The `#[pyde::entry]` macro emits the void-void shim that reads the borsh-encoded
 
 The `caller_addr()` binding is the trick that makes this safe: the leaf commits to whoever's *actually calling*, not an address arg. An attacker who steals alice's path can't replay it because their `caller_addr()` would be different, so the leaf hashes wouldn't match.
 
-Gas cost is `15 base + 3/word` per `hash_blake3` invocation, times `depth` per `claim`. For a 1 M-leaf tree (depth 20) verifying a 73 B node-hash preimage, that's ~`20 × (15 + 3×10) = 900 gas` for the hashes alone — cheaper than a single sstore.
+Gas cost is `15 base + 3/word` per `hash_blake3` invocation, times `depth` per `claim`. For a 1 M-leaf tree (depth 20) verifying a 73 B node-hash preimage, that's ~`20 × (15 + 3×10) = 900 gas` for the hashes alone, cheaper than a single sstore.
 
 ### 11.6 Common pitfalls
 
 - **Forgetting the sibling-vs-self ordering on odd levels.** If the tree-builder and the contract handle odd levels differently (one duplicates the lone child, the other uses zero-padding), roots disagree. Pick one rule. Pin it in a comment.
-- **Hashing the address as ASCII.** The leaf's `claimant` field is 32 raw bytes, NOT the hex-string repr. If your offchain tool hashes the string `"0xabc…"`, the contract — which feeds raw bytes from `caller()` — will recompute a different leaf.
+- **Hashing the address as ASCII.** The leaf's `claimant` field is 32 raw bytes, NOT the hex-string repr. If your offchain tool hashes the string `"0xabc…"`, the contract, which feeds raw bytes from `caller()`, will recompute a different leaf.
 - **Forgetting to verify proof length.** A non-multiple-of-33 proof leaks garbage into the sibling buffer. Always `proof_len % 33 == 0` before walking.
-- **Trusting the amount arg without rebinding to caller.** If `claim(claimant, amount, proof)` accepts the claimant as an *argument* instead of using `caller()`, anyone who knows alice's path can submit it under their own tx and the verification still passes — but the funds go to whoever the contract pays out to (often the arg, not the caller). Tie the leaf to `caller()`.
+- **Trusting the amount arg without rebinding to caller.** If `claim(claimant, amount, proof)` accepts the claimant as an *argument* instead of using `caller()`, anyone who knows alice's path can submit it under their own tx and the verification still passes, but the funds go to whoever the contract pays out to (often the arg, not the caller). Tie the leaf to `caller()`.
 - **Reusing the same tree across protocols.** Two airdrops sharing a leaf scheme (no protocol-specific tag prefix) means proofs from one can be replayed against the other. Add a protocol identifier to the leaf tag: `b"PYDE_AIRDROP_V1_LEAF"`.
 
 ### 11.7 Live example
 
-The full pattern — domain-separated hashing, 33-byte step encoding, proof verification, double-claim protection, all-error-path tests — lives in [`otigen/examples/merkle-claim-airdrop/`](https://github.com/pyde-net/otigen/tree/main/examples/merkle-claim-airdrop) on the `#[pyde::entry]` macro substrate with 10 passing behaviour tests.
+The full pattern (domain-separated hashing, 33-byte step encoding, proof verification, double-claim protection, all-error-path tests) lives in [`otigen/examples/merkle-claim-airdrop/`](https://github.com/pyde-net/otigen/tree/main/examples/merkle-claim-airdrop) on the `#[pyde::entry]` macro substrate with 10 passing behaviour tests.
 
 ---
 
 ## 12. Composed contracts: when primitives stack
 
-The §7-§11 chapters each cover a primitive in isolation: storage, cross-call, FALCON, proxy, hashing. Real contracts compose them. A DAO needs all five at once. A vesting contract with multisig admin needs three. The composition is not always obvious — pairing FALCON sigs with time-phased state introduces replay surfaces that neither pattern has alone, and inlining a delegate_call into a hash-committed dispatch can corrupt storage if the slot layouts diverge.
+The §7-§11 chapters each cover a primitive in isolation: storage, cross-call, FALCON, proxy, hashing. Real contracts compose them. A DAO needs all five at once. A vesting contract with multisig admin needs three. The composition is not always obvious: pairing FALCON sigs with time-phased state introduces replay surfaces that neither pattern has alone, and inlining a delegate_call into a hash-committed dispatch can corrupt storage if the slot layouts diverge.
 
-This chapter walks through the canonical composed example — [`otigen/examples/dao-governance/`](https://github.com/pyde-net/otigen/tree/main/examples/dao-governance) — and pulls out the four reusable composition patterns it demonstrates. The patterns generalise beyond DAOs to any contract that pairs off-chain authorization with on-chain time-bound execution.
+This chapter walks through the canonical composed example, [`otigen/examples/dao-governance/`](https://github.com/pyde-net/otigen/tree/main/examples/dao-governance), and pulls out the four reusable composition patterns it demonstrates. The patterns generalise beyond DAOs to any contract that pairs off-chain authorization with on-chain time-bound execution.
 
 ### 12.1 Why composition is its own concern
 
-A contract built from one primitive is straightforward. A contract built from four primitives has *combinatorial* failure modes — interactions you can only see with all four in play.
+A contract built from one primitive is straightforward. A contract built from four primitives has *combinatorial* failure modes: interactions you can only see with all four in play.
 
 | Primitive alone | Failure mode you get |
 |---|---|
@@ -1569,7 +1569,7 @@ A contract built from one primitive is straightforward. A contract built from fo
 | Hash-committed calldata | "What if the calldata grows between commit and execute?" length-confusion |
 | Mapping storage | Composite-key collisions |
 
-A composed contract has all four. The pitfalls don't add — they multiply. A FALCON sig that replay-protects within one DAO can still be replayed across DAOs unless the canonical message includes `self_address`. A time-phased state machine that's safe with caller-based voting opens a denial-of-service surface when votes become signed (anyone can submit, including spam). A hash-commitment that's collision-resistant alone becomes preimage-attackable when an attacker can choose what gets hashed via a separate call. The patterns below address these interactions directly.
+A composed contract has all four. The pitfalls don't add. They multiply. A FALCON sig that replay-protects within one DAO can still be replayed across DAOs unless the canonical message includes `self_address`. A time-phased state machine that's safe with caller-based voting opens a denial-of-service surface when votes become signed (anyone can submit, including spam). A hash-commitment that's collision-resistant alone becomes preimage-attackable when an attacker can choose what gets hashed via a separate call. The patterns below address these interactions directly.
 
 ### 12.2 Anatomy of dao-governance
 
@@ -1605,10 +1605,10 @@ The classic Web2 + multisig + meta-tx pattern, ported to FALCON:
 1. Voter computes the canonical message bytes off-chain (their wallet does this).
 2. Voter signs with their FALCON-512 secret key.
 3. Voter ships `(canonical_msg, pubkey, sig)` to a relayer (Discord bot, web app, whatever).
-4. Relayer submits `cast_signed_vote(proposal_id, in_favor, canonical_msg, pubkey, sig)` — pays gas, doesn't need any FALCON key themselves.
+4. Relayer submits `cast_signed_vote(proposal_id, in_favor, canonical_msg, pubkey, sig)`: pays gas, doesn't need any FALCON key themselves.
 5. Contract recomputes the canonical message from `(proposal_id, in_favor, self_address)`, verifies the relayer's `canonical_msg` matches, then `falcon_verify(pubkey, canonical_msg, sig)`. Tally incremented.
 
-The relayer's gas-paying role is real: **a 666-byte FALCON sig + 897-byte pubkey + 64-byte message ≈ 1.6 KB of calldata per vote**, costing the relayer ~13K gas in calldata alone before the verify (~50K). Voters never need a funded account. This pattern generalises to any "approve N actions off-chain, submit them in one batch on-chain" flow — airdrops, governance, multisig spend.
+The relayer's gas-paying role is real: **a 666-byte FALCON sig + 897-byte pubkey + 64-byte message ≈ 1.6 KB of calldata per vote**, costing the relayer ~13K gas in calldata alone before the verify (~50K). Voters never need a funded account. This pattern generalises to any "approve N actions off-chain, submit them in one batch on-chain" flow: airdrops, governance, multisig spend.
 
 #### Why the sig isn't the only auth check
 
@@ -1634,7 +1634,7 @@ Order matters: cheap structural checks first, expensive cryptographic check last
 
 ### 12.4 Pattern 2: domain-separated canonical messages
 
-The single most-bitten composition pitfall in production contracts. A FALCON sig binds a public key to a specific message-bytes preimage. If two contracts produce identical preimages for different intents, sigs leak across them — a sig authorizing "vote yes on proposal 3 in DAO A" verifies as "vote yes on proposal 3 in DAO B" if DAO B uses the same canonical-message recipe.
+The single most-bitten composition pitfall in production contracts. A FALCON sig binds a public key to a specific message-bytes preimage. If two contracts produce identical preimages for different intents, sigs leak across them: a sig authorizing "vote yes on proposal 3 in DAO A" verifies as "vote yes on proposal 3 in DAO B" if DAO B uses the same canonical-message recipe.
 
 Pyde's canonical message format for dao-governance:
 
@@ -1665,14 +1665,14 @@ cast_signed_vote(proposal_id, in_favor, canonical_msg, voter_pubkey, sig)
                                         ALSO supplied?
 ```
 
-Couldn't the contract just construct the canonical message itself from `(proposal_id, in_favor, self_address)`? Yes — and it does. But the test framework's `@sig:NAME:args.IDX` DSL signs the raw bytes of one of the call args. To get the framework to produce a real FALCON sig over the canonical bytes, the bytes have to be *an arg*. So the contract:
+Couldn't the contract just construct the canonical message itself from `(proposal_id, in_favor, self_address)`? Yes, and it does. But the test framework's `@sig:NAME:args.IDX` DSL signs the raw bytes of one of the call args. To get the framework to produce a real FALCON sig over the canonical bytes, the bytes have to be *an arg*. So the contract:
 
 1. Accepts `canonical_msg` as a `bytes` arg.
 2. Reconstructs the expected canonical message from the other args.
 3. **Verifies the supplied bytes match the reconstruction**, reverting if not.
 4. FALCON-verifies the sig against the supplied (== reconstructed) bytes.
 
-Skip step 3 and an attacker can submit a sig over an arbitrary preimage while claiming it authorizes a different action — the contract would count the wrong vote.
+Skip step 3 and an attacker can submit a sig over an arbitrary preimage while claiming it authorizes a different action: the contract would count the wrong vote.
 
 In production (no test framework involved), the wallet computes the canonical message once and ships only the sig. The contract reconstructs and verifies. The arg-threading is a test-time convenience.
 
@@ -1692,7 +1692,7 @@ if now() >= end_time { revert(b"VotingClosed"); }
 if now() < end_time { revert(b"VotingStillOpen"); }
 ```
 
-`now()` is a contract-side wrapper around `wave_timestamp` — the committee-attested wall-clock, identical across all validators. Deterministic; no "what time did *your* node see?" race.
+`now()` is a contract-side wrapper around `wave_timestamp`: the committee-attested wall-clock, identical across all validators. Deterministic; no "what time did *your* node see?" race.
 
 #### Boundary conditions: `<` vs `<=`
 
@@ -1705,11 +1705,11 @@ At exactly now == end_time:
   - execute sees `end_time < end_time` → does NOT revert (voting open)
 ```
 
-So at the *exact* boundary, voting closes and execution opens in the same wave. No "one-wave window of nothing." Pick this direction explicitly when designing the gates — the alternative (votes open at `now() <= end_time`, execute requires `now() > end_time`) creates a one-wave gap where neither operation is valid, which has surfaced as a real bug in production governance contracts.
+So at the *exact* boundary, voting closes and execution opens in the same wave. No "one-wave window of nothing." Pick this direction explicitly when designing the gates: the alternative (votes open at `now() <= end_time`, execute requires `now() > end_time`) creates a one-wave gap where neither operation is valid, which has surfaced as a real bug in production governance contracts.
 
 #### `wave_timestamp` is in seconds; time-window math fits u64 easily
 
-Pyde's `wave_timestamp` returns unix seconds (committee-attested). A `u64` covers ~5×10¹¹ years. Adding `voting_duration` to `now()` cannot realistically overflow at any input the contract would accept. The contract still uses `saturating_add` defensively — cheap, makes the bound explicit.
+Pyde's `wave_timestamp` returns unix seconds (committee-attested). A `u64` covers ~5×10¹¹ years. Adding `voting_duration` to `now()` cannot realistically overflow at any input the contract would accept. The contract still uses `saturating_add` defensively: cheap, makes the bound explicit.
 
 ### 12.6 Pattern 4: hash-committed deferred dispatch
 
@@ -1724,10 +1724,10 @@ let actual = hash_blake3(&calldata_bytes);
 if actual != stored_hash { revert(b"CalldataMismatch"); }
 ```
 
-The contract never has to store the calldata bytes themselves — just the 32-byte hash. Why this is genuinely useful:
+The contract never has to store the calldata bytes themselves, just the 32-byte hash. Why this is genuinely useful:
 
 - **Storage cost**: a 4 KB calldata bundle would cost ~129K gas to sstore (5K + 32×4096 = 5K + 131K). Storing the hash is 5K base + 32×32 = ~6K. **20× cheaper for any non-trivial calldata.**
-- **Forward compatibility**: the contract can dispatch arbitrary future calldata shapes without redeploy. The proposer commits to bytes; whoever executes provides those bytes verbatim. If the cross_call ABI evolves, only the proposer + executor need to coordinate — the contract stays stable.
+- **Forward compatibility**: the contract can dispatch arbitrary future calldata shapes without redeploy. The proposer commits to bytes; whoever executes provides those bytes verbatim. If the cross_call ABI evolves, only the proposer + executor need to coordinate: the contract stays stable.
 - **Auditability**: the hash on-chain is a permanent record. Anyone can recompute it from the (publicly-archived) calldata and verify what the proposal was *actually* about, regardless of UI claims.
 
 #### Why the hash check happens *after* quorum/majority checks
@@ -1758,16 +1758,16 @@ Pyde's `bytes`-typed args are theoretically up to 16 KB; capping at 4 KB protect
 
 Working through composed contracts, these are the failures that look obvious in hindsight but bit me writing dao-governance:
 
-- **Reverting *after* state mutation.** If `falcon_verify` happens AFTER `yes_votes += 1`, a verify failure means storage is corrupted. Pyde's tx overlay rolls back automatically on trap, but only if the trap reaches the boundary — emit_event won't trap on its own. Order: mutate state LAST, after every check.
+- **Reverting *after* state mutation.** If `falcon_verify` happens AFTER `yes_votes += 1`, a verify failure means storage is corrupted. Pyde's tx overlay rolls back automatically on trap, but only if the trap reaches the boundary: emit_event won't trap on its own. Order: mutate state LAST, after every check.
 - **Domain tag drift.** `b"PYDE_DAO_VOTE_V1"` is 16 bytes. `b"PYDE_DAO_VOTE_V2"` is also 16 bytes but a different preimage. If you ship V2 logic and forget to bump the tag, every old V1 sig is silently still valid against the new contract. Bump the tag whenever the canonical-message shape changes; treat it as a version pin.
-- **Composite key ordering.** `voted[(proposal_id, voter_hash)]` packs into bytes via `proposal_id_be ‖ voter_hash`. Reverse the order and you have a *different* slot — your "already-voted" check misses, double-vote works. Pick an order, document it, never reverse.
-- **Single-shot init left unlocked.** `configure` checks `read_u64(FIELD_CONFIGURED) != 0` — if you forget the flag write, anyone can re-configure the DAO. The flag is the single most security-critical line in the file. Test it explicitly (`second_init_reverts`).
+- **Composite key ordering.** `voted[(proposal_id, voter_hash)]` packs into bytes via `proposal_id_be ‖ voter_hash`. Reverse the order and you have a *different* slot: your "already-voted" check misses, double-vote works. Pick an order, document it, never reverse.
+- **Single-shot init left unlocked.** `configure` checks `read_u64(FIELD_CONFIGURED) != 0`. If you forget the flag write, anyone can re-configure the DAO. The flag is the single most security-critical line in the file. Test it explicitly (`second_init_reverts`).
 - **Auth check order.** Cheap checks first, expensive last. A `falcon_verify` upstream of an `is_signer` lookup wastes 50K gas per attacker probe.
 - **`block_timestamp` vs `wave_timestamp`.** Pyde renamed this in 2026-05. If you copy old EVM contracts and import `block_timestamp`, the contract fails to instantiate. Use `wave_timestamp`. (The handful of canonical examples in the catalog all use the new name; copying from those avoids the trap.)
 
 ### 12.8 Live example
 
-The full pattern — every check ordered correctly, all 16 behaviour tests covering happy paths + revert paths + boundary conditions + composition surfaces — is in [`otigen/examples/dao-governance/`](https://github.com/pyde-net/otigen/tree/main/examples/dao-governance). It's the canonical reference for any contract that pairs FALCON-signed authorization with time-bound on-chain execution.
+The full pattern (every check ordered correctly, all 16 behaviour tests covering happy paths + revert paths + boundary conditions + composition surfaces) is in [`otigen/examples/dao-governance/`](https://github.com/pyde-net/otigen/tree/main/examples/dao-governance). It's the canonical reference for any contract that pairs FALCON-signed authorization with time-bound on-chain execution.
 
 Scaffolding a starting point:
 
@@ -1932,7 +1932,7 @@ Three properties fall out of this shape:
 
 1. **The host never trusts the contract's pointers blindly.** Every `memory.read` and `memory.write` is bounds-checked by wasmtime. A malicious contract can pass nonsense offsets; the worst it can do is trap.
 
-2. **The byte-copy cost is metered.** The 1,000-base + 8-per-byte formula isn't arbitrary — it directly reflects the real wall-clock cost of the memcpy operations in steps 2–5 + step 8. Big calldata = more wall-clock = more gas.
+2. **The byte-copy cost is metered.** The 1,000-base + 8-per-byte formula isn't arbitrary: it directly reflects the real wall-clock cost of the memcpy operations in steps 2 to 5 + step 8. Big calldata = more wall-clock = more gas.
 
 3. **The sub-call is a recursive engine entry.** When `dispatch_cross_call` runs, the engine handles the target's WASM exactly the same way it handled the calling contract: instantiate (or fetch cached `Module`), push overlay, invoke, charge gas, return. The target's `cross_call`s in turn recurse further. The only bound on call depth is the per-tx gas limit + an explicit stack-depth check (HOST_FN_ABI_SPEC §3.5b).
 
@@ -2047,7 +2047,7 @@ For a single `cross_call` with 48 bytes of calldata and an empty return:
 | Sub-call's actual `gas_used` | (varies; e.g., 5,000 for a typical transfer) |
 | **Total deducted from caller** | ~6,384 gas |
 
-The sub-call's `gas_used` is debited from the caller's remaining budget regardless of whether the sub-call succeeded or reverted — per HOST_FN_ABI_SPEC §7.8. This prevents an attacker from triggering expensive sub-calls and then reverting to avoid payment.
+The sub-call's `gas_used` is debited from the caller's remaining budget regardless of whether the sub-call succeeded or reverted, per HOST_FN_ABI_SPEC §7.8. This prevents an attacker from triggering expensive sub-calls and then reverting to avoid payment.
 
 ---
 
@@ -2057,7 +2057,7 @@ A non-exhaustive list of things that have bitten real Pyde contracts during deve
 
 ### 15.1 Endianness mismatch
 
-**Symptom:** A contract writes `amount: u128 = 100` via `amount.to_be_bytes()`, the host reads via `u128::from_le_bytes` — you end up with a 16-byte big-endian on-wire representation interpreted as little-endian. The host sees `0x6400000000000000_00000000_00000000` instead of `100`.
+**Symptom:** A contract writes `amount: u128 = 100` via `amount.to_be_bytes()`, the host reads via `u128::from_le_bytes`, so you end up with a 16-byte big-endian on-wire representation interpreted as little-endian. The host sees `0x6400000000000000_00000000_00000000` instead of `100`.
 
 **Fix:** Always little-endian on the wire. `to_le_bytes` / `from_le_bytes` on both sides.
 
@@ -2079,7 +2079,7 @@ pub fn broken_pattern() -> i32 {
 
 ### 15.3 Forgetting to provision the return-length slot
 
-**Symptom:** `cross_call` writes the actual return length into `return_data_out_len_ptr`, but you passed an uninitialized or shared slot — leading to garbage values for the length check.
+**Symptom:** `cross_call` writes the actual return length into `return_data_out_len_ptr`, but you passed an uninitialized or shared slot, leading to garbage values for the length check.
 
 **Fix:** Always declare `let mut return_len: i32 = 0;` (or equivalent in Go/AS) immediately before the call. Don't re-use a slot across multiple cross-calls without re-zeroing.
 
@@ -2087,7 +2087,7 @@ pub fn broken_pattern() -> i32 {
 
 **Symptom:** Sub-call returns 256 bytes of data; your `return_buf` is 32 bytes; wasmtime traps with `MemoryOutOfBounds` when the host tries to write past your buffer.
 
-**Fix:** Size return buffers to the documented worst case for the target function. For unknown / variable-size returns, do a two-pass approach: first call with `return_buf = []` and read the length; second call with a buffer of that size. (Pyde's spec defers the formal "buffer too small" semantics to per-host-fn definitions — check the spec for each host fn before assuming.)
+**Fix:** Size return buffers to the documented worst case for the target function. For unknown / variable-size returns, do a two-pass approach: first call with `return_buf = []` and read the length; second call with a buffer of that size. (Pyde's spec defers the formal "buffer too small" semantics to per-host-fn definitions, so check the spec for each host fn before assuming.)
 
 ### 15.5 Forgetting that pointers are 32-bit
 
@@ -2119,7 +2119,7 @@ let ptr: i32 = my_array.as_ptr() as i32;   // ← correct
 
 **Symptom:** `otigen build --strict` or `otigen deploy` fails with `import pyde.debug_log is a test-only host fn (forbidden on chain)`.
 
-**Fix:** `pyde::debug_log` is a test-only host fn (HOST_FN_ABI_SPEC §9.3). `otigen build` (default) and `otigen test` accept it so the dev loop works. The production gate fires at `otigen build --strict` and at `otigen deploy` (which sets strict implicitly). Strip the calls — or guard them behind `#[cfg(feature = "debug")]` — before deploying.
+**Fix:** `pyde::debug_log` is a test-only host fn (HOST_FN_ABI_SPEC §9.3). `otigen build` (default) and `otigen test` accept it so the dev loop works. The production gate fires at `otigen build --strict` and at `otigen deploy` (which sets strict implicitly). Strip the calls, or guard them behind `#[cfg(feature = "debug")]`, before deploying.
 
 ```rust
 // Development: print intermediate values during otigen test.
@@ -2141,17 +2141,17 @@ Run `otigen test -v` and watch stderr for `[debug] <fn>: alice_balance=100`. Str
 
 ## 16. References
 
-- [HOST_FN_ABI_SPEC v1.0](./HOST_FN_ABI_SPEC.md) — normative ABI specification.
-- [Chapter 3 — Execution Layer](../chapters/03-virtual-machine.md) — wasmtime runtime architecture, fuel metering, module caching.
-- [Chapter 5 — Otigen Toolchain](../chapters/05-otigen-toolchain.md) — how `otigen build` invokes the language toolchain and emits the WASM binary.
-- [PARACHAIN_DESIGN](./PARACHAIN_DESIGN.md) — parachain framework: registration, lifecycle, extended ABI surface, cross-parachain messaging.
-- [OTIGEN_TEST_SPEC](./OTIGEN_TEST_SPEC.md) — test framework that runs contracts under the same wasmtime configuration the chain uses.
-- [WebAssembly Core Specification](https://webassembly.github.io/spec/core/) — the upstream WASM spec for value types, linear memory, instruction semantics.
-- **Examples catalog**: [`pyde-book/otigen/examples`](../otigen/examples.md) — full table of every canonical example with what each demonstrates, host fns exercised, and per-language test counts.
-- [`otigen/examples/counter`](https://github.com/pyde-net/otigen/tree/main/examples/counter) — the canonical minimal-viable Rust template demonstrating §2.3, §6.1, §6.2 patterns end-to-end. Per-language `counter-{go,as,c}` siblings live under [`examples/`](https://github.com/pyde-net/otigen/tree/main/examples) and run the same TOML test suite against each port; the four ports stay aligned by hand (no shared scaffold today).
-- [`otigen/examples/fungible-token`](https://github.com/pyde-net/otigen/tree/main/examples/fungible-token) — full ERC20-style fungible token on the macro substrate. Canonical real-contract reference: exercises typed-arg marshalling (`address` / `uint128`) via `#[pyde::entry]`, three storage layouts (scalar / mapping / composite-key) via `pyde::declare_storage!()`, multi-topic events via `pyde::declare_events!()`, and the `transfer_from` allowance flow.
-- [`otigen/examples/simple-multisig`](https://github.com/pyde-net/otigen/tree/main/examples/simple-multisig) — 3-signer FALCON-512 multisig (§9 canonical example).
-- [`otigen/examples/upgradeable-proxy`](https://github.com/pyde-net/otigen/tree/main/examples/upgradeable-proxy) — upgradeable proxy via `delegate_call` (§10 canonical example).
-- [`otigen/examples/merkle-claim-airdrop`](https://github.com/pyde-net/otigen/tree/main/examples/merkle-claim-airdrop) — Merkle-tree airdrop claim with `hash_blake3` host fn (§11 canonical example).
-- [`otigen/examples/dao-governance`](https://github.com/pyde-net/otigen/tree/main/examples/dao-governance) — composed example: FALCON-signed votes + time phases + hash-committed execution (§12 canonical example).
-- [RFC 9162 — Certificate Transparency v2](https://datatracker.ietf.org/doc/rfc9162/) — domain-separation conventions for hash-based commitment trees (§11.2 background).
+- [HOST_FN_ABI_SPEC v1.0](./HOST_FN_ABI_SPEC.md): normative ABI specification.
+- [Chapter 3: Execution Layer](../chapters/03-virtual-machine.md): wasmtime runtime architecture, fuel metering, module caching.
+- [Chapter 5: Otigen Toolchain](../chapters/05-otigen-toolchain.md): how `otigen build` invokes the language toolchain and emits the WASM binary.
+- [PARACHAIN_DESIGN](./PARACHAIN_DESIGN.md): parachain framework (registration, lifecycle, extended ABI surface, cross-parachain messaging).
+- [OTIGEN_TEST_SPEC](./OTIGEN_TEST_SPEC.md): test framework that runs contracts under the same wasmtime configuration the chain uses.
+- [WebAssembly Core Specification](https://webassembly.github.io/spec/core/): the upstream WASM spec for value types, linear memory, instruction semantics.
+- **Examples catalog**: [`pyde-book/otigen/examples`](../otigen/examples.md), a full table of every canonical example with what each demonstrates, host fns exercised, and per-language test counts.
+- [`otigen/examples/counter`](https://github.com/pyde-net/otigen/tree/main/examples/counter): the canonical minimal-viable Rust template demonstrating §2.3, §6.1, §6.2 patterns end-to-end. Per-language `counter-{go,as,c}` siblings live under [`examples/`](https://github.com/pyde-net/otigen/tree/main/examples) and run the same TOML test suite against each port; the four ports stay aligned by hand (no shared scaffold today).
+- [`otigen/examples/fungible-token`](https://github.com/pyde-net/otigen/tree/main/examples/fungible-token): full ERC20-style fungible token on the macro substrate. Canonical real-contract reference: exercises typed-arg marshalling (`address` / `uint128`) via `#[pyde::entry]`, three storage layouts (scalar / mapping / composite-key) via `pyde::declare_storage!()`, multi-topic events via `pyde::declare_events!()`, and the `transfer_from` allowance flow.
+- [`otigen/examples/simple-multisig`](https://github.com/pyde-net/otigen/tree/main/examples/simple-multisig): 3-signer FALCON-512 multisig (§9 canonical example).
+- [`otigen/examples/upgradeable-proxy`](https://github.com/pyde-net/otigen/tree/main/examples/upgradeable-proxy): upgradeable proxy via `delegate_call` (§10 canonical example).
+- [`otigen/examples/merkle-claim-airdrop`](https://github.com/pyde-net/otigen/tree/main/examples/merkle-claim-airdrop): Merkle-tree airdrop claim with `hash_blake3` host fn (§11 canonical example).
+- [`otigen/examples/dao-governance`](https://github.com/pyde-net/otigen/tree/main/examples/dao-governance): composed example combining FALCON-signed votes + time phases + hash-committed execution (§12 canonical example).
+- [RFC 9162: Certificate Transparency v2](https://datatracker.ietf.org/doc/rfc9162/): domain-separation conventions for hash-based commitment trees (§11.2 background).

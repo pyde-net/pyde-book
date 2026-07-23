@@ -79,7 +79,7 @@ PIP lifecycle:
 ```
 
 There is no on-chain "yes/no" vote on the PIP itself. The closest thing
-to a vote is **validators choosing to run the new code** — a softer but
+to a vote is **validators choosing to run the new code**, a softer but
 genuine signal.
 
 ### What gets a PIP
@@ -101,12 +101,12 @@ genuine signal.
 
 A PIP includes (at minimum):
 
-- **Problem statement** — what is being addressed and why.
-- **Specification** — the exact design / wire format / behavior change.
-- **Rationale** — why this design over alternatives.
-- **Security considerations** — what could go wrong.
-- **Backwards compatibility** — does this require a coordinated upgrade?
-- **Reference implementation link** — code PR(s) that implement it.
+- **Problem statement**: what is being addressed and why.
+- **Specification**: the exact design / wire format / behavior change.
+- **Rationale**: why this design over alternatives.
+- **Security considerations**: what could go wrong.
+- **Backwards compatibility**: does this require a coordinated upgrade?
+- **Reference implementation link**: code PR(s) that implement it.
 
 PIP-0001 specifies the template in detail.
 
@@ -133,20 +133,20 @@ old rules; if they constitute >1/3 of the active committee, the new
 behavior cannot reach finality and the change is effectively rejected by
 the network.
 
-This means the upgrade decision is itself a kind of vote — not measured by
-token weight, but by validator participation. A controversial change that
+This means the upgrade decision is itself a kind of vote, not measured
+by token weight, but by validator participation. A controversial change that
 fails to attract supermajority validator participation simply doesn't
 land, regardless of how many off-chain signers nominally approved.
 
 ### Activation parameters
 
-Most consensus changes ship with an **activation height** — a specific
+Most consensus changes ship with an **activation height**: a specific
 `wave_id` at which old nodes will produce waves the new nodes reject
 (or vice versa). Validators run the upgrade window with both code paths
 available, switching to the new path at the activation wave.
 
 Backward-compatible changes (e.g., new opcodes that no existing contract
-uses) can ship without coordinated activation — they take effect when an
+uses) can ship without coordinated activation: they take effect when an
 upgraded validator processes the wave, are simply not used by old
 contracts, and become standard once enough nodes have upgraded.
 
@@ -168,8 +168,8 @@ State (recap from Chapter 14):
 | `0x1D`        | `MULTISIG_THRESHOLD`  | Required signature count            |
 | `0x1E`        | `MULTISIG_NONCE`      | Replay protection counter           |
 
-Maximum signers: 16. The threshold is `t-of-n` — requires `t` valid FALCON
-signatures from distinct signers in `MULTISIG_SIGNERS`.
+Maximum signers: 16. The threshold is `t-of-n`: it requires `t` valid
+FALCON signatures from distinct signers in `MULTISIG_SIGNERS`.
 
 Suggested initial configuration (set at mainnet genesis): 12 signers,
 threshold 7, drawn from the Foundation board, core dev leads, validator
@@ -231,7 +231,7 @@ concern: "a few signers can do anything." The mitigating factors:
 
 1. **Bounded scope.** The multisig can spend the treasury and rotate
    itself. It cannot change the inflation schedule, the consensus rules,
-   the gas distribution, or any other protocol parameter — those are
+   the gas distribution, or any other protocol parameter. Those are
    hard-coded in the validator binary.
 2. **Public, on-chain audit trail.** Every spend has a `data_digest`
    linkable to a PIP. Off-chain spending the treasury is not possible.
@@ -242,7 +242,7 @@ concern: "a few signers can do anything." The mitigating factors:
 4. **Rotatable.** The signer set can be replaced, also via PIP + multisig
    action.
 
-A captured multisig is a problem, but a bounded one — it cannot rewrite
+A captured multisig is a problem, but a bounded one: it cannot rewrite
 consensus or change supply.
 
 ---
@@ -271,7 +271,7 @@ mainnet-launch decision.
 ## 15.6 What Is NOT Governable
 
 Hard-coded protocol constants that **cannot** be changed by any on-chain
-action — only by a PIP + new validator binary release + voluntary
+action, only by a PIP + new validator binary release + voluntary
 validator upgrade:
 
 | Constant                       | Where                                |
@@ -305,7 +305,7 @@ multisig:
 
 | Concern                        | Handled by                         |
 | ------------------------------ | ---------------------------------- |
-| Bootstrap node list            | Config — operators ship their own   |
+| Bootstrap node list            | Config: operators ship their own    |
 | Block explorer                 | Foundation operates a public one    |
 | RPC endpoints                  | Multiple operators run them         |
 | Indexing / data products       | Ecosystem builds them               |
@@ -346,7 +346,7 @@ the design Pyde explicitly rejected. Three reasons:
 
 1. **Plutocracy.** A stake-weighted vote concentrates power in whoever
    holds the most tokens. PYDE distribution at any point in time is a
-   snapshot — there's no reason to think it tracks anything beyond who
+   snapshot. There's no reason to think it tracks anything beyond who
    bought early.
 2. **Low turnout.** Most token holders don't vote. The few who do gain
    outsized influence.
@@ -399,7 +399,7 @@ PIP process is open, and validators decide what code they run.
 | Emergency pause                 | On-chain, `EmergencyPause` (type 11)   |
 | Pause max window                | ~30 days (auto-expiring)               |
 | On-chain stake-weighted voting  | None                                    |
-| Hard-coded protocol constants   | All of them — change via code release  |
+| Hard-coded protocol constants   | All of them (change via code release)  |
 
-The next chapter covers security — the threat model, slashing detail, and
+The next chapter covers security: the threat model, slashing detail, and
 the weak-subjectivity defenses that protect against long-range attacks.

@@ -1,4 +1,4 @@
-# Runbook — state sync mismatch
+# Runbook: state sync mismatch
 
 A node finishes state-sync but its local `state_root` disagrees with the next live wave's expected root. The node refuses to advance.
 

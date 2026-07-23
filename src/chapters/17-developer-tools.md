@@ -1,6 +1,6 @@
 # Chapter 17: Developer Tools
 
-Pyde's developer toolchain is the set of command-line programs, SDKs, and RPC endpoints that let people write, test, deploy, and interact with contracts. This chapter is the reference survey — what exists, what it does, where to find it.
+Pyde's developer toolchain is the set of command-line programs, SDKs, and RPC endpoints that let people write, test, deploy, and interact with contracts. This chapter is the reference survey: what exists, what it does, where to find it.
 
 For deep documentation on the primary developer-facing tool (the `otigen` binary), see [Chapter 5: Otigen Toolchain](./05-otigen-toolchain.md). This chapter does not duplicate that material; it summarizes and points outward.
 
@@ -17,11 +17,11 @@ A standalone `pyde` node binary (light / full / validator profiles) is planned p
 
 - A dedicated Pyde block explorer frontend (the backend indexer is planned; the UI is community ecosystem work).
 - A proprietary IDE. Standard editors with the language's standard tooling (rust-analyzer for Rust, the AssemblyScript LSP, gopls for Go, clangd for C/C++) are the intended path. No Pyde-specific IDE.
-- Per-language testing wrappers for pure helpers. Authors use their language's native test runner (`cargo test`, `npm test`, `go test`, `clang` + their test framework of choice) for function-internals tests. Contract *behaviour* tests — state changes, events, reverts — go through `otigen test`, a Foundry-style TOML-driven runner shared across all four supported languages. See [§17.1](#171-otigen--the-developer-toolchain) below and [Chapter 5 §5.12](./05-otigen-toolchain.md) for the split.
+- Per-language testing wrappers for pure helpers. Authors use their language's native test runner (`cargo test`, `npm test`, `go test`, `clang` + their test framework of choice) for function-internals tests. Contract *behaviour* tests (state changes, events, reverts) go through `otigen test`, a Foundry-style TOML-driven runner shared across all four supported languages. See [§17.1](#171-otigen-the-developer-toolchain) below and [Chapter 5 §5.12](./05-otigen-toolchain.md) for the split.
 
 ---
 
-## 17.1 `otigen` — the developer toolchain
+## 17.1 `otigen`: the developer toolchain
 
 The Cargo-equivalent build-and-deploy toolchain for Pyde. Replaces the earlier `wright` toolchain that targeted the now-retired Otigen smart-contract language.
 
@@ -55,22 +55,22 @@ otigen console                          REPL against a Pyde node — balance / n
 
 The two test layers complement each other:
 
-- `cargo test` / `npm test` / `go test` (the author's language-native runner) — pure helpers, math, parsing, formatting. Runs in-process, microseconds per test, no chain semantics.
-- `otigen test` — contract behaviour. Spins up a wasmtime sandbox per test, mocks every `pyde::*` host function, drives the contract through TOML-declared scenarios with named accounts, named storage slots, time / wave / chain cheats, multi-call sequences, named event matching, and revert assertions. The same `.test.toml` runs against the contract regardless of source language. Spec: [`OTIGEN_TEST_SPEC.md`](../companion/OTIGEN_TEST_SPEC.md).
+- `cargo test` / `npm test` / `go test` (the author's language-native runner): pure helpers, math, parsing, formatting. Runs in-process, microseconds per test, no chain semantics.
+- `otigen test`: contract behaviour. Spins up a wasmtime sandbox per test, mocks every `pyde::*` host function, drives the contract through TOML-declared scenarios with named accounts, named storage slots, time / wave / chain cheats, multi-call sequences, named event matching, and revert assertions. The same `.test.toml` runs against the contract regardless of source language. Spec: [`OTIGEN_TEST_SPEC.md`](../companion/OTIGEN_TEST_SPEC.md).
 
 ### Performance: what to expect from `otigen build`
 
-The whole `otigen build` validation + packaging pipeline runs in **single-digit microseconds of CPU work** for a typical contract (parse `otigen.toml`, validate every cross-cutting rule, walk the compiled `.wasm` for imports + exports + deterministic-feature compliance, build the canonical `ContractAbi`, Borsh-encode, inject the `pyde.abi` custom section). Wall-clock invocations are dominated by file I/O — reading the `.wasm` + writing the four bundle files — which lands in the 1–5 ms range on commodity hardware. Validator work is essentially free against that.
+The whole `otigen build` validation + packaging pipeline runs in **single-digit microseconds of CPU work** for a typical contract (parse `otigen.toml`, validate every cross-cutting rule, walk the compiled `.wasm` for imports + exports + deterministic-feature compliance, build the canonical `ContractAbi`, Borsh-encode, inject the `pyde.abi` custom section). Wall-clock invocations are dominated by file I/O (reading the `.wasm` + writing the four bundle files), which lands in the 1 to 5 ms range on commodity hardware. Validator work is essentially free against that.
 
 The full in-memory pipeline measures **~14.5 µs** on an Apple M-series reference machine. Per-step numbers (Blake3 selector derivation, Borsh encode, custom-section injection, WASM-feature validation) are in [Chapter 5 §5.11](./05-otigen-toolchain.md#511-performance) with a reproduction recipe via `cargo bench`. Baselines are committed under `crates/<crate>/benches/baseline/` in the `pyde-net/otigen` repo; future regressions surface on every PR that runs `cargo bench --baseline=v1`.
 
-For the full reference — `otigen.toml` schema, per-language workflows, state binding generation, deploy/upgrade flow internals, performance numbers — see [Chapter 5](./05-otigen-toolchain.md).
+For the full reference (`otigen.toml` schema, per-language workflows, state binding generation, deploy/upgrade flow internals, performance numbers), see [Chapter 5](./05-otigen-toolchain.md).
 
 ---
 
 ## 17.2 The engine workspace and `otigen devnet`
 
-There is no separate `pyde` node binary at v1. The chain runtime — the execution layer (wasmtime + Cranelift AOT), the JMT state layer (PIP-2 clustering, dual-hash, PIP-3 prefetch, PIP-4 write-back cache), the mempool, and the JSON-RPC server — lives in the `pyde-net/engine` workspace as a library, and ships embedded inside the `otigen` binary so authors get a one-command devnet:
+There is no separate `pyde` node binary at v1. The chain runtime, comprising the execution layer (wasmtime + Cranelift AOT), the JMT state layer (PIP-2 clustering, dual-hash, PIP-3 prefetch, PIP-4 write-back cache), the mempool, and the JSON-RPC server, lives in the `pyde-net/engine` workspace as a library, and ships embedded inside the `otigen` binary so authors get a one-command devnet:
 
 ```
 otigen devnet              One-command local devnet. Spins up the embedded engine, pre-funds 10 deterministic accounts
@@ -80,7 +80,7 @@ otigen devnet              One-command local devnet. Spins up the embedded engin
 
 `otigen validator show <addr>` and `otigen validator by-operator <addr>` provide read-only introspection over the chain-side ValidatorRecord; they're operator queries, not validator-mode flags.
 
-The standalone validator surface — long-lived validator process, light/full/validator profiles, key rotation, stake management, genesis-manifest tooling — is post-public-testnet work and will ship as a separate `pyde` binary. v1 does not exercise those code paths from a CLI; they're library entry points in the engine workspace today. A full operational reference for validators is published separately (see Validator Operating Guide, post-public-testnet).
+The standalone validator surface (long-lived validator process, light/full/validator profiles, key rotation, stake management, genesis-manifest tooling) is post-public-testnet work and will ship as a separate `pyde` binary. v1 does not exercise those code paths from a CLI; they're library entry points in the engine workspace today. A full operational reference for validators is published separately (see Validator Operating Guide, post-public-testnet).
 
 ---
 
@@ -112,7 +112,7 @@ Surface area:
 - Type-safe ABI generation from `abi.json` artifacts
 - Wallet adapter pattern for browser-wallet integration
 
-Pure-language SDK like ethers v6 — no React / Vue / Svelte / wagmi-style hooks. Framework adapters are out of scope for this package and ship (if at all) as separate companion packages so the core SDK stays small and framework-neutral.
+Pure-language SDK like ethers v6: no React / Vue / Svelte / wagmi-style hooks. Framework adapters are out of scope for this package and ship (if at all) as separate companion packages so the core SDK stays small and framework-neutral.
 
 ### `pyde-crypto-wasm`
 
@@ -124,16 +124,16 @@ Surface area:
 
 ### Contract-side SDKs (community)
 
-The SDKs above are **client-side** — they let backends, scripts, and front-ends talk to a Pyde node. Writing the **contract itself** is the other side of the boundary, and that's where the per-language community SDKs come in.
+The SDKs above are **client-side**: they let backends, scripts, and front-ends talk to a Pyde node. Writing the **contract itself** is the other side of the boundary, and that's where the per-language community SDKs come in.
 
-Pyde Network ships **one canonical contract-side SDK** — the Rust stack in [pyde-net/otigen](https://github.com/pyde-net/otigen) (`pyde-host`, `pyde-storage-macros`, `pyde-entry-macros`). Bringing your language to that surface is a community pathway: the chain holds a stable WASM ABI ([HOST_FN_ABI_SPEC](../companion/HOST_FN_ABI_SPEC.md)) and a stable bundle format ([OTIGEN_BINARY_SPEC](../companion/OTIGEN_BINARY_SPEC.md)); everything above is open to any language that targets `wasm32-unknown-unknown`.
+Pyde Network ships **one canonical contract-side SDK**: the Rust stack in [pyde-net/otigen](https://github.com/pyde-net/otigen) (`pyde-host`, `pyde-storage-macros`, `pyde-entry-macros`). Bringing your language to that surface is a community pathway: the chain holds a stable WASM ABI ([HOST_FN_ABI_SPEC](../companion/HOST_FN_ABI_SPEC.md)) and a stable bundle format ([OTIGEN_BINARY_SPEC](../companion/OTIGEN_BINARY_SPEC.md)); everything above is open to any language that targets `wasm32-unknown-unknown`.
 
 If you're maintaining or proposing a language SDK, the contract you must satisfy lives in:
 
 - [**SDK Author Guide**](../companion/SDK_AUTHOR_GUIDE.md): the four invariants every SDK must hold (void-void entry signature, borsh-canonical calldata, host-fn signature parity, `pyde.abi` custom section), the reference implementation's surface, and the quality bar to ship.
-- [`examples/storage-stress`](https://github.com/pyde-net/otigen/tree/main/examples/storage-stress) in otigen — the canonical acceptance contract. A community SDK is "ready" when its port of the 28-assertion `tests/stress_e2e.py` passes end-to-end against `pyde devnet`.
+- [`examples/storage-stress`](https://github.com/pyde-net/otigen/tree/main/examples/storage-stress) in otigen: the canonical acceptance contract. A community SDK is "ready" when its port of the 28-assertion `tests/stress_e2e.py` passes end-to-end against `pyde devnet`.
 
-Community SDKs publish under their own org (e.g., `pyde-go/`, `pyde-ts-contracts/`) and are listed back here by PR against [pyde-net/pyde-book](https://github.com/pyde-net/pyde-book). No SDK is currently in the listing — this section will fill in as language communities ship.
+Community SDKs publish under their own org (e.g., `pyde-go/`, `pyde-ts-contracts/`) and are listed back here by PR against [pyde-net/pyde-book](https://github.com/pyde-net/pyde-book). No SDK is currently in the listing; this section will fill in as language communities ship.
 
 ---
 
@@ -143,13 +143,13 @@ The node exposes a JSON-RPC interface over HTTP and WebSocket. Method surface in
 
 - Standard query methods: `pyde_getAccount`, `pyde_getBalance`, `pyde_getTransactionCount`, `pyde_getContractCode`, `pyde_getStorageSlot`, `pyde_resolveName`
 - Transaction submission: `pyde_sendRawTransaction` (also carries private-mempool Commit / Reveal transactions), `pyde_estimateAccess`
-- View-function calls: `pyde_call(contract, fn, calldata)` — **free**, off-chain execution against current state; no tx, no gas, no consensus. Mirrors EVM's `eth_call`. Bounded by RPC-layer rate limits + per-call instruction cap.
+- View-function calls: `pyde_call(contract, fn, calldata)` is **free**, off-chain execution against current state; no tx, no gas, no consensus. Mirrors EVM's `eth_call`. Bounded by RPC-layer rate limits + per-call instruction cap.
 - Archival reads (full + archive nodes): `pyde_getTx(hash)`, `pyde_getReceipt(hash)`
 - Subscription methods (WebSocket on `/ws`): `pyde_subscribe`:
   - `newHeads`: wave commits as they finalize
   - `accountChanges`: state changes to a specific account
   - `logs`: events matching an AND+OR filter (topic OR-list + optional contract); at-least-once delivery; each event carries `(wave_id, tx_index, event_index)` cursor for dedup; `pyde_resubscribe({from: cursor})` resumes after disconnect. Full mechanics: [Host Function ABI Spec §15.5](../companion/HOST_FN_ABI_SPEC.md).
-- Historical event queries: `pyde_getLogs({from_wave, to_wave, topics, contract, cursor, limit})` — 5,000-wave cap per request, cursor pagination, ascending wave order. Per-wave bloom filter prefilters; three RocksDB indexes resolve exact matches. Full spec: [Host Function ABI Spec §15.4](../companion/HOST_FN_ABI_SPEC.md).
+- Historical event queries: `pyde_getLogs({from_wave, to_wave, topics, contract, cursor, limit})`; 5,000-wave cap per request, cursor pagination, ascending wave order. Per-wave bloom filter prefilters; three RocksDB indexes resolve exact matches. Full spec: [Host Function ABI Spec §15.4](../companion/HOST_FN_ABI_SPEC.md).
 - Gas / fee estimation: `pyde_estimateGas`, `pyde_getBaseFee`
 
 Wire-shape quirks the SDK tolerates (transaction-type strings, byte-array addresses on archival reads, `getTransactionCount` snapshot lag, devnet rate-limiting) are catalogued in the SDK companion guide. The canonical method catalog is published as the JSON-RPC reference alongside the engine workspace.
@@ -195,7 +195,7 @@ Wallet UX flow (Tier 1):
 
 ### Tier 2: Reputation + heuristics (v2 direction)
 
-Layers on top of Tier 1. Doesn't require AI — just curated data + pattern matching:
+Layers on top of Tier 1. Doesn't require AI, just curated data + pattern matching:
 
 - Flag contracts on known-malicious lists (Blockaid, Pyde-community-maintained registries)
 - Flag "approve unfamiliar contract for max amount" patterns
@@ -219,7 +219,7 @@ By the time Pyde mainnet matures, third-party services (Blockaid, Pocket Univers
 
 The marketing claim Pyde v1 can make:
 
-> *Pyde wallets show you the immediate effects of every transaction before you sign — including exact state changes, events emitted, and gas cost. You see what your authorization does in this moment. Deeper analysis (downstream authorization implications, contract backdoors, signed-message replays) requires reading the contract code or using third-party safety tools.*
+> *Pyde wallets show you the immediate effects of every transaction before you sign, including exact state changes, events emitted, and gas cost. You see what your authorization does in this moment. Deeper analysis (downstream authorization implications, contract backdoors, signed-message replays) requires reading the contract code or using third-party safety tools.*
 
 Honest, defensible, materially better than EVM wallet UX without overpromising.
 

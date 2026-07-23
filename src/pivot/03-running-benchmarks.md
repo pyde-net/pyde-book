@@ -4,7 +4,7 @@ This document is the reproducer for the benchmark numbers cited in the [pivot pr
 
 The benchmarks measure the **pre-pivot PVM execution layer** (the now-retired `pyde-vm` interpreter and `pyde-aot` Cranelift-AOT compiler) in isolation. The benchmark code lives in the `archive` repository at `archive/crates/pvm/benches/` and `archive/crates/aot/benches/` (preserved after engine cleanup). You can run it today on any machine that has Rust installed.
 
-The point of running these is not to validate Pyde TPS. The point is to see for yourself the relationship between interpreter throughput, AOT throughput, and storage-bound real-world workloads — the relationship that drove the WASM-pivot decision. The numbers favor WASM because they show that on storage-bound workloads (the ones that determine real chain TPS), the AOT advantage collapses, which means the VM choice does not move the needle.
+The point of running these is not to validate Pyde TPS. The point is to see for yourself the relationship between interpreter throughput, AOT throughput, and storage-bound real-world workloads: the relationship that drove the WASM-pivot decision. The numbers favor WASM because they show that on storage-bound workloads (the ones that determine real chain TPS), the AOT advantage collapses, which means the VM choice does not move the needle.
 
 ## Reference machine for the numbers in the book
 
@@ -106,7 +106,7 @@ Expected output shape:
 
 That is everything. Two cargo-bench invocations, two text reports.
 
-## What the numbers mean — and what they don't
+## What the numbers mean, and what they don't
 
 These are **single-thread micro-benchmarks of the execution layer in isolation**. There is no consensus running, no network, no parallel scheduling, no real RocksDB IO under sustained write pressure. They measure how fast one VM runs one workload on one thread.
 
@@ -118,13 +118,13 @@ What you should take from them:
 
 What you should **not** take from them:
 
-- **These are not Pyde's TPS numbers.** Full-chain TPS depends on consensus latency, signature verification throughput, network bandwidth, the parallel scheduler, and disk IO in addition to VM execution. Pyde's realistic v1 throughput target — awaiting the multi-region performance harness — reflects all of those layers combined, not just the VM.
+- **These are not Pyde's TPS numbers.** Full-chain TPS depends on consensus latency, signature verification throughput, network bandwidth, the parallel scheduler, and disk IO in addition to VM execution. Pyde's realistic v1 throughput target (awaiting the multi-region performance harness) reflects all of those layers combined, not just the VM.
 - **These do not include parallel execution.** Each benchmark above runs one workload on one thread. The production scheduler runs many workloads in parallel via uniform Block-STM; wallet-attached access lists serve as prefetch hints to warm the cache before workers start. That compounds throughput but is measured separately by the full-chain harness, not here.
 - **These do not separate memory reads from memory writes, or from disk IO.** The token-transfer benchmark exercises storage IO end-to-end as a single number; it does not isolate "Sload cost" from "Sstore cost" from "leaf-hash recomputation cost." That level of decomposition is the job of the per-component micro-benchmark suite (in flight; see below) and the full-chain performance harness.
 
 ## More detailed benchmarks (in flight)
 
-The benchmarks above are deliberately simple — they were enough to drive the pivot decision. A more sophisticated suite is part of the planned performance harness work, covering:
+The benchmarks above are deliberately simple: they were enough to drive the pivot decision. A more sophisticated suite is part of the planned performance harness work, covering:
 
 - **Per-host-function micro-benchmarks**: measuring the cost of each WASM host function (sload, sstore, transfer, threshold_*, hashing primitives, etc.) in isolation, so the gas-cost table can be calibrated against real hardware.
 - **Sequential vs parallel execution**: measuring how the Block-STM parallel scheduler, optimized with access-list prefetch, scales with core count on workloads with various access-conflict ratios.
@@ -132,13 +132,13 @@ The benchmarks above are deliberately simple — they were enough to drive the p
 - **Workload mixes**: realistic blends of transfer / token-op / DEX / NFT-mint / encrypted txs, with the realistic-mix fraction tracked over time.
 - **Multi-region full-chain TPS**: the end-to-end measurement with consensus, network, and IO all under load.
 
-Those benchmarks live with the performance harness, not in the engine bench files. See the [Performance Harness](../companion/PERFORMANCE_HARNESS.md) document for the full testing methodology, what's planned, and the publishing discipline that governs how numbers are released — publish only what the harness measures under sustained, production-realistic conditions, never lab extrapolations or microbenchmark peaks.
+Those benchmarks live with the performance harness, not in the engine bench files. See the [Performance Harness](../companion/PERFORMANCE_HARNESS.md) document for the full testing methodology, what's planned, and the publishing discipline that governs how numbers are released: publish only what the harness measures under sustained, production-realistic conditions, never lab extrapolations or microbenchmark peaks.
 
 ## What you can do with this guide
 
 - **Reproduce the pivot-decision numbers on your own hardware**: see the ratios for yourself.
 - **Sanity-check the WASM-pivot reasoning**: confirm that storage-bound workloads neutralize the AOT advantage, the empirical observation that drives the "VM choice does not move TPS" claim.
-- **Establish a baseline** for comparing future WASM-execution numbers — once the WASM execution layer ships, equivalent benchmarks can be run against it; the numbers should sit in the same ballpark (within ~10%) per the pivot's expected outcome.
+- **Establish a baseline** for comparing future WASM-execution numbers. Once the WASM execution layer ships, equivalent benchmarks can be run against it; the numbers should sit in the same ballpark (within ~10%) per the pivot's expected outcome.
 
 ## Where the benchmark code lives
 
@@ -150,7 +150,7 @@ Those benchmarks live with the performance harness, not in the engine bench file
 | (future) host-function micro-benches | same crate |
 | (future) full-chain harness | separate repo (planned) |
 
-The benchmark files live in the `archive` repository under `archive/crates/pvm/benches/` and `archive/crates/aot/benches/` — preserved with git history intact, runnable indefinitely. When the WASM execution layer ships in the freshly-cut post-pivot engine repo, equivalent benchmarks will be added under `wasm-exec/benches/` so the same workload shapes can be measured on the WASM stack for comparison.
+The benchmark files live in the `archive` repository under `archive/crates/pvm/benches/` and `archive/crates/aot/benches/`, preserved with git history intact, runnable indefinitely. When the WASM execution layer ships in the freshly-cut post-pivot engine repo, equivalent benchmarks will be added under `wasm-exec/benches/` so the same workload shapes can be measured on the WASM stack for comparison.
 
 ## Reading on
 

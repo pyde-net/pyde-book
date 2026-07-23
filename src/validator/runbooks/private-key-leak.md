@@ -1,11 +1,11 @@
-# Runbook — private key leak
+# Runbook: private key leak
 
 A validator's FALCON keypair (or the foundation treasury keypair) has been exposed. Anyone with the key can sign as that validator OR steal treasury funds.
 
 ## Symptom
 
 - Operator reports leaked key (laptop stolen, repo committed by accident, S3 bucket public, etc.).
-- OR: on-chain anomaly — unexpected `RotateValidatorKeys` from a validator the operator didn't issue, or treasury balance dropping without authorised send.
+- OR: on-chain anomaly: unexpected `RotateValidatorKeys` from a validator the operator didn't issue, or treasury balance dropping without authorised send.
 - OR: explorer / indexer detects unusual signing patterns from a validator (equivocation, double-signing).
 
 ## First check

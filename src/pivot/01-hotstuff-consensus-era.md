@@ -24,13 +24,13 @@ HotStuff was the orthodoxy of modern BFT at the time. Used by Diem (Meta's versi
 - Simple safety + liveness proofs.
 - Established ecosystem of HotStuff variants to learn from (LibraBFT, AptosBFT, HotStuff-2).
 
-The constraint set Pyde faced — equal-power validators, sub-second commits, geographic-distribution-tolerant — looked like a clean HotStuff fit on paper.
+The constraint set Pyde faced (equal-power validators, sub-second commits, geographic-distribution-tolerant) looked like a clean HotStuff fit on paper.
 
 So we built it.
 
 ## What went wrong
 
-Under load, in adversarial conditions — partial network partitions, slow validators, particular orderings of messages — HotStuff's commit latency tail ballooned. Median commits stayed under 100ms; tail commits ran out to 400ms and beyond. The chain "wedged" intermittently: not formally halted, just unable to deliver low-latency commits when conditions degraded.
+Under load, in adversarial conditions (partial network partitions, slow validators, particular orderings of messages), HotStuff's commit latency tail ballooned. Median commits stayed under 100ms; tail commits ran out to 400ms and beyond. The chain "wedged" intermittently: not formally halted, just unable to deliver low-latency commits when conditions degraded.
 
 We engineered against the tail for weeks. Tuning timeouts, re-ordering message handlers, experimenting with different leader-rotation schedules, adjusting the view-change protocol. Some of these helped at the margin. None of them got the tail under control structurally.
 
@@ -44,7 +44,7 @@ Three lessons survived the pivot intact:
 
 2. **DAG consensus is structurally different from leader-based BFT, in ways that matter.** The single-leader bottleneck in HotStuff is what produces the tail; removing the bottleneck (per-round, every validator can produce a vertex) removes the structural source of the tail.
 
-3. **Build to learn, but be willing to throw it away.** The HotStuff integration was real engineering work. We did not regret building it — we regretted not pivoting away from it sooner. The retrospective lesson: when the data says "this won't get there," act on it. Do not engineer-around the structural problem.
+3. **Build to learn, but be willing to throw it away.** The HotStuff integration was real engineering work. We did not regret building it; we regretted not pivoting away from it sooner. The retrospective lesson: when the data says "this won't get there," act on it. Do not engineer-around the structural problem.
 
 ## What survived
 
@@ -69,6 +69,6 @@ The archive directory is preserved with git history intact. Anyone wanting to st
 
 ## Reading on
 
-- [02 — The Otigen Language Era](./02-otigen-language-era.md): the second pivot, on the execution layer.
+- [02: The Otigen Language Era](./02-otigen-language-era.md), the second pivot, on the execution layer.
 - [Chapter 6: Consensus (Mysticeti DAG)](../chapters/06-consensus.md), the current consensus design.
 - [Preface: The Pivot](../preface/pivot.md), the narrative version of both pivots.

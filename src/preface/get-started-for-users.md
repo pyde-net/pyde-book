@@ -1,6 +1,6 @@
 # Get Started: For Users
 
-You're not here to write contracts. You want to *use* Pyde — hold
+You're not here to write contracts. You want to *use* Pyde: hold
 PYDE, send a transaction, run a node, or follow the project's path to
 mainnet. This page is your map.
 
@@ -22,12 +22,12 @@ Translation: when a quantum computer powerful enough to break Bitcoin
 + Ethereum signatures shows up, Pyde keeps working. There is no
 migration window because there's no ECDSA legacy to migrate away from.
 
-Read more: [Chapter 8 — Cryptography](../chapters/08-cryptography.md).
+Read more: [Chapter 8: Cryptography](../chapters/08-cryptography.md).
 
 ### 2. Front-running is structurally impossible
 
 On most chains, the order of transactions inside a block is decided
-by whoever proposes the block — and that ordering is profitable. MEV
+by whoever proposes the block, and that ordering is profitable. MEV
 bots pay validators to insert their trade in front of yours, drain
 your slippage, and move on.
 
@@ -35,11 +35,11 @@ Pyde runs a **keyless private mempool**. You submit a Blake3
 commitment to your transaction first; the DAG fixes its order, and
 only **then** do you reveal the content. By the time anyone can
 read what's inside a transaction, the ordering is already final.
-No committee holds a decryption key — the safety of this doesn't
+No committee holds a decryption key, so the safety of this doesn't
 depend on validators declining to collude. There is no profitable
 front-run because there's no information to front-run on.
 
-Read more: [Chapter 9 — MEV Protection](../chapters/09-mev-protection.md).
+Read more: [Chapter 9: MEV Protection](../chapters/09-mev-protection.md).
 
 ### 3. Your account doesn't die when one key leaks
 
@@ -49,7 +49,7 @@ account. Coming post-mainnet: programmable accounts with spend
 limits, time locks, social recovery, and per-app session keys that
 can be revoked at any time.
 
-Read more: [Chapter 11 — Account Model](../chapters/11-account-model.md).
+Read more: [Chapter 11: Account Model](../chapters/11-account-model.md).
 
 ---
 
@@ -76,7 +76,7 @@ The sections below track the path from "pre-mainnet engineering" to
 1. **Read the [whitepaper](../companion/WHITEPAPER.md).** 30 minutes;
    covers everything at a digestible depth.
 2. **Follow the [launch plan](../chapters/19-launch-strategy.md).**
-   Phased to mainnet — no calendar dates; each phase ships when its
+   Phased to mainnet: no calendar dates; each phase ships when its
    bar is met.
 3. **Join [Telegram](https://t.me/pydenet)** for project chat.
 4. **Follow [@pydenet on X](https://x.com/pydenet)** for milestone
@@ -98,7 +98,7 @@ differences:
   native multisig at registration. The wallet UX will surface this
   as the default for non-trivial balances.
 
-Gas works like Ethereum's EIP-1559 (no priority fees on Pyde —
+Gas works like Ethereum's EIP-1559 (no priority fees on Pyde;
 inclusion order isn't biddable), and the chain commits a wave every
 ~500 ms. Transactions land fast and final.
 

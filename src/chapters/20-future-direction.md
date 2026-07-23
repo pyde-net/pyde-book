@@ -6,8 +6,8 @@ reservations v1 makes so future work doesn't require breaking changes.
 
 The discipline is simple: **v1 ships interfaces, v2 ships
 implementations**. Where a capability needs an on-chain hook to land
-cleanly later, v1 reserves the hook now — a tag byte, a struct field, a
-host-fn slot — so the future change is additive, not a hard fork of
+cleanly later, v1 reserves the hook now (a tag byte, a struct field, a
+host-fn slot) so the future change is additive, not a hard fork of
 fundamentals. Where a capability is purely additive (new RPC, new SDK,
 new client tooling), no reservation is needed.
 
@@ -29,7 +29,7 @@ the address shape, the auth-key encoding, or the multisig pipeline.
 ### 20.1.1 Programmable Accounts
 
 What it is. An account whose authorization logic is itself a WASM
-contract — not a fixed-pubkey check. The auth contract decides whether
+contract, not a fixed-pubkey check. The auth contract decides whether
 a tx is authorized to spend from the account. Same shape as
 ERC-4337 / EIP-7702 in EVM-land, redesigned native.
 
@@ -52,7 +52,7 @@ support arrives in lockstep with the programmable account.
 ### 20.1.2 Session Keys
 
 What it is. A short-lived keypair the account authorizes to act within
-a tight scope — bounded by which contracts it can call, which methods
+a tight scope, bounded by which contracts it can call, which methods
 within those contracts, a spending cap, and an expiry. Revocable at
 any time. Designed for the dApp pattern where a user signs once and
 plays for an hour without re-authorizing every tx.
@@ -69,11 +69,11 @@ single chokepoint that gates this feature.
 
 What it is. A first-class multisig account where the signature
 threshold and signer set are stored on-chain and the chain itself
-checks the M-of-N condition — no contract wrapper, no
+checks the M-of-N condition: no contract wrapper, no
 deploy-a-multisig-per-team friction.
 
 Why deferred. v1 currently routes multisig via the `MultisigTx`
-transaction type, which is operational but not ergonomic — there's no
+transaction type, which is operational but not ergonomic: there's no
 named account, no balance-of-multisig query, no auto-aggregation of
 partial signatures. The v2 design uses the same on-chain pipeline,
 just exposed through a real account type.
@@ -84,7 +84,7 @@ type is a wrapper over the same pipeline. No wire-format change.
 ### 20.1.4 Sponsored Transactions
 
 What it is. A pattern where a paymaster account picks up the gas bill
-for a user's transaction — letting new users transact without holding
+for a user's transaction, letting new users transact without holding
 PYDE first. dApps subsidize their own onboarding; protocol-level fee
 markets keep abuse bounded.
 
@@ -106,12 +106,12 @@ also grants method Z permissions to contract W for the next 30 days,"
 or "this matches the drainer pattern seen in the last 200 phishing
 incidents."
 
-Why deferred. v1 ships the foundation — every wallet can run a local
+Why deferred. v1 ships the foundation: every wallet can run a local
 WASM simulation of the tx and show the immediate state changes. The
 heuristic + LLM layers are additive client-side work; they don't need
 chain hooks.
 
-What v1 reserves. Nothing — this is pure client-side innovation that
+What v1 reserves. Nothing. This is pure client-side innovation that
 gets better with ecosystem maturity. The wallet SDK already exposes
 the simulation primitives.
 
@@ -142,8 +142,8 @@ trustless, keyless guarantee.
 ### 20.2.1 Algebraic Batch FALCON Verification
 
 What it is. A signature scheme that lets a verifier check N FALCON
-signatures in time substantially less than N individual verifications —
-typically O(log N) or O(N / k) — using algebraic identities over the
+signatures in time substantially less than N individual verifications
+(typically O(log N) or O(N / k)) using algebraic identities over the
 underlying lattice ring.
 
 Why deferred. The cryptographic construction is published; the
@@ -163,7 +163,7 @@ Light clients verify a small proof instead of replaying transactions.
 
 Why deferred. Pyde's primitive choice is already ZK-friendly
 (Poseidon2 for state root, Goldilocks field, JMT structure). The
-proving system itself is research-grade work — months of design,
+proving system itself is research-grade work: months of design,
 implementation, and audit. The economics also need rethinking: who
 runs the prover, how proving cost is priced, how the chain handles
 prover failure.
@@ -177,8 +177,8 @@ field.
 
 What it is. A lattice-based (LWE / threshold ML-KEM) threshold
 encryption scheme that would let a user submit a **single ciphertext
-transaction** — encrypted to a validator-committee key, decrypted only
-after the DAG has fixed its order — instead of the two-phase
+transaction** (encrypted to a validator-committee key, decrypted only
+after the DAG has fixed its order) instead of the two-phase
 commit-then-reveal flow v1 ships. Same front-running guarantee
 (ordering locked before contents are visible), but **one-shot**: no
 second reveal transaction, and the sender's address can be hidden too,
@@ -192,13 +192,13 @@ lattice public keys do not combine homomorphically the way BLS keys
 do, so there is no clean DKG that yields a shared threshold ML-KEM/LWE
 key without either a trusted setup or an unproven construction. v1's
 keyless [commit-reveal private mempool](./09-mev-protection.md) exists
-precisely because it needs none of this — no committee key, nothing to
-collude over, nothing to reconstruct — and delivers the same ordering
+precisely because it needs none of this (no committee key, nothing to
+collude over, nothing to reconstruct) and delivers the same ordering
 guarantee today.
 
 What it would add, and its cost. One-shot UX and sender-metadata
-hiding, offered as an **optional** lane *alongside* — never replacing —
-the keyless commit-reveal default. The trade is explicit: a user who
+hiding, offered as an **optional** lane *alongside* the keyless
+commit-reveal default, never replacing it. The trade is explicit: a user who
 chooses the ciphertext lane accepts a `t`-of-`n` honest-committee
 assumption (the committee *can* decrypt early if it colludes), whereas
 commit-reveal is unconditional. The trustless, keyless path stays the
@@ -208,16 +208,16 @@ Status. Research-gated. Blocked on a practical trustless post-quantum
 threshold-keygen primitive (or a deliberate decision to accept a
 one-time trusted-setup ceremony). Not a near-term item; tracked here so
 the door to one-shot private-tx UX stays explicit if and when the
-primitive matures. Adjacent operational work — following the NIST FIPS
-203 (ML-KEM) reference crate from its release-candidate to its stable
-release — only becomes relevant if this lane is built.
+primitive matures. Adjacent operational work, namely following the
+NIST FIPS 203 (ML-KEM) reference crate from its release-candidate to
+its stable release, only becomes relevant if this lane is built.
 
 ---
 
 ## 20.3 Execution and Performance
 
 The v1 execution layer is uniform Block-STM. Beyond v1, the scaling
-story is layered — each layer is additive, gated on measurement, and
+story is layered: each layer is additive, gated on measurement, and
 non-breaking for contract authors. The Block-STM core ABI doesn't
 change.
 
@@ -228,10 +228,10 @@ justify.
 
 | Layer | What it does | Expected gain on its workload |
 |-------|--------------|--------------------------------|
-| L1: Access-list scheduling fast path | Use declared access lists to schedule conflict-free tx batches in parallel without MVCC overhead | 1.5–3× on access-list-heavy workloads |
+| L1: Access-list scheduling fast path | Use declared access lists to schedule conflict-free tx batches in parallel without MVCC overhead | 1.5 to 3× on access-list-heavy workloads |
 | L2: Pipelined execution + consensus | Overlap wave N+1 execution with wave N consensus | ~2× |
-| L3: Read-write set classification | Pre-classify txs as read-only / write-only / read-modify-write; run read-only path in parallel without conflict tracking | 2–5× |
-| L4: GPU acceleration for PQ crypto | FALCON verify + Kyber decapsulate on GPU; encrypted-lane txs benefit most | 5–10× on encrypted-heavy workloads |
+| L3: Read-write set classification | Pre-classify txs as read-only / write-only / read-modify-write; run read-only path in parallel without conflict tracking | 2 to 5× |
+| L4: GPU acceleration for PQ crypto | FALCON verify + Kyber decapsulate on GPU; encrypted-lane txs benefit most | 5 to 10× on encrypted-heavy workloads |
 | L5: Native precompiles for hot patterns | Skip WASM execution entirely for common patterns (transfers, well-known token standards) | 10× on the specific patterns |
 | L6: Execution sharding | Partition the wave across executor pools; merge state changes deterministically | Linear in shard count |
 | L7: Chain sharding | Multi-chain state, cross-shard txs, post-mainnet whole-chain rewrite | Linear in shard count, with cross-shard overhead |
@@ -269,7 +269,7 @@ and the operator runbook.
 ### 20.3.4 State Expiration
 
 What it is. A protocol-level mechanism where state slots not accessed
-in N epochs become "expired" — their data is purged from active state
+in N epochs become "expired": their data is purged from active state
 but provable from archives. Reactivation requires submitting a proof.
 
 Why deferred. The economics are research-grade. v1's state model is
@@ -289,7 +289,7 @@ FALCON-in-EVM verifier contract on Ethereum (or a wrapper using the
 existing pairing-based aggregation), plus a Patricia-tree verifier on
 Pyde as a WASM contract that validates Ethereum state.
 
-Why deferred. The verifier contracts are non-trivial — particularly
+Why deferred. The verifier contracts are non-trivial, particularly
 the FALCON-in-EVM side, which needs careful gas-cost analysis.
 Bridges are the most-attacked surface in DeFi; getting this right is
 audit-heavy.
@@ -313,7 +313,7 @@ What it is. First-class SDKs in Rust, Go, and C++ for building
 parachains. v1 ships the parachain runtime; SDKs reduce per-author
 boilerplate.
 
-Why deferred. v1's design is no-SDK by intent — parachain authors
+Why deferred. v1's design is no-SDK by intent: parachain authors
 declare their host imports manually and compile any wasm32-target
 language. This proves the model works without lock-in to a specific
 SDK. SDKs are a downstream productivity layer.
@@ -335,7 +335,7 @@ incremental work on top.
 ### 20.5.1 Sentry-Node Validator Hiding
 
 What it is. Pattern where validator nodes are not directly reachable
-on the public network — they peer only with operator-controlled
+on the public network: they peer only with operator-controlled
 sentry nodes that absorb DoS attempts and front the gossip topology.
 
 Why deferred. Operational pattern, not a protocol feature. Validators
@@ -362,7 +362,7 @@ proposed wave omits a transaction that's been in their signed
 mempool view for K rounds, that's evidence of censorship and is
 slashable.
 
-Why deferred. The mechanism design is subtle — you need to handle
+Why deferred. The mechanism design is subtle: you need to handle
 legitimate omissions (insufficient gas, denylisted addresses) without
 either creating false positives or letting real censorship slip
 through. Requires its own PIP and audit.
@@ -393,7 +393,7 @@ path is correct (no partial state ever persisted) but loud.
 ### 20.5.6 Off-Chain Merkle Builder CLI
 
 What it is. A small CLI for operators to build Merkle roots from
-arbitrary data — useful for airdrops, allowlist rollouts, and other
+arbitrary data, useful for airdrops, allowlist rollouts, and other
 operational batched-proof patterns.
 
 Why deferred. ~150 LOC of tooling. Builds when an operator asks.
@@ -402,7 +402,7 @@ Why deferred. ~150 LOC of tooling. Builds when an operator asks.
 
 ## 20.6 Native Browser Wallet
 
-What it is. A first-party browser wallet for Pyde — keystore, signing,
+What it is. A first-party browser wallet for Pyde: keystore, signing,
 contract interaction, network management. Same shape as MetaMask but
 native to Pyde's primitive set (FALCON keys, Kyber envelopes for
 encrypted-lane txs).
@@ -429,7 +429,7 @@ A short list of things considered and deliberately rejected:
   locked.
 
 - **Session keys without programmable accounts.** Possible to layer on
-  top of static FALCON keys, but unsafe — scope enforcement would have
+  top of static FALCON keys, but unsafe: scope enforcement would have
   to live in clients, which is worthless. Tied to programmable
   accounts forever.
 
@@ -453,7 +453,7 @@ A short list of things considered and deliberately rejected:
 ## 20.8 The Discipline
 
 The list above is long because v1 is intentionally lean. Each
-deferred item is justifiable on its own merits — but the principle
+deferred item is justifiable on its own merits, but the principle
 that ties them together is the one stated at the top:
 
 > v1 ships interfaces, v2 ships implementations.
@@ -461,11 +461,11 @@ that ties them together is the one stated at the top:
 Each capability above either lands additively (new RPC, new SDK, new
 contract type) or slots into a reservation v1 has already made
 (`AuthKeys::Programmable` tag, `FeePayer::Paymaster` variant). The
-pieces that need protocol-level breaking changes — Sui-style objects,
-gas refunds, on-chain governance — are not planned and aren't coming.
+pieces that need protocol-level breaking changes (Sui-style objects,
+gas refunds, on-chain governance) are not planned and aren't coming.
 The one exception the list keeps deliberately open is a threshold-LWE
 one-shot ciphertext lane (§20.2.3): a purely additive *optional* lane,
-gated on a research primitive, that would sit beside — never replace —
+gated on a research primitive, that would sit beside, never replace,
 the keyless commit-reveal default.
 
 This is the bet: a small, correct, audited v1 surface is worth more

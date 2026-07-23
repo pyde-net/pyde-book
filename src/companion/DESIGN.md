@@ -54,9 +54,9 @@ Pyde is a monolithic blockchain (consensus + execution + state in single binary)
 Pyde uses Mysticeti-style DAG consensus (Mysten Labs' production protocol on Sui). Chosen over Bullshark for faster commit latency (~390ms vs ~1s) and better liveness under validator failures.
 
 **Why DAG over HotStuff:**
-- No single-proposer bottleneck — every committee member contributes vertices continuously
-- No view changes — eliminates the bug class that caused Pyde's pre-pivot wedges
-- Censorship resistance — 127 honest members can include any transaction; censorship requires near-unanimous collusion
+- No single-proposer bottleneck: every committee member contributes vertices continuously
+- No view changes: eliminates the bug class that caused Pyde's pre-pivot wedges
+- Censorship resistance: 127 honest members can include any transaction; censorship requires near-unanimous collusion
 - Throughput scales with committee size, not constrained by one proposer's bandwidth
 - The commit-reveal private mempool resolves naturally at the order-commit boundary
 
@@ -64,7 +64,7 @@ Pyde uses Mysticeti-style DAG consensus (Mysten Labs' production protocol on Sui
 
 Each validator runs:
 - **Workers (N per validator):** handle tx ingress, build batches, gossip batches peer-to-peer
-- **Primary (one per validator):** handles consensus — produces vertices, gathers parents, signs state roots
+- **Primary (one per validator):** handles consensus (produces vertices, gathers parents, signs state roots)
 
 Transactions travel the network exactly once (via worker gossip). Consensus vertices stay tiny (carry only batch hashes by reference).
 
@@ -83,7 +83,7 @@ struct Vertex {
 }
 ```
 
-Each vertex is dual-role: **header** (declaring what data I have) AND **attestation** (acknowledging prior-round vertices via parent_vertex_refs). Parent references are implicit "votes" — no separate vote messages.
+Each vertex is dual-role: **header** (declaring what data I have) AND **attestation** (acknowledging prior-round vertices via parent_vertex_refs). Parent references are implicit "votes"; there are no separate vote messages.
 
 ### Rounds & Anchors
 
@@ -117,16 +117,16 @@ End-to-end latency: ~500ms median for a plaintext transaction. A private-mempool
 ### Committee
 
 - **Size:** 128 validators per epoch
-- **Selection:** uniform random from all validators with stake ≥ `MIN_VALIDATOR_STAKE` (10,000 PYDE). Single tier — every staked validator meeting the floor is in the same pool
+- **Selection:** uniform random from all validators with stake ≥ `MIN_VALIDATOR_STAKE` (10,000 PYDE). Single tier: every staked validator meeting the floor is in the same pool
 - **Anti-Sybil:** operator identity binding, max 3 validators per operator
 - **Equal power:** all 128 have equal voting weight, vertex production rate, anchor probability
 - **Stake influence:** only on eligibility + flat 30% pool yield share. Activity rewards within committee are contribution-weighted, not stake-weighted.
 - **Epoch length:** ~3 hours (measured in wall-clock, not in round count, so it's stable across consensus-cadence changes)
-- **Handover:** the prior committee publishes the next epoch's beacon; the new committee swaps in. No key ceremony — the private mempool is keyless (commit-reveal), so there is no threshold decryption key, no DKG
+- **Handover:** the prior committee publishes the next epoch's beacon; the new committee swaps in. No key ceremony: the private mempool is keyless (commit-reveal), so there is no threshold decryption key, no DKG
 
 ### Safety & Liveness
 
-- **Safety:** Mysticeti BFT — holds under any network with at most `f = 42` Byzantine members (BFT tolerance `⌊(n-1)/3⌋` for n = 128)
+- **Safety:** Mysticeti BFT, which holds under any network with at most `f = 42` Byzantine members (BFT tolerance `⌊(n-1)/3⌋` for n = 128)
 - **Liveness:** holds under partial synchrony
 - **Recovery:** explicit halt detection + investigation + recovery (see [CHAIN_HALT.md](./CHAIN_HALT.md))
 - **Rollback:** bounded to 1 epoch (3 hours) via governance multisig; beyond that, only hard fork
@@ -153,12 +153,12 @@ Pyde's MEV protection is a keyless commit-reveal scheme built only on Blake3 (co
 
 - **Commit** (`TxType 0x11`): `to` = zero address, `value` = bond, `data` = `borsh(CommitPayload { commitment, value_ceiling })`, where `commitment = Blake3("pyde-commit-reveal-v1" || borsh(inner_tx) || nonce)`.
 - **Reveal** (`TxType 0x12`): `to` = zero address, `value` = 0, `data` = `borsh(RevealPayload { commitment, nonce, inner_tx })`. Any account may submit it.
-- **Bond:** `max(MIN_COMMIT_BOND = 1e9 quanta = 1 PYDE, value_ceiling × 1%)` — escrowed on commit, refunded on accepted reveal, burned on abandonment/expiry.
+- **Bond:** `max(MIN_COMMIT_BOND = 1e9 quanta = 1 PYDE, value_ceiling × 1%)`, escrowed on commit, refunded on accepted reveal, burned on abandonment/expiry.
 - **Window:** `COMMIT_REVEAL_WINDOW_WAVES = 120` waves from the commit's inclusion wave.
 
 **Critical invariant: commit-before-reveal.** The DAG fixes commit order at commit time; in the reveal wave's resolution pass, revealed inner transactions execute **in commit order**, not reveal order. Because no key exists, safety never depends on any honest-committee assumption.
 
-**Why not threshold encryption:** an earlier draft used a Kyber-768 committee key with Shamir-split decryption shares. It was removed — trustless post-quantum threshold key generation is research-blocked (lattice public keys do not combine homomorphically the way BLS does; there is no trustless DKG for ML-KEM). A one-shot ciphertext lane remains v2+ research; see [Chapter 20](../chapters/20-future-direction.md).
+**Why not threshold encryption:** an earlier draft used a Kyber-768 committee key with Shamir-split decryption shares. It was removed: trustless post-quantum threshold key generation is research-blocked (lattice public keys do not combine homomorphically the way BLS does; there is no trustless DKG for ML-KEM). A one-shot ciphertext lane remains v2+ research; see [Chapter 20](../chapters/20-future-direction.md).
 
 ### Hash Functions: Hybrid Layered Strategy
 
@@ -179,9 +179,9 @@ Each epoch's beacon is produced by the previous epoch's committee:
 3. `beacon_N = Hash(aggregated_signature)` → 32 bytes randomness
 4. Published in last wave of epoch N
 
-Properties: deterministic given the member signatures, unpredictable until the last signer contributes, bias-resistant. The beacon is an aggregated FALCON signature over a fixed message — **not** a VRF and **not** a threshold-key output; each member holds an independent `BeaconKeypair` with no DKG.
+Properties: deterministic given the member signatures, unpredictable until the last signer contributes, bias-resistant. The beacon is an aggregated FALCON signature over a fixed message, **not** a VRF and **not** a threshold-key output; each member holds an independent `BeaconKeypair` with no DKG.
 
-> **No threshold-key ceremony.** Earlier drafts ran a Pedersen DKG here to produce a per-epoch threshold *decryption* key for an encrypted mempool, with Lagrange-combined partial decryptions. That mechanism was removed with the encrypted lane — the keyless commit-reveal private mempool needs no such key. A one-shot ciphertext lane (Threshold-LWE) remains v2+ research; see [Chapter 20](../chapters/20-future-direction.md).
+> **No threshold-key ceremony.** Earlier drafts ran a Pedersen DKG here to produce a per-epoch threshold *decryption* key for an encrypted mempool, with Lagrange-combined partial decryptions. That mechanism was removed with the encrypted lane; the keyless commit-reveal private mempool needs no such key. A one-shot ciphertext lane (Threshold-LWE) remains v2+ research; see [Chapter 20](../chapters/20-future-direction.md).
 
 ## Execution Layer
 
@@ -216,11 +216,11 @@ Build output: `.wasm` artifact + JSON ABI + deploy bundle.
 
 Pyde uses **uniform Block-STM** (Aptos-style) as the v1 execution model. Every tx in a committed wave runs optimistically in parallel through an MVCC layer, with conflicts caught at validation and losers re-executing until fixpoint. Full algorithm + determinism contract: [`BLOCK_STM_EXECUTION.md`](BLOCK_STM_EXECUTION.md).
 
-**Access lists from `pyde_simulateTransaction` are prefetch hints only** — the scheduler unions every declared `(addr, slot)` pair across the wave and issues one batched `state_cf.multi_get` (PIP-3) into the dashmap (PIP-4) before Block-STM workers start. Lists are never used to partition the wave or affect correctness; if a list is wrong, the missed slots just miss the warm-cache fast path, Block-STM still produces the correct deterministic result.
+**Access lists from `pyde_simulateTransaction` are prefetch hints only**: the scheduler unions every declared `(addr, slot)` pair across the wave and issues one batched `state_cf.multi_get` (PIP-3) into the dashmap (PIP-4) before Block-STM workers start. Lists are never used to partition the wave or affect correctness; if a list is wrong, the missed slots just miss the warm-cache fast path, Block-STM still produces the correct deterministic result.
 
-Why uniform Block-STM over a static-list / Block-STM hybrid for v1: single execution path means single test surface, single determinism contract, single bug class. Aptos's measured production numbers (10-30K real-world TPS) match Pyde's v1 target. The access-list-driven scheduling fast path stays available as a v2 throughput lever — see "Path Beyond v1" in BLOCK_STM_EXECUTION.md.
+Why uniform Block-STM over a static-list / Block-STM hybrid for v1: single execution path means single test surface, single determinism contract, single bug class. Aptos's measured production numbers (10-30K real-world TPS) match Pyde's v1 target. The access-list-driven scheduling fast path stays available as a v2 throughput lever; see "Path Beyond v1" in BLOCK_STM_EXECUTION.md.
 
-Pyde-specific opportunity: controls compiler, runtime, language, and protocol — the wallet's `pyde_simulateTransaction` round-trip means the chain is the only one where every tx already arrives with an accurate access list, making prefetch coverage near-100% in steady state.
+Pyde-specific opportunity: controls compiler, runtime, language, and protocol. The wallet's `pyde_simulateTransaction` round-trip means the chain is the only one where every tx already arrives with an accurate access list, making prefetch coverage near-100% in steady state.
 
 ### Preflight Execution
 
@@ -233,14 +233,14 @@ Client → pyde_estimateAccess(tx)
 Client attaches access_list to tx, signs
 ```
 
-State staleness handled by treating access list as a *hint* — scheduler verifies at runtime, falls back to Block-STM on mismatch.
+State staleness handled by treating access list as a *hint*: scheduler verifies at runtime, falls back to Block-STM on mismatch.
 
 ## State Layer
 
 ### Jellyfish Merkle Tree (JMT)
 
 Radix-16, path-compressed Merkle tree (Diem/Aptos lineage):
-- ~5–10 nodes per state operation (vs SMT's ~256)
+- ~5 to 10 nodes per state operation (vs SMT's ~256)
 - Substantial I/O savings at high TPS
 - Standard authentication properties (commitment, inclusion/exclusion proofs)
 
@@ -310,7 +310,7 @@ Reserved enum variant at v1. When v2 ships:
 - Account has signing keys AND attached WASM policy module
 - Policy runs on every authorization, can implement: spend limits, time locks, allow-listed recipients, social recovery, tiered authorization, AI agent delegation
 - Same fields as contracts (`code_hash` + `storage_root`)
-- WASM "policy mode" — restricted state access during validation
+- WASM "policy mode": restricted state access during validation
 
 ### Session Keys (v2)
 
@@ -367,15 +367,15 @@ fn authorize_session_tx(tx) -> Result<(), AuthError> {
 
 **Use cases:**
 
-- **Gaming** — sign once, play many actions.
-- **AI agents** — bounded delegation (e.g., *"trade at most 100 PYDE/day on this DEX until next Friday"*).
-- **Consumer apps** — subscriptions, micro-transactions.
-- **Embedded wallets** — passkey-style flows where the main key never leaves a secure enclave.
+- **Gaming**: sign once, play many actions.
+- **AI agents**: bounded delegation (e.g., *"trade at most 100 PYDE/day on this DEX until next Friday"*).
+- **Consumer apps**: subscriptions, micro-transactions.
+- **Embedded wallets**: passkey-style flows where the main key never leaves a secure enclave.
 
 **Limits.**
 
 - Maximum 32 active session keys per account (anti-squat).
-- `max_spend` is monotonic — increasing it requires a new key, not a mutation.
+- `max_spend` is monotonic: increasing it requires a new key, not a mutation.
 - `expires_at` cannot exceed `current_wave + MAX_SESSION_WAVES` (default: ~30 days at 500ms/wave = ~5.18M waves).
 
 **v1 reservations:** `AuthKeys::Programmable` enum tag `0x03`, account `code_hash` + `storage_root` fields, WASM policy-mode execution flag, multisig signature pipeline. All present at genesis; only the policy engine and session-key registry need to be added at v2.
@@ -425,7 +425,7 @@ Commit (per round, ~390ms median):
 ### Private-Mempool Transaction (Commit-Reveal)
 
 A two-transaction flow:
-- **Commit:** the wallet sends a `TxType 0x11` carrying `Blake3("pyde-commit-reveal-v1" || borsh(inner_tx) || nonce)` and a bond. Workers validate the commitment and bond only — the inner transaction is not present.
+- **Commit:** the wallet sends a `TxType 0x11` carrying `Blake3("pyde-commit-reveal-v1" || borsh(inner_tx) || nonce)` and a bond. Workers validate the commitment and bond only; the inner transaction is not present.
 - **DAG:** the commit is ordered like any transaction; its position is locked at commit time.
 - **Reveal:** within 120 waves, any account submits a `TxType 0x12` carrying the nonce and `inner_tx`.
 - **Commit step:** the reveal-resolution pass recomputes the commitment, matches it, refunds the bond, and slots the inner transaction for execution in commit order. wasmtime then verifies the inner FALCON signature and executes.
@@ -436,7 +436,7 @@ Three structural defenses, layered:
 
 ### Layer 1: Commit as a Hash
 
-Users hide time-sensitive transactions (DEX swaps, NFT mints, liquidations) behind a Blake3 commitment. The content is an opaque hash — there is no key anyone, committee included, could use to read it.
+Users hide time-sensitive transactions (DEX swaps, NFT mints, liquidations) behind a Blake3 commitment. The content is an opaque hash; there is no key anyone, committee included, could use to read it.
 
 ### Layer 2: Commit-Before-Reveal
 
@@ -446,15 +446,15 @@ The DAG fixes commit order before the content is revealed. By the time content i
 
 Pyde's DAG consensus has no single party empowered to choose which transactions enter a commit or in what order. The canonical order emerges deterministically from the DAG; no member can selectively reorder, exclude, or front-run.
 
-**Combined effect:** sandwich attacks, front-running, proposer extraction are structurally impossible — not policed, not auctioned, not made more efficient. The ordering primitive itself doesn't admit them.
+**Combined effect:** sandwich attacks, front-running, proposer extraction are structurally impossible: not policed, not auctioned, not made more efficient. The ordering primitive itself doesn't admit them.
 
 ### The Private Mempool is Optional
 
 Per-tx choice:
-- `pyde_sendRawTransaction` — plaintext, fast path, no MEV protection
-- Commit/Reveal pair (`TxType 0x11` / `0x12`) — private mempool, MEV-resistant, costs the bond + two transactions
+- `pyde_sendRawTransaction`: plaintext, fast path, no MEV protection
+- Commit/Reveal pair (`TxType 0x11` / `0x12`): private mempool, MEV-resistant, costs the bond + two transactions
 
-Wallets default to "auto" — route time-sensitive transactions through commit-reveal, skip it for simple transfers.
+Wallets default to "auto": route time-sensitive transactions through commit-reveal, skip it for simple transfers.
 
 Overhead is only paid on the private-mempool path: ~70% of traffic stays single-tx plaintext if 80% of txs are simple transfers (typical mix).
 
@@ -464,7 +464,7 @@ See [NETWORK_PROTOCOL.md](./NETWORK_PROTOCOL.md) for full details.
 
 Key choices:
 - **Transport:** QUIC over UDP (no HOL blocking, built-in TLS 1.3)
-- **Library:** libp2p (Rust) — mature, audited
+- **Library:** libp2p (Rust), mature and audited
 - **Peer discovery:** layered (hardcoded → DNS → on-chain registry → PEX → cache); no DHT
 - **Gossip:** Gossipsub with per-topic meshes
 - **DoS:** 4-layer (connection/message/peer-scoring/application)
@@ -513,7 +513,7 @@ This documentation reflects **designed architecture**, not shipped implementatio
 | Architecture design | ✅ Complete |
 | WASM execution layer (wasmtime + Cranelift AOT) | 🟡 Foundation in place; integration in progress; programmable-accounts hooks + Block-STM scheduler + access-list prefetch integration pending |
 | State layer (JMT) | 🟡 In place, needs hybrid hashing |
-| Consensus (Mysticeti-style) | 🔴 Not yet — rebuild post-pivot |
+| Consensus (Mysticeti-style) | 🔴 Not yet; rebuild post-pivot |
 | Private mempool (keyless commit-reveal) | 🟢 Commit/Reveal tx types + commit-order reveal resolution; only Blake3 + FALCON, no threshold crypto |
 | Network protocol (libp2p) | 🟡 Existing in archive, needs migration |
 | Performance harness | 🔴 Not yet built |
@@ -523,7 +523,7 @@ This documentation reflects **designed architecture**, not shipped implementatio
 
 **Mainnet ships when the work above is complete and the external audit passes.** No public schedule.
 
-**Note:** the v1 MEV mechanism carries no threshold-cryptography risk — it is the keyless commit-reveal private mempool (Blake3 + FALCON only). A one-shot ciphertext lane (Threshold-LWE) is deferred to v2+ research, gated on a trustless PQ threshold-keygen breakthrough; see [Chapter 20](../chapters/20-future-direction.md).
+**Note:** the v1 MEV mechanism carries no threshold-cryptography risk: it is the keyless commit-reveal private mempool (Blake3 + FALCON only). A one-shot ciphertext lane (Threshold-LWE) is deferred to v2+ research, gated on a trustless PQ threshold-keygen breakthrough; see [Chapter 20](../chapters/20-future-direction.md).
 
 ## Cross-References
 

@@ -29,7 +29,7 @@ Layer 5: Persistent peer set (preserved across restarts)
 
 ### No DHT
 
-Kademlia DHT (used by IPFS, Filecoin) is for content discovery. Pyde is a chain — peers are limited and known. DHT adds complexity without benefit.
+Kademlia DHT (used by IPFS, Filecoin) is for content discovery. Pyde is a chain: peers are limited and known. DHT adds complexity without benefit.
 
 **Why layered > DHT for Pyde:**
 - ✅ Peer identity is on-chain (validator FALCON-bound)
@@ -197,11 +197,12 @@ Thresholds:
 - 200 points → longer ban (24 hours)
 - 500 points → permanent ban
 
-Points decay over time (1 point per hour) — rewards good behavior over time.
+Points decay over time (1 point per hour), which rewards good behavior
+over time.
 
 ### Layer 4: Application-Level
 - Tx submission rate limit per sender address
-- Gas tank prepayment (legacy `gas_tank` field) — pay-as-you-go for ingress
+- Gas tank prepayment (legacy `gas_tank` field): pay-as-you-go for ingress
 - Resource caps on processing (CPU, memory per operation)
 
 ## Bandwidth Prioritization (When Constrained)
@@ -260,7 +261,8 @@ Defenses:
 - Maintain peers from diverse IPs / ASNs
 - Persistent peers (preserve across restarts)
 - Random peer rotation (drop oldest every N hours)
-- Mandatory connections to "well-known" peers (foundation, reputable infra) — optional
+- Mandatory connections to "well-known" peers (foundation, reputable
+  infra), optional
 
 ## State Sync Network Behavior
 

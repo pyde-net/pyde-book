@@ -5,7 +5,8 @@ The PYDE token is the native asset of the Pyde blockchain. It is used for: gas p
 ## Total Supply & Genesis
 
 - **Total genesis supply:** 1,000,000,000 PYDE
-- **Decimal places:** 9 (1 PYDE = 10^9 quanta — see Chapter 14 for the full denomination ladder)
+- **Decimal places:** 9 (1 PYDE = 10^9 quanta; see Chapter 14 for the
+  full denomination ladder)
 - **Smallest unit:** 1 quanta = 10^-9 PYDE
 
 ## Initial Distribution (v1)
@@ -74,7 +75,9 @@ Plus inflation issuance (also flowing into the reward pool) distributed by the s
 
 Single-tier staking:
 
-- **Minimum:** 10,000 PYDE (`MIN_VALIDATOR_STAKE`) — any validator meeting this threshold enters the pool from which the 128-member active committee is uniformly randomly selected each epoch
+- **Minimum:** 10,000 PYDE (`MIN_VALIDATOR_STAKE`). Any validator
+  meeting this threshold enters the pool from which the 128-member
+  active committee is uniformly randomly selected each epoch
 - **Maximum validators per operator:** 3 (anti-Sybil cap, enforced on operator identity)
 - **Bonding period:** 1 epoch (~3 hours) before active
 - **Unbonding period:** 30 days (must exceed the 21-day safety evidence freshness window)
@@ -148,7 +151,8 @@ Treasury spending is gated by **M-of-N FALCON multisig** (7-of-12 recommended) a
 - Emergency response (rare)
 - Other purposes ratified by PIP (Pyde Improvement Proposal)
 
-The treasury cannot be unilaterally drained — public PIPs + multisig threshold + 30-day-bounded emergency pause provide checks.
+The treasury cannot be unilaterally drained: public PIPs + multisig
+threshold + 30-day-bounded emergency pause provide checks.
 
 ## Parachain Operator Economics (Post-Mainnet)
 
@@ -181,7 +185,8 @@ Post year-4, supply economics are:
 
 1. **Initial distribution percentages:** above are illustrative; final allocations need legal + stakeholder negotiation.
 2. **Investor terms:** lockup, vesting, and post-vesting governance rights are open design questions.
-3. **Treasury governance specifics:** which categories of spending require which multisig thresholds — to be detailed in governance PIP.
+3. **Treasury governance specifics:** which categories of spending
+   require which multisig thresholds; to be detailed in governance PIP.
 4. **Parachain reward split:** 70/20/10 above is starting point; may adjust based on operator economics post-mainnet.
 
 ## References

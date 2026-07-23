@@ -18,7 +18,7 @@ WebAssembly was designed to be a compilation target: a small, well-specified, sa
 
 3. **Strong sandbox.** WebAssembly's linear memory model and structured control flow eliminate entire categories of vulnerabilities (buffer overflows, control-flow hijacks, type confusion). The validation step at module load rejects any malformed binary before it can run. Importing forbidden functions (network, filesystem, threads) is gated at deploy time.
 
-4. **ZK-ready path.** Active research on zero-knowledge proving of WebAssembly execution (zk-WASM) is converging on practical provers within a multi-year horizon. Pyde's contract bytecode is positioned to benefit from this without re-tooling — when zk-WASM provers mature, they slot in as an attestation layer over execution that has already happened.
+4. **ZK-ready path.** Active research on zero-knowledge proving of WebAssembly execution (zk-WASM) is converging on practical provers within a multi-year horizon. Pyde's contract bytecode is positioned to benefit from this without re-tooling: when zk-WASM provers mature, they slot in as an attestation layer over execution that has already happened.
 
 The price for these properties: a small overhead on the order of 5-15% relative to a hand-tuned custom VM on tight compute loops, vanishing entirely for storage-bound workloads where the VM is not the bottleneck. The performance section at the end of this chapter quantifies this with real numbers.
 
@@ -101,54 +101,54 @@ This config produces deterministic execution suitable for consensus: every valid
 
 ## 3.3 The Host Function ABI
 
-Smart contracts cannot directly access state, signatures, or anything outside their sandbox. They reach the chain through **host functions** — Rust functions registered with wasmtime's linker that contracts call by name. The full set of host functions is the **Host Function ABI**, versioned and documented in the canonical [Host Function ABI v1.0 Specification](../companion/HOST_FN_ABI_SPEC.md).
+Smart contracts cannot directly access state, signatures, or anything outside their sandbox. They reach the chain through **host functions**: Rust functions registered with wasmtime's linker that contracts call by name. The full set of host functions is the **Host Function ABI**, versioned and documented in the canonical [Host Function ABI v1.0 Specification](../companion/HOST_FN_ABI_SPEC.md).
 
 This section gives the conceptual surface; the spec gives the binary signatures.
 
 **Storage:**
-- `sload(slot_ptr, out_ptr, out_max_len) -> i32` — read a slot. Slot keys are 32 bytes (Poseidon2 of the contract address ‖ logical slot ID); slot **values are variable-length raw bytes**, up to `MAX_STORAGE_VALUE_BYTES = 16 KB`. Caller passes a max length and an out-pointer; host writes `min(actual, out_max_len)` bytes and returns the actual length (or `SLOAD_MISSING = -1` for a never-written slot).
-- `sstore(slot_ptr, val_ptr, val_len) -> ()` — write a slot. `val_len` is arbitrary up to the 16 KB cap; exceed it and the host fn traps. Costs are `GAS_SSTORE_BASE = 5_000 + 32/byte` value (the per-byte component is what makes large writes proportionally expensive).
-- `sdelete(slot_ptr) -> ()` — explicitly delete a slot (lower cost than `sstore`; no refund in v1, per Chapter 10).
+- `sload(slot_ptr, out_ptr, out_max_len) -> i32`: read a slot. Slot keys are 32 bytes (Poseidon2 of the contract address ‖ logical slot ID); slot **values are variable-length raw bytes**, up to `MAX_STORAGE_VALUE_BYTES = 16 KB`. Caller passes a max length and an out-pointer; host writes `min(actual, out_max_len)` bytes and returns the actual length (or `SLOAD_MISSING = -1` for a never-written slot).
+- `sstore(slot_ptr, val_ptr, val_len) -> ()`: write a slot. `val_len` is arbitrary up to the 16 KB cap; exceed it and the host fn traps. Costs are `GAS_SSTORE_BASE = 5_000 + 32/byte` value (the per-byte component is what makes large writes proportionally expensive).
+- `sdelete(slot_ptr) -> ()`: explicitly delete a slot (lower cost than `sstore`; no refund in v1, per Chapter 10).
 
-**Why variable-length values, not EVM-style 32-byte words.** Pyde isn't word-oriented at the VM level — WASM operates on linear memory, not 256-bit words. Forcing slot values into 32 bytes would (a) require contracts to manually pack/unpack any non-uint256 data, and (b) burn one slot per logical field regardless of size, blowing up state-tree node count for the common case of small structs. The variable-length model lets a contract Borsh-encode an entire small struct into one slot (e.g. a `Position { trader, size, entry, leverage }` at ~80 bytes → one slot, one read, one decode) — closer to a key-value store than a word array. For larger logical values, contracts use standard chunking patterns: `slot[H(base ‖ i)] = chunk_i` for chunked sequential data, or `slot[H(base ‖ key)] = value` for mapping-style access. The 16 KB cap is a RocksDB write-amplification budget (per-slot write costs scale with size; >16 KB starts to hurt LSM compaction); it's a chain-spec parameter, tunable via a future PIP if real workloads demand it.
+**Why variable-length values, not EVM-style 32-byte words.** Pyde isn't word-oriented at the VM level: WASM operates on linear memory, not 256-bit words. Forcing slot values into 32 bytes would (a) require contracts to manually pack/unpack any non-uint256 data, and (b) burn one slot per logical field regardless of size, blowing up state-tree node count for the common case of small structs. The variable-length model lets a contract Borsh-encode an entire small struct into one slot (e.g. a `Position { trader, size, entry, leverage }` at ~80 bytes → one slot, one read, one decode), closer to a key-value store than a word array. For larger logical values, contracts use standard chunking patterns: `slot[H(base ‖ i)] = chunk_i` for chunked sequential data, or `slot[H(base ‖ key)] = value` for mapping-style access. The 16 KB cap is a RocksDB write-amplification budget (per-slot write costs scale with size; >16 KB starts to hurt LSM compaction); it's a chain-spec parameter, tunable via a future PIP if real workloads demand it.
 
 **Balances and transfers:**
-- `balance(addr) -> u128` — read an account's PYDE balance.
-- `transfer(to_addr, amount)` — move PYDE from the caller to `to_addr`. Fails if insufficient balance.
+- `balance(addr) -> u128`: read an account's PYDE balance.
+- `transfer(to_addr, amount)`: move PYDE from the caller to `to_addr`. Fails if insufficient balance.
 
 **Execution context:**
-- `caller() -> addr` — the address that invoked the current call.
-- `origin() -> addr` — the externally-owned address that initiated the transaction. (Deliberately distinct from `caller()` to avoid the `tx.origin` footgun from Ethereum.)
+- `caller() -> addr`: the address that invoked the current call.
+- `origin() -> addr`: the externally-owned address that initiated the transaction. (Deliberately distinct from `caller()` to avoid the `tx.origin` footgun from Ethereum.)
 - `wave_id() -> u64`, `wave_timestamp() -> u64`.
 - `chain_id() -> u64`.
 
 **Events:**
-- `emit_event(topic, data)` — append a 32-byte topic + opaque bytes payload to the transaction's event log. Each event is buffered in the current overlay (per-tx, per-cross-call); reverted (sub-)calls' events are discarded. At wave commit, all surviving events are committed via `events_root` (Merkle tree) + `events_bloom` in the wave commit record. Recommended encoding for `data` is Borsh; topics are typically `Blake3(canonical_event_signature)`. Full storage / indexing / subscription mechanics: see [Host Function ABI Spec §15](../companion/HOST_FN_ABI_SPEC.md).
+- `emit_event(topic, data)`: append a 32-byte topic + opaque bytes payload to the transaction's event log. Each event is buffered in the current overlay (per-tx, per-cross-call); reverted (sub-)calls' events are discarded. At wave commit, all surviving events are committed via `events_root` (Merkle tree) + `events_bloom` in the wave commit record. Recommended encoding for `data` is Borsh; topics are typically `Blake3(canonical_event_signature)`. Full storage / indexing / subscription mechanics: see [Host Function ABI Spec §15](../companion/HOST_FN_ABI_SPEC.md).
 
 **Hashing primitives:**
-- `hash_keccak256(input) -> hash32` — for compatibility with cross-chain interfaces.
-- `hash_blake3(input) -> hash32` — fast general-purpose hashing.
-- `hash_poseidon2(input) -> hash32` — ZK-friendly hashing (used in state commitments).
+- `hash_keccak256(input) -> hash32`: for compatibility with cross-chain interfaces.
+- `hash_blake3(input) -> hash32`: fast general-purpose hashing.
+- `hash_poseidon2(input) -> hash32`: ZK-friendly hashing (used in state commitments).
 
 **Post-quantum cryptography:**
-- `falcon_verify(pubkey, message, signature) -> bool` — verify a FALCON-512 signature.
-- `threshold_encrypt` / `threshold_decrypt` — **reserved, not in v1.** These names are held for a possible optional one-shot ciphertext lane, which remains a v2+ research direction gated on a trustless PQ threshold-keygen breakthrough (see [Chapter 20 — Threshold-LWE One-Shot Private Mempool](./20-future-direction.md)). v1's MEV protection is the keyless commit-reveal private mempool, which uses no committee decryption key.
+- `falcon_verify(pubkey, message, signature) -> bool`: verify a FALCON-512 signature.
+- `threshold_encrypt` / `threshold_decrypt`: **reserved, not in v1.** These names are held for a possible optional one-shot ciphertext lane, which remains a v2+ research direction gated on a trustless PQ threshold-keygen breakthrough (see [Chapter 20: Threshold-LWE One-Shot Private Mempool](./20-future-direction.md)). v1's MEV protection is the keyless commit-reveal private mempool, which uses no committee decryption key.
 
 **Cross-contract calls:**
-- `cross_call(target, fn_name, calldata, value, gas_limit, ...)` — synchronous call into another contract. Sub-call runs in a nested overlay; merges on success, discards on trap.
-- `cross_call_static(target, fn_name, calldata, gas_limit, ...)` — view-only sub-call. **Free** for the caller (only the 50-gas dispatch base charged); bounded by a per-call `VIEW_FUEL_CAP` (default 10M fuel ≈ 3ms commodity).
-- `delegate_call(target, fn_name, calldata, gas_limit, ...)` — execute target's code in the caller's storage context. `self_address()` and `caller()` preserve outer-call identity. For proxy / upgradeable patterns.
+- `cross_call(target, fn_name, calldata, value, gas_limit, ...)`: synchronous call into another contract. Sub-call runs in a nested overlay; merges on success, discards on trap.
+- `cross_call_static(target, fn_name, calldata, gas_limit, ...)`: view-only sub-call. **Free** for the caller (only the 50-gas dispatch base charged); bounded by a per-call `VIEW_FUEL_CAP` (default 10M fuel ≈ 3ms commodity).
+- `delegate_call(target, fn_name, calldata, gas_limit, ...)`: execute target's code in the caller's storage context. `self_address()` and `caller()` preserve outer-call identity. For proxy / upgradeable patterns.
 
 **Randomness:**
-- `beacon_get() -> hash32` — current wave's committee-derived VRF beacon (XOR of all members' beacon shares). Deterministic across validators, publicly readable.
+- `beacon_get() -> hash32`: current wave's committee-derived VRF beacon (XOR of all members' beacon shares). Deterministic across validators, publicly readable.
 
 **Gas:**
-- `consume_gas(amount)` — explicit metering for operations the runtime cannot price automatically (used by binding generators for collection-traversal patterns).
+- `consume_gas(amount)`: explicit metering for operations the runtime cannot price automatically (used by binding generators for collection-traversal patterns).
 
 **Forbidden by design:**
 - Network calls (any kind).
 - Filesystem access.
-- System clock (use `wave_timestamp` instead — deterministic).
+- System clock (use `wave_timestamp` instead; it is deterministic).
 - Non-deterministic entropy (use a VRF-based host function when randomness is needed).
 - Direct RocksDB access (everything routes through `sload`/`sstore`).
 
@@ -200,7 +200,7 @@ These costs are paid once per contract per node restart, then amortized across a
 
 ## 3.5 Gas Metering
 
-Pyde uses wasmtime's **fuel** mechanism for gas accounting. Fuel is a per-execution budget; every WebAssembly instruction consumes a configurable amount of fuel, and execution traps when fuel reaches zero. Host function calls also consume fuel manually (charged by the host based on operation cost — `sstore` is heavier than `add`, for example).
+Pyde uses wasmtime's **fuel** mechanism for gas accounting. Fuel is a per-execution budget; every WebAssembly instruction consumes a configurable amount of fuel, and execution traps when fuel reaches zero. Host function calls also consume fuel manually (charged by the host based on operation cost; `sstore` is heavier than `add`, for example).
 
 **Gas-to-fuel mapping:**
 At node startup, the engine establishes a deterministic mapping from gas units (the chain-level metering unit) to wasmtime fuel units. The mapping accounts for:
@@ -214,8 +214,8 @@ A transaction declares its gas budget at submission; the engine converts that to
 **Why fuel and not opcode-counting:**
 Fuel is built into wasmtime's Cranelift backend. Every basic block is instrumented to decrement a fuel counter; when the counter goes negative, execution traps with an out-of-fuel error. The instrumentation is efficient enough not to dominate execution time. Implementing custom opcode-counting on top of wasmtime would be slower and add maintenance burden for no functional gain.
 
-**Charging model — no refunds in v1:**
-The ingress check confirms `balance ≥ gas_limit × base_fee`, but only `gas_used × base_fee` is actually debited at execution time. Unused fuel costs the sender nothing — it is never debited and therefore never refunded. Pyde v1 has no operation-level gas refunds either (no `sstore_refund`, no `sdelete` refund). See [Chapter 10 §10.1](./10-gas-and-fee-model.md) for the full charging pipeline and the EIP-3529 reasoning.
+**Charging model (no refunds in v1):**
+The ingress check confirms `balance ≥ gas_limit × base_fee`, but only `gas_used × base_fee` is actually debited at execution time. Unused fuel costs the sender nothing: it is never debited and therefore never refunded. Pyde v1 has no operation-level gas refunds either (no `sstore_refund`, no `sdelete` refund). See [Chapter 10 §10.1](./10-gas-and-fee-model.md) for the full charging pipeline and the EIP-3529 reasoning.
 
 ---
 
@@ -256,7 +256,7 @@ Per-tx isolation:
     sender still pays gas_used × base_fee (see Chapter 10)
 ```
 
-Events follow the same merge/discard discipline as state writes. A reverted (sub-)call's events are discarded along with its state writes — the chain never sees events from a path that didn't commit. The wave's final events list (committed via `events_root` + `events_bloom`; see [Host Function ABI Spec §15](../companion/HOST_FN_ABI_SPEC.md)) is the topmost overlay's events buffer at wave commit time.
+Events follow the same merge/discard discipline as state writes. A reverted (sub-)call's events are discarded along with its state writes: the chain never sees events from a path that didn't commit. The wave's final events list (committed via `events_root` + `events_bloom`; see [Host Function ABI Spec §15](../companion/HOST_FN_ABI_SPEC.md)) is the topmost overlay's events buffer at wave commit time.
 
 **Why no separate undo log:** failed writes never landed in shared state. Dropping the overlay throws them away. Simpler than journaled undo.
 
@@ -284,7 +284,7 @@ The overlay can grow during a tx, but is bounded by two factors:
 
 2. **Linear memory cap.** wasmtime's per-instance linear memory is capped (64MB default, configurable per chain release). Even if gas were infinite, the WASM module can't allocate beyond this cap.
 
-Together: a tx can use up to (gas_limit / sstore_cost) × value_size of overlay memory, but capped by linear memory. We don't impose a separate "tx overlay memory cap" — gas + wasmtime config bound it.
+Together: a tx can use up to (gas_limit / sstore_cost) × value_size of overlay memory, but capped by linear memory. We don't impose a separate "tx overlay memory cap": gas + wasmtime config bound it.
 
 ---
 
@@ -313,7 +313,7 @@ For consensus to hold, every validator must produce bit-identical state changes 
 - The host machine. No CPU info, no OS info, no environment access.
 
 **Deploy-time validation:**
-Every contract's WASM is validated at deploy time against the determinism rules. Any module that imports a forbidden function, uses a disabled feature, or fails wasmtime's structural validator is rejected. The validation gate is non-negotiable — it prevents bad code from ever reaching consensus.
+Every contract's WASM is validated at deploy time against the determinism rules. Any module that imports a forbidden function, uses a disabled feature, or fails wasmtime's structural validator is rejected. The validation gate is non-negotiable: it prevents bad code from ever reaching consensus.
 
 ---
 
@@ -365,12 +365,12 @@ fn read_balance(addr: &[u8; 32]) -> u128 {
 **Where the hashing happens:**
 
 - The **contract-name prefix** (`contract_addr_prefix()`) is computed **once** at startup using whatever caching pattern the author's language provides. Rust authors use `OnceCell` / `lazy_static!` / a `const fn` if possible. AssemblyScript uses a module-level constant initializer. Go uses `init()`. C uses a `static const` array initialized at first call. After the first computation, it's free.
-- The **discriminator** (`BALANCE_DISC = 0`) is a compile-time constant — never re-hashed.
-- The **dynamic part** (the `addr` argument) is hashed at runtime — one `pyde_poseidon2` call per slot reference. That's the irreducible cost.
+- The **discriminator** (`BALANCE_DISC = 0`) is a compile-time constant, never re-hashed.
+- The **dynamic part** (the `addr` argument) is hashed at runtime: one `pyde_poseidon2` call per slot reference. That's the irreducible cost.
 
-This is the same end-state as if `otigen` were generating bindings — same hash count at runtime, same memory layout, same gas profile. The difference: the author owns the code, can inspect it, can audit it, can replace pieces with optimized hot-path versions, and isn't dependent on a chain-team-maintained code generator. The canonical example projects in `pyde-net/otigen` ship one workable pattern per supported language as a starting point.
+This is the same end-state as if `otigen` were generating bindings: same hash count at runtime, same memory layout, same gas profile. The difference: the author owns the code, can inspect it, can audit it, can replace pieces with optimized hot-path versions, and isn't dependent on a chain-team-maintained code generator. The canonical example projects in `pyde-net/otigen` ship one workable pattern per supported language as a starting point.
 
-The same pattern adapts to AssemblyScript, Go (TinyGo), and C/C++ — each language has its own idioms for module-level constants, lazy initialization, and FFI to host functions. See `pyde-net/otigen/examples/` for a working version in each language.
+The same pattern adapts to AssemblyScript, Go (TinyGo), and C/C++. Each language has its own idioms for module-level constants, lazy initialization, and FFI to host functions. See `pyde-net/otigen/examples/` for a working version in each language.
 
 ---
 
@@ -385,7 +385,7 @@ The honest numbers, measured against PVM-era proxies (WASM-era numbers will repl
 - Interpreted execution (cold cache, no AOT yet) runs at roughly 10-30% of native. Pyde's WASM interpreter path is similar in throughput to the previous PVM interpreter measured at ~279 million instructions per second.
 
 **Storage-bound workloads (typical real-world smart contracts):**
-- The AOT-vs-interpreter advantage collapses. Token transfers measured around 231K tps interpreted and 243K tps AOT — essentially identical, because RocksDB IO dominates and neither the interpreter nor the AOT can speed it up.
+- The AOT-vs-interpreter advantage collapses. Token transfers measured around 231K tps interpreted and 243K tps AOT: essentially identical, because RocksDB IO dominates and neither the interpreter nor the AOT can speed it up.
 - This is the workload shape that actually determines blockchain throughput. The VM choice barely affects it.
 
 **Module compilation:**
@@ -394,7 +394,7 @@ The honest numbers, measured against PVM-era proxies (WASM-era numbers will repl
 - Paid once per contract per node startup, then cached forever.
 
 **End-to-end TPS:**
-The v1 honest throughput target on commodity validator hardware (for both the plaintext and private-mempool commit-reveal regimes) is to be established by the multi-region performance harness — it comes from the full-chain harness (consensus + execution + state + network), not from VM microbenchmarks alone. The VM is approximately the fifth-most-important contributor to that number, behind signature verification, network bandwidth, consensus latency, and disk I/O.
+The v1 honest throughput target on commodity validator hardware (for both the plaintext and private-mempool commit-reveal regimes) is to be established by the multi-region performance harness; it comes from the full-chain harness (consensus + execution + state + network), not from VM microbenchmarks alone. The VM is approximately the fifth-most-important contributor to that number, behind signature verification, network bandwidth, consensus latency, and disk I/O.
 
 The publishing discipline applies: published TPS numbers are derived conservatively from sustained measurement under realistic conditions, never from microbenchmark peaks or lab extrapolations.
 
@@ -405,13 +405,13 @@ The publishing discipline applies: published TPS numbers are derived conservativ
 When a contract execution fails, it traps. The transaction reverts, no state changes persist, the sender pays gas up to the trap point.
 
 **Trap conditions:**
-- **Out of fuel** — exceeded the transaction's gas budget.
-- **Out of bounds** — WASM linear memory access outside allocated range.
+- **Out of fuel**: exceeded the transaction's gas budget.
+- **Out of bounds**: WASM linear memory access outside allocated range.
 - **Integer overflow** (when checked arithmetic is requested by host function gating).
-- **Forbidden import attempt** — caught at deploy, not at runtime; deploy fails instead.
-- **Stack overflow** — wasmtime's configurable stack limit reached.
-- **Unreachable** — the WebAssembly `unreachable` instruction was executed (typically Rust's `panic!()` lowers to this).
-- **Host function error** — `sstore` to a write-locked slot, `transfer` with insufficient balance, etc.
+- **Forbidden import attempt**: caught at deploy, not at runtime; deploy fails instead.
+- **Stack overflow**: wasmtime's configurable stack limit reached.
+- **Unreachable**: the WebAssembly `unreachable` instruction was executed (typically Rust's `panic!()` lowers to this).
+- **Host function error**: `sstore` to a write-locked slot, `transfer` with insufficient balance, etc.
 
 **Engine-level protections:**
 - Per-call wall-clock timeout (epoch interruption). Prevents a buggy contract from spinning forever even if fuel accounting is somehow bypassed.
@@ -452,7 +452,7 @@ These instantiate the target module via wasmtime, call the entry function, execu
 
 ### Why split this way
 
-- **Performance.** Simple transfers don't need a sandbox or fuel metering — they're trivially provable state updates.
+- **Performance.** Simple transfers don't need a sandbox or fuel metering: they're trivially provable state updates.
 - **Gas predictability.** Native transfers have a fixed gas cost (~21K) known in advance; no fuel-counting needed.
 - **Common-case optimization.** Simple value transfers are the most common tx type on any chain. Avoiding WASM overhead per-transfer materially improves end-to-end TPS for high-volume payment workloads.
 
@@ -519,8 +519,8 @@ These are tracked as planned work and resolved as the execution layer matures:
 
 ## 3.13 Reading on
 
-- [Chapter 4: State Model](./04-state-model.md) — how `sload` and `sstore` reach the JMT.
-- [Chapter 5: Otigen Toolchain](./05-otigen-toolchain.md) — how authors interact with the execution layer through the developer tool.
-- [Chapter 6: Consensus](./06-consensus.md) — how execution outcomes commit to the chain.
-- [Chapter 8: Cryptography](./08-cryptography.md) — what FALCON, Poseidon2, and Blake3 actually do, and how the host functions expose them.
-- [Preface: The Pivot](../preface/pivot.md) — why the execution layer is WebAssembly rather than a custom VM.
+- [Chapter 4: State Model](./04-state-model.md): how `sload` and `sstore` reach the JMT.
+- [Chapter 5: Otigen Toolchain](./05-otigen-toolchain.md): how authors interact with the execution layer through the developer tool.
+- [Chapter 6: Consensus](./06-consensus.md): how execution outcomes commit to the chain.
+- [Chapter 8: Cryptography](./08-cryptography.md): what FALCON, Poseidon2, and Blake3 actually do, and how the host functions expose them.
+- [Preface: The Pivot](../preface/pivot.md): why the execution layer is WebAssembly rather than a custom VM.

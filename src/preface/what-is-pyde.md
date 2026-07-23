@@ -2,21 +2,21 @@
 
 <img src="../assets/logo.png" alt="The Pyde mark" class="pyde-logo-hero" />
 
-_What Pyde is, what it removes, and how it operates — so the spec chapters land on intuition, not acronyms._
+_What Pyde is, what it removes, and how it operates, so the spec chapters land on intuition, not acronyms._
 
 ---
 
 ## Pyde, in one paragraph
 
-Pyde is a Layer 1 blockchain network. Post-quantum from day one, MEV-resistant by construction, and cross-chain by certificate. It removes the two trust problems crypto-native businesses cannot solve today — front-running that taxes users 1–5% per trade, and bridges that have lost over $3 billion since 2021 — both fixed at the protocol level, not by policy. It is the chain you build on when execution has to be fair, finality has to mean final, and verification has to outlive the cryptography it was built with.
+Pyde is a Layer 1 blockchain network. Post-quantum from day one, MEV-resistant by construction, and cross-chain by certificate. It removes the two trust problems crypto-native businesses cannot solve today: front-running that taxes users 1 to 5% per trade, and bridges that have lost over $3 billion since 2021. Both are fixed at the protocol level, not by policy. It is the chain you build on when execution has to be fair, finality has to mean final, and verification has to outlive the cryptography it was built with.
 
 ## What Pyde removes
 
 Two structural taxes vanish at the protocol layer:
 
-**Front-running.** MEV-sensitive transactions enter a **keyless private mempool**: a user submits a commitment (a Blake3 hash of the transaction) first, the network locks its place in line, and only then is the content revealed. No validator, sequencer, or searcher can read a transaction before its place in line is locked. Sandwich attacks, JIT liquidity, and proposer extraction are not auctioned or mitigated — they are structurally impossible. Users keep the price they signed.
+**Front-running.** MEV-sensitive transactions enter a **keyless private mempool**: a user submits a commitment (a Blake3 hash of the transaction) first, the network locks its place in line, and only then is the content revealed. No validator, sequencer, or searcher can read a transaction before its place in line is locked. Sandwich attacks, JIT liquidity, and proposer extraction are not auctioned or mitigated; they are structurally impossible. Users keep the price they signed.
 
-**Bridge custody risk.** Any chain — Ethereum, Solana, a parachain, an L1 not built yet — can verify a Pyde transaction directly using its FALCON-signed finality certificate. No multisig, no custodian, no third party to trust. Value crossing chains never sits in a contract someone else controls.
+**Bridge custody risk.** Any chain (Ethereum, Solana, a parachain, an L1 not built yet) can verify a Pyde transaction directly using its FALCON-signed finality certificate. No multisig, no custodian, no third party to trust. Value crossing chains never sits in a contract someone else controls.
 
 ## What makes Pyde different
 
@@ -24,7 +24,7 @@ Three properties ship as defaults at genesis. No production chain combines them 
 
 **Post-quantum cryptography.** FALCON-512 signatures, Blake3 + Poseidon2 hybrid hashing, Kyber-768 (ML-KEM) for transport-layer session keys. No pre-quantum primitive on any consensus or account path. The network still settles after a working quantum computer breaks what today's chains run on.
 
-**Structural MEV resistance.** A keyless private mempool: commit-reveal ordering, where the commit order is fixed by the DAG before any content is revealed. No committee decryption key, no trust assumption — fairness is a property of the protocol, not a policy or an auction.
+**Structural MEV resistance.** A keyless private mempool: commit-reveal ordering, where the commit order is fixed by the DAG before any content is revealed. No committee decryption key, no trust assumption: fairness is a property of the protocol, not a policy or an auction.
 
 **Portable cross-chain certificate.** A Pyde finality certificate verifies anywhere it lands. Cross-chain interop is cryptography, not a multisig.
 
@@ -36,19 +36,19 @@ Other chains can add any one of these. None can add all three without a hard for
 
 **Pyde** (pronounced _pied_, rhymes with **tide**). The name carries two senses at once, and both are intentional.
 
-The older sense is **tide**. A tide is an inescapable, continuous current — it does not ask permission, it does not stop for the night, it does not wait for any single drop to arrive before moving the next. Pyde the network was designed to feel like that. The throughput of a blockchain is rarely about how fast one transaction can land; it is about whether the assembly line ever empties. Pyde's assembly line does not empty. The protocol commits in **waves** — not poetic waves, literal ones, the way water commits to shore — and the rest state of the system is motion. The factory metaphor that runs through this book is the tide made mechanical.
+The older sense is **tide**. A tide is an inescapable, continuous current: it does not ask permission, it does not stop for the night, it does not wait for any single drop to arrive before moving the next. Pyde the network was designed to feel like that. The throughput of a blockchain is rarely about how fast one transaction can land; it is about whether the assembly line ever empties. Pyde's assembly line does not empty. The protocol commits in **waves** (not poetic waves, literal ones, the way water commits to shore), and the rest state of the system is motion. The factory metaphor that runs through this book is the tide made mechanical.
 
-The surface sense is **pied** — a casual, phonetic spelling. The name was picked to sit quietly: short, easy to say, easy to type in a hurry, distinctive enough to search for. _pyde.network_, _@pydenet_, _t.me/pydenet_ — the rhythm matters when you will type it ten thousand times. It was picked knowing it would mostly be written lowercase, in DMs, by people whose hands are tired.
+The surface sense is **pied**, a casual, phonetic spelling. The name was picked to sit quietly: short, easy to say, easy to type in a hurry, distinctive enough to search for. _pyde.network_, _@pydenet_, _t.me/pydenet_: the rhythm matters when you will type it ten thousand times. It was picked knowing it would mostly be written lowercase, in DMs, by people whose hands are tired.
 
 There is no third sense. No hidden Greek letter, no acronym backing it out, no "Programmable Yield Decentralization Engine" trying to sneak in through the back door. The name is just the name.
 
 ## The mark
 
-The mark is based on **atomic structure** — a nucleus and its orbital.
+The mark is based on **atomic structure**: a nucleus and its orbital.
 
 The **vertical form is the core.** Dense, gravitational, everything pulls toward it. Pyde's architecture is monolithic: consensus and execution unified in one gravitational center.
 
-The **circle to its right is in orbit.** Independent, in motion, but bound to the core by an invisible force. External chains, bridges, and light clients orbit Pyde freely — _verified_, not _trusted_.
+The **circle to its right is in orbit.** Independent, in motion, but bound to the core by an invisible force. External chains, bridges, and light clients orbit Pyde freely: _verified_, not _trusted_.
 
 The two are separate on purpose. Related but sovereign. The same way a Pyde finality certificate can prove itself anywhere without depending on the chain it came from.
 
@@ -64,13 +64,13 @@ Grayscale only. Works as a favicon, on a sticker, in metal, as a watermark. Full
 
 The atomic reading is not visual flavour. It is the design.
 
-**Pyde is the core.** Consensus and execution live in one system. State lives where transactions are ordered. The DAG, the JMT, the wasmtime executor — one process, one gravitational well. Most modern chains split these into layers. Pyde does not.
+**Pyde is the core.** Consensus and execution live in one system. State lives where transactions are ordered. The DAG, the JMT, the wasmtime executor: one process, one gravitational well. Most modern chains split these into layers. Pyde does not.
 
-**Verification is the binding force.** Nothing orbiting the core is trusted. Light clients, bridges, foreign chains, wallets running local previews — they all bind through cryptographic proof. FALCON-signed finality certificates, JMT inclusion proofs, Blake3 commitment openings. The orbits are mathematical, not political.
+**Verification is the binding force.** Nothing orbiting the core is trusted. Light clients, bridges, foreign chains, wallets running local previews: they all bind through cryptographic proof. FALCON-signed finality certificates, JMT inclusion proofs, Blake3 commitment openings. The orbits are mathematical, not political.
 
-**Things orbit without merging.** A Pyde finality certificate can travel to Ethereum and prove itself there without phoning home. A parachain has its own sub-orbit inside Pyde's well — its own validators, its own consensus, its own state — and every block it seals anchors back to the core for re-validation. Sovereignty without isolation.
+**Things orbit without merging.** A Pyde finality certificate can travel to Ethereum and prove itself there without phoning home. A parachain has its own sub-orbit inside Pyde's well (its own validators, its own consensus, its own state), and every block it seals anchors back to the core for re-validation. Sovereignty without isolation.
 
-**Compression is BFT under pressure.** Wave commits run under adversarial conditions. The 85-of-128 quorum, the slashing schedule, the structural MEV resistance — they exist so the core holds when squeezed. Stress-tested.
+**Compression is BFT under pressure.** Wave commits run under adversarial conditions. The 85-of-128 quorum, the slashing schedule, the structural MEV resistance: they exist so the core holds when squeezed. Stress-tested.
 
 One core. Many orbits. Bound by physics, not by trust.
 
@@ -80,7 +80,7 @@ One core. Many orbits. Bound by physics, not by trust.
 
 Most blockchain explanations start with cryptography and end with consensus, leaving the reader holding a bag of acronyms. We are going to do this differently.
 
-Pyde is a **factory**. Goods (transactions) arrive at the loading dock from outside. They are sorted, lifted onto a continuously-moving assembly line, and arranged by a series of robotic arms working in parallel. Every few hundred milliseconds, the great press slams down and locks a batch as final — the _slam_ you feel when the factory floor shakes is a wave commit. After the slam, the audit ledger is stamped, exhaust rises from the chimney (eviction, pruning), a receipt is sent out the front door, and the line keeps moving without ever stopping.
+Pyde is a **factory**. Goods (transactions) arrive at the loading dock from outside. They are sorted, lifted onto a continuously-moving assembly line, and arranged by a series of robotic arms working in parallel. Every few hundred milliseconds, the great press slams down and locks a batch as final; the _slam_ you feel when the factory floor shakes is a wave commit. After the slam, the audit ledger is stamped, exhaust rises from the chimney (eviction, pruning), a receipt is sent out the front door, and the line keeps moving without ever stopping.
 
 The continuous rotation is the throughput. Pyde is not a fast database; it is a deep pipeline.
 
@@ -99,7 +99,7 @@ The full cycle, end-to-end, from a user's keypress to a receipt landing back in 
 
 A user opens a wallet and asks it to send 100 PYDE to `alice.pyde`. The wallet quietly does five things before showing a "Sign" button: it resolves the recipient name via JSON-RPC, fetches the sender's account state, fetches any relevant contract bytecode, runs the transaction _locally_ inside a wasmtime sandbox embedded in the wallet itself (Tier 1 client-side preview, see [Chapter 17 §17.4b](../chapters/17-developer-tools.md)), and shows the user a preview: _"This tx will send 100 PYDE, cost ~21,000 gas, leave your balance at 900 PYDE."_ Only then does the user sign with their FALCON-512 key, and only then does the tx leave their machine.
 
-If the user opted into the private mempool, the wallet first sends a **Commit** — a FALCON-signed transaction carrying only `Blake3("pyde-commit-reveal-v1" || borsh(inner_tx) || nonce)` and a small bond. The inner transaction's recipient and amount are hidden inside the commitment; no validator can read them. The wallet reveals the real transaction in a later wave, after its place in line is already locked.
+If the user opted into the private mempool, the wallet first sends a **Commit**: a FALCON-signed transaction carrying only `Blake3("pyde-commit-reveal-v1" || borsh(inner_tx) || nonce)` and a small bond. The inner transaction's recipient and amount are hidden inside the commitment; no validator can read them. The wallet reveals the real transaction in a later wave, after its place in line is already locked.
 
 ### Stage 1: Loading dock (RPC ingress)
 
@@ -107,11 +107,11 @@ The transaction lands at any RPC node. RPC nodes are **stateless ingress**: they
 
 ### Stage 2: Sorting room (mempool)
 
-Every node — and especially every committee validator — runs a validation pipeline on each incoming tx: signature verify (FALCON-512, batchable), nonce window check (the tx's nonce must be within sixteen of the sender's last committed nonce), balance sufficiency, gas-limit cap, attribute coherence. Passes go into the local mempool DashMap, organised by gas-price descending. Failures are dropped and the gossip score of the peer that sent it is docked. Private-mempool **Commit** transactions land here too: the commitment and bond are validated, but the hidden inner transaction is not seen until its matching **Reveal** arrives in a later wave.
+Every node, and especially every committee validator, runs a validation pipeline on each incoming tx: signature verify (FALCON-512, batchable), nonce window check (the tx's nonce must be within sixteen of the sender's last committed nonce), balance sufficiency, gas-limit cap, attribute coherence. Passes go into the local mempool DashMap, organised by gas-price descending. Failures are dropped and the gossip score of the peer that sent it is docked. Private-mempool **Commit** transactions land here too: the commitment and bond are validated, but the hidden inner transaction is not seen until its matching **Reveal** arrives in a later wave.
 
 ### Stage 3: Assembly-line dispatch (batches and vertices)
 
-Inside each of the 128 committee members for this epoch, two things happen continuously. First, every hundred milliseconds or so, the member packs the highest-fee transactions into a **Batch** (~50-200 txs, ~4 MB cap) and broadcasts it on the `/pyde/batches/1.0.0` topic. Second, every round (~150-500 ms, structurally paced — see below), the member emits a **Vertex** that references ≥85 parent vertices from the previous round, references whichever batches it wants to include, contributes a beacon share, attests to the previous anchor, and is signed by the member's epoch key. Vertices broadcast on `/pyde/dag/1.0.0` and form the next floor of the DAG.
+Inside each of the 128 committee members for this epoch, two things happen continuously. First, every hundred milliseconds or so, the member packs the highest-fee transactions into a **Batch** (~50-200 txs, ~4 MB cap) and broadcasts it on the `/pyde/batches/1.0.0` topic. Second, every round (~150-500 ms, structurally paced; see below), the member emits a **Vertex** that references ≥85 parent vertices from the previous round, references whichever batches it wants to include, contributes a beacon share, attests to the previous anchor, and is signed by the member's epoch key. Vertices broadcast on `/pyde/dag/1.0.0` and form the next floor of the DAG.
 
 The round advances when the member has _seen ≥85 vertices from the current round_, not when its own timer fires. This is the structural-pacing trick that makes Mysticeti elegant: the floor speed is the median peer speed, not the slowest peer's speed. A single laggard cannot stall the line.
 
@@ -131,27 +131,27 @@ Once the anchor has accumulated ≥85 attestations from later-round vertices (ot
 
 What the slam does, in three lines:
 
-1. **BFS subdag walk** — starting at the anchor, walk every parent reference recursively. The set of touched vertices is the subdag being committed.
-2. **Canonical sort** — order the subdag by (round, author_id, batch_list_order). Every honest member produces the same order.
-3. **Dedupe + flatten** — same transaction may appear in multiple batches across multiple members; keep the first appearance. The result is the wave's `ordered_list`, a fully deterministic transaction sequence.
+1. **BFS subdag walk**: starting at the anchor, walk every parent reference recursively. The set of touched vertices is the subdag being committed.
+2. **Canonical sort**: order the subdag by (round, author_id, batch_list_order). Every honest member produces the same order.
+3. **Dedupe + flatten**: same transaction may appear in multiple batches across multiple members; keep the first appearance. The result is the wave's `ordered_list`, a fully deterministic transaction sequence.
 
-That sequence is _what gets executed_. Before the slam the DAG is ambiguous; after the slam it is fixed. See [Chapter 6 §5b–5c](../chapters/06-consensus.md) for round-vs-wave terminology, missing-vertex handling, and the 5-skip recovery walkthrough.
+That sequence is _what gets executed_. Before the slam the DAG is ambiguous; after the slam it is fixed. See [Chapter 6 §5b to 5c](../chapters/06-consensus.md) for round-vs-wave terminology, missing-vertex handling, and the 5-skip recovery walkthrough.
 
 ### Stage 6: Unsealing the commitments (reveal resolution)
 
-Private-mempool transactions arrive in two halves that land in different waves. The **Commit** was ordered earlier — its position in line is a fixed point in the DAG, locked before anyone could read the content. The **Reveal** carries the actual inner transaction; when it commits (within `COMMIT_REVEAL_WINDOW_WAVES = 120` of its commit), the resolution pass opens the commitment.
+Private-mempool transactions arrive in two halves that land in different waves. The **Commit** was ordered earlier: its position in line is a fixed point in the DAG, locked before anyone could read the content. The **Reveal** carries the actual inner transaction; when it commits (within `COMMIT_REVEAL_WINDOW_WAVES = 120` of its commit), the resolution pass opens the commitment.
 
-For each revealed transaction: the engine recomputes `Blake3("pyde-commit-reveal-v1" || borsh(inner_tx) || nonce)` and checks it matches the commitment recorded at commit time. On a match, the inner transaction is re-validated (nonce, balance) and slotted for execution **in commit order** — the DAG-sequenced order of the commits, *not* the order the reveals happened to arrive. The commit's bond is refunded. A commit whose reveal never lands inside the window expires and its bond is burned. Committing-before-revealing is what gives Pyde its MEV protection: validators fix the order while the content is still an opaque hash, so they cannot front-run, sandwich, or censor based on what a transaction does.
+For each revealed transaction: the engine recomputes `Blake3("pyde-commit-reveal-v1" || borsh(inner_tx) || nonce)` and checks it matches the commitment recorded at commit time. On a match, the inner transaction is re-validated (nonce, balance) and slotted for execution **in commit order**: the DAG-sequenced order of the commits, *not* the order the reveals happened to arrive. The commit's bond is refunded. A commit whose reveal never lands inside the window expires and its bond is burned. Committing-before-revealing is what gives Pyde its MEV protection: validators fix the order while the content is still an opaque hash, so they cannot front-run, sandwich, or censor based on what a transaction does.
 
 ### Stage 7: Robotic arms picking and ordering (execution)
 
-The wave's `ordered_list` enters the **Block-STM scheduler**. First, the scheduler walks every tx's declared access list and unions every `(addr, slot)` pair into a single prefetch set, then issues one batched `state_cf.multi_get` (PIP-3) to warm the dashmap (PIP-4) before any worker starts — the access list is a prefetch hint only, never used to partition the wave or affect correctness. Then every tx runs optimistically in parallel on a rayon pool, reading + writing through a multi-version concurrency control (MVCC) layer addressed by `(tx_index, attempt)`. The validate pass checks every read against the canonical tx_index order; reads that have since been invalidated by a lower-tx_index write abort the tx, drop its writes, and re-incarnate it at attempt+1. The cycle repeats until every tx is validated — fixpoint — then the highest-tx_index's last write per slot is flushed to the JMT. Aptos's measured production numbers (10-30K real-world TPS) anchor Pyde's v1 throughput target.
+The wave's `ordered_list` enters the **Block-STM scheduler**. First, the scheduler walks every tx's declared access list and unions every `(addr, slot)` pair into a single prefetch set, then issues one batched `state_cf.multi_get` (PIP-3) to warm the dashmap (PIP-4) before any worker starts; the access list is a prefetch hint only, never used to partition the wave or affect correctness. Then every tx runs optimistically in parallel on a rayon pool, reading + writing through a multi-version concurrency control (MVCC) layer addressed by `(tx_index, attempt)`. The validate pass checks every read against the canonical tx_index order; reads that have since been invalidated by a lower-tx_index write abort the tx, drop its writes, and re-incarnate it at attempt+1. The cycle repeats until every tx is validated (fixpoint); then the highest-tx_index's last write per slot is flushed to the JMT. Aptos's measured production numbers (10-30K real-world TPS) anchor Pyde's v1 throughput target.
 
-For each transaction, the dispatch looks at the type. Native transactions (Transfer, ValidatorRegister, Stake, Unstake) skip wasmtime entirely — direct calls into native handlers, ~21K gas, no WASM cost. Contract calls and contract deploys enter the wasmtime path: load (or fetch and Cranelift-compile) the contract module from state, instantiate it with a 64 MB linear-memory cap and `gas_limit` of fuel, invoke the entrypoint, run host functions (`sload`, `sstore`, `sdelete`, `log`, `cross_call`) through a per-transaction overlay that snapshots reads and isolates writes. Success merges the overlay into the wave overlay; trap discards it; either way the gas actually consumed is deducted (no refunds in v1, see [Chapter 10 §10.1](../chapters/10-gas-and-fee-model.md)). Cross-contract calls nest overlays recursively so a failed sub-call rolls back cleanly without touching the caller's state.
+For each transaction, the dispatch looks at the type. Native transactions (Transfer, ValidatorRegister, Stake, Unstake) skip wasmtime entirely: direct calls into native handlers, ~21K gas, no WASM cost. Contract calls and contract deploys enter the wasmtime path: load (or fetch and Cranelift-compile) the contract module from state, instantiate it with a 64 MB linear-memory cap and `gas_limit` of fuel, invoke the entrypoint, run host functions (`sload`, `sstore`, `sdelete`, `log`, `cross_call`) through a per-transaction overlay that snapshots reads and isolates writes. Success merges the overlay into the wave overlay; trap discards it; either way the gas actually consumed is deducted (no refunds in v1, see [Chapter 10 §10.1](../chapters/10-gas-and-fee-model.md)). Cross-contract calls nest overlays recursively so a failed sub-call rolls back cleanly without touching the caller's state.
 
 ### Stage 8: Inventory audit (state root computation)
 
-After execution, the wave overlay holds every write _and_ every emitted event. Now the audit stamp goes on. Each `(slot_hash, value)` write lands in two places: the **state_cf** flat table (live state, O(1) reads later) and the **jmt_cf** versioned tree (proofs and state root). JMT internal nodes touched by this wave are recomputed with dual hashes — Blake3 for fast native verification, Poseidon2 for future ZK light clients (see [Chapter 4 §4.1b](../chapters/04-state-model.md)). Events land in three more column families — **events_cf** (primary, ordered by wave) plus **events_by_topic_cf** and **events_by_contract_cf** (indexes for fast filtering) — and the wave commit record carries an `events_root` (Blake3 Merkle tree over canonical-ordered events) plus a 256-byte `events_bloom` so light clients can verify event inclusion identically to how they verify state. The new state root, the events root + bloom, the wave commit record, the receipts, and the tx-to-wave mapping all land in a single atomic RocksDB WriteBatch. Either the entire wave commits or none of it does. There is no such thing as a half-committed wave.
+After execution, the wave overlay holds every write _and_ every emitted event. Now the audit stamp goes on. Each `(slot_hash, value)` write lands in two places: the **state_cf** flat table (live state, O(1) reads later) and the **jmt_cf** versioned tree (proofs and state root). JMT internal nodes touched by this wave are recomputed with dual hashes: Blake3 for fast native verification, Poseidon2 for future ZK light clients (see [Chapter 4 §4.1b](../chapters/04-state-model.md)). Events land in three more column families, **events_cf** (primary, ordered by wave) plus **events_by_topic_cf** and **events_by_contract_cf** (indexes for fast filtering), and the wave commit record carries an `events_root` (Blake3 Merkle tree over canonical-ordered events) plus a 256-byte `events_bloom` so light clients can verify event inclusion identically to how they verify state. The new state root, the events root + bloom, the wave commit record, the receipts, and the tx-to-wave mapping all land in a single atomic RocksDB WriteBatch. Either the entire wave commits or none of it does. There is no such thing as a half-committed wave.
 
 ### Stage 9: Exhaust from the chimney (eviction and pruning) 💨
 
@@ -174,21 +174,21 @@ The wallet has been holding a WebSocket subscription on the transaction hash sin
 }
 ```
 
-The wallet updates the user's view: _"Transferred 100 PYDE to alice.pyde. Confirmed."_ For light clients (mobile wallets, browser dApps), the same wave commits as a 200-byte header signed by the committee threshold — the light client verifies the threshold signature against the committee pubkeys it already trusts and has now verified the entire wave's integrity without downloading a single transaction. See [Chapter 17 §17.3](../chapters/17-developer-tools.md) for the SDK surface and [Companion: State Sync](../companion/STATE_SYNC.md) for the light-client model.
+The wallet updates the user's view: _"Transferred 100 PYDE to alice.pyde. Confirmed."_ For light clients (mobile wallets, browser dApps), the same wave commits as a 200-byte header signed by the committee threshold; the light client verifies the threshold signature against the committee pubkeys it already trusts and has now verified the entire wave's integrity without downloading a single transaction. See [Chapter 17 §17.3](../chapters/17-developer-tools.md) for the SDK surface and [Companion: State Sync](../companion/STATE_SYNC.md) for the light-client model.
 
 ### Stage 11: The eternal rotation 🔁
 
 Everything you have just read is happening in parallel for different waves. While Stage 7's arms execute wave 1,234,567, round R+1 has already advanced, reveals for commitments locked several waves back are propagating through the gossip layer, the next anchor is already known, the mempool is already sorting transactions that will land in wave 1,234,568, and somebody's wallet on the other side of the world is running a Tier-1 preview for a transaction that does not yet exist. The pipeline is deep. The conveyor belts overlap. The press slams roughly twice a second.
 
-The continuous rotation is the throughput. No single transaction is faster than on a slower chain — but the assembly line never empties.
+The continuous rotation is the throughput. No single transaction is faster than on a slower chain, but the assembly line never empties.
 
 ---
 
 ## What the metaphor catches that the spec sometimes loses
 
-- **Pipelining is everything.** Stages 1–11 run concurrently for different waves. No stage waits for another stage to finish.
+- **Pipelining is everything.** Stages 1 to 11 run concurrently for different waves. No stage waits for another stage to finish.
 - **The slam is real.** Wave commit is a discrete moment that locks order. Before the slam the DAG is ambiguous; after the slam it is canonical.
-- **Exhaust is not waste — it is necessary.** Eviction and pruning are first-class. Without them the factory clogs on its own inventory.
+- **Exhaust is not waste; it is necessary.** Eviction and pruning are first-class. Without them the factory clogs on its own inventory.
 - **The user only sees the loading dock and the receipt window.** Everything in between is hidden machinery. The wallet's job is to make the slam feel like an instant click.
 
 ---
@@ -197,12 +197,12 @@ The continuous rotation is the throughput. No single transaction is faster than 
 
 If you want the detailed mechanics of any stage:
 
-- **Stages 1–2 (ingress, mempool):** [Chapter 12 — Networking](../chapters/12-networking.md)
-- **Stages 3–5 (DAG, anchor, commit):** [Chapter 6 — Consensus](../chapters/06-consensus.md)
-- **Stage 6 (reveal resolution):** [Chapter 6 §11](../chapters/06-consensus.md) and [Chapter 9 — MEV Protection](../chapters/09-mev-protection.md)
-- **Stage 7 (execution, Block-STM, per-tx overlay):** [Chapter 3 — Execution Layer](../chapters/03-virtual-machine.md)
-- **Stage 8 (state model, JMT, dual hash):** [Chapter 4 — State Model](../chapters/04-state-model.md)
+- **Stages 1 to 2 (ingress, mempool):** [Chapter 12: Networking](../chapters/12-networking.md)
+- **Stages 3 to 5 (DAG, anchor, commit):** [Chapter 6: Consensus](../chapters/06-consensus.md)
+- **Stage 6 (reveal resolution):** [Chapter 6 §11](../chapters/06-consensus.md) and [Chapter 9: MEV Protection](../chapters/09-mev-protection.md)
+- **Stage 7 (execution, Block-STM, per-tx overlay):** [Chapter 3: Execution Layer](../chapters/03-virtual-machine.md)
+- **Stage 8 (state model, JMT, dual hash):** [Chapter 4: State Model](../chapters/04-state-model.md)
 - **Stage 9 (eviction, pruning):** [Chapter 4 §4.1b](../chapters/04-state-model.md) and [Companion: State Sync](../companion/STATE_SYNC.md)
-- **Stage 10 (wallets, SDKs, RPC):** [Chapter 17 — Developer Tools](../chapters/17-developer-tools.md)
+- **Stage 10 (wallets, SDKs, RPC):** [Chapter 17: Developer Tools](../chapters/17-developer-tools.md)
 
 And if you want the deep historical narrative on how Pyde arrived at this design: [The Pivot](./pivot.md).

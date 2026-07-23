@@ -1,14 +1,14 @@
 # `otigen test`: Contract Behaviour Test Spec
 
-**Status:** v1 — shipped. The framework runs through `pyde-engine-wasm-exec::WasmExecutor` by default (same code path mainnet uses); the legacy in-process mock surface remains behind `--no-engine` for parachain contracts (parachain runtime ships in engine v2) and runner-side bisection.
+**Status:** v1 (shipped). The framework runs through `pyde-engine-wasm-exec::WasmExecutor` by default (same code path mainnet uses); the legacy in-process mock surface remains behind `--no-engine` for parachain contracts (parachain runtime ships in engine v2) and runner-side bisection.
 
-This spec describes how Pyde contract authors write **behaviour-level tests** — assertions about state changes, return values, emitted events, and reverts — declaratively in a TOML file. The `otigen test` command instantiates the contract's `.wasm` in a wasmtime sandbox, runs the declared scenarios with mock host functions, and reports pass / fail per case.
+This spec describes how Pyde contract authors write **behaviour-level tests** (assertions about state changes, return values, emitted events, and reverts) declaratively in a TOML file. The `otigen test` command instantiates the contract's `.wasm` in a wasmtime sandbox, runs the declared scenarios with mock host functions, and reports pass / fail per case.
 
 ---
 
 ## 1. Why this exists
 
-`otigen build` validates that a contract is *well-formed* — it parses, imports the right host functions, exports the declared entries, doesn't reach state-mutating host calls from `view` functions. That's a structural check.
+`otigen build` validates that a contract is *well-formed*: it parses, imports the right host functions, exports the declared entries, doesn't reach state-mutating host calls from `view` functions. That's a structural check.
 
 What it does NOT check: does the contract *behave* correctly?
 
@@ -97,7 +97,7 @@ Every TOML key the test framework understands, in order they appear in a typical
 
 ### 4.1 `[accounts]`: named addresses
 
-Maps a human-readable name to a deterministic 32-byte address. The address is `Blake3(name.as_bytes())` truncated / taken as-is to 32 bytes — same output every run.
+Maps a human-readable name to a deterministic 32-byte address. The address is `Blake3(name.as_bytes())` truncated / taken as-is to 32 bytes, giving the same output every run.
 
 ```toml
 [accounts]
@@ -110,7 +110,7 @@ dao = { balance = "1000000" }    # decimal also OK; same effect
 | Key | Type | Required | Description |
 |---|---|---|---|
 | `<name>.balance` | hex or decimal string | no | Initial native-PYDE balance. Surfaced to the contract via `pyde::balance_of(<addr>)`. Default `0`. |
-| `<name>.pubkey` | `0x` hex (897 bytes) | no | Pre-set FALCON-512 pubkey for the account. Default: deterministic-from-name. **v1 ignored** — pubkey-pinning matters for engine-level signature verification, which v1 contracts don't simulate at the auth-keys layer. Documented for v2. |
+| `<name>.pubkey` | `0x` hex (897 bytes) | no | Pre-set FALCON-512 pubkey for the account. Default: deterministic-from-name. **v1 ignored**: pubkey-pinning matters for engine-level signature verification, which v1 contracts don't simulate at the auth-keys layer. Documented for v2. |
 | `<name>.keypair` | string | no | When set to `"falcon512"`, the planner generates a fresh FALCON-512 keypair for this account at plan time and caches it for the test run. Required for any test that exercises `pyde::falcon_verify`. Tests reference the pubkey or produce signatures via the `@pubkey:NAME` / `@pubkey_hash:NAME` / `@sig:NAME:args.IDX` DSL prefixes (§5.5 below). |
 
 ```toml
@@ -121,7 +121,7 @@ bob   = { keypair = "falcon512" }
 
 Names are used throughout the file to refer to accounts: `from = "alice"`, `args = ["bob", "10"]`, `storage.balances.alice = "100"`.
 
-**Reserved name:** `__contract__` resolves to the contract's own deployed address (`Blake3(contract.name)` — same as how the chain computes it at deploy time). Used for testing `pyde::self()` and self-references.
+**Reserved name:** `__contract__` resolves to the contract's own deployed address (`Blake3(contract.name)`, the same as how the chain computes it at deploy time). Used for testing `pyde::self()` and self-references.
 
 ### 4.2 `[cheats]`: global cheatcodes
 
@@ -146,10 +146,10 @@ Cheatcode catalog (v1):
 
 Cheats reserved for later releases (parsed but currently a no-op):
 
-- `cheats.expect_emit` — pre-declare an expected event before a call sequence. Today the same effect is achieved via `expect.events` on individual `[[tests.calls]]` entries (see §4.5 + §6.5).
-- `cheats.assume_balance` — assume an account has at least N quanta. Reserved for the future fuzz / invariant testing mode; parsed-but-noop today.
+- `cheats.expect_emit`: pre-declare an expected event before a call sequence. Today the same effect is achieved via `expect.events` on individual `[[tests.calls]]` entries (see §4.5 + §6.5).
+- `cheats.assume_balance`: assume an account has at least N quanta. Reserved for the future fuzz / invariant testing mode; parsed-but-noop today.
 
-**Per-call overrides.** `now`, `wave_id`, `chain_id`, `gas` can also be set on individual `[[tests.calls]]` entries — see §4.5. The per-call values use **sticky semantics**: once a call sets `now = X`, X persists into subsequent calls in the same test until another override fires. This models a real chain's monotonically-advancing clock and avoids the per-call-restore footgun.
+**Per-call overrides.** `now`, `wave_id`, `chain_id`, `gas` can also be set on individual `[[tests.calls]]` entries; see §4.5. The per-call values use **sticky semantics**: once a call sets `now = X`, X persists into subsequent calls in the same test until another override fires. This models a real chain's monotonically-advancing clock and avoids the per-call-restore footgun.
 
 ```toml
 [cheats]
@@ -186,10 +186,10 @@ Coming from Solidity / Foundry? `vm.xxx()` imperative cheats map to declarative 
 | `vm.expectEmit(...)` | `expect.events = [{ name = "Foo", ... }]` |
 | `vm.signMessage(key, msg)` | `@sig:NAME:args.IDX` DSL (sigs are FALCON-512, generated at plan time) |
 | `vm.mockCall(target, calldata, ret)` | `[[contracts]]` secondary contracts (§4.7) |
-| `vm.label(addr, "name")` | `[accounts].alice = {}` — names are always used in traces |
-| `vm.snapshot / vm.revertTo` | not needed — each test starts from fresh state |
-| `vm.recordLogs` | not needed — events are always recorded for matching |
-| `console.log(...)` | `pyde::debug_log(label_ptr, label_len, data_ptr, data_len)` — test-only host fn captured by the runner. Surfaced at `-vv` verbosity; `otigen build` rejects it by default (strict-by-default) and `otigen deploy` always rejects it. Use `otigen build --no-strict` for local inspection only. |
+| `vm.label(addr, "name")` | `[accounts].alice = {}`; names are always used in traces |
+| `vm.snapshot / vm.revertTo` | not needed; each test starts from fresh state |
+| `vm.recordLogs` | not needed; events are always recorded for matching |
+| `console.log(...)` | `pyde::debug_log(label_ptr, label_len, data_ptr, data_len)`: test-only host fn captured by the runner. Surfaced at `-vv` verbosity; `otigen build` rejects it by default (strict-by-default) and `otigen deploy` always rejects it. Use `otigen build --no-strict` for local inspection only. |
 
 ### 4.3 `[[tests]]`: test case array
 
@@ -230,7 +230,7 @@ Installed into the mock environment before `[[tests.calls]]` runs.
 |---|---|---|
 | `setup.storage.<field>.<key>` | hex / decimal string | Named storage slot (see §5 name resolution). |
 | `setup.storage."<raw_hex>"` | hex string | Raw 32-byte slot hash → raw value bytes. Bypasses name resolution. Use when the contract's state isn't declared in `[state]`. |
-| `setup.code.<account>` | path to `.wasm` | Pre-deploys another contract's WASM at `<account>`'s address. **v2** — multi-contract tests not yet implemented. |
+| `setup.code.<account>` | path to `.wasm` | Pre-deploys another contract's WASM at `<account>`'s address. **v2**: multi-contract tests not yet implemented. |
 | `setup.balances.<account>` | hex / decimal | Override `[accounts].<name>.balance`. Useful for testing balance changes under a specific starting condition. |
 
 ### 4.5 `[[tests.calls]]`: call sequence
@@ -246,12 +246,12 @@ Each call executes a contract function in order, with its own caller / value / e
 | `gas` | u64 | no | Per-call gas budget override. Default uses `[cheats].gas_limit`. |
 | `now` | u64 (unix seconds) | no | Per-call `wave_timestamp()` override. **Sticky:** the new value persists into subsequent calls in the same test until another override fires. Models a real chain's monotonically-advancing clock. |
 | `wave_id` | u64 | no | Per-call `pyde::wave_id()` override. Sticky, same semantics as `now`. |
-| `chain_id` | u64 | no | Per-call `chain_id()` override. Sticky. Rare in practice (chain_id doesn't change across a chain's lifetime) — exists for symmetry + future cross-chain replay-protection testing. |
-| `expect.return_value` | hex / decimal / negative decimal | no | Asserted return value. Unsigned decimal and `0x`-hex compare numerically (so `"42"` and `"0x2a"` match the same return). **Negative decimal literals** (e.g. `"-10"`) parse as i64 and compare against the wasm result's sign-extended i64 view — useful for asserting error codes returned by host fns like `pyde::cross_call` (which surfaces `ERR_CROSS_CALL_FAILED = -10` when its sub-call traps). |
+| `chain_id` | u64 | no | Per-call `chain_id()` override. Sticky. Rare in practice (chain_id doesn't change across a chain's lifetime); exists for symmetry + future cross-chain replay-protection testing. |
+| `expect.return_value` | hex / decimal / negative decimal | no | Asserted return value. Unsigned decimal and `0x`-hex compare numerically (so `"42"` and `"0x2a"` match the same return). **Negative decimal literals** (e.g. `"-10"`) parse as i64 and compare against the wasm result's sign-extended i64 view; useful for asserting error codes returned by host fns like `pyde::cross_call` (which surfaces `ERR_CROSS_CALL_FAILED = -10` when its sub-call traps). |
 | `expect.events` | array of event matchers | no | Each entry MUST appear in this call's emitted events. See §6 for matching rules. |
 | `expect.revert` | string | no | If set, the call MUST trap with a reason that contains this substring. |
 | `expect.no_revert` | bool | no | Inverse: assert the call does NOT trap. Useful when an earlier call set up state that might cause an unexpected revert. |
-| `expect.gas` | u64 (dec or `0x`-hex) | no | Foundry-style **exact** gas assertion. Fails if observed gas (wasmtime fuel delta) does not equal this value. Brittle to opcode-level codegen changes — prefer `expect.gas_max` unless you specifically need a snapshot. |
+| `expect.gas` | u64 (dec or `0x`-hex) | no | Foundry-style **exact** gas assertion. Fails if observed gas (wasmtime fuel delta) does not equal this value. Brittle to opcode-level codegen changes; prefer `expect.gas_max` unless you specifically need a snapshot. |
 | `expect.gas_max` | u64 (dec or `0x`-hex) | no | Foundry-style **upper bound** assertion. Fails if observed gas > this value. Use as a regression guard: pick a ceiling once, the test breaks the moment a future change pushes you over it. |
 
 ### 4.6 `[tests.expect]`: final-state assertions
@@ -278,12 +278,12 @@ bundle = "../counter-pair-b/artifacts/counter-pair-b.bundle"
 
 | Key | Type | Required | Description |
 |---|---|---|---|
-| `name` | string | yes | Contract name. Used for the canonical address derivation (`Poseidon2("pyde-contract:" ‖ name)`) — must match the secondary's own `[contract].name`. Address surfaces under the same name in accounts / args / `balances.<name>` paths. |
+| `name` | string | yes | Contract name. Used for the canonical address derivation (`Poseidon2("pyde-contract:" ‖ name)`); must match the secondary's own `[contract].name`. Address surfaces under the same name in accounts / args / `balances.<name>` paths. |
 | `bundle` | path (string) | yes | Path to the secondary's `.bundle/` directory, relative to the test file's location. The CLI reads `<bundle>/contract.wasm`. |
 
 The planner adds each secondary's name to the resolvable-account set, so tests can write `args = ["counter-pair-b", "100"]`, `from = "counter-pair-b"`, or `balances."counter-pair-b" = "100"` without re-declaring under `[accounts]`. Names colliding with the primary or with each other are rejected at plan time.
 
-Empty (the default) means single-contract mode — backwards-compatible with every existing test suite.
+Empty (the default) means single-contract mode, backwards-compatible with every existing test suite.
 
 See [`otigen/examples/counter-pair-a/tests/contract.test.toml`](https://github.com/pyde-net/otigen/tree/main/examples/counter-pair-a/tests) for the canonical multi-contract test pattern.
 
@@ -299,9 +299,9 @@ The test framework lets authors write `storage.balances.alice` instead of `stora
 addr = Blake3(name.as_bytes())
 ```
 
-`Blake3` truncated to 32 bytes (default output size). Deterministic — `alice` always resolves to the same address across runs. `__contract__` is special-cased to the contract's own deployed address.
+`Blake3` truncated to 32 bytes (default output size). Deterministic: `alice` always resolves to the same address across runs. `__contract__` is special-cased to the contract's own deployed address.
 
-This is **NOT** how the chain computes addresses in production — those come from `Poseidon2(falcon_public_key)`. The test framework uses Blake3-of-name for ergonomic determinism; tests verify *contract logic*, not address-derivation cryptography. If a contract has logic that depends on a specific address shape, the author can override per-account:
+This is **NOT** how the chain computes addresses in production; those come from `Poseidon2(falcon_public_key)`. The test framework uses Blake3-of-name for ergonomic determinism; tests verify *contract logic*, not address-derivation cryptography. If a contract has logic that depends on a specific address shape, the author can override per-account:
 
 ```toml
 accounts.alice = { addr = "0xabcdef..." }
@@ -339,7 +339,7 @@ For a nested mapping (`allowances`):
 slot = Poseidon2(self_address ‖ field_name_bytes ‖ outer_key ‖ inner_key)
 ```
 
-This is the **same** derivation the chain's typed-storage host fns (`sstore_scalar` / `sstore_map<N>`) use — the macro substrate emits the same slot from `pyde::declare_storage!()` field access. Author and test framework compute identical hashes.
+This is the **same** derivation the chain's typed-storage host fns (`sstore_scalar` / `sstore_map<N>`) use; the macro substrate emits the same slot from `pyde::declare_storage!()` field access. Author and test framework compute identical hashes.
 
 ### 5.3 Usage examples
 
@@ -401,9 +401,9 @@ Typed-arg marshalling covers the value-typed primitives plus three variable / ha
 |---|---|---|
 | `"@pubkey:NAME"` | `bytes` | The 897-byte FALCON-512 public key of an account declared with `keypair = "falcon512"`. |
 | `"@sig:NAME:args.IDX"` | `bytes` | A fresh FALCON-512 signature produced by `NAME`'s secret key over the bytes of arg at position `IDX` in the same call. `IDX` must reference an earlier arg in the same `args = [...]` list. The target arg's value must be `0x`-decodable bytes (a hex literal, a `bytes32`, or another `bytes`). |
-| `"@pubkey_hash:NAME"` | `bytes32` | `Poseidon2(falcon_pubkey)` — the canonical on-chain "signer ID" for FALCON multisig contracts. |
+| `"@pubkey_hash:NAME"` | `bytes32` | `Poseidon2(falcon_pubkey)`: the canonical on-chain "signer ID" for FALCON multisig contracts. |
 
-Plain hex literals (`"0x..."`) are accepted everywhere the typed-arg expects bytes — for `bytes` an even-length hex body of any length, for `bytes32` exactly 64 hex chars.
+Plain hex literals (`"0x..."`) are accepted everywhere the typed-arg expects bytes: for `bytes` an even-length hex body of any length, for `bytes32` exactly 64 hex chars.
 
 ```toml
 [accounts]
@@ -437,14 +437,14 @@ The signatures generated by `@sig:NAME:...` are produced with `pyde_crypto::falc
 For each test case:
 
 1. Create a fresh `TestEnv`:
-   - `storage: HashMap<[u8;32], Vec<u8>>` — empty
-   - `caller: [u8; 32]` — `__zero__` unless overridden
-   - `value: u128` — `0`
-   - `balances: HashMap<[u8;32], u128>` — populated from `[accounts]` + `setup.balances`
-   - `events: Vec<EmittedEvent>` — empty (mutable across calls in the same test)
-   - `gas: u64` — `[cheats.gas_limit]`
-   - `now`, `wave_id`, `chain_id` — from `[cheats]` (with per-test override)
-2. Apply `setup.storage` — populate the storage map.
+   - `storage: HashMap<[u8;32], Vec<u8>>`: empty
+   - `caller: [u8; 32]`: `__zero__` unless overridden
+   - `value: u128`: `0`
+   - `balances: HashMap<[u8;32], u128>`: populated from `[accounts]` + `setup.balances`
+   - `events: Vec<EmittedEvent>`: empty (mutable across calls in the same test)
+   - `gas: u64`: `[cheats.gas_limit]`
+   - `now`, `wave_id`, `chain_id`: from `[cheats]` (with per-test override)
+2. Apply `setup.storage` to populate the storage map.
 3. For each entry in `[[tests.calls]]`:
    a. Reset per-call: `caller`, `value` per the entry; keep storage / events / balances accumulated.
    b. Look up the exported function in the WASM module.
@@ -460,19 +460,19 @@ The runner reads each declared input from `[functions.<name>].inputs` and marsha
 
 - Primitive ints (`uint8` / `int8` / … / `uint64` / `int64`): decimal (`"42"`) or `0x`-hex (`"0x2a"`).
 - `uint128` / `int128`: same numeric forms, written as 16-byte LE into a runtime-allocated scratch region; the entry receives a pointer.
-- `address`: named-account reference (`"alice"`) or `0x`-hex address — 32 bytes written into scratch, entry receives a pointer.
-- `bytes32`: 64 hex chars (`"0x..."`) — 32 bytes written into scratch, entry receives a pointer.
-- `bytes`: arbitrary even-length hex literal or one of the DSL forms (`@pubkey:NAME` / `@sig:NAME:args.IDX`) — written into scratch and the entry receives `(ptr, len)`.
+- `address`: named-account reference (`"alice"`) or `0x`-hex address; 32 bytes written into scratch, entry receives a pointer.
+- `bytes32`: 64 hex chars (`"0x..."`); 32 bytes written into scratch, entry receives a pointer.
+- `bytes`: arbitrary even-length hex literal or one of the DSL forms (`@pubkey:NAME` / `@sig:NAME:args.IDX`); written into scratch and the entry receives `(ptr, len)`.
 
-For spec-compliant void-void entries (`HOST_FN_ABI §3.5.2`), the runner writes a single borsh-encoded calldata blob of `[functions.<name>].inputs` values into scratch and exposes it via `pyde::calldata_size` + `pyde::calldata_copy` — the `#[pyde::entry]` macro decodes it into typed Rust arguments. For legacy `extern "C"` entries the runner falls back to direct wasm function parameters (ptr/len pairs for variable bytes, scalars for ints).
+For spec-compliant void-void entries (`HOST_FN_ABI §3.5.2`), the runner writes a single borsh-encoded calldata blob of `[functions.<name>].inputs` values into scratch and exposes it via `pyde::calldata_size` + `pyde::calldata_copy`; the `#[pyde::entry]` macro decodes it into typed Rust arguments. For legacy `extern "C"` entries the runner falls back to direct wasm function parameters (ptr/len pairs for variable bytes, scalars for ints).
 
 ### 6.3 Host functions
 
-**Runtime selection.** `otigen test` runs every contract through the engine's real `WasmExecutor` by default (since otigen#107) — the same code path mainnet executes. Per the project principle "same crypto / same VM everywhere across mainnet / testnet / devnet" the engine path is the source of truth and authors get the full `pyde::*` ABI at chain fidelity. The `--no-engine` flag opts back into the legacy in-process mock surface for parachain contracts (whose chain runtime ships in engine v2) and for runner-side bisection / debugging. See [`OTIGEN_BINARY_SPEC §3.10`](./OTIGEN_BINARY_SPEC.md#310-otigen-test) for the runtime-selection table.
+**Runtime selection.** `otigen test` runs every contract through the engine's real `WasmExecutor` by default (since otigen#107); this is the same code path mainnet executes. Per the project principle "same crypto / same VM everywhere across mainnet / testnet / devnet" the engine path is the source of truth and authors get the full `pyde::*` ABI at chain fidelity. The `--no-engine` flag opts back into the legacy in-process mock surface for parachain contracts (whose chain runtime ships in engine v2) and for runner-side bisection / debugging. See [`OTIGEN_BINARY_SPEC §3.10`](./OTIGEN_BINARY_SPEC.md#310-otigen-test) for the runtime-selection table.
 
-**Engine-path host-fn surface.** Every host fn declared in [`HOST_FN_ABI_SPEC §7`](./HOST_FN_ABI_SPEC.md) is implemented at chain fidelity — `tx_hash`, `calldata_size`, `calldata_copy`, `consume_gas`, `cross_call_static`, `return`, `origin`, `tx_gas_remaining`, `hash_keccak256`, `beacon_get`, and the rest of the ABI all behave as they would on-chain. The runner stubs nothing beyond the test-only `debug_log` (printf-style; not registered chain-side, see §7).
+**Engine-path host-fn surface.** Every host fn declared in [`HOST_FN_ABI_SPEC §7`](./HOST_FN_ABI_SPEC.md) is implemented at chain fidelity: `tx_hash`, `calldata_size`, `calldata_copy`, `consume_gas`, `cross_call_static`, `return`, `origin`, `tx_gas_remaining`, `hash_keccak256`, `beacon_get`, and the rest of the ABI all behave as they would on-chain. The runner stubs nothing beyond the test-only `debug_log` (printf-style; not registered chain-side, see §7).
 
-**Legacy mock surface (`--no-engine` only).** The legacy path runs each contract in an in-process wasmtime instance wired to test-runner mocks. The runner implements the read/write/event/balance/hash subset that the v1 substrate covers; the rest trap with `UnsupportedHostFn`. Useful when a contract genuinely needs the legacy path (parachain) — for everything else, the engine path is strictly more accurate.
+**Legacy mock surface (`--no-engine` only).** The legacy path runs each contract in an in-process wasmtime instance wired to test-runner mocks. The runner implements the read/write/event/balance/hash subset that the v1 substrate covers; the rest trap with `UnsupportedHostFn`. Useful when a contract genuinely needs the legacy path (parachain); for everything else, the engine path is strictly more accurate.
 
 | Host fn | Legacy-path (`--no-engine`) mock |
 |---|---|
@@ -491,16 +491,16 @@ For spec-compliant void-void entries (`HOST_FN_ABI §3.5.2`), the runner writes 
 | `revert(msg_ptr, msg_len)` | Captures the reason + traps the wasm. |
 | `hash_poseidon2(input_ptr, input_len, out_ptr)` | Real Poseidon2 via `pyde-crypto`. Authors using this for slot derivation in source code will produce the same slots the test framework expects. |
 | `hash_blake3(input_ptr, input_len, out_ptr)` | Real Blake3 via `pyde-crypto`. Same parity rationale (event topic-0, address derivation). |
-| `falcon_verify(pk_ptr, msg_ptr, msg_len, sig_ptr, sig_len)` | Real FALCON-512 verification via `pyde_crypto::falcon::falcon_verify` — same primitive the engine uses, so a sig that passes `otigen test` will pass on-chain. Returns `0` on valid, `ERR_SIGNATURE_INVALID = -17` on invalid (malformed pubkey/signature bytes are also rejected as "invalid" rather than trap). |
-| `delegate_call(target_ptr, fn_name_ptr, fn_name_len, calldata_ptr, calldata_len, gas_limit, return_data_out_ptr, return_data_out_len_ptr)` | Re-enters the same wasm `Instance` at a named export, preserving the caller's storage context per `HOST_FN_ABI_SPEC §7.8`. **v1 limitation: target must equal `self_address`** — the proxy + impl must live in the same wasm. Multi-contract delegate (target = a different contract's code) requires multi-module runner support and is planned. The target export must take the canonical `(calldata_ptr: i32, calldata_len: i32) -> i32` shape; the runner passes the contract's original `calldata_ptr` / `calldata_len` through unchanged (same linear memory, no copy). Return-data plumbing through `return_data_out_*` is zero-len in v1 — the inner can still surface state changes via the shared storage. |
+| `falcon_verify(pk_ptr, msg_ptr, msg_len, sig_ptr, sig_len)` | Real FALCON-512 verification via `pyde_crypto::falcon::falcon_verify`, the same primitive the engine uses, so a sig that passes `otigen test` will pass on-chain. Returns `0` on valid, `ERR_SIGNATURE_INVALID = -17` on invalid (malformed pubkey/signature bytes are also rejected as "invalid" rather than trap). |
+| `delegate_call(target_ptr, fn_name_ptr, fn_name_len, calldata_ptr, calldata_len, gas_limit, return_data_out_ptr, return_data_out_len_ptr)` | Re-enters the same wasm `Instance` at a named export, preserving the caller's storage context per `HOST_FN_ABI_SPEC §7.8`. **v1 limitation: target must equal `self_address`**; the proxy + impl must live in the same wasm. Multi-contract delegate (target = a different contract's code) requires multi-module runner support and is planned. The target export must take the canonical `(calldata_ptr: i32, calldata_len: i32) -> i32` shape; the runner passes the contract's original `calldata_ptr` / `calldata_len` through unchanged (same linear memory, no copy). Return-data plumbing through `return_data_out_*` is zero-len in v1; the inner can still surface state changes via the shared storage. |
 | `cross_call(target_ptr, fn_name_ptr, fn_name_len, calldata_ptr, calldata_len, value_ptr, gas_limit, return_data_out_ptr, return_data_out_len_ptr)` | Synchronous call into another contract (§7.8). Multi-contract tests declare secondaries via `[[contracts]]` (§4.7); each gets its own Instance + storage namespace (slots are field-keyed by self_address, so isolation is implicit). The mock: looks up target Instance, snapshots storage / balances / events, transfers `value` from caller to target (parent frame), switches active context (caller, contract_address, instance, scratch_base, tx_value), copies calldata from caller's memory into the callee's separate linear memory at the callee's scratch_base, invokes the named export with the canonical `(calldata_ptr, calldata_len) -> i32` shape, then restores context. Sub-call trap → snapshot restore + return `ERR_CROSS_CALL_FAILED = -10` (parent doesn't trap; gets the rc back and decides). Author-config errors (unknown target / missing export / wrong signature) DO trap loudly. Inside the callee, `caller()` returns the immediate caller-contract's address (= active address at call time, not the tx originator); `tx_value()` returns the cross_call's `value` parameter. |
-| `parachain_storage_read(key_ptr, key_len, value_out_ptr, value_out_len_ptr)` | Variable-length kv read namespaced by active parachain address per §8.1. Caller pre-writes `*value_out_len_ptr` with the max bytes the buffer can accept (u32 LE). Mock copies up to that limit, writes the actual length back so callers detect truncation. Returns `0` on success (including "key never written" — len 0) or `ERR_OUTPUT_BUFFER_TOO_SMALL = -7` if the value exists but the buffer was too small. |
+| `parachain_storage_read(key_ptr, key_len, value_out_ptr, value_out_len_ptr)` | Variable-length kv read namespaced by active parachain address per §8.1. Caller pre-writes `*value_out_len_ptr` with the max bytes the buffer can accept (u32 LE). Mock copies up to that limit, writes the actual length back so callers detect truncation. Returns `0` on success (including "key never written", i.e. len 0) or `ERR_OUTPUT_BUFFER_TOO_SMALL = -7` if the value exists but the buffer was too small. |
 | `parachain_storage_write(key_ptr, key_len, value_ptr, value_len)` | Variable-length kv write at `(active_address, key)`. Overwrites any existing value. Returns `0`. |
 | `parachain_storage_delete(key_ptr, key_len)` | Remove `(active_address, key)`. No-op if absent. Returns `0` in both cases. |
-| `parachain_id(out_ptr)` | Writes the active parachain's 32-byte ID. In the v1 runner this equals `caller.data().contract_address` (same as `self_address()`); the spec §8.2 derivation uses the `"pyde-parachain:"` prefix when real chain code computes it — contract code is byte-identical between prefixes since it just calls the host fn. |
+| `parachain_id(out_ptr)` | Writes the active parachain's 32-byte ID. In the v1 runner this equals `caller.data().contract_address` (same as `self_address()`); the spec §8.2 derivation uses the `"pyde-parachain:"` prefix when real chain code computes it; contract code is byte-identical between prefixes since it just calls the host fn. |
 | `parachain_version()` | Returns `TestEnv.parachain_version` as i32 (defaults to 1; future cheat enables upgrade-flow demos). |
-| `parachain_emit_event(topics_ptr, topics_count, data_ptr, data_len)` | Delegates to the core `emit_event` mock. The §8.3 difference — event record carries the parachain ID as `contract_addr` — is implicit because the active address IS the parachain's at call time. |
-| Other host fns (`origin`, `tx_hash`, `tx_gas_remaining`, `calldata_*`, `hash_keccak256`, `cross_call_static`, `consume_gas`, `beacon_get`, `send_xparachain_message`, and the reserved v2 `threshold_encrypt` / `threshold_decrypt`) | **Not mocked on the legacy path.** Calls trap with `UnsupportedHostFn`. Use the default engine path (drop `--no-engine`) — it implements the v1 surface at chain fidelity; the reserved threshold host fns stay unavailable until the v2+ ciphertext lane (Chapter 20). |
+| `parachain_emit_event(topics_ptr, topics_count, data_ptr, data_len)` | Delegates to the core `emit_event` mock. The §8.3 difference (event record carries the parachain ID as `contract_addr`) is implicit because the active address IS the parachain's at call time. |
+| Other host fns (`origin`, `tx_hash`, `tx_gas_remaining`, `calldata_*`, `hash_keccak256`, `cross_call_static`, `consume_gas`, `beacon_get`, `send_xparachain_message`, and the reserved v2 `threshold_encrypt` / `threshold_decrypt`) | **Not mocked on the legacy path.** Calls trap with `UnsupportedHostFn`. Use the default engine path (drop `--no-engine`), which implements the v1 surface at chain fidelity; the reserved threshold host fns stay unavailable until the v2+ ciphertext lane (Chapter 20). |
 
 **Slot-derivation invariant.** Both the legacy raw `sload` / `sstore` host fns and the typed-storage family (`sstore_scalar` / `sload_scalar` / `sstore_map1`…`map3`) derive slots via `Poseidon2(self_address ‖ field_name ‖ keys...)`. The macro substrate (`pyde::declare_storage!()` field access) emits the same hash. The engine path exercises the typed family end-to-end; the legacy mock above stubs it for `--no-engine` runs.
 
@@ -530,7 +530,7 @@ For each entry in `expect.events`:
 1. Compute the expected topic-0 hash:
    - If `name` is given AND `[events.<name>]` is declared in the contract's `otigen.toml`, compute `Blake3(signature)`.
    - If `topic` is given, use the literal hex (raw-hex escape hatch).
-   - If `name` is given BUT no `[events.<name>]` is declared, fall through to the shape-only check — match passes if any event was emitted. See "Shape-only fallback" below.
+   - If `name` is given BUT no `[events.<name>]` is declared, fall through to the shape-only check; match passes if any event was emitted. See "Shape-only fallback" below.
 2. Compute expected indexed-field topics (for each `indexed = true` field):
    - If the value is an account name, resolve via `[accounts]`.
    - If decimal / hex, encode as 32-byte left-padded big-endian (matching how `Hash(value)` is computed for indexed fields per Ch 4).
@@ -538,7 +538,7 @@ For each entry in `expect.events`:
    - Borsh-encode the listed values in field-declaration order. Width is type-determined: u8/i8/bool = 1, u16/i16 = 2, u32/i32 = 4, u64/i64 = 8, u128 = 16, address = 32. Authors who skip a non-indexed field in the matcher have that field's width skipped in the data cursor (wildcard match).
 4. Scan `env.events` for at least one entry whose `(topic_0, topics_indexed, data)` exactly matches.
 
-Ordering is NOT enforced — events may be emitted by helper functions in arbitrary order. The assertion is existence, not sequence. (If ordering matters, the test can assert per-call events under `expect.events` inside the specific `[[tests.calls]]` block.)
+Ordering is NOT enforced: events may be emitted by helper functions in arbitrary order. The assertion is existence, not sequence. (If ordering matters, the test can assert per-call events under `expect.events` inside the specific `[[tests.calls]]` block.)
 
 #### Supported field types (v1)
 
@@ -555,7 +555,7 @@ Other types (`bytes`, dynamic arrays, custom structs) fall through to shape-only
 
 #### Shape-only fallback
 
-If a matcher uses `name = "X"` but the contract's `otigen.toml` doesn't declare `[events.X]`, the runner can't compute the expected topic-0 or know the field layout — so it falls back to **"any event was emitted"** as a conservative existence check. This is useful for contracts that emit events declared only in source (not surfaced in `otigen.toml`), but it's strictly weaker than the schema-driven match. Authors who want precise matching declare the event in `otigen.toml` or use the raw-hex form.
+If a matcher uses `name = "X"` but the contract's `otigen.toml` doesn't declare `[events.X]`, the runner can't compute the expected topic-0 or know the field layout, so it falls back to **"any event was emitted"** as a conservative existence check. This is useful for contracts that emit events declared only in source (not surfaced in `otigen.toml`), but it's strictly weaker than the schema-driven match. Authors who want precise matching declare the event in `otigen.toml` or use the raw-hex form.
 
 ### 6.6 Gas tracking (Foundry-style)
 
@@ -567,10 +567,10 @@ What the runner records per test (the `TestReport` returned alongside `TestOutco
 |---|---|---|
 | `gas_used` | Sum of per-call fuel deltas | `otigen test -v` (and above); NDJSON `test_pass`/`test_fail` events |
 | `events` | `TestEnv.events` at test end | `otigen test -vv` |
-| `call_traces` | One per `[[tests.calls]]` (function, args, return, revert, gas) | Reserved — surfaced only on NDJSON today |
-| `storage_diffs` | Slot-by-slot before/after | Reserved — surfaced only on NDJSON today |
+| `call_traces` | One per `[[tests.calls]]` (function, args, return, revert, gas) | Reserved; surfaced only on NDJSON today |
+| `storage_diffs` | Slot-by-slot before/after | Reserved; surfaced only on NDJSON today |
 
-The runner's fuel units correlate to but are not bit-identical with on-chain Pyde gas. Foundry has the same caveat — its gas reports are estimates, not chain billing. For ground-truth gas, deploy to a devnet and pull the receipt.
+The runner's fuel units correlate to but are not bit-identical with on-chain Pyde gas. Foundry has the same caveat: its gas reports are estimates, not chain billing. For ground-truth gas, deploy to a devnet and pull the receipt.
 
 **Per-call gas assertions** (`expect.gas` / `expect.gas_max`, see §4.5) are checked after each call's per-call `expect.return_value` / `expect.events` block. A gas assertion failure produces a test fail with the reason `call[N]: expect.gas[_max] = X; observed Y`.
 
@@ -582,9 +582,9 @@ The runner's fuel units correlate to but are not bit-identical with on-chain Pyd
 
 `otigen test` looks for test files in this order:
 
-1. `tests/*.test.toml` — the canonical location.
-2. `tests/*.toml` — for projects with a single test file.
-3. `./contract.test.toml` — single-file projects.
+1. `tests/*.test.toml`: the canonical location.
+2. `tests/*.toml`: for projects with a single test file.
+3. `./contract.test.toml`: single-file projects.
 
 Each file's `[[tests]]` array contributes to the total test count.
 
@@ -758,7 +758,7 @@ What `otigen test` deliberately does NOT do today:
 | **No multi-tx context.** Each test starts from fresh state; no "deploy contract in tx1, then call from a different sender in tx2" within a single test. | Tx-level isolation keeps the in-process model simple. | Explicit tx boundaries (`[[tests.tx]]` blocks) are a planned future expansion. For today's needs, drive multi-tx flows through `otigen devnet` + `otigen call` / `otigen console` against a real node. |
 | **No simulating chain-side validators.** `expect.revert` matches the contract's own revert; it doesn't simulate "this tx would be rejected at mempool / by the access-list check / by the nonce window". | Mempool + admit-tx validation runs on a real node; out of scope for behaviour tests. | Devnet integration tests via `otigen devnet [--fork <FILE_OR_URL>]` for real-chain-state context. |
 | **Test files can't share helpers.** Every `.test.toml` is standalone. | TOML is data, not code. | Authors who need shared setup copy the `[accounts]` + `[cheats]` blocks between files. A future `[include]` is reserved. |
-| **No mock for the reserved threshold-crypto host fns on the legacy path.** | They depend on a committee threshold-decryption ceremony the legacy runner has no committee for. | Use the default engine path — but note `threshold_encrypt` / `threshold_decrypt` are reserved for the v2+ ciphertext lane (Chapter 20) and are not live in v1; the keyless commit-reveal private mempool is exercised via ordinary Commit/Reveal transactions. |
+| **No mock for the reserved threshold-crypto host fns on the legacy path.** | They depend on a committee threshold-decryption ceremony the legacy runner has no committee for. | Use the default engine path, but note `threshold_encrypt` / `threshold_decrypt` are reserved for the v2+ ciphertext lane (Chapter 20) and are not live in v1; the keyless commit-reveal private mempool is exercised via ordinary Commit/Reveal transactions. |
 
 What `otigen test` is NOT trying to be:
 
@@ -766,7 +766,7 @@ What `otigen test` is NOT trying to be:
 - A devnet substitute. Final correctness signal is a real chain integration test. Pair with `otigen devnet` + `otigen deploy --network devnet` for end-to-end verification.
 - A proof system. No formal verification, no symbolic execution. Concrete example execution only.
 
-**Shipped surface today** (no longer limitations): cross-contract calls (`cross_call` + `delegate_call` + `[[contracts]]`), in-contract FALCON verification, gas accounting + `expect.gas` / `expect.gas_max`, typed-arg marshalling (`address` / `uint128` / `int128` / `bytes32` / `bytes`), the FALCON DSL (`@pubkey:` / `@pubkey_hash:` / `@sig:`), schema-aware encoding, per-call cheats with sticky semantics, `pyde::debug_log`, four-level verbosity ladder, parachain §8 host fn surface on the `--no-engine` path, the engine path as default (running the real `pyde-engine-wasm-exec::WasmExecutor` — same code path mainnet uses), `--watch` mode for Foundry parity, `struct(<Name>)` typed storage values via `pyde::declare_storage!()`.
+**Shipped surface today** (no longer limitations): cross-contract calls (`cross_call` + `delegate_call` + `[[contracts]]`), in-contract FALCON verification, gas accounting + `expect.gas` / `expect.gas_max`, typed-arg marshalling (`address` / `uint128` / `int128` / `bytes32` / `bytes`), the FALCON DSL (`@pubkey:` / `@pubkey_hash:` / `@sig:`), schema-aware encoding, per-call cheats with sticky semantics, `pyde::debug_log`, four-level verbosity ladder, parachain §8 host fn surface on the `--no-engine` path, the engine path as default (running the real `pyde-engine-wasm-exec::WasmExecutor`, the same code path mainnet uses), `--watch` mode for Foundry parity, `struct(<Name>)` typed storage values via `pyde::declare_storage!()`.
 
 ---
 
@@ -819,14 +819,14 @@ v2 may add `[invariants]` declared once at the file level, auto-asserted after e
 
 - TOML schema (`[accounts]`, `[cheats]`, `[[tests]]`, `[tests.setup]`, `[[tests.calls]]`, `[tests.expect]`, `[[contracts]]`).
 - Name resolution (account → 32-byte Blake3 address, state field → slot hash, event name → topic-0 hash).
-- Engine-path execution through `pyde-engine-wasm-exec::WasmExecutor` — same code path mainnet uses; every `pyde::*` host fn implemented at chain fidelity. Legacy in-process mock surface still available behind `--no-engine` for parachain contracts and runner-side bisection / debugging.
-- Multi-call sequences with per-call overlay (revert discards; success commits — matches mainnet semantics).
+- Engine-path execution through `pyde-engine-wasm-exec::WasmExecutor`, the same code path mainnet uses; every `pyde::*` host fn implemented at chain fidelity. Legacy in-process mock surface still available behind `--no-engine` for parachain contracts and runner-side bisection / debugging.
+- Multi-call sequences with per-call overlay (revert discards; success commits, which matches mainnet semantics).
 - Final-state assertions across storage slots + balances + event totals.
 - Typed-arg marshalling for `address` / `uint128` / `int128` / `bytes32` / `bytes` / primitive ints, with named-account resolution.
 - Named-event matchers walking `[events.*]` schemas (indexed-topic / non-indexed-data field encoding).
-- FALCON DSL — `@pubkey:NAME` / `@pubkey_hash:NAME` / `@sig:NAME:args.IDX` with real FALCON-512 keypair generation at plan time.
+- FALCON DSL: `@pubkey:NAME` / `@pubkey_hash:NAME` / `@sig:NAME:args.IDX` with real FALCON-512 keypair generation at plan time.
 - Schema-aware storage encoding via the `[state]` schema vocabulary (including `struct(<Name>)` via `pyde::declare_storage!()`).
-- Per-call cheats with sticky semantics — `now`, `wave_id`, `chain_id`, `gas` on `[[tests.calls]]` entries.
+- Per-call cheats with sticky semantics: `now`, `wave_id`, `chain_id`, `gas` on `[[tests.calls]]` entries.
 - `pyde::debug_log` test-only host fn captured into the test report; chain-side hard-rejected at `otigen build` + `otigen deploy`.
 - Foundry-style verbosity ladder (`-v` / `-vv` / `-vvv` / `-vvvv`).
 - `--filter` substring filter; `--bundle` override; `--json` NDJSON event stream; `--watch` continuous re-run; `--no-engine` legacy-mock opt-out.
@@ -837,12 +837,12 @@ Reserved for future expansion (parsed-but-noop or noted in §9): fuzz / invarian
 
 ## 12. Cross-references
 
-- [`OTIGEN_BINARY_SPEC.md`](./OTIGEN_BINARY_SPEC.md) — canonical CLI spec; `otigen test` lands as §3.10.
-- [`HOST_FN_ABI_SPEC.md`](./HOST_FN_ABI_SPEC.md) — every host fn the mocks must match.
-- [Chapter 4: State Model](../chapters/04-state-model.md) — PIP-2 slot derivation that name resolution mirrors.
-- [Chapter 5: Otigen Toolchain](../chapters/05-otigen-toolchain.md) — narrative overview; `otigen test` section lands at §5.13.
-- [Chapter 17 §17.6](../chapters/17-developer-tools.md) — developer tools roundup; references back here.
-- [`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md) — Stream α tracking, `OTIGEN_TEST` track.
+- [`OTIGEN_BINARY_SPEC.md`](./OTIGEN_BINARY_SPEC.md): canonical CLI spec; `otigen test` lands as §3.10.
+- [`HOST_FN_ABI_SPEC.md`](./HOST_FN_ABI_SPEC.md): every host fn the mocks must match.
+- [Chapter 4: State Model](../chapters/04-state-model.md): PIP-2 slot derivation that name resolution mirrors.
+- [Chapter 5: Otigen Toolchain](../chapters/05-otigen-toolchain.md): narrative overview; `otigen test` section lands at §5.13.
+- [Chapter 17 §17.6](../chapters/17-developer-tools.md): developer tools roundup; references back here.
+- [`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md): Stream α tracking, `OTIGEN_TEST` track.
 
 ---
 

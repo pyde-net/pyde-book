@@ -9,7 +9,7 @@ Pyde's account model is built on three ideas:
 1. **Post-quantum from genesis.** Addresses are derived from FALCON-512
    public keys. There is no ECDSA legacy to migrate away from.
 2. **Nonce window, not sequential.** Each account gets a 16-slot nonce
-   bitmap window — multiple in-flight txs without head-of-line blocking.
+   bitmap window: multiple in-flight txs without head-of-line blocking.
 3. **Native account abstraction.** Multisig, batch transactions, and
    paymaster sponsorship are protocol features, not application-layer
    add-ons.
@@ -72,7 +72,7 @@ EOA address = Poseidon2(falcon_public_key_bytes)
 ```
 
 The input is the raw 897-byte FALCON-512 public key. The output is 32
-bytes of Poseidon2 over the Goldilocks field — the natural output size, no
+bytes of Poseidon2 over the Goldilocks field: the natural output size, no
 truncation.
 
 ### Named contract (deploy)
@@ -84,7 +84,7 @@ contract address = Poseidon2("pyde-contract:" || name_bytes)
 Pyde has **no CREATE / CREATE2 and no deploy nonce.** A deployed contract is
 addressed by its ENS-style **name**, not by `(deployer, nonce)`. The deploy
 tx carries the name in its `DeployData` envelope (§11.10), and the address is
-a deterministic function of that name alone — so a wallet or indexer resolves
+a deterministic function of that name alone, so a wallet or indexer resolves
 `name → address` straight from the string, no chain query. The
 `"pyde-contract:"` domain prefix keeps this family disjoint from raw system
 names (§11.3); the deploy handler's registry-uniqueness gate rejects a name
@@ -95,7 +95,7 @@ scheme below.
 ### Child address (factory `instantiate`)
 
 A deployed contract can create **child contracts** at runtime by calling the
-`pyde::instantiate` host function — a contract that deploys contracts. The
+`pyde::instantiate` host function: a contract that deploys contracts. The
 child shares a **template** contract's code by reference (its `code_hash`
 points at the template's already-cached module; no bytecode is copied or
 recompiled) but gets its own address, its own account record, and its own
@@ -105,12 +105,12 @@ recompiled) but gets its own address, its own account record, and its own
 child address = Poseidon2("pyde-child:" || parent_address || template_address || salt)
 ```
 
-- `parent_address` — the factory contract's own frame address. Children are
+- `parent_address`: the factory contract's own frame address. Children are
   namespaced under their factory, so cross-namespace minting is
   cryptographically impossible.
-- `template_address` — the address of the already-deployed template (a
+- `template_address`: the address of the already-deployed template (a
   reference, **not** a code hash).
-- `salt` — a caller-supplied 32-byte value. There is **no deploy nonce** in
+- `salt`: a caller-supplied 32-byte value. There is **no deploy nonce** in
   Pyde; child identity is salt-only, which keeps addresses counterfactual.
 
 The 107-byte preimage is fixed-width with no length prefixes or separators.
@@ -122,7 +122,7 @@ Pinned conformance vector:
 child = 354ab9a58e3fb76b484390a2ef277594042e12fd0b74343e5bf34dba492f3dfe`.
 
 A failed instantiation is **atomic in value**: if the child's constructor
-reverts, the whole instantiate unwinds — the child leaves no trace and the
+reverts, the whole instantiate unwinds: the child leaves no trace and the
 endowment is refunded to the factory (a failed instantiate costs gas only,
 never value). The factory receives an error code (`-40`) and decides whether
 to revert or handle it. See the `HOST_FN_ABI_SPEC` factory section for the
@@ -131,7 +131,7 @@ full host-fn contract (9-param wire, error codes, the `Instantiated` event).
 ### Why 32 bytes (not 20)
 
 A 20-byte address provides 80-bit collision resistance, which is marginal at
-chain scale. Pyde uses the full 32 bytes — 128-bit collision resistance —
+chain scale. Pyde uses the full 32 bytes (128-bit collision resistance),
 which matches the natural Poseidon2 output. There is no storage cost
 worth saving by truncating.
 
@@ -156,7 +156,7 @@ account record.
 ### Contract
 
 Has deployed WASM bytecode (`code_hash != 0`) and optionally a storage trie
-(`storage_root != 0`). Cannot directly initiate transactions — only
+(`storage_root != 0`). Cannot directly initiate transactions, only
 respond to calls. May have a non-empty `gas_tank` to sponsor user calls
 into it.
 
@@ -164,7 +164,7 @@ into it.
 
 Pre-existing accounts at deterministic addresses for protocol-level
 operations (treasury, airdrop pool, validator entries). Their addresses are
-typically `Poseidon2("pyde-treasury")` or similar — not derived from any
+typically `Poseidon2("pyde-treasury")` or similar, not derived from any
 public key. They are seeded at genesis and only mutated by specific
 transaction handlers (e.g. the treasury balance moves only via `MultisigTx`
 spend or fee-split crediting).
@@ -244,7 +244,7 @@ Submit tx with nonce=102:
 
 If a power user genuinely needs more than 16 in-flight, they use multiple
 accounts. In practice, even high-frequency market makers rarely exceed 16
-pending — at ~500ms median commit and v1 target TPS, the queue
+pending: at ~500ms median commit and v1 target TPS, the queue
 drains in a handful of waves.
 
 ---
@@ -266,9 +266,9 @@ enum AuthKeys {
 | Variant         | Status | Used for                                                |
 | --------------- | ------ | ------------------------------------------------------- |
 | `None`          | v1     | System accounts, contracts that have no admin              |
-| `Single`        | v1     | Standard EOA — one FALCON-512 public key (~897 bytes)   |
-| `MultiSig`      | v1     | Native multi-signature — set of keys + threshold (max 16) |
-| `Programmable`  | v2 reserved | Contract-defined auth logic (session keys, social recovery, biometric, etc.) — discriminant is reserved at v1 so contracts written today survive the v2 upgrade without rewriting |
+| `Single`        | v1     | Standard EOA: one FALCON-512 public key (~897 bytes)   |
+| `MultiSig`      | v1     | Native multi-signature: set of keys + threshold (max 16) |
+| `Programmable`  | v2 reserved | Contract-defined auth logic (session keys, social recovery, biometric, etc.). The discriminant is reserved at v1 so contracts written today survive the v2 upgrade without rewriting |
 
 **Why native multisig at v1.** Gnosis Safe's contract-based multisig on
 Ethereum has been re-implemented dozens of times across projects with
@@ -279,7 +279,7 @@ contract layer.
 
 **The Programmable reservation.** Reserving `0x03` at v1 means contracts
 that today reference `AuthKeys::Programmable` (as a future-proofing hint)
-won't break at the v2 upgrade — the discriminant is allocated. Session
+won't break at the v2 upgrade: the discriminant is allocated. Session
 keys, social recovery, and biometric auth are post-mainnet features. See
 *Session keys (v2)* below for the design and what v1 reserves to make
 that work.
@@ -292,7 +292,7 @@ account requires `threshold`-of-`N` signatures to authorize.
 Both `Single` and `MultiSig` are mutable. A key rotation transaction signed
 by the current `auth_keys` updates the field and increments
 `key_nonce` by 1. The increment invalidates any in-flight transaction
-signed under the old key — they will fail signature verification on
+signed under the old key: they will fail signature verification on
 inclusion.
 
 The address itself **never changes**. Storing addresses in contracts (for
@@ -324,7 +324,7 @@ that owns the EOA via key rotation).
 ### Session keys (v2)
 
 A **session key** is a temporary, scope-limited key the user authorizes a
-dApp (or an agent) to act with on their behalf — for a bounded time,
+dApp (or an agent) to act with on their behalf: for a bounded time,
 against a bounded set of contracts, with a bounded spend cap. The user
 signs once. The dApp signs many times, within the declared scope,
 without ever holding the user's main key.
@@ -373,7 +373,7 @@ protocol checks:
 4. **Spend cap.** `spent_so_far + tx.value ≤ max_spend`.
 
 All four must pass. On commit, `spent_so_far` is incremented atomically.
-The account's main `auth_keys` is untouched — session keys are an
+The account's main `auth_keys` is untouched: session keys are an
 *additional* authorization path, not a replacement.
 
 **Revocation.** A `RevokeSessionKey` tx signed by the account's main
@@ -482,7 +482,7 @@ size bounded.
 ### Typical sizes
 
 A simple transfer (no calldata, no access list, no deadline) is roughly
-**780 bytes** — dominated by the FALCON-512 signature. A complex tx with a
+**780 bytes**, dominated by the FALCON-512 signature. A complex tx with a
 populated access list and several KB of calldata can reach the 128 KB
 `MAX_TX_SIZE`.
 
@@ -523,13 +523,17 @@ cannot be replayed.
 ## 11.8 Transaction Types
 
 The `TransactionType` enum (in `crates/tx/src/types.rs`) currently has 13
-variants. Tag `2` is intentionally vacant — `Batch` was prototyped pre-mainnet but removed before launch (the dispatch arm was a 21k-gas no-op and never wired to real semantics; keeping the gap means a forged `tx_type = 2` fails decode rather than silently aliasing to another type).
+variants. Tag `2` is intentionally vacant: `Batch` was prototyped
+pre-mainnet but removed before launch (the dispatch arm was a 21k-gas
+no-op and never wired to real semantics; keeping the gap means a forged
+`tx_type = 2` fails decode rather than silently aliasing to another
+type).
 
 | ID  | Name              | What it does                                                |
 | --- | ----------------- | ----------------------------------------------------------- |
 | 0   | `Standard`        | Value transfer or contract call                             |
 | 1   | `Deploy`          | Contract deployment (`to == Address::ZERO`, `data` = borsh-encoded `DeployData`)|
-| 3   | `StakeDeposit`    | Lock ≥ `MIN_VALIDATOR_STAKE` (10,000 PYDE) and register as validator (data = FALCON pubkey 897 B). Single-tier — any validator meeting the floor is eligible for the per-epoch uniform-random committee selection (see Chapter 14 §14.5). |
+| 3   | `StakeDeposit`    | Lock ≥ `MIN_VALIDATOR_STAKE` (10,000 PYDE) and register as validator (data = FALCON pubkey 897 B). Single-tier: any validator meeting the floor is eligible for the per-epoch uniform-random committee selection (see Chapter 14 §14.5). |
 | 4   | `StakeWithdraw`   | Begin 30-day unbonding                                       |
 | 5   | `Slash`           | Submit double-sign evidence (data = serialized evidence)    |
 | 6   | `ClaimReward`     | Claim accrued staking yield from the pool                   |
@@ -539,7 +543,7 @@ variants. Tag `2` is intentionally vacant — `Batch` was prototyped pre-mainnet
 | 10  | `RotateMultisig`  | Rotate multisig signer set + threshold                      |
 | 11  | `EmergencyPause`  | Halt block production (multisig-signed)                     |
 | 12  | `EmergencyResume` | Resume normal processing (multisig-signed, clears pause)    |
-| 13  | `RegisterPubkey`  | First-time pubkey registration for a funded-but-unregistered account. No signature, no gas, no value — proof of pubkey ownership is the address-derivation check (only the keypair holder can produce a pubkey that hashes to a given address). Allowed only when `balance > 0` and `auth_keys == AuthKeys::None`. After execution, `auth_keys = AuthKeys::Single(tx.data)` and the account can sign normal txs. |
+| 13  | `RegisterPubkey`  | First-time pubkey registration for a funded-but-unregistered account. No signature, no gas, no value: proof of pubkey ownership is the address-derivation check (only the keypair holder can produce a pubkey that hashes to a given address). Allowed only when `balance > 0` and `auth_keys == AuthKeys::None`. After execution, `auth_keys = AuthKeys::Single(tx.data)` and the account can sign normal txs. |
 
 Each handler in `crates/tx/src/pipeline.rs` validates the type-specific
 payload, applies the state effect, and runs through the same fee
@@ -585,16 +589,16 @@ The `data` field is a borsh-encoded `DeployData` envelope: the contract's
 ENS-style `name`, its `wasm_bytes` (with the embedded `pyde.abi` custom
 section), a `contract_type` discriminant, and `init_calldata` for the
 constructor. Unlike Ethereum there is **no init-bytecode-returns-runtime-
-bytecode step** — the submitted `wasm_bytes` *are* the runtime code. The
+bytecode step**: the submitted `wasm_bytes` *are* the runtime code. The
 handler validates the module (ABI + import allowlist), derives the address as
-`Poseidon2("pyde-contract:" || name)` (see §11.2 — no deployer nonce), writes
+`Poseidon2("pyde-contract:" || name)` (see §11.2; no deployer nonce), writes
 the fresh contract account, and, if the ABI declares a constructor, invokes
 it once with `init_calldata` as its calldata. The `code_hash` commits to the
 deployed WASM module.
 
 **Value on a failed deploy is refunded.** If the constructor reverts (or
-traps / runs out of gas), the deploy is rolled back — the contract account
-never materialises — and the deployer is charged the gas actually consumed
+traps / runs out of gas), the deploy is rolled back (the contract account
+never materialises) and the deployer is charged the gas actually consumed
 **only**; the attached `value` is returned. A failed deploy costs gas, never
 value. (This is the same "value is atomic with the call" rule that governs
 `cross_call`, the factory `instantiate`, and ordinary payable calls: a revert
@@ -620,7 +624,7 @@ The proxy's address never changes; upgrading is a single state write to
 
 The `otigen` toolchain's build-time storage layout (Chapter 5) and the JMT key derivation
 (Chapter 4) together produce a fully typed storage model. There is no
-"random raw 256-bit slot" — every storage access is keyed against the
+"random raw 256-bit slot": every storage access is keyed against the
 contract address with a discriminator that came from a typed declaration.
 
 ---
@@ -640,7 +644,7 @@ There is no separate "account trie" + "storage trie" indirection. One root,
 one path, one proof.
 
 Light clients use this property to verify state without storing the full
-chain — they need block headers and on-demand JMT proofs from full nodes.
+chain: they need block headers and on-demand JMT proofs from full nodes.
 
 ---
 
@@ -734,5 +738,5 @@ Step 11 — Receipt
 | Validation gas cap        | 100,000 for paymaster validation                |
 
 The next chapter covers the networking layer that ferries all these
-transactions between nodes — libp2p, QUIC, the four gossipsub channels, and
+transactions between nodes: libp2p, QUIC, the four gossipsub channels, and
 the FALCON peer-attestation handshake.

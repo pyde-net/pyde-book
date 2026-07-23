@@ -28,7 +28,7 @@ otigen build
 
 `--no-compile` skips step 1 and packages whatever's already on disk.
 
-Other flags: `--release` / `--debug` toggle the debug-vs-release expectation; `--out <path>` overrides the default `<config_dir>/artifacts/` so monorepo workflows write the bundle next to the project; `--no-strict` is the escape hatch for bundling test-only host fns (`pyde::debug_log`) for local inspection — never use it for a bundle that reaches a network.
+Other flags: `--release` / `--debug` toggle the debug-vs-release expectation; `--out <path>` overrides the default `<config_dir>/artifacts/` so monorepo workflows write the bundle next to the project; `--no-strict` is the escape hatch for bundling test-only host fns (`pyde::debug_log`) for local inspection. Never use it for a bundle that reaches a network.
 
 ### What's in the bundle
 
@@ -54,11 +54,11 @@ Per [`OTIGEN_BINARY_SPEC §3.2`](../companion/OTIGEN_BINARY_SPEC.md):
 | Function allowlist | Imports of `pyde::*` fns not in `HOST_FN_ABI_SPEC` §7 ⇒ rejected. |
 | Parachain gating | A non-parachain contract importing §8 fns ⇒ rejected. |
 | Export consistency | Every `[functions.X]` in `otigen.toml` must be exported by the WASM. Every non-underscored export must be declared. |
-| Signature consistency | Declared `[functions.X]` `inputs` / `outputs` must match the code's REAL signature, recorded by the `#[pyde::entry]` macro in a `pyde.sig.v1` section (`pyde-host ≥ 0.1.0-alpha.7`). Mismatch fails the build with a declared-vs-actual diagnostic. Contracts without the section (older pyde-host, AS / TinyGo / C manual FFI) skip the check. The section is stripped from the bundle — the chain never sees it. |
+| Signature consistency | Declared `[functions.X]` `inputs` / `outputs` must match the code's REAL signature, recorded by the `#[pyde::entry]` macro in a `pyde.sig.v1` section (`pyde-host ≥ 0.1.0-alpha.7`). Mismatch fails the build with a declared-vs-actual diagnostic. Contracts without the section (older pyde-host, AS / TinyGo / C manual FFI) skip the check. The section is stripped from the bundle, so the chain never sees it. |
 | Entry shape | Every entry must export `() -> ()` (`HOST_FN_ABI_SPEC §3.5.2`). The `#[pyde::entry]` macro generates this shim; hand-rolled `#[no_mangle] pub extern "C" fn foo(args, ...) -> ret` is rejected. |
 | Forbidden features | Threads, SIMD, GC, multi-memory, memory64, component model, exceptions, tail-call, custom-page-sizes ⇒ rejected (deterministic-execution subset only). Reference types and bulk-memory ARE accepted (LLVM emits them unconditionally). |
 
-A clean `otigen build` = a deployable bundle. If validation fails, the error message points at the exact violation; fix the source + re-run. The process exit code is `VALIDATION_FAILURE` (1) — scripts can rely on it.
+A clean `otigen build` = a deployable bundle. If validation fails, the error message points at the exact violation; fix the source + re-run. The process exit code is `VALIDATION_FAILURE` (1); scripts can rely on it.
 
 ### Reproducibility
 
@@ -111,7 +111,7 @@ Full reference: [`commands.md`](./commands.md) and [`OTIGEN_BINARY_SPEC §3.7`](
 
 ### Funding
 
-A fresh account has zero balance. On devnet you don't have to do anything — `otigen devnet` auto-imports `devnet-0..devnet-9` into `~/.pyde/keystore.json` at startup (password `"devnet"`). If you skipped that with `--no-auto-import-wallets`, or you want to re-import into a fresh keystore, run:
+A fresh account has zero balance. On devnet you don't have to do anything: `otigen devnet` auto-imports `devnet-0..devnet-9` into `~/.pyde/keystore.json` at startup (password `"devnet"`). If you skipped that with `--no-auto-import-wallets`, or you want to re-import into a fresh keystore, run:
 
 ```bash
 otigen devnet --rpc-listen 127.0.0.1:9933 &       # in another terminal
@@ -130,7 +130,7 @@ otigen wallet import --from-devnet                # imports devnet-0..devnet-9
   (their balance is set by the devnet's genesis prefund — 10,000,000 PYDE each).
 ```
 
-The accounts are derived via `Blake3("pyde-devnet-v1/" || i)` and re-derive identically across machines. Their secrets are **public** by design — they're for tests, not for anything that matters.
+The accounts are derived via `Blake3("pyde-devnet-v1/" || i)` and re-derive identically across machines. Their secrets are **public** by design: they're for tests, not for anything that matters.
 
 To move PYDE between accounts (e.g. fund a fresh `deployer` from `devnet-0`), use `otigen send <recipient> <amount-in-quanta> --from devnet-0`. Recipient accepts either a `0x`-prefixed 32-byte address or a wallet name; amount is decimal quanta (`1_000_000_000` = 1 PYDE) or `0x`-hex.
 
@@ -165,7 +165,7 @@ chain_id = 1
 
 ### One-shot RPC override
 
-For ad-hoc invocations against an alt port — e.g. a CI worker spinning a devnet on `127.0.0.1:29933` because `9933` is taken by a multi-validator cluster — `deploy` / `upgrade` / `pause` / `unpause` / `kill` / `send` all accept `--rpc-url` + `--chain-id` (write-tx commands need both for signature replay protection). Read-only ops — `inspect`, `call`, `verify` — accept `--rpc-url` alone.
+For ad-hoc invocations against an alt port (e.g. a CI worker spinning a devnet on `127.0.0.1:29933` because `9933` is taken by a multi-validator cluster), `deploy` / `upgrade` / `pause` / `unpause` / `kill` / `send` all accept `--rpc-url` + `--chain-id` (write-tx commands need both for signature replay protection). Read-only ops (`inspect`, `call`, `verify`) accept `--rpc-url` alone.
 
 ```bash
 otigen deploy --from devnet-0 --password-stdin \
@@ -220,11 +220,11 @@ gas_limit = 10_000_000
 gas_price = "auto"          # base_fee + 10% headroom at submission time
 ```
 
-There is no `--gas-limit` / `--gas-price` CLI flag — change the manifest instead.
+There is no `--gas-limit` / `--gas-price` CLI flag; change the manifest instead.
 
 ### Typed constructor args + `--value`
 
-Typed constructor args follow the wallet flags: `otigen deploy --from devnet-0 --password-stdin <<< pw devnet-1 100` invokes the contract's constructor (the `[functions.*]` entry tagged `constructor` — any name) with `(devnet-1, 100)` — addresses resolve through the keystore, numbers accept decimal/hex/underscores. For vec/struct args fall back to `--args 0x<hex>`. Native PYDE transfer at deploy time: `--value <quanta>` (1 PYDE = 10⁹ quanta); the constructor sees it via `pyde::ctx::value()`.
+Typed constructor args follow the wallet flags: `otigen deploy --from devnet-0 --password-stdin <<< pw devnet-1 100` invokes the contract's constructor (the `[functions.*]` entry tagged `constructor`, whatever its name) with `(devnet-1, 100)`. Addresses resolve through the keystore; numbers accept decimal/hex/underscores. For vec/struct args fall back to `--args 0x<hex>`. Native PYDE transfer at deploy time: `--value <quanta>` (1 PYDE = 10⁹ quanta); the constructor sees it via `pyde::ctx::value()`.
 
 ### `--dry-run`
 
@@ -232,7 +232,7 @@ Typed constructor args follow the wallet flags: `otigen deploy --from devnet-0 -
 otigen deploy --dry-run --from deployer
 ```
 
-Goes through steps 1–6, prints the would-be tx, exits without submitting. Useful for inspecting wire bytes before pulling the trigger.
+Goes through steps 1 to 6, prints the would-be tx, exits without submitting. Useful for inspecting wire bytes before pulling the trigger.
 
 ### `--no-wait`
 
@@ -244,7 +244,7 @@ Submits without polling for the receipt. Returns immediately with the server tx 
 
 ### Contract addresses
 
-The deployed address is `Poseidon2(self_namespace ‖ contract.name)` — derived deterministically from the contract's registered name. Two consequences:
+The deployed address is `Poseidon2(self_namespace ‖ contract.name)`, derived deterministically from the contract's registered name. Two consequences:
 
 - You can compute the address before deploy (e.g. for hard-coding into dependent contracts).
 - Two contracts can't share a name on the same chain. The chain's name registry rejects duplicate names at deploy time; the failure surfaces as an RPC error from `pyde_sendRawTransaction`.
@@ -255,4 +255,4 @@ For parachains, the namespace differs (`pyde-parachain:` vs `pyde-contract:`); t
 
 ## 5. After deploy
 
-The contract exists on-chain. The next chapter — [Inspect & Verify](./inspecting.md) — shows you how to read its state, call its functions off-chain (free, via RPC), and prove the on-chain bytes match what you built locally.
+The contract exists on-chain. The next chapter, [Inspect & Verify](./inspecting.md), shows you how to read its state, call its functions off-chain (free, via RPC), and prove the on-chain bytes match what you built locally.

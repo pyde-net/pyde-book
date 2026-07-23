@@ -10,8 +10,8 @@ The scope of this chapter is the *shipped* mainnet. Where a defense is on
 the post-mainnet hardening list rather than live, the chapter says so.
 
 > **Note.** This chapter is the *narrative* security reference. The
-> canonical catalog — ~50 threats by ID, organized by layer, with
-> mitigation cross-references and acknowledged residual risks — lives in
+> canonical catalog (~50 threats by ID, organized by layer, with
+> mitigation cross-references and acknowledged residual risks) lives in
 > [companion/THREAT_MODEL.md](../companion/THREAT_MODEL.md). External
 > auditors should start with the threat model and use this chapter for
 > context; readers building intuition should start here and dip into the
@@ -56,7 +56,7 @@ this is `f ≤ 42`, threshold `2f + 1 = 85`.
 ### Why it holds
 
 Each vertex carries ≥ 85 parent vertex references. An anchor commit at
-round R+3 requires Mysticeti 3-stage support — at least 85 round-(R+1)
+round R+3 requires Mysticeti 3-stage support: at least 85 round-(R+1)
 vertices that reference the anchor as a parent. Two conflicting commits
 of contradictory subdags at the same wave would each need 85+ signing
 vertices; the total exceeds `n = 128`, so at least `85 + 85 − 128 = 42`
@@ -97,7 +97,7 @@ mathematical limit of BFT consensus. Defenses:
 
 An attacker buys (or otherwise acquires) a majority of validator keys
 that were active at some point in the past. They create a long
-alternative chain starting from that point — completely different history,
+alternative chain starting from that point: completely different history,
 potentially different token holders. If a fresh node syncs without any
 reference point, it cannot distinguish the real chain from the alternative.
 
@@ -122,7 +122,7 @@ checkpoint**. `FinalityTracker::can_reorg(wave_id)` returns false for any
 wave at or before the checkpoint's `wave_id`.
 
 For a cold-syncing node, the protocol doesn't pick a checkpoint on its
-own — the node's operator provides a **trusted recent block hash** from a
+own: the node's operator provides a **trusted recent block hash** from a
 source they trust (the Foundation website, a public explorer, a known
 good peer). This is called "weak subjectivity" because new nodes must
 trust *something* outside pure protocol to anchor their sync.
@@ -133,7 +133,7 @@ local checkpoint going forward.
 
 ### Bootstrap peers
 
-The genesis block hash is built into the client binary — no external
+The genesis block hash is built into the client binary; no external
 trust needed for it. The `MAINNET_BOOTSTRAP` and `TESTNET_BOOTSTRAP` lists
 (`crates/net/src/discovery.rs`) provide starting peers, which provide the
 current chain state. A new node combines:
@@ -142,8 +142,8 @@ current chain state. A new node combines:
 2. Recent weak-subjectivity checkpoint (operator-provided).
 3. Current peer set (from `bootstrap_peers`).
 
-—to pin down which chain is real without requiring a full replay from
-genesis.
+Together, these pin down which chain is real without requiring a full
+replay from genesis.
 
 ---
 
@@ -151,7 +151,7 @@ genesis.
 
 ### The attack
 
-An adversary creates many validator identities to dominate consensus —
+An adversary creates many validator identities to dominate consensus,
 bypassing the `f < n/3` bound by simply *being* the majority of the
 active committee.
 
@@ -165,10 +165,10 @@ layers:
 
 **1. Structural MEV-resistance removes the attack incentive.**
 The dominant reason adversaries attack BFT consensus on production
-chains is MEV extraction — front-running, sandwich attacks, transaction
+chains is MEV extraction: front-running, sandwich attacks, transaction
 reordering. On Pyde, this attack value is structurally near-zero. Even
 a Byzantine 1/3 cannot:
-- Read a committed-but-unrevealed transaction — a commit is a Blake3
+- Read a committed-but-unrevealed transaction: a commit is a Blake3
   hash, and the inner transaction is disclosed only after the DAG has
   already fixed its order (Chapter 9);
 - Reorder transactions after the DAG anchor commits the canonical order
@@ -177,30 +177,30 @@ a Byzantine 1/3 cannot:
 
 Crucially, this safety is **unconditional**: it does not depend on any
 threshold of committee members staying honest. There is no decryption key
-for a colluding quorum to combine — the mechanism is keyless commit-reveal,
+for a colluding quorum to combine: the mechanism is keyless commit-reveal,
 and a commit is just a hash.
 
 This collapses the attack-profit equation that drives Ethereum-scale
-stake floors (32 ETH → ~$80–120K). Pyde does not need to price stake
+stake floors (32 ETH → ~$80K to $120K). Pyde does not need to price stake
 against MEV profits because there are no MEV profits to be made.
 
 **2. Operator-identity cap (max 3 validators per operator).**
 A Byzantine fork needs `f + 1 = 43` of 128 committee slots. Under a
 3-per-operator cap, that translates to **≥ 15 distinct KYC'd operator
-identities** — much harder to manufacture than capital. Identity binding
+identities**, much harder to manufacture than capital. Identity binding
 is enforced via the stake-account-to-operator mapping; high-stake
 operators face additional KYC verification at registration.
 
 **3. Slashing at 100% on safety violations.**
 Equivocation and bad state-root signatures incur full-stake slashing
 plus permanent ban (see Chapter 14 §14.5 / [companion/SLASHING.md](../companion/SLASHING.md)). The 10%
-finder's fee creates an active whistleblower incentive — every honest
+finder's fee creates an active whistleblower incentive: every honest
 node has a financial reason to surface attacker evidence within the
 21-day freshness window.
 
 **4. Hard-halt detection on state-root divergence.**
 Two contradictory signed state roots trigger an automatic chain halt
-(Chapter 7 §Part 2). Attackers cannot quietly corrupt state — safety
+(Chapter 7 §Part 2). Attackers cannot quietly corrupt state: safety
 violations are loud, visible, and immediately interrupt block
 production. The 1-epoch bounded rollback policy contains damage to a
 narrow window.
@@ -228,14 +228,14 @@ This shifts the trust assumption from "stake is large enough to deter
 attack" to "operator-identity binding + slashing + structural
 MEV-resistance jointly make attack unprofitable and detectable." The
 second is a substantively different argument and worth being explicit
-about — and, unlike a threshold-encryption scheme, the commit-reveal
+about. And, unlike a threshold-encryption scheme, the commit-reveal
 private mempool adds no honest-quorum trust assumption of its own.
 
 ### Genesis Sybil resistance
 
 The initial 128-validator set is Foundation-curated at genesis (Phase 10
 of the launch plan, recruited + validated across 3+ regions). This is a
-"trusted launch" assumption — not that the Foundation is trusted forever,
+"trusted launch" assumption: not that the Foundation is trusted forever,
 but that the initial set is diverse and honest. After genesis, committee
 rotation and permissionless stake-based registration take over.
 
@@ -260,14 +260,14 @@ holds under the 1/3 rule, liveness can be hurt).
 2. **Layered discovery (no DHT).** Pyde explicitly chose not to use a
    Kademlia DHT (Chapter 12). Discovery is layered: hardcoded seeds, DNS,
    on-chain validator registry, PEX, local cache. This eliminates the
-   DHT-poisoning eclipse vector — an attacker can't pollute a routing
+   DHT-poisoning eclipse vector: an attacker can't pollute a routing
    table that doesn't exist.
 3. **FALCON peer authentication** (§12.4). After the libp2p connection,
    peers run a FALCON-signed attestation that binds PeerId to a
    post-quantum identity. An adversary can't clone a validator's PeerId
    without their FALCON secret key.
 4. **Sentry node pattern (Chapter 12).** Committee validators are
-   reachable only through trusted sentry proxies — their real IPs are
+   reachable only through trusted sentry proxies; their real IPs are
    not in the public peer set. Eclipsing a committee validator requires
    compromising the sentry layer, not just the public network.
 5. **Validator-channel filtering.** The vertex channel only accepts
@@ -307,7 +307,7 @@ per second per source address.
 
 A non-validator peer can submit evidence messages to validators that then
 verify them. Naive validators would FALCON-verify every evidence message
-at ~60 µs each — enough for a flood of invalid evidence to saturate CPU.
+at ~60 µs each, enough for a flood of invalid evidence to saturate CPU.
 
 The fix: token-bucket rate limit on evidence messages, applied per-peer.
 Repeat offenders are dropped after the first failed verification instead
@@ -332,7 +332,7 @@ Oversized messages are rejected and the sender takes a reputation hit.
 Invalid transactions never enter the mempool. The ingress validator
 (`crates/node/src/rpc.rs::ingress_validate`) checks chain_id, FALCON sig,
 nonce window, balance, gas bounds, deadline, access-list duplicates, tx
-size, calldata size — all before returning Ok or gossipping. Pollution is
+size, calldata size, all before returning Ok or gossipping. Pollution is
 isolated to the single ingress node.
 
 ### Mempool per-sender caps
@@ -354,10 +354,10 @@ Covered in detail in Chapter 9. The short version:
 - **Keyless commit-reveal private mempool.** A commit publishes only a
   Blake3 hash of the transaction; the plaintext is disclosed only after
   ordering is fixed. There is no committee decryption key and no
-  decryption shares, so safety is unconditional — it never depends on a
+  decryption shares, so safety is unconditional: it never depends on a
   threshold of committee members staying honest. Users opt in per tx.
 - **DAG-fixed ordering.** The DAG fixes a commit's position in the
-  canonical order at commit time — before its contents are known. Reveals
+  canonical order at commit time, before its contents are known. Reveals
   execute in commit order, never reveal order, so no actor can both read a
   transaction and still change where it lands.
 - **Structural inclusion.** No single proposer to censor; censoring a tx
@@ -365,7 +365,7 @@ Covered in detail in Chapter 9. The short version:
 - **No tips.** The wire format has no priority-fee field.
 
 Each layer closes attacks the others cannot. Together, MEV is not
-discouraged — it is structurally unexpressible.
+discouraged; it is structurally unexpressible.
 
 ---
 
@@ -386,7 +386,7 @@ state-root sigs; the network cannot reach the 85-sig finality bar.
 
 Two conflicting state claims can't both reach finality (same BFT
 argument: > 1/3 would have to equivocate). State root divergence is
-**hard-halt detectable** (Chapter 7) — the network stops automatically
+**hard-halt detectable** (Chapter 7): the network stops automatically
 once two contradictory signed roots appear.
 
 ### JMT Merkle proofs
@@ -409,11 +409,11 @@ verification at much lower cost.
 
 Every primitive in the protocol is post-quantum:
 
-- **FALCON-512** signatures — NTRU lattice, not factoring.
-- **Kyber-768 / ML-KEM** key exchange — lattice, not ECDH.
-- **Poseidon2** hashing — algebraic, not affected by quantum.
-- **Lattice VRF** — inherits FALCON security.
-- **AES-256-GCM** — symmetric, 128-bit post-quantum security under
+- **FALCON-512** signatures: NTRU lattice, not factoring.
+- **Kyber-768 / ML-KEM** key exchange: lattice, not ECDH.
+- **Poseidon2** hashing: algebraic, not affected by quantum.
+- **Lattice VRF**: inherits FALCON security.
+- **AES-256-GCM**: symmetric, 128-bit post-quantum security under
   Grover's algorithm.
 
 The weakest link is Poseidon2's 64-bit post-quantum collision resistance
@@ -443,12 +443,12 @@ These defaults eliminate the most common smart-contract exploit classes at the t
 
 ### The toolchain audit surface
 
-The `otigen` developer toolchain — specifically its state binding generators and ABI extractor — is part of the audit surface. A codegen bug in a binding generator could emit accessor code that violates declared semantics. Mitigations:
+The `otigen` developer toolchain (specifically its state binding generators and ABI extractor) is part of the audit surface. A codegen bug in a binding generator could emit accessor code that violates declared semantics. Mitigations:
 
 - **Unit tests per binding-generator output pattern.** Each language target (Rust, AssemblyScript, Go, C/C++) has its own generator with its own test suite covering every accessor shape.
-- **Property tests** for slot-hash determinism across languages — given the same `otigen.toml`, all four generators must produce identical runtime slot_hash values for identical inputs.
+- **Property tests** for slot-hash determinism across languages: given the same `otigen.toml`, all four generators must produce identical runtime slot_hash values for identical inputs.
 - **External audit** of the `otigen` toolchain before mainnet.
-- **Wasmtime as a trust-minimized dependency.** The execution runtime itself is wasmtime, which inherits years of production fuzzing and Bytecode Alliance audit attention — we do not audit a VM we built ourselves.
+- **Wasmtime as a trust-minimized dependency.** The execution runtime itself is wasmtime, which inherits years of production fuzzing and Bytecode Alliance audit attention; we do not audit a VM we built ourselves.
 
 ---
 
@@ -488,26 +488,26 @@ The host functions add another trap layer for Pyde-specific safety properties:
 
 wasmtime is configured to reject any module that uses non-deterministic features. The config enforces (at module instantiation and at deploy validation):
 
-- `cranelift_nan_canonicalization(true)` — floating-point NaN bit patterns canonicalized identically across all validators
-- `wasm_threads(false)` — no threading (non-deterministic by definition)
-- `wasm_simd(false)`, `wasm_relaxed_simd(false)` — SIMD disabled until a deterministic-only subset is vetted
-- `wasm_reference_types(false)`, `wasm_gc(false)`, `wasm_function_references(false)` — complexity surface gated until needed
-- `wasm_multi_memory(false)`, `wasm_memory64(false)` — explicit memory layout
+- `cranelift_nan_canonicalization(true)`: floating-point NaN bit patterns canonicalized identically across all validators
+- `wasm_threads(false)`: no threading (non-deterministic by definition)
+- `wasm_simd(false)`, `wasm_relaxed_simd(false)`: SIMD disabled until a deterministic-only subset is vetted
+- `wasm_reference_types(false)`, `wasm_gc(false)`, `wasm_function_references(false)`: complexity surface gated until needed
+- `wasm_multi_memory(false)`, `wasm_memory64(false)`: explicit memory layout
 - No WASI imports
 
 A deploy-time validator (`crates/wasm-exec/src/validate.rs`) re-checks the module's import section against the allowlist and rejects anything that would slip past wasmtime's instantiation check.
 
 ### Trust-minimization of the runtime
 
-We do not audit wasmtime itself — that work is done continuously by the Bytecode Alliance with years of production fuzzing under adversarial workloads. We pin a tagged wasmtime version per chain release, document the version in the protocol upgrade record, and require validators to upgrade in coordinated forks when we move it. This is a meaningfully smaller audit surface than maintaining a custom VM ourselves would have been (see [The Pivot preface](../preface/pivot.md) for the full reasoning).
+We do not audit wasmtime itself; that work is done continuously by the Bytecode Alliance with years of production fuzzing under adversarial workloads. We pin a tagged wasmtime version per chain release, document the version in the protocol upgrade record, and require validators to upgrade in coordinated forks when we move it. This is a meaningfully smaller audit surface than maintaining a custom VM ourselves would have been (see [The Pivot preface](../preface/pivot.md) for the full reasoning).
 
 ---
 
 ## 16.12 Consensus-State Persistence
 
 **The risk.** If a validator casts a vote, crashes before the vote is
-durable, and restarts with a different view, it can double-vote on restart
-— violating BFT safety.
+durable, and restarts with a different view, it can double-vote on
+restart, violating BFT safety.
 
 **The defense.**
 
@@ -520,7 +520,7 @@ durable, and restarts with a different view, it can double-vote on restart
    `pending_evidence` from the consensus store (task 003, 014c).
 
 Microbenchmark (task 014f) confirmed the per-vertex-sig fsync cost is
-~25.5 µs on Apple Silicon NVMe — ~39K writes/sec headroom against the
+~25.5 µs on Apple Silicon NVMe: ~39K writes/sec headroom against the
 ~150 ms round cadence (≥ 1000× margin).
 
 Gradeful drain-and-shutdown on persist failure is a post-mainnet
@@ -644,11 +644,11 @@ mainnet:
 | --------------------------------------------------------------------------------- |
 | Consensus layer (Mysticeti DAG, anchor selection, finality, slashing)             |
 | Execution layer (Pyde's host-function ABI, the `wasm-exec` integration, fuel-to-gas mapping, Block-STM scheduler + MVCC layer + determinism contract) |
-| Crypto implementations (FALCON, Blake3, Poseidon2) — in `pyde-crypto` polyrepo |
+| Crypto implementations (FALCON, Blake3, Poseidon2) in the `pyde-crypto` polyrepo |
 | Networking layer (libp2p config, gossipsub, layered discovery, sentry pattern, DDoS) |
 | `otigen` developer toolchain (binding generators, ABI extraction, deploy flow, wallet) |
 
-Note: wasmtime itself is not separately audited — it is a vetted production dependency from the Bytecode Alliance. The Pyde audit focuses on the integration surface (host functions, fuel mapping, validation gate, module cache) and on the toolchain that emits the WASM modules.
+Note: wasmtime itself is not separately audited; it is a vetted production dependency from the Bytecode Alliance. The Pyde audit focuses on the integration surface (host functions, fuel mapping, validation gate, module cache) and on the toolchain that emits the WASM modules.
 
 Critical + high findings are remediated before mainnet; audit
 remediations themselves are re-audited. Penetration testing (P2P

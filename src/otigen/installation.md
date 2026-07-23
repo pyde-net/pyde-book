@@ -14,7 +14,7 @@ The canonical install path is a single command. It detects your platform, downlo
 curl -fsSL https://raw.githubusercontent.com/pyde-net/test-releases/main/otigen/install.sh | bash
 ```
 
-No `gh` CLI required, no `GITHUB_TOKEN` setup, no auth dance — the release mirror at [`pyde-net/test-releases`](https://github.com/pyde-net/test-releases) is public and the install script fetches anonymously over plain curl + the GitHub CDN.
+No `gh` CLI required, no `GITHUB_TOKEN` setup, no auth dance: the release mirror at [`pyde-net/test-releases`](https://github.com/pyde-net/test-releases) is public and the install script fetches anonymously over plain curl + the GitHub CDN.
 
 Supported targets: macOS arm64, Linux x86_64, Linux aarch64, Windows x86_64. Windows users run the same script from Git Bash or WSL.
 
@@ -37,7 +37,7 @@ curl -fsSL https://raw.githubusercontent.com/pyde-net/test-releases/main/otigen/
   | bash -s -- --version v0.1.0-alpha.1
 ```
 
-Pass either the bare version (`v0.1.0-alpha.1`) or the full mirror tag (`otigen-v0.1.0-alpha.1`) — both are accepted. Useful for testing, rollback, or reproducibility; pre-release tags work too.
+Pass either the bare version (`v0.1.0-alpha.1`) or the full mirror tag (`otigen-v0.1.0-alpha.1`); both are accepted. Useful for testing, rollback, or reproducibility; pre-release tags work too.
 
 ### Update
 
@@ -56,7 +56,7 @@ If you don't have `otigen` on PATH yet (fresh box, broken install), re-run the c
 curl -fsSL https://raw.githubusercontent.com/pyde-net/test-releases/main/otigen/install.sh | bash
 ```
 
-Idempotent — re-running over an up-to-date install is a no-op on the shell rc.
+Idempotent: re-running over an up-to-date install is a no-op on the shell rc.
 
 ### Uninstall
 
@@ -79,7 +79,7 @@ Pass any of these via `bash -s -- <FLAGS>`:
 | `--prefix <DIR>` | Install location override. Default `~/.otigen/bin`; also honours `OTIGEN_INSTALL_DIR` env var. |
 | `--no-modify-path` | Skip the shell-rc PATH edit. For users with managed dotfile repos. |
 | `--no-verify-sig` | Skip sigstore-keyless signature verification of the downloaded asset (default: verify when cosign is on PATH). |
-| `--check-only` | Dry run — print what the script would do and exit. Works with any mode. |
+| `--check-only` | Dry run: print what the script would do and exit. Works with any mode. |
 | `-h` / `--help` | Full catalog. |
 
 ### Manual download
@@ -150,7 +150,7 @@ rustup target add wasm32-unknown-unknown
 rustup show | grep -E "active toolchain|wasm32"
 ```
 
-**Common errors:** see [`install-gotchas`](./debugging.md#installation-errors) — TL;DR: forget the `wasm32-unknown-unknown` target and you get cryptic linker errors at the first `cargo build`.
+**Common errors:** see [`install-gotchas`](./debugging.md#installation-errors). TL;DR: forget the `wasm32-unknown-unknown` target and you get cryptic linker errors at the first `cargo build`.
 
 ### TinyGo
 
@@ -171,7 +171,7 @@ Three packages are required:
 
 **Required versions:** TinyGo ≥ 0.41, Go ≥ 1.21 (for `//go:wasmimport`), binaryen ≥ 116 (anything `wasm-opt --version` reports works in practice).
 
-The `wasm-unknown` target landed in TinyGo 0.31, but the otigen Go scaffold + canonical examples are tested against the 0.41 series — earlier versions hit `//go:wasmexport` codegen bugs that landed fixes in 0.34 / 0.36 / 0.41. The scaffold's `otigen.toml` pins `tinygo_version = "0.41.0"`; older toolchains aren't supported.
+The `wasm-unknown` target landed in TinyGo 0.31, but the otigen Go scaffold + canonical examples are tested against the 0.41 series; earlier versions hit `//go:wasmexport` codegen bugs that landed fixes in 0.34 / 0.36 / 0.41. The scaffold's `otigen.toml` pins `tinygo_version = "0.41.0"`; older toolchains aren't supported.
 
 **Verify:**
 
@@ -249,14 +249,14 @@ which wasm-ld
 
 **Common errors:**
 - `error: unable to create target: 'No available targets are compatible with triple "wasm32"'`: you're using Apple's `/usr/bin/clang` which lacks the wasm32 backend. Install brew's LLVM and update `PATH`.
-- `clang: error: unable to execute command: posix_spawn failed: No such file or directory` when linking: `wasm-ld` is missing. `brew install lld` separately — it's NOT pulled in by `brew install llvm`.
+- `clang: error: unable to execute command: posix_spawn failed: No such file or directory` when linking: `wasm-ld` is missing. `brew install lld` separately; it's NOT pulled in by `brew install llvm`.
 - `Makefile` uses `clang` from `PATH`. If `which clang` resolves to Apple's, the build fails. Either re-order your `PATH` or override per-build: `make CC=/opt/homebrew/opt/llvm/bin/clang build`.
 
 ---
 
 ## 3. Verify everything together
 
-The fastest end-to-end smoke test — `otigen test` auto-invokes the per-language compiler before running the suite, so a single command covers build + test:
+The fastest end-to-end smoke test is `otigen test`, which auto-invokes the per-language compiler before running the suite, so a single command covers build + test:
 
 ```bash
 otigen new smoke-test --lang rust --from counter
@@ -276,9 +276,9 @@ otigen test
   test result: ok. 3 passed; 0 failed; 0 skipped (3 ran)
 ```
 
-First-run timings include the full release compile (~10–30 s on a small Rust contract); subsequent runs hit cargo's incremental cache and finish in <1 s.
+First-run timings include the full release compile (~10 to 30 s on a small Rust contract); subsequent runs hit cargo's incremental cache and finish in <1 s.
 
-If you get that output, you're ready for the [next chapter](./first-contract.md). If not, the error message tells you which piece is missing — most install issues route to a `command not found` or a clear missing-target message; cross-check against the per-language notes above.
+If you get that output, you're ready for the [next chapter](./first-contract.md). If not, the error message tells you which piece is missing. Most install issues route to a `command not found` or a clear missing-target message; cross-check against the per-language notes above.
 
 ---
 
@@ -287,4 +287,4 @@ If you get that output, you're ready for the [next chapter](./first-contract.md)
 - Full per-language install gotchas with troubleshooting steps: [Debugging: installation errors](./debugging.md#installation-errors).
 - Toolchain pinning for reproducible builds: each project's `otigen.toml` records `rust_channel` / `tinygo_version` / `asc_version` / `clang_version`. The chain doesn't enforce these, but your team should. For team-wide enforcement on audit machines, `otigen verify --strict-toolchain <addr>` cross-checks the bundle's declared toolchain versions against the host's installed compilers and fails on mismatch.
 - The `make check-tools` target inside each scaffolded project verifies all four prerequisites are present + correct.
-- Public release mirror: [`pyde-net/test-releases`](https://github.com/pyde-net/test-releases) — README covers the tag convention, manual sigstore verification, and the canonical surfaces for every Pyde toolchain.
+- Public release mirror: [`pyde-net/test-releases`](https://github.com/pyde-net/test-releases); the README covers the tag convention, manual sigstore verification, and the canonical surfaces for every Pyde toolchain.

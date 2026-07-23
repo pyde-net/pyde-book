@@ -2,7 +2,7 @@
 
 **Version 0.2**: v1 model locked as uniform Block-STM; access list is prefetch hint only; the hybrid "static groups + Block-STM fallback" framing in earlier book drafts is **stale + superseded** as of 2026-06-12.
 
-How transactions in a committed wave execute on a validator. v1 mainnet ships parallel execution via a Block-STM scheduler — every wave's txs run optimistically in parallel, conflicts are detected via multi-version concurrency control, and the final state is deterministic across validators.
+How transactions in a committed wave execute on a validator. v1 mainnet ships parallel execution via a Block-STM scheduler: every wave's txs run optimistically in parallel, conflicts are detected via multi-version concurrency control, and the final state is deterministic across validators.
 
 The wire protocol, gas semantics, and `commit_wave` interface are all unchanged from a hypothetical serial implementation. The parallelism lives entirely inside the executor crate; chain rules don't depend on it.
 
@@ -12,7 +12,7 @@ The wire protocol, gas semantics, and `commit_wave` interface are all unchanged 
 2. **Deterministic final state**: every validator that applies the same `walked_subdag` produces the same JMT root + the same receipt set. Per-tx execution attempt order can differ across validators or across re-runs; only the committed final state has to match.
 3. **Gas charged once**: speculative re-executions are free. Authors pay for the successful attempt only.
 4. **Backwards-compatible interface**: `StateMutator::commit_wave(walked_subdag) -> WaveCommitInputs` is the only entry point. Switching between serial and parallel impls is a code-level swap, not a chain fork.
-5. **Access list = prefetch hint, never used for scheduling.** Wallets attach a `Tx.access_list` produced by `pyde_simulateTransaction` so the scheduler can warm the dashmap (PIP-4 cache) via PIP-3 multiget prefetch before execution starts. **The list never partitions the wave, never decides which tx runs where, and never affects correctness.** Block-STM owns scheduling + safety; the access list owns warm-cache performance. If the list is wrong, prefetch misses some slots — execution still produces the correct deterministic result.
+5. **Access list = prefetch hint, never used for scheduling.** Wallets attach a `Tx.access_list` produced by `pyde_simulateTransaction` so the scheduler can warm the dashmap (PIP-4 cache) via PIP-3 multiget prefetch before execution starts. **The list never partitions the wave, never decides which tx runs where, and never affects correctness.** Block-STM owns scheduling + safety; the access list owns warm-cache performance. If the list is wrong, prefetch misses some slots, but execution still produces the correct deterministic result.
 
 ## Non-Goals
 
@@ -210,7 +210,7 @@ When `done_count == N`:
 
 ## Access List as Prefetch Hint
 
-The access list never partitions the wave, never schedules anything, never affects correctness. Block-STM is uniform: every tx runs through optimistic-execute + MVCC validate regardless of whether it declared a list. The list exists for ONE reason — to warm Pyde's PIP-4 dashmap cache via PIP-3 multiget prefetch before execution starts, so the wasmtime `sload` host fn hits an in-memory HashMap instead of going to RocksDB.
+The access list never partitions the wave, never schedules anything, never affects correctness. Block-STM is uniform: every tx runs through optimistic-execute + MVCC validate regardless of whether it declared a list. The list exists for ONE reason: to warm Pyde's PIP-4 dashmap cache via PIP-3 multiget prefetch before execution starts, so the wasmtime `sload` host fn hits an in-memory HashMap instead of going to RocksDB.
 
 ### Wire format
 
@@ -223,7 +223,7 @@ pub struct AccessListItem {
 }
 ```
 
-No mode field. There's no "strict vs hint" distinction because the scheduler never uses the list for safety decisions — it's a hint about read performance, full stop. Lists that are wrong waste prefetch work but never cause a tx to fail.
+No mode field. There's no "strict vs hint" distinction because the scheduler never uses the list for safety decisions. It's a hint about read performance, full stop. Lists that are wrong waste prefetch work but never cause a tx to fail.
 
 ### Prefetch flow
 
@@ -239,7 +239,7 @@ No mode field. There's no "strict vs hint" distinction because the scheduler nev
    hits the dashmap; no disk read on the hot path.
 ```
 
-The prefetch step is fire-and-forget — Block-STM doesn't wait for it to complete. If a worker reaches an `sload` for a slot the prefetch hasn't returned yet, the read falls through to `state_cf.get(slot)` (single RocksDB get) and lands in the dashmap on the way back. No correctness impact, just a missed warm-cache opportunity.
+The prefetch step is fire-and-forget: Block-STM doesn't wait for it to complete. If a worker reaches an `sload` for a slot the prefetch hasn't returned yet, the read falls through to `state_cf.get(slot)` (single RocksDB get) and lands in the dashmap on the way back. No correctness impact, just a missed warm-cache opportunity.
 
 ### `pyde_simulateTransaction` RPC
 
@@ -286,9 +286,9 @@ In every case the tx commits its successful attempt with the same final state. B
 
 - **Gas**: charged once, on the successful final attempt. Aborted attempt gas is discarded.
 - **Receipts**: written in canonical `tx_index` order. Each receipt carries the final attempt's `gas_used`, `events`, `return_data`, and `status`.
-- **Fee distribution**: per `HOST_FN_ABI_SPEC` §10.5 — the 70/20/10 burn/reward/treasury split is computed from `successful_attempts.sum(fee_paid)`. Aborted-attempt fees do not exist.
+- **Fee distribution**: per `HOST_FN_ABI_SPEC` §10.5, the 70/20/10 burn/reward/treasury split is computed from `successful_attempts.sum(fee_paid)`. Aborted-attempt fees do not exist.
 
-The "no refunds in v1" rule still holds. If a tx hits a tx-level revert (not an MVCC abort — those are silent retries), gas == `tx.gas_limit` and value transfer is rolled back. Only MVCC re-incarnations are free.
+The "no refunds in v1" rule still holds. If a tx hits a tx-level revert (not an MVCC abort: those are silent retries), gas == `tx.gas_limit` and value transfer is rolled back. Only MVCC re-incarnations are free.
 
 ## Determinism Contract
 
@@ -316,14 +316,14 @@ Differential vs serial is the load-bearing check. Any divergence is a chain-fork
 
 When tx A calls X.foo() which dynamically calls Y.bar(), the discovered slot reads can exceed the attached access list. Behavior:
 
-- The reads + writes still go through `MvccLayer` via the host fns — there is no separate code path.
+- The reads + writes still go through `MvccLayer` via the host fns. There is no separate code path.
 - `AccessTracker` records every slot touched, regardless of whether it was in the declared list.
 - Validation uses the recorded reads, not the declared list. So a tx that "exceeds" its declared list still validates correctly.
 - The only consequence of exceeding the declared list is that the prefetch was incomplete: the missed slot reads from `state_cf` once (single RocksDB get) instead of hitting the dashmap. Correctness is unaffected.
 
 ## State-Holding Host Functions
 
-The host fns that read or write chain state — `sload`, `sstore`, `sdelete`, `balance`, `code_size`, `code_hash`, `block_*` (frozen), etc. — all route through `MvccLayer` in the parallel executor. Pure host fns (Blake3, FALCON verify, etc.) don't touch state and are unaffected.
+The host fns that read or write chain state, namely `sload`, `sstore`, `sdelete`, `balance`, `code_size`, `code_hash`, `block_*` (frozen), etc., all route through `MvccLayer` in the parallel executor. Pure host fns (Blake3, FALCON verify, etc.) don't touch state and are unaffected.
 
 The `wasm-exec` adapter exposes a `HostFnBackend` trait:
 
@@ -354,7 +354,7 @@ This document. Determinism contract, MVCC API, scheduler state machine, RPC shap
 - New crate `pyde-engine-parallel-exec`.
 - `MvccLayer` with serial single-thread access. Unit tests for read-back-through-versions, finalize, invalidate.
 - `HostFnBackend` trait extracted from `wasm-exec`. `SerialExecutor` adapted to implement it.
-- `SerialExecutor::execute_wave` wired through `StateMutator::commit_wave` — behavior unchanged from today.
+- `SerialExecutor::execute_wave` wired through `StateMutator::commit_wave`. Behavior unchanged from today.
 
 Gate to next phase: differential test passes (serial via new path == serial via old path, byte-for-byte).
 
@@ -390,22 +390,22 @@ Remove the feature flag. `BlockStmExecutor` becomes the default in `pyde validat
 ## Open Questions
 
 1. **Worker pool sizing**. Default to `num_cpus()`? Halve it on a host that's also running a libp2p stack? Probably default to `num_cpus / 2` with an explicit `--executor-threads N` override.
-2. **Failed-tx retention**. Block-STM aborts re-incarnate the tx but a hard revert (`HandlerError::*`) terminates it. Does the receipt record the abort attempts? No — only the final terminal attempt. Aborts are internal.
+2. **Failed-tx retention**. Block-STM aborts re-incarnate the tx but a hard revert (`HandlerError::*`) terminates it. Does the receipt record the abort attempts? No, only the final terminal attempt. Aborts are internal.
 3. **Memory pressure**. For a 50K-tx wave with high-conflict txs, MVCC could hold tens of thousands of `(tx_index, attempt)` versions per slot. Need an eviction policy or hard cap. Probably: cap attempts per tx at 8; on the 9th, fall back to serial-execute-after-all-prior-committed for that tx. Pathological but bounded.
 4. **Determinism under wasmtime fuel exhaustion**. If a tx runs out of fuel mid-execute, the partial writes are dropped (already the case in serial). Block-STM treats it the same as an explicit revert: receipt with `gas_used = gas_limit`, no state changes, no re-incarnation.
-5. **Performance target**. v1 mainnet aspirational throughput is 10–30K plaintext TPS on commodity hardware (matches Aptos's measured production numbers on pure Block-STM). Block-STM should hit this with ~80% efficiency vs perfect linear scaling. Anything below 70% means the conflict rate is too high in practice; the first lever to pull is improving the access-list prefetch coverage so dashmap hit rate goes up.
+5. **Performance target**. v1 mainnet aspirational throughput is 10 to 30K plaintext TPS on commodity hardware (matches Aptos's measured production numbers on pure Block-STM). Block-STM should hit this with ~80% efficiency vs perfect linear scaling. Anything below 70% means the conflict rate is too high in practice; the first lever to pull is improving the access-list prefetch coverage so dashmap hit rate goes up.
 
 ## Versioning + Upgrade
 
 Block-STM ships in v1 mainnet. The `commit_wave` interface is stable; v2 changes will be inside `BlockStmExecutor` and won't affect the chain hash.
 
-Validators can run a mix of v1 and v1.x point-releases without forking — `MvccLayer::finalize()` outputs are deterministic regardless of pool size or prefetch heuristics. The differential test infrastructure stays in `cfg(test)` permanently as a regression guard.
+Validators can run a mix of v1 and v1.x point-releases without forking: `MvccLayer::finalize()` outputs are deterministic regardless of pool size or prefetch heuristics. The differential test infrastructure stays in `cfg(test)` permanently as a regression guard.
 
-If real-world measurements eventually surface a class of contracts whose access patterns are fully static AND whose Block-STM re-execution overhead measurably exceeds the cost of a sequential-within-group path, the optimisation lands in v2 as a per-tx fast path layered on top of the same MVCC core — not a wire-format change. The Block-STM correctness contract holds either way; the fast path would just skip MVCC validation for txs whose declared list fully covers their actual access set and let the rare slips fall back to the standard Block-STM path.
+If real-world measurements eventually surface a class of contracts whose access patterns are fully static AND whose Block-STM re-execution overhead measurably exceeds the cost of a sequential-within-group path, the optimisation lands in v2 as a per-tx fast path layered on top of the same MVCC core, not a wire-format change. The Block-STM correctness contract holds either way; the fast path would just skip MVCC validation for txs whose declared list fully covers their actual access set and let the rare slips fall back to the standard Block-STM path.
 
 ## Path Beyond v1
 
-Block-STM at v1 gets Pyde to 10-30K real-world TPS (Aptos's measured production floor under the same model). Pyde's long-term aspirational throughput is meaningfully higher than that, and Block-STM alone does not get there — its effective throughput scales as `peak / (1 + 2A)` where `A` is the average re-execution attempts per tx. At low contention (`A ≈ 1.05`), efficiency is ~85% of peak; at high contention (`A ≈ 5`), it drops to ~10%. Realistic chain workloads (DEXes, hot-slot NFT mints, popular tokens) push contention toward the latter end during spike events. Pure Block-STM real-world ceiling: somewhere around 50-100K, depending on workload.
+Block-STM at v1 gets Pyde to 10-30K real-world TPS (Aptos's measured production floor under the same model). Pyde's long-term aspirational throughput is meaningfully higher than that, and Block-STM alone does not get there: its effective throughput scales as `peak / (1 + 2A)` where `A` is the average re-execution attempts per tx. At low contention (`A ≈ 1.05`), efficiency is ~85% of peak; at high contention (`A ≈ 5`), it drops to ~10%. Realistic chain workloads (DEXes, hot-slot NFT mints, popular tokens) push contention toward the latter end during spike events. Pure Block-STM real-world ceiling: somewhere around 50-100K, depending on workload.
 
 The path past that ceiling is **additive layers on top of the same Block-STM core**. Each layer is justified by a measured throughput gap, not predicted ahead of time. None require a chain fork, a wire-format change, or rewriting the v1 determinism contract.
 
@@ -426,6 +426,6 @@ The path past that ceiling is **additive layers on top of the same Block-STM cor
 
 **Layering discipline:**
 
-Layers ship in order of measured payoff, not theoretical maximum. The first one that lands will be L1 (access-list scheduling fast path) only if measurements show a real conflict-rate problem; L5 (native pre-compiles for hot patterns) might land first if Otigen ecosystem data shows specific patterns dominate volume; L4 (GPU PQ crypto) lands when FALCON-verification volume justifies driver work. Each layer is gated on (a) measurements proving the next ceiling, and (b) a working differential-test surface against the prior layer — so layering can never silently break determinism.
+Layers ship in order of measured payoff, not theoretical maximum. The first one that lands will be L1 (access-list scheduling fast path) only if measurements show a real conflict-rate problem; L5 (native pre-compiles for hot patterns) might land first if Otigen ecosystem data shows specific patterns dominate volume; L4 (GPU PQ crypto) lands when FALCON-verification volume justifies driver work. Each layer is gated on (a) measurements proving the next ceiling, and (b) a working differential-test surface against the prior layer, so layering can never silently break determinism.
 
 Long-term throughput aspiration of 500K+ TPS is the L1+L2+L3+L5+L6 territory. None of those exist at v1; all of them stack on top of v1's Block-STM core without modifying it. v1 ships with the foundation that makes the path actually reachable, not with the throughput number itself.

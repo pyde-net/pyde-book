@@ -1,4 +1,4 @@
-# Runbook — validator OOM
+# Runbook: validator OOM
 
 The validator process was killed by the OOM-killer or memory pressure has caused it to slow to a crawl.
 
@@ -22,7 +22,7 @@ If `dmesg` shows OOM-kill of the pyde process, this is the right runbook.
 
 1. **Is the process currently up?**
    - `sudo systemctl is-active pyde-validator` → if `inactive`, systemd's restart backoff hit `StartLimitBurst=5`. Reset: `sudo systemctl reset-failed pyde-validator && sudo systemctl start pyde-validator`.
-   - If `activating (auto-restart)`, leave it — let the next restart land.
+   - If `activating (auto-restart)`, leave it and let the next restart land.
 
 2. **Is RSS growing linearly during normal operation?**
    - `ps -o rss,vsz,comm -p $(pgrep -f 'pyde validator')` repeated every 30 s for 5 min.
@@ -30,11 +30,11 @@ If `dmesg` shows OOM-kill of the pyde process, this is the right runbook.
    - No (RSS plateaued, single OOM event) → likely a short-lived spike from a large wave-commit batch or RPC blast. Go to step 3.
 
 3. **Is the RPC port being flooded?**
-   - `ss -tn state established sport = :9933 | wc -l` → if >>100, you're being scraped — go to [public-rpc-DDoS](public-rpc-DDoS.md).
+   - `ss -tn state established sport = :9933 | wc -l` → if >>100, you're being scraped; go to [public-rpc-DDoS](public-rpc-DDoS.md).
    - Normal connection count → continue.
 
 4. **Is the consensus_store size pathological?**
-   - `du -sh /var/lib/pyde/data /var/lib/pyde/state` — expected ~2 GB/week and ~1 GB/week respectively at testnet cadence.
+   - `du -sh /var/lib/pyde/data /var/lib/pyde/state`: expected ~2 GB/week and ~1 GB/week respectively at testnet cadence.
    - Way larger → likely a rocksdb-compaction backlog → see step 5.
 
 5. **Are batches stuck in mempool?**

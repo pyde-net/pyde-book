@@ -10,11 +10,11 @@ For the *story* behind the name and the mark, see [How Pyde Works → What's in 
 
 ## 1. The name
 
-**Pyde** — pronounced *pied* (rhymes with **tide**).
+**Pyde** is pronounced *pied* (rhymes with **tide**).
 
 | Form | Use |
 |---|---|
-| `Pyde` | Default, sentence-case. Use this almost everywhere — headings, prose, marketing copy. |
+| `Pyde` | Default, sentence-case. Use this almost everywhere: headings, prose, marketing copy. |
 | `pyde` | Lowercase in URLs, handles, file names, code identifiers (`pyde-net`, `pyde.network`). The X handle is `@pydenet` (the available short form). |
 | `PYDE` | Uppercase **only** when referring to the token / unit of account (`100 PYDE`, `gas paid in PYDE`). |
 | `PYDE NETWORK` (all caps) | Not used. Only in occasional design-led headings if it serves a layout, never in body copy. |
@@ -36,15 +36,15 @@ For the *story* behind the name and the mark, see [How Pyde Works → What's in 
 
 ## 2. The mark (glyph)
 
-The mark is based on **atomic structure** — a nucleus and its orbital. Not a trend, not network imagery, not decorative. It looks like a physical law.
+The mark is based on **atomic structure**: a nucleus and its orbital. Not a trend, not network imagery, not decorative. It looks like a physical law.
 
 <img src="../assets/logo.png" alt="The Pyde mark" style="display:block; margin: 24px auto; max-width: 180px;" />
 
 **Anatomy:**
 
-- **The vertical form is the core.** Dense, gravitational, everything pulls toward it. Pyde is monolithic — consensus and execution in one place. Wide at the poles, compressed at the center: finality under pressure. Stress-tested and held.
-- **The circle to the right is in orbit.** Independent, in motion, but bound to the core by an invisible force. External chains, bridges, light clients, portable finality certificates — they orbit. They are *verified*, not *trusted*.
-- **The two are separate on purpose.** Related but sovereign. The composition is asymmetric — the orbital sits to the upper-right. Do not mirror, balance, or duplicate it. The core is fixed; the orbital can be anywhere.
+- **The vertical form is the core.** Dense, gravitational, everything pulls toward it. Pyde is monolithic: consensus and execution in one place. Wide at the poles, compressed at the center: finality under pressure. Stress-tested and held.
+- **The circle to the right is in orbit.** Independent, in motion, but bound to the core by an invisible force. External chains, bridges, light clients, portable finality certificates: they orbit. They are *verified*, not *trusted*.
+- **The two are separate on purpose.** Related but sovereign. The composition is asymmetric: the orbital sits to the upper-right. Do not mirror, balance, or duplicate it. The core is fixed; the orbital can be anywhere.
 
 **Geometry:**
 
@@ -73,15 +73,15 @@ Guidance, not pixel rules. To recreate, eyeball against `assets/logo.png`.
 
 The Pyde palette is black and white, with shades. Nothing more.
 
-Restrained, calm, subtle — the visual posture matches the technical posture. The brand is meant to feel like a physical law: present, quiet, not asking for attention. Color noise doesn't belong here. The protocol is the product, not the palette.
+Restrained, calm, subtle: the visual posture matches the technical posture. The brand is meant to feel like a physical law: present, quiet, not asking for attention. Color noise doesn't belong here. The protocol is the product, not the palette.
 
 | Token | Hex | Role |
 |---|---|---|
-| `--pyde-ink` | `#0d1117` | Primary dark — backgrounds, dark-theme surfaces, default body text in light mode. |
-| `--pyde-shadow` | `#2a2f36` | Dark elevated — elevated surfaces on dark backgrounds, code-block fills. |
-| `--pyde-mist` | `#7a8590` | Mid-gray — muted labels, captions, dividers. |
-| `--pyde-veil` | `#e1e4ea` | Light elevated — soft surfaces on light backgrounds, subtle dividers. |
-| `--pyde-paper` | `#f7f8fa` | Primary light — backgrounds in light mode, default body text in dark mode. |
+| `--pyde-ink` | `#0d1117` | Primary dark: backgrounds, dark-theme surfaces, default body text in light mode. |
+| `--pyde-shadow` | `#2a2f36` | Dark elevated: elevated surfaces on dark backgrounds, code-block fills. |
+| `--pyde-mist` | `#7a8590` | Mid-gray: muted labels, captions, dividers. |
+| `--pyde-veil` | `#e1e4ea` | Light elevated: soft surfaces on light backgrounds, subtle dividers. |
+| `--pyde-paper` | `#f7f8fa` | Primary light: backgrounds in light mode, default body text in dark mode. |
 
 These five grayscale tokens carry the entire brand. No accent palette. Color is not part of the brand.
 
@@ -112,7 +112,7 @@ Pyde uses **system fonts**. No custom typeface ships with the brand.
 - Zero load time, perfect cross-platform rendering.
 - Accessibility-first: respects the user's font-size preferences.
 - No licensing complications for downstream community use.
-- Consistent with Pyde's minimalism — the protocol is the product, not the typography.
+- Consistent with Pyde's minimalism: the protocol is the product, not the typography.
 
 When the brand needs a "voice" beyond system fonts (a presentation cover, a marketing illustration), use **Inter** (Bold or Black weight) for the wordmark only. Body type stays system.
 
@@ -120,7 +120,7 @@ When the brand needs a "voice" beyond system fonts (a presentation cover, a mark
 
 ## 6. The factory illustration system
 
-The factory metaphor (see [How Pyde Works](../preface/how-pyde-works.md)) is a teaching illustration, not a brand surface. The animated SVG at `src/assets/factory-loop.svg` predates the grayscale-only discipline (§4) and retains its original color cues — droplets for transactions, an amber flash for wave commit, a green pillar for state, a gold lock for the private mempool's sealed commitment — as didactic shortcuts that help readers visualize Pyde mechanics at a glance.
+The factory metaphor (see [How Pyde Works](../preface/how-pyde-works.md)) is a teaching illustration, not a brand surface. The animated SVG at `src/assets/factory-loop.svg` predates the grayscale-only discipline (§4) and retains its original color cues (droplets for transactions, an amber flash for wave commit, a green pillar for state, a gold lock for the private mempool's sealed commitment) as didactic shortcuts that help readers visualize Pyde mechanics at a glance.
 
 These colors live in the animation only. They are not brand tokens. New illustrations default to the §4 grayscale palette; if differentiation beyond gray is needed, prefer pattern, opacity, line weight, or texture over color.
 
@@ -136,12 +136,12 @@ Diagrams that explain Pyde mechanics may reuse the factory's visual vocabulary i
 
 ## 7. Voice and tone
 
-This is the brand's voice — apply it to any official copy or external comms.
+This is the brand's voice. Apply it to any official copy or external comms.
 
 | Quality | Means |
 |---|---|
 | **Direct** | Short sentences. Active voice. Avoid "we are excited to announce." Just announce. |
-| **Honest** | Numbers are real numbers. "Throughput is whatever the multi-region harness measures on commodity hardware — published only once it's measured" is a Pyde-voice sentence; "Pyde achieves limitless throughput" is not. |
+| **Honest** | Numbers are real numbers. "Throughput is whatever the multi-region harness measures on commodity hardware, published only once it's measured" is a Pyde-voice sentence; "Pyde achieves limitless throughput" is not. |
 | **Specific** | "Mysticeti-style consensus with 128-validator committee, FALCON-512 signatures" beats "next-generation consensus." Name the thing. |
 | **Unpretentious** | No "L1 of L1s," no "ushering in a new era." If a competitor would write it, don't. |
 | **Curious** | When something is hard or undecided, say so. The audience is technical; treating them as adults builds trust. |
@@ -166,11 +166,11 @@ The canonical brand asset directory is `pyde-book/src/assets/` (also mirrored at
 
 Pending (post-launch designer handoff):
 
-- `logo.svg` — vector source of the mark (currently only PNG exists).
-- `wordmark.svg` — vector wordmark in Inter Bold.
-- `mark-monochrome.svg` — single-colour version for engraving, single-colour print.
-- `social-card-default.png` — Open Graph + Twitter Card default image.
-- `presentation-template.pptx` / `.key` — slide deck template with the brand applied.
+- `logo.svg`: vector source of the mark (currently only PNG exists).
+- `wordmark.svg`: vector wordmark in Inter Bold.
+- `mark-monochrome.svg`: single-colour version for engraving, single-colour print.
+- `social-card-default.png`: Open Graph + Twitter Card default image.
+- `presentation-template.pptx` / `.key`: slide deck template with the brand applied.
 
 ---
 

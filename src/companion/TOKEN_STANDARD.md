@@ -1,8 +1,8 @@
-# PTS — The Pyde Token Standard
+# PTS: The Pyde Token Standard
 
 > **Status: Accepted (`pts-f/1` active).** The normative specification
 > is [PIP-0005](https://github.com/pyde-net/pips/blob/main/pip-0005-pyde-token-standard.md);
-> this document is the deep explainer — the flow, the design
+> this document is the deep explainer: the flow, the design
 > reasoning, and the integration guide. The guide-level introduction
 > lives at [Token Standard (PTS)](../otigen/token-standard.md).
 > `pts-f/1` has shipped end to end: reference implementation,
@@ -19,7 +19,7 @@ token standard in one structural way:
 > toolchain compiles.**
 
 `type = "token"` in `otigen.toml` makes otigen generate the entire
-contract — interface, storage schema, events, validation — from one
+contract (interface, storage schema, events, validation) from one
 audited canonical implementation. A token manifest is config-only:
 declaring functions, state, events, or shipping any source at all is
 a build error. Misimplementation is not discouraged; it is
@@ -43,7 +43,7 @@ libraries for a decade.
 
 Every ledger designed after Ethereum converged on the same
 counter-move: **one audited implementation instead of a million
-hand-rolled token contracts** — Solana's shared token program,
+hand-rolled token contracts**, namely Solana's shared token program,
 Cosmos's bank module, Aptos's Fungible Asset, Polkadot's assets
 pallet. Pyde reaches the same property at the toolchain layer, with
 zero engine changes, because the platform already has what it needs:
@@ -131,7 +131,7 @@ transfer_call = true       # opt-in settle-then-notify deposit path
 ```
 
 Because a token carries no author code, generation runs from **one
-canonical implementation** — the language question does not arise,
+canonical implementation**, so the language question does not arise,
 and every deployed PTS token is verifiable by rebuilding its manifest
 and comparing bytes. *Same manifest, same bytes* is the standard's
 trust anchor.
@@ -144,7 +144,7 @@ All of it at build time, each error naming the offending key:
   `"none"`) for `type = "contract"`; unknown values list the known
   set.
 - Cross-standard key contamination: `decimals` in a `pts-n/1`
-  manifest is an error ("a pts-f field — non-fungible tokens have no
+  manifest is an error ("a pts-f field: non-fungible tokens have no
   fractional units"); per-id metadata knobs in `pts-f/1` likewise.
 - Config-only: any `[functions.*]`, `[state]`, `[events]`, or a
   source directory on `type = "token"` is an error. Custom behaviour
@@ -157,7 +157,7 @@ All of it at build time, each error naming the offending key:
 ## 5. Conventions the whole surface obeys
 
 - **Amounts are `u128` smallest units, everywhere.** `decimals` is a
-  display-only hint, default **9** — token units and native quanta
+  display-only hint, default **9**, so token units and native quanta
   (1 PYDE = 10⁹ quanta) share one mental model.
 - **Mutations return nothing.** Success = no revert. Failure = a
   canonical machine-readable code (`token:insufficient_balance`,
@@ -175,7 +175,7 @@ All of it at build time, each error naming the offending key:
 - **Names are exact `snake_case`.** Pyde dispatches by function name;
   the names are the ABI. No overloading exists.
 - **Storage economics: write zero, never `sdelete`** on balances and
-  allowances — the chain has no gas refunds, so deletion is strictly
+  allowances; the chain has no gas refunds, so deletion is strictly
   costlier than zeroing.
 - **Commit-reveal neutrality (normative):** no conformant function
   may depend on mempool visibility, same-wave ordering, or
@@ -185,11 +185,11 @@ All of it at build time, each error naming the offending key:
 
 ## 6. The fungible surface (pts-f/1)
 
-### Views — free off-chain, 50-gas dispatch on-chain
+### Views: free off-chain, 50-gas dispatch on-chain
 
 | Function | Returns | Notes |
 |---|---|---|
-| `standard()` | `String` | `"pts-f/1"` — runtime discovery handshake |
+| `standard()` | `String` | `"pts-f/1"` (runtime discovery handshake) |
 | `name()` / `symbol()` / `decimals()` | `String` / `String` / `u8` | mandatory typed metadata |
 | `total_supply()` / `max_supply()` | `u128` | `max_supply = 0` means uncapped |
 | `balance_of(owner: Address)` | `u128` | missing slot reads as 0 |
@@ -205,11 +205,11 @@ All of it at build time, each error naming the offending key:
 | Function | Semantics |
 |---|---|
 | `transfer(to, amount)` | Debit caller, credit `to`; exactly two balance slots; **never invokes recipient code**. Reverts on `to == ZERO` (burn must be explicit) and `to == self` (the largest measured stuck-token class). |
-| `transfer_call(to, amount, data) → u32` | Settle-then-notify: balances fully written and `Transfer` emitted **first**, then `cross_call on_token_received(operator, from, amount, data)` on `to`; reverts `token:bad_receiver` unless the 4-byte acknowledgement returns. `data` is size-capped. Replaces approve-then-pull for deposits — no standing authority is ever created. |
+| `transfer_call(to, amount, data) → u32` | Settle-then-notify: balances fully written and `Transfer` emitted **first**, then `cross_call on_token_received(operator, from, amount, data)` on `to`; reverts `token:bad_receiver` unless the 4-byte acknowledgement returns. `data` is size-capped. Replaces approve-then-pull for deposits; no standing authority is ever created. |
 | `transfer_from(from, to, amount)` | Spends a live (unexpired) allowance, decrements, moves balance; three pair-unique slots. Operator attribution is derivable from the enclosing transaction, not the event. |
 | `approve(spender, amount)` | Compatibility sugar: sets the allowance with the maximum TTL auto-applied. Routers pattern-match the name; "unlimited forever" stays unrepresentable. |
-| `increase_allowance(spender, amount, expiry_wave)` / `decrease_allowance(spender, amount)` / `revoke_allowance(spender)` | Delta-based — the approve race is dead by construction. Every allowance carries a mandatory expiry wave, TTL-capped (≈ one year of waves). Amount + expiry live in one Borsh slot. Revoke writes zero. |
-| `set_allowance_exact(spender, expected_remaining, new_remaining, expiry_wave)` | Compare-and-set: reverts unless current remaining equals `expected_remaining` — closes the delta-accumulation footgun. Documented interaction: under commit-reveal, the CAS can fail at reveal time if state moved. |
+| `increase_allowance(spender, amount, expiry_wave)` / `decrease_allowance(spender, amount)` / `revoke_allowance(spender)` | Delta-based: the approve race is dead by construction. Every allowance carries a mandatory expiry wave, TTL-capped (≈ one year of waves). Amount + expiry live in one Borsh slot. Revoke writes zero. |
+| `set_allowance_exact(spender, expected_remaining, new_remaining, expiry_wave)` | Compare-and-set: reverts unless current remaining equals `expected_remaining`, which closes the delta-accumulation footgun. Documented interaction: under commit-reveal, the CAS can fail at reveal time if state moved. |
 | `mint(to, amount)` | Minter role only; reverts above `max_supply`; emits `Transfer(ZERO, to, amount)`. |
 | `burn(amount)` / `burn_from(from, amount)` | Decrement supply; emit `Transfer(x, ZERO, amount)`; `burn_from` spends an allowance. |
 | `set_minter(new)` / `set_manager(new)` / `set_freezer(new)` / `set_paused(bool)` / `freeze(account, bool)` | Role management + extension operations. Manifest-absent roles have no code. Renounce = set to zero, provably. |
@@ -221,11 +221,11 @@ Three layers, ordered by preference:
 
 1. **Transient-first.** `transfer_call` covers the dominant DeFi
    flows (vault deposits, escrow funding, marketplace payment) in one
-   atomic message. No standing authority exists — nothing to phish,
+   atomic message. No standing authority exists: nothing to phish,
    nothing to revoke, nothing to forget.
 2. **Bounded, expiring allowances** where standing delegation is
    genuinely needed. Deltas kill the overwrite race; mandatory expiry
-   (wave-denominated — a deterministic clock wallets render as dates)
+   (wave-denominated, a deterministic clock wallets render as dates)
    makes even the laziest grant self-destruct; the amount and expiry
    share one storage slot; `allowance()` lazily reports zero after
    expiry so nobody pays to clean up.
@@ -234,8 +234,8 @@ Three layers, ordered by preference:
    vector. Pyde does not need them: gasless flows use the platform's
    `SPONSORED` attribute, private flows use commit-reveal, and
    session keys (v2) will deliver scoped account-layer authority. A
-   FALCON-signed **one-shot payment authorization** — exact
-   recipient, exact amount, wave-window validity, single-use id — is
+   FALCON-signed **one-shot payment authorization** (exact
+   recipient, exact amount, wave-window validity, single-use id) is
    reserved as the `pts-f/2` extension: a signed *check*, never a
    signed blank.
 
@@ -260,21 +260,21 @@ Safety under Pyde's exact reentrancy model (same-function re-entry
 blocked per `(contract, function)`; cross-function re-entry not
 blocked):
 
-What a malicious recipient **can** do — revert (aborting the whole
+What a malicious recipient **can** do: revert (aborting the whole
 transfer atomically; that is the consent feature), burn the gas the
 caller reserved (bounded and priced), or re-enter `transfer` /
 `transfer_from` / the approval family as an *ordinary caller against
-fully settled state* — it can only move funds it owns or is validly
+fully settled state*, so it can only move funds it owns or is validly
 allowed, exactly as in a fresh transaction.
 
-What it **cannot** do — re-enter `transfer_call` itself (engine
+What it **cannot** do: re-enter `transfer_call` itself (engine
 per-function guard); observe half-updated token state (none exists at
-callback time — settlement completes before notification); forge
+callback time; settlement completes before notification); forge
 `operator`/`from`; inherit signer privilege (the callback frame sees
-`caller()` = the token contract); or spoof deposits — the generated
-receiver wrapper authenticates `caller()` against the author's
-declared token allowlist *before* user code runs, and a receiver
-marked `REENTRANT` is a build error.
+`caller()` = the token contract); or spoof deposits, because the
+generated receiver wrapper authenticates `caller()` against the
+author's declared token allowlist *before* user code runs, and a
+receiver marked `REENTRANT` is a build error.
 
 One normative integrator rule remains: a contract that calls
 `transfer_call` must itself follow checks-effects-interactions,
@@ -292,11 +292,11 @@ Typed-storage layout (slots host-derived as
 | Field | Shape | Written by |
 |---|---|---|
 | `token_name`, `token_symbol`, `token_decimals` | scalars | init only |
-| `total_supply`, `max_supply` | `u128` scalars | **mint/burn only — never the transfer path** |
+| `total_supply`, `max_supply` | `u128` scalars | **mint/burn only, never the transfer path** |
 | `balances` | `map<address → u128>` | transfer paths (exactly the two parties' slots) |
 | `allowance_amounts` / `allowance_expiries` | sibling `map<(address, address)>` → `u128` / `u64` | approval family + `transfer_from` |
 | `minter`, `manager`, `freezer` | address scalars | role ops only |
-| `frozen` | `map<address → bool>` | freeze extension only — absent otherwise |
+| `frozen` | `map<address → bool>` | freeze extension only; absent otherwise |
 | `registered` | `map<address → u128 bond>` | registration extension only |
 
 Consequences:
@@ -304,13 +304,13 @@ Consequences:
 - **Conflict-free transfers.** Under Block-STM, conflicts are per
   storage slot. Two transfers between disjoint parties touch disjoint
   slots and commute. No supply cell, fee sink, or counter is written
-  on transfer — the hot-shared-cell mistake other chains spent years
-  retrofitting away is excluded at genesis. Generation also emits
+  on transfer, so the hot-shared-cell mistake other chains spent
+  years retrofitting away is excluded at genesis. Generation also emits
   correct per-function access lists (the prefetch hint humans get
   wrong).
 - **Slot-computable balances.** The schema is canonical, so any
   wallet or light client derives the slot for `(token, holder)` and
-  reads — or Merkle-proves — a balance directly from state, no
+  reads (or Merkle-proves) a balance directly from state, no
   contract call, no indexer.
 - **Never-held vs zero.** `SLOAD_MISSING` is distinguishable from an
   explicit zero, so holder-set membership is knowable.
@@ -319,15 +319,16 @@ Events (Borsh data payloads; `topic0 = Blake3(signature)`):
 
 | Event | Indexed | Data | Notes |
 |---|---|---|---|
-| `Transfer(address,address,uint128)` | `from`, `to` | `{amount}` | Mint: `from = ZERO`. Burn: `to = ZERO`. One family carries all supply accounting. The signature is byte-identical to the pre-PTS example — existing subscriptions survive. The 4th topic is **reserved** for a pts-f/2 additive extension. |
+| `Transfer(address,address,uint128)` | `from`, `to` | `{amount}` | Mint: `from = ZERO`. Burn: `to = ZERO`. One family carries all supply accounting. The signature is byte-identical to the pre-PTS example, so existing subscriptions survive. The 4th topic is **reserved** for a pts-f/2 additive extension. |
 | `Approval(address,address,uint128,uint64)` | `owner`, `spender` | `{remaining, expiry_wave}` | absolute post-state on every explicit allowance mutation |
 | `RoleTransfer(bytes32,address,address)` | `role`, `new` | `{previous}` | `role` is a precomputed 32-byte identifier (`Blake3("minter")`, …); renounce is publicly provable as `new = ZERO` |
-| `Freeze(address,bool)` / `Registration(address,bool,uint128)` | account | — | extensions only |
+| `Freeze(address,bool)` / `Registration(address,bool,uint128)` | account | n/a | extensions only |
 
 A wallet enumerates holdings with one `pyde_getLogs` scan
 (`topic0 = Transfer-sig`, `topic2 = my address`), shape-checks each
 candidate's `pyde.abi`, reads metadata with free views, and resolves
-the registered chain-side name — no third-party indexer in the loop.
+the registered chain-side name, with no third-party indexer in the
+loop.
 
 ## 10. Supply, control, and the consent rule
 
@@ -336,37 +337,37 @@ zeroing. The consent rule is the anti-rug property: **capabilities
 are declared in the manifest at creation, baked into the artifact's
 ABI forever, and never retroactively enableable.** If the manifest
 said `freeze = false`, the freeze code does not exist in the deployed
-bytes — a wallet proves "this token can never freeze me" by reading
-the artifact.
+bytes, so a wallet proves "this token can never freeze me" by
+reading the artifact.
 
-- `minter` — mints up to `max_supply`; `"none"` strips the code.
-- `manager` — rotates roles and custodies `metadata_uri`; renouncing
+- `minter`: mints up to `max_supply`; `"none"` strips the code.
+- `manager`: rotates roles and custodies `metadata_uri`; renouncing
   freezes governance permanently.
-- `freezer` *(extension)* — per-account freeze/unfreeze, atomic in
+- `freezer` *(extension)*: per-account freeze/unfreeze, atomic in
   one transaction.
-- `pauser` *(extension)* — a global incident brake (`set_paused`),
+- `pauser` *(extension)*: a global incident brake (`set_paused`),
   separate role, for live-drain response; per-account freeze and
   global pause are distinct statutory needs.
-- **Registration** *(extension, `"required"` mode)* — opt-in
-  receiving: transfers to unregistered accounts revert;
+- **Registration** *(extension, `"required"` mode)*: opt-in
+  receiving. Transfers to unregistered accounts revert;
   `register()` escrows a small native-quanta bond, returned on
   `deregister()`. This is the anti-dust knob, and it is the issuer's
-  declared, machine-readable choice — default `"open"` because opt-in
-  kills airdrop UX. `register()` is the one payable function in the
+  declared, machine-readable choice, with default `"open"` because
+  opt-in kills airdrop UX. `register()` is the one payable function in the
   standard and is specified **revert-free by construction**
   (idempotent double-registration, validation before any failure
   path) so bonding stays predictable and atomic for wallets and
   integrators.
 - **Upgradeability**: token code is immutable. Issuers wanting
   upgrade paths use the delegate-call proxy pattern, and wallets MUST
-  surface proxied tokens as loudly as freeze/mint flags — a proxy can
+  surface proxied tokens as loudly as freeze/mint flags: a proxy can
   swap semantics, and it is the one hole static conformance cannot
   close.
 
 ## 11. Custom logic lives beside the token
 
 A PTS token contains exactly the generated surface. Vesting,
-staking, governance, fee logic — all of it is an ordinary
+staking, governance, fee logic: all of it is an ordinary
 `type = "contract"` **companion** in the same workspace, holding and
 moving tokens through the same standard surface every integrator
 uses:
@@ -386,13 +387,13 @@ This line is what keeps the reproducibility guarantee universal and
 makes "a conformant token cannot contain a drain function" a literal
 truth rather than a flagged-extras caveat. Needs that genuinely
 belong inside the token enter as declared, generated, audited
-`pts-f/2` extensions — never as author code.
+`pts-f/2` extensions, never as author code.
 
 ## 12. The non-fungible surface (pts-n/1)
 
 Same philosophy, per-id state:
 
-- Storage: `owners: map<u64 → address>` (per-id slot — transfers of
+- Storage: `owners: map<u64 → address>` (per-id slot; transfers of
   distinct ids never conflict), `balances: map<address → u64>`,
   `token_approval: map<u64 → address>` (cleared atomically on
   transfer), `operators: map<(address, address) → bool>`,
@@ -408,7 +409,7 @@ Same philosophy, per-id state:
   `ApprovalForAll`.
 - Deliberate exclusions: **no royalties in the spec** (a decade of
   evidence says an interface cannot enforce economics against
-  adversarial marketplaces — royalties are marketplace policy), **no
+  adversarial marketplaces; royalties are marketplace policy), **no
   fused fungible/NFT type** ever.
 - Honest v1 cost: sequential `next_id` is a hot slot that serializes
   mass mints; a pre-partitioned id-range extension is sketched for
@@ -418,11 +419,11 @@ Same philosophy, per-id state:
 
 Two mechanical checks, no interface-probing handshake:
 
-1. **Shape check** — `otigen verify --standard pts-f <address|bundle>`
+1. **Shape check**: `otigen verify --standard pts-f <address|bundle>`
    validates the deployed artifact's functions, attribute bits,
    parameter types, events, and state schema against the frozen
    `pts-f/1` shape and its byte-level conformance vectors.
-2. **Reproducible build** — rebuild the manifest, compare bytes.
+2. **Reproducible build**: rebuild the manifest, compare bytes.
    Because tokens are config-only and generated from one canonical
    implementation, equality is expected, not hoped for.
 
@@ -437,22 +438,22 @@ pinned before `pts-f/1` freezes.
 |---|---|
 | `permit` / off-chain approval signatures | became the top phishing vector where introduced; platform sponsorship + commit-reveal + session keys cover the legitimate needs |
 | sender hooks / mandatory recipient hooks | the costliest exploit mechanism in token history; notification is opt-in and post-settlement |
-| fee-on-transfer, rebasing, reflection | the "weird token" pathologies that break integrator invariants — excluded by the config-only rule |
+| fee-on-transfer, rebasing, reflection | the "weird token" pathologies that break integrator invariants; excluded by the config-only rule |
 | royalties (PTS-N) | interfaces cannot enforce economics; marketplace policy |
 | fused fungible/NFT | violates both parents' invariants; unrepresentable under a scalar `standard` |
 | `ContractType::Token` engine variant | the chain stays token-ignorant; token-ness is an ABI shape |
 
 ## 15. Rollout
 
-1. **Reference implementations** — `fungible-token` and `nft-token`
+1. **Reference implementations**: `fungible-token` and `nft-token`
    examples implementing the pts-f/1 and pts-n/1 surfaces on today's
    toolchain, plus updated AMM/marketplace integrations as reference
    receivers.
-2. **PIP-0005** — the normative spec with conformance vectors and the
+2. **PIP-0005**: the normative spec with conformance vectors and the
    malicious-receiver battery.
-3. **Manifest generation** — `type = "token"` in otigen from one
+3. **Manifest generation**: `type = "token"` in otigen from one
    canonical implementation; `otigen verify --standard`; playground
    templates that start from a manifest, not copied token code.
-4. **Reserved pts-f/2** — the FALCON one-shot payment authorization
+4. **Reserved pts-f/2**: the FALCON one-shot payment authorization
    and the fourth `Transfer` topic, shaped now because the ABI
    compatibility ratchet makes them unpurchasable later.

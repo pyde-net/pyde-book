@@ -88,7 +88,7 @@ by design.
 ### Hard fork (consensus-incompatible)
 
 A hard fork is a change that nodes running the old rules cannot accept
-under any circumstances — e.g., a new gas cost, a new transaction type
+under any circumstances: e.g., a new gas cost, a new transaction type
 the old code doesn't recognize, a change to the signature scheme.
 
 For a hard fork:
@@ -102,7 +102,7 @@ For a hard fork:
 
 ### Soft fork (backward-compatible)
 
-A soft fork tightens the rules — old nodes still accept the new rules
+A soft fork tightens the rules: old nodes still accept the new rules
 (they're a subset of what the old node would accept), but new nodes won't
 accept blocks that violate the new rules.
 
@@ -116,9 +116,9 @@ For a soft fork:
 
 ### Simple non-fork
 
-Changes that don't alter consensus semantics — e.g., a new RPC method, a
-performance optimization, a logging fix — ship in regular releases without
-any activation block. Operators upgrade at their own pace.
+Changes that don't alter consensus semantics (e.g., a new RPC method, a
+performance optimization, a logging fix) ship in regular releases
+without any activation block. Operators upgrade at their own pace.
 
 ---
 
@@ -157,7 +157,7 @@ Changing any of these requires a release + voluntary upgrade.
 | Emergency pause       | `EmergencyPause` (type 11)                  |
 | Resume from pause     | `EmergencyResume` (type 12)                 |
 
-These are bounded actions — drain treasury (with PIP linkage), rotate
+These are bounded actions: drain treasury (with PIP linkage), rotate
 signers, halt for ≤ 30 days, resume. They cannot change protocol rules.
 
 ### Operator-side
@@ -176,7 +176,7 @@ Operators control these per-node; they don't require coordination.
 
 ## 18.5 Emergency Pause as Crisis Response
 
-`EmergencyPause` (type 11) is **not** a normal upgrade mechanism — it's a
+`EmergencyPause` (type 11) is **not** a normal upgrade mechanism: it's a
 crisis-response tool. The signer set should be specifically chosen for
 crisis response (core devs + security team), with a low threshold so a
 quick response is possible.
@@ -194,10 +194,10 @@ t+24h     Validator operators upgrade to the patched release
 ```
 
 The 30-day max pause window (`MAX_PAUSE_DURATION_WAVES`) is a hard
-ceiling — no extension mechanism. If an issue genuinely requires longer
-than 30 days to fix, the chain restarts via genesis adjustment plus
-voluntary validator upgrade — a much heavier process designed for the
-"this can't be fixed in one pause window" case.
+ceiling, with no extension mechanism. If an issue genuinely requires
+longer than 30 days to fix, the chain restarts via genesis adjustment
+plus voluntary validator upgrade, a much heavier process designed for
+the "this can't be fixed in one pause window" case.
 
 ---
 
@@ -262,7 +262,7 @@ gradually.
 
 ## 18.7 Versioning Discipline
 
-The Pyde release cadence is **release-based, not block-based** — releases
+The Pyde release cadence is **release-based, not block-based**: releases
 ship when ready, not on a fixed schedule. Each release has a semver-style
 version (e.g., `0.4.2`).
 
@@ -277,7 +277,7 @@ version (e.g., `0.4.2`).
 
 The binary embeds the wire-format version (`EVIDENCE_VERSION = 1` for
 slashing evidence, `MULTISIG_VERSION = 0x01` for multisig payloads). If
-either is bumped, that's a hard fork — the deserializer rejects unknown
+either is bumped, that's a hard fork: the deserializer rejects unknown
 versions.
 
 ---
@@ -299,7 +299,7 @@ T+1 week:   Old releases marked deprecated.
 ```
 
 The "80% signaling threshold" is a social norm, not a protocol enforced
-threshold. The protocol-enforced threshold is 2f+1 = 85 of 128 — but
+threshold. The protocol-enforced threshold is 2f+1 = 85 of 128, but
 shipping at exactly 85 is brittle: a single validator going offline
 mid-flight drops the network below quorum. 80%+ as a social coordination
 target gives margin above the protocol minimum.
@@ -369,6 +369,6 @@ plutocratic-vote attack surface.
 | On-chain validator-upgrade signal | None (out-of-band tracking)         |
 | Automatic rollback             | None (re-release path)                  |
 
-The next chapter covers the launch strategy — the ten-phase mainnet plan,
+The next chapter covers the launch strategy: the ten-phase mainnet plan,
 the testnet milestones, and the audit + incentivized testnet
 requirements before mainnet genesis.

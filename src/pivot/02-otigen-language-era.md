@@ -1,6 +1,6 @@
 # 02. The Otigen Language Era
 
-The second large pivot Pyde went through was the retirement of the custom execution stack — language, VM, AOT, toolchain — in favor of WebAssembly via wasmtime. This document summarizes what we built in the Otigen-language era, why we built it that way, what we learned, and where the original material lives.
+The second large pivot Pyde went through was the retirement of the custom execution stack (language, VM, AOT, toolchain) in favor of WebAssembly via wasmtime. This document summarizes what we built in the Otigen-language era, why we built it that way, what we learned, and where the original material lives.
 
 ## What we built
 
@@ -13,7 +13,7 @@ A complete custom execution stack for Pyde, four interlocking components:
 - Reentrancy blocked by default; opt-in via the `#[reentrant]` attribute.
 - Checked arithmetic by default; wrapping operations explicit.
 - Typed storage via the `storage { ... }` block.
-- No `tx.origin` — the language did not expose it.
+- No `tx.origin`: the language did not expose it.
 - `#[view]` / `#[payable]` / `#[constructor]` function attributes.
 - Compile-time access-list inference for the parallel scheduler.
 - 4-byte function selectors derived from signature hashes.
@@ -43,7 +43,7 @@ Project-level CLI (init, build, test, deploy, wallet, console) analogous to Foun
 
 ## Why we built it that way
 
-The original argument: Pyde was going to be opinionated about every layer (consensus, cryptography, state, MEV protection), so the language layer should be opinionated too. Otigen would be designed from day one around Pyde's semantics — encryption-aware, threshold-decryption-friendly, nonce-window-native, with tight gas accounting and a clean compilation target.
+The original argument: Pyde was going to be opinionated about every layer (consensus, cryptography, state, MEV protection), so the language layer should be opinionated too. Otigen would be designed from day one around Pyde's semantics: encryption-aware, threshold-decryption-friendly, nonce-window-native, with tight gas accounting and a clean compilation target.
 
 The constraints we wanted the language to address:
 
@@ -77,7 +77,7 @@ Two things, accumulating over time:
 
 ### One: the maintenance commitment was not one-shot
 
-Building a language is a permanent commitment, not a one-time deliverable. Toolchain churn (Cranelift API updates breaking the AOT), feature requests from authors, security advisories, fuzzing, audit prep, documentation, IDE support — all of it had to be sustained continuously. The language was a parallel track of work that competed with the rest of the protocol for attention.
+Building a language is a permanent commitment, not a one-time deliverable. Toolchain churn (Cranelift API updates breaking the AOT), feature requests from authors, security advisories, fuzzing, audit prep, documentation, IDE support: all of it had to be sustained continuously. The language was a parallel track of work that competed with the rest of the protocol for attention.
 
 ### Two: the speed argument did not hold
 
@@ -97,7 +97,7 @@ Measured numbers from the existing PVM stack on commodity hardware:
 | DEX swap | ~27M swaps/sec | ~100M swaps/sec | 3.7× |
 | Token transfer | ~231K tps | ~243K tps | 1.05× (storage-bound) |
 
-Token transfer — the canonical real-world workload — showed no meaningful AOT advantage because RocksDB IO dominates. WASM-AOT sits in the same range as PVM-AOT on the same backend. The custom VM was not faster on the workloads that matter.
+Token transfer, the canonical real-world workload, showed no meaningful AOT advantage because RocksDB IO dominates. WASM-AOT sits in the same range as PVM-AOT on the same backend. The custom VM was not faster on the workloads that matter.
 
 ## What we learned
 
@@ -107,7 +107,7 @@ The lessons that survived the pivot intact, expressed now in the WASM-era archit
 
 2. **Sandboxing, determinism, gas semantics matter.** All three. The WASM execution layer enforces them via wasmtime's feature-flag config, fuel-based metering, and deploy-time validation. The Otigen-era discipline about these properties carried forward.
 
-3. **Author safety is a property of host functions, not language syntax.** Reentrancy guards, checked arithmetic, type-safe storage access — all of these can be expressed as patterns in the WASM host-function ABI and the binding generators, without requiring authors to learn a new language. The current `otigen` toolchain (the binary; same name, new role) emits language-specific bindings that preserve these guarantees in Rust, AssemblyScript, Go, and C.
+3. **Author safety is a property of host functions, not language syntax.** Reentrancy guards, checked arithmetic, type-safe storage access: all of these can be expressed as patterns in the WASM host-function ABI and the binding generators, without requiring authors to learn a new language. The current `otigen` toolchain (the binary; same name, new role) emits language-specific bindings that preserve these guarantees in Rust, AssemblyScript, Go, and C.
 
 4. **Compile-time access lists work, regardless of source language.** The current architecture preserves access-list inference (from the binding generators deriving from `otigen.toml`) as a prefetch optimization within the uniform Block-STM scheduler; the lists are now produced by the binding generators from the `otigen.toml` state schema rather than by the Otigen compiler. Same property, different surface.
 
@@ -117,22 +117,22 @@ The lessons that survived the pivot intact, expressed now in the WASM-era archit
 
 A lot, in fact:
 
-- The **safety properties** Otigen aimed for — reentrancy guards, checked arithmetic, typed storage, no `tx.origin` — are preserved in the host-function ABI and the binding generators.
+- The **safety properties** Otigen aimed for (reentrancy guards, checked arithmetic, typed storage, no `tx.origin`) are preserved in the host-function ABI and the binding generators.
 - The **compile-time access-list inference** is preserved (now produced by the binding generators from `otigen.toml`). It now functions as a prefetch optimization in the uniform Block-STM scheduler rather than a scheduling mechanism; the lists are never used to partition execution.
 - The **state model** (JMT, PIP-2 clustering, dual-hash) was already architecturally separate from the VM; no changes needed.
 - The **wave model**, **gas accounting**, **threshold encryption**, and all the consensus-side properties were preserved without change.
-- The **otigen name** itself — repurposed for the developer toolchain, where it now describes the role of "making the ergonomics layer feel coherent and opinionated."
+- The **otigen name** itself, repurposed for the developer toolchain, where it now describes the role of "making the ergonomics layer feel coherent and opinionated."
 
 The pivot was localized to the VM and the language. Everything around it stayed.
 
 ## Where the original material lives
 
-- **The otigen-book** — the canonical reference for the Otigen language. Preserved as a published historical artifact at `pyde-net/otigen-book` with a pivot-notice preface explaining the current status.
-- **otic compiler source** — `pyde-net/otic` repo, archived (read-only).
-- **wright toolchain source** — `pyde-net/wright` repo, archived (read-only).
-- **pyde-vm and pyde-aot crate source** — `archive/crates/pvm/` and `archive/crates/aot/` in the umbrella repo, preserved with git history.
-- **Original Otigen-era documentation** — `archive/` more broadly contains the pre-pivot READMEs, design notes, and benchmark plans.
-- **Benchmark numbers** — see the bench files in `archive/crates/pvm/benches/` and `archive/crates/aot/benches/`. The numbers used in this document and in the preface were captured by running those benchmarks one final time before archival.
+- **The otigen-book**: the canonical reference for the Otigen language. Preserved as a published historical artifact at `pyde-net/otigen-book` with a pivot-notice preface explaining the current status.
+- **otic compiler source**: `pyde-net/otic` repo, archived (read-only).
+- **wright toolchain source**: `pyde-net/wright` repo, archived (read-only).
+- **pyde-vm and pyde-aot crate source**: `archive/crates/pvm/` and `archive/crates/aot/` in the umbrella repo, preserved with git history.
+- **Original Otigen-era documentation**: `archive/` more broadly contains the pre-pivot READMEs, design notes, and benchmark plans.
+- **Benchmark numbers**: see the bench files in `archive/crates/pvm/benches/` and `archive/crates/aot/benches/`. The numbers used in this document and in the preface were captured by running those benchmarks one final time before archival.
 
 ## Reading on
 

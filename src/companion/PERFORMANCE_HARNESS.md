@@ -87,33 +87,36 @@ Concrete workloads:
 - Real FALCON sig generation (not pre-computed)
 - Real Blake3 commitments + two-phase commit/reveal (not pre-computed)
 - Variable tx sizes (not all minimum)
-- Account hot-spotting (some accounts get more traffic — tests parallel execution)
+- Account hot-spotting (some accounts get more traffic, which tests
+  parallel execution)
 
 ## Metrics Collected (Continuous)
 
 ### TPS Metrics
-- `tps_sustained` — average over last 60s
-- `tps_burst` — peak sustained over 10s
-- `tps_pending` — txs in mempool / queued
+- `tps_sustained`: average over last 60s
+- `tps_burst`: peak sustained over 10s
+- `tps_pending`: txs in mempool / queued
 
 ### Latency Metrics (Percentiles p50, p90, p99, p99.9)
-- `tx_submission_to_finality` — end-to-end
-- `tx_in_batch_latency` — submit → in batch
-- `batch_to_vertex_latency` — batch → referenced by vertex
-- `vertex_to_commit_latency` — vertex → commit
-- `commit_to_execution_latency` — commit → wasmtime executed
-- `reveal_resolution_latency` — reveal committed → commitment matched + inner tx slotted
-- `commit_to_reveal_waves` — waves elapsed between a Commit and its Reveal (bounded by the 120-wave window)
+- `tx_submission_to_finality`: end-to-end
+- `tx_in_batch_latency`: submit → in batch
+- `batch_to_vertex_latency`: batch → referenced by vertex
+- `vertex_to_commit_latency`: vertex → commit
+- `commit_to_execution_latency`: commit → wasmtime executed
+- `reveal_resolution_latency`: reveal committed → commitment matched +
+  inner tx slotted
+- `commit_to_reveal_waves`: waves elapsed between a Commit and its
+  Reveal (bounded by the 120-wave window)
 
 ### Consensus Metrics
-- `round_advance_rate` — rounds/sec per validator
-- `vertex_certification_rate` — % of vertices that get 85+ certs
-- `commit_success_rate` — % of rounds where commit fires
-- `anchor_selection_success_rate` — % of anchors that have valid vertex
+- `round_advance_rate`: rounds/sec per validator
+- `vertex_certification_rate`: % of vertices that get 85+ certs
+- `commit_success_rate`: % of rounds where commit fires
+- `anchor_selection_success_rate`: % of anchors that have valid vertex
 
 ### Resource Utilization (Per Validator)
-- `cpu_usage_pct` — total CPU
-- `cpu_per_subsystem` — consensus / wasmtime / network / IO
+- `cpu_usage_pct`: total CPU
+- `cpu_per_subsystem`: consensus / wasmtime / network / IO
 - `memory_resident_mb` / `memory_heap_mb`
 - `disk_read_iops` / `disk_write_iops` / `disk_used_gb`
 - `network_in_mbps` / `network_out_mbps`

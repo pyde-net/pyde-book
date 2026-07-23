@@ -20,7 +20,9 @@ The HotStuff lesson made operational: explicit halt detection → investigation 
 - <85 vertices certified for last K rounds
 - Active committee count drops below safety threshold (86)
 
-**Response:** Validators enter "stall mode" — produce vertices, wait for quorum. Mempool keeps accepting txs (queued). Auto-recover when conditions improve.
+**Response:** Validators enter "stall mode": produce vertices, wait for
+quorum. Mempool keeps accepting txs (queued). Auto-recover when
+conditions improve.
 
 ### Hard Halt (Automatic)
 
@@ -98,7 +100,7 @@ Phase 3: Recovery Plan (within 24-72 hours)
 
 ### 3. Rollback (Controversial, Severe Bugs)
 
-- Roll back to last "clean" commit (max **1 epoch back** — 3 hours)
+- Roll back to last "clean" commit (max **1 epoch back**, 3 hours)
 - Discard commits after rollback point
 - Re-execute affected txs
 - Apply slashing to bad actors

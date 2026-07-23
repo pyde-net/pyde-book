@@ -1,6 +1,6 @@
 # Public Testnet Bootstrap Runbook
 
-How the testnet's initial committee actually launches the network — from "we agreed to run a testnet" to "external operators can curl-install + join". This is the bootstrapper's side of the [Joining a Public Testnet](joining-testnet.md) flow.
+How the testnet's initial committee actually launches the network, from "we agreed to run a testnet" to "external operators can curl-install + join". This is the bootstrapper's side of the [Joining a Public Testnet](joining-testnet.md) flow.
 
 **Audience:** the operator (or small operator group) coordinating a fresh Pyde public testnet launch. If you're a downstream operator joining an already-running testnet, [Joining a Public Testnet](joining-testnet.md) is the chapter you want.
 
@@ -16,19 +16,19 @@ Decisions that need to be made BEFORE any binary runs. These are bound into the 
 |---|---|---|
 | **Chain id** | Use the [chain-id registry](https://chainlist.network) to pick an unused id. v1 Pyde testnet uses `11_155_111` (Sepolia-style sentinel) | Once tagged, every tx signed against the chain id is replay-locked to it. Reusing an existing chain id risks tx replay from another network. |
 | **Chain name** | A short kebab-case slug like `pyde-testnet-1` | Surfaced in `pyde_getNodeInfo`, in operator banners, and in the release notes |
-| **Committee size** | 4–7 for the first testnet | Too small = small-cluster mesh fragility (use #313 `small_cluster_mesh: true`); too large = coordination overhead during bootstrap. Production target is 128. |
+| **Committee size** | 4 to 7 for the first testnet | Too small = small-cluster mesh fragility (use #313 `small_cluster_mesh: true`); too large = coordination overhead during bootstrap. Production target is 128. |
 | **Epoch length** | 100 waves at first | Drop to `10` or `5` during smoke tests; production-shape is `100`. |
 | **Dispute window** | 6 epochs | Default. Tightens to 3-4 for high-tempo testnets if you want faster slashing finality. |
 | **Genesis timestamp** | Now (`date +%s`) | The chain doesn't care about wall-clock past genesis; operators do for "when did this testnet start." |
 | **Initial prefund accounts** | Every committee operator address + ~20 dev accounts | The dev accounts let the faucet, the bootstrap-side soak-test runs, and downstream contract authors have funded EOAs without each begging for transfers. |
 
-Once these are locked, every committee member needs to know them — they all bind into the genesis manifest's chain-identity hash and must match byte-for-byte.
+Once these are locked, every committee member needs to know them: they all bind into the genesis manifest's chain-identity hash and must match byte-for-byte.
 
 ---
 
 ## 2. Generate the committee keypairs
 
-Each committee operator generates their own FALCON-512 keypair offline. **Never centralise this step** — the bootstrap operator does NOT generate keys on behalf of others; only the operator who controls a key knows the password.
+Each committee operator generates their own FALCON-512 keypair offline. **Never centralise this step**: the bootstrap operator does NOT generate keys on behalf of others; only the operator who controls a key knows the password.
 
 On each committee member's machine:
 
@@ -48,7 +48,7 @@ pyde keys inspect ./falcon-${OPERATOR_NAME}.keypair
 
 The operator sends only the `.pub` file (the 897-byte hex pubkey) + the derived validator address to the bootstrap coordinator. **Never the keypair file itself + never the passphrase.**
 
-Each operator also generates a libp2p Ed25519 keypair — `pyde validator` does this automatically on first boot if `--keypair` points at a non-existent path. The bootstrap operator needs the libp2p PeerId from each committee member too, since those go into the published bootnodes list. The PeerId is derived from the libp2p keypair on first boot; the operator extracts + sends it:
+Each operator also generates a libp2p Ed25519 keypair. `pyde validator` does this automatically on first boot if `--keypair` points at a non-existent path. The bootstrap operator needs the libp2p PeerId from each committee member too, since those go into the published bootnodes list. The PeerId is derived from the libp2p keypair on first boot; the operator extracts + sends it:
 
 ```bash
 # After first validator boot (which generates the keypair):
@@ -97,7 +97,7 @@ committee:      7 founding validators
 prefund:        27 accounts
 ```
 
-**Distribute the genesis.toml + chain_identity hash to every committee member out-of-band.** Email, Signal, encrypted Slack — whatever the bootstrap group already uses. Every member must boot against the same file. The chain_identity hash is what they verify against once they've downloaded.
+**Distribute the genesis.toml + chain_identity hash to every committee member out-of-band.** Email, Signal, encrypted Slack, whatever the bootstrap group already uses. Every member must boot against the same file. The chain_identity hash is what they verify against once they've downloaded.
 
 ---
 
@@ -105,7 +105,7 @@ prefund:        27 accounts
 
 A bootnode is just a `pyde validator` with a **stable, publicly reachable libp2p address**. New operators dial bootnodes on first boot; once the gossipsub mesh forms, gossip finds the rest of the network.
 
-Convention: every committee member runs as a bootnode for the first ~30 days of testnet life. After that the bootstrap operator can prune to 3–5 stable ones.
+Convention: every committee member runs as a bootnode for the first ~30 days of testnet life. After that the bootstrap operator can prune to 3 to 5 stable ones.
 
 `bootnodes.txt`:
 
@@ -227,7 +227,7 @@ When the chain commits its first wave, the testnet is alive.
 
 At this point downstream operators can follow [Joining a Public Testnet](joining-testnet.md). The bootstrap operator's remaining responsibilities:
 
-- **Run a public state-sync RPC endpoint**: at least one committee validator exposes `--rpc-listen 0.0.0.0:9933` behind TLS termination + rate limiting so downstream operators can `--state-sync https://state-sync.testnet.pyde.network`. Don't expose the raw RPC port — there's no auth on `pyde_sendRawTransaction`.
+- **Run a public state-sync RPC endpoint**: at least one committee validator exposes `--rpc-listen 0.0.0.0:9933` behind TLS termination + rate limiting so downstream operators can `--state-sync https://state-sync.testnet.pyde.network`. Don't expose the raw RPC port: there's no auth on `pyde_sendRawTransaction`.
 - **Publish checkpoint refreshes weekly**: re-mint `checkpoint.txt` from a current validator + upload to the latest release.
 - **Watch the alerts**: set up Prometheus + the [shipped alert rules](operations.md#2-set-up-monitoring) so the bootstrap operator notices when the chain halts before downstream operators do.
 - **Coordinate hard upgrades**: when the engine releases a chain-breaking change, the bootstrap operator decides whether to re-tag, re-mint genesis, and coordinate a re-bootstrap or whether the change is backwards-compatible.
@@ -255,13 +255,13 @@ Test each one explicitly before announcing the testnet to the public. The dashbo
 
 If the engine ships a chain-breaking change (consensus rule change, on-disk format change, new mandatory tx field, etc.), the existing testnet's state cannot be carried forward. The bootstrap operator:
 
-1. **Announces the re-bootstrap window** — usually 1–2 weeks of notice to downstream operators.
-2. **Bumps the chain id** in the new genesis (don't reuse the old one — that risks tx replay).
+1. **Announces the re-bootstrap window**: usually 1 to 2 weeks of notice to downstream operators.
+2. **Bumps the chain id** in the new genesis (don't reuse the old one: that risks tx replay).
 3. **Re-runs §§ 3 → 7** with the new release tag (`v0.1.0-testnet.2`, etc.).
 4. **Marks the old release** as superseded on the mirror; doesn't delete it (downstream operators may need to compare).
 5. **Updates the testnet docs** with the new chain id + release tag.
 
-The first 3–6 months of any new chain typically see 1–3 re-bootstraps. Plan for it.
+The first 3 to 6 months of any new chain typically see 1 to 3 re-bootstraps. Plan for it.
 
 ---
 

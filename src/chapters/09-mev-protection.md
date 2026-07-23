@@ -10,12 +10,12 @@ relies on someone who can see your transaction before it lands.
 Pyde does not mitigate MEV. It removes the mechanism by which it is
 expressible. This chapter walks through the four interlocking pieces that
 make front-running, sandwich attacks, JIT liquidity sniping, and ordering
-bribery infeasible at the protocol level — not in policy, in physics.
+bribery infeasible at the protocol level: not in policy, in physics.
 
 **Post-pivot context.** The earlier HotStuff design had a single proposer
 per slot, which was both the source of and the brake on MEV. After the
 2026 pivot to Mysticeti DAG consensus, there is **no single proposer**
-to bribe or collude with — each round, every committee member produces a
+to bribe or collude with: each round, every committee member produces a
 vertex independently, and the canonical order is derived from a
 deterministically-selected anchor + commit certificate. This makes the
 MEV story even stronger: the DAG fixes transaction order *before* anyone
@@ -31,10 +31,10 @@ until the DAG has already fixed the order. The protocol supports both.
 **Keyless by design.** The private mempool holds **no** decryption key.
 There is no committee threshold key, no Kyber/ML-KEM ciphertext, no Shamir
 shares, no DKG, no decryption ceremony. Safety never depends on any
-quorum of validators declining to collude — it is unconditionally
+quorum of validators declining to collude; it is unconditionally
 trustless. The only cryptography involved is Blake3 hashing and FALCON
-signatures, both post-quantum. (A one-shot *ciphertext* private mempool —
-"Threshold-LWE" — remains a v2+ research direction, documented in
+signatures, both post-quantum. (A one-shot *ciphertext* private mempool,
+"Threshold-LWE", remains a v2+ research direction, documented in
 [Chapter 20](20-future-direction.md); it would be an optional lane
 *alongside* commit-reveal, gated on a trustless PQ threshold-keygen
 breakthrough. It is not how Pyde works today.)
@@ -72,20 +72,20 @@ before a large swap, withdraw immediately after), liquidation sniping
 ### Why mitigation isn't enough
 
 Every "mitigation" approach in production today shares one defect: at least
-one party — a builder, a relay, a private-mempool operator — can see your
+one party (a builder, a relay, a private-mempool operator) can see your
 transaction before its position in the block is final.
 
 | Approach            | Who still sees the tx                        |
 | ------------------- | -------------------------------------------- |
 | PBS / MEV-Boost     | Builders + relays                            |
 | Fair ordering       | Network observers (latency-exploitable)      |
-| Batch auctions      | Solver (and only fixes one tx type — swaps)  |
+| Batch auctions      | Solver (and only fixes one tx type: swaps)   |
 | Custodial priv pool | Operator still sees                          |
-| Naive commit-reveal | Order not fixed at commit time — reorderable |
+| Naive commit-reveal | Order not fixed at commit time, so reorderable |
 
 The common thread: as long as anyone can read your transaction *before*
 its position is final, MEV extraction is possible. Naive commit-reveal
-schemes fail because the ordering is chosen *after* reveal — the party who
+schemes fail because the ordering is chosen *after* reveal: the party who
 orders reveals can still reorder them.
 
 Pyde's choice closes the gap the other way around: fix the order
@@ -138,7 +138,7 @@ Layer 4: NO TIPS, NO PRIORITY FEES
 Each layer closes attacks the others alone could not. Removing any one
 re-opens a class of MEV. Note that Layers 1 and 2 are the crux: content is
 hidden until *after* the DAG has committed the order, so the two
-capabilities MEV requires — reading content and choosing position — never
+capabilities MEV requires (reading content and choosing position) never
 coexist in any actor at any moment.
 
 ---
@@ -148,7 +148,7 @@ coexist in any actor at any moment.
 The private mempool is a two-phase lane. A user first publishes a
 **Commit** that binds them to a hidden inner transaction; later, a
 **Reveal** discloses that inner transaction for execution. Because the
-commitment is a Blake3 hash — not a ciphertext — there is no key anywhere
+commitment is a Blake3 hash, not a ciphertext, there is no key anywhere
 in the system that could decrypt it. The content is unreadable until the
 reveal, full stop.
 
@@ -167,7 +167,7 @@ reinterpreted as another kind of hash.
 
 ### The two transaction types
 
-**Commit — `TxType 0x11`**
+**Commit: `TxType 0x11`**
 
 ```
 to     = ZERO address
@@ -178,7 +178,7 @@ data   = borsh(CommitPayload {
          })
 ```
 
-**Reveal — `TxType 0x12`**
+**Reveal: `TxType 0x12`**
 
 ```
 to     = ZERO address
@@ -196,7 +196,7 @@ equals the `commitment` of a previously-committed, still-open Commit. If
 it matches, the inner transaction is scheduled for execution at that
 commit's fixed order.
 
-**Anyone may reveal.** The Reveal need not come from the committer — its
+**Anyone may reveal.** The Reveal need not come from the committer: its
 validity is purely the hash match, not the sender. This matters for
 liveness: if the committer goes offline after committing, any party
 (including an altruistic relay or the counterparty) can still push the
@@ -215,7 +215,7 @@ required_bond(value_ceiling) = max( MIN_COMMIT_BOND,  value_ceiling * 1% )
 ```
 
 - **Refunded** in full when the Reveal is accepted within the window.
-- **Burned** on abandonment — if the commit expires with no valid reveal.
+- **Burned** on abandonment (if the commit expires with no valid reveal).
 
 The bond makes commit-spam economically pointless: a flood of commits that
 are never revealed simply burns the attacker's PYDE. The 1% ceiling ties
@@ -231,7 +231,7 @@ COMMIT_REVEAL_WINDOW_WAVES = 120
 The Reveal must land within **120 waves** of the Commit's inclusion wave.
 If no valid reveal arrives in that window, the commit **expires**: the
 inner transaction never executes and the bond is forfeit (burned). The
-window is a view predicate — every node independently computes expiry from
+window is a view predicate: every node independently computes expiry from
 the commit's inclusion wave, so there is no ambiguity about whether a late
 reveal is still valid.
 
@@ -250,7 +250,7 @@ Pyde private mempool (what an observer scrapes):
 The observer learns *who* committed, an *upper bound* on the value each is
 moving (`value_ceiling`), and the bond. They learn **nothing** about the
 target contract, the swap direction, the size, the token pair, or the
-slippage tolerance — those live inside `inner_tx`, behind the Blake3
+slippage tolerance: those live inside `inner_tx`, behind the Blake3
 commitment. There is no attack bundle to construct, because there is no
 readable intent to attack.
 
@@ -267,7 +267,7 @@ to all transaction types:
 
 Each sender has a `SenderQuota` tracking a timestamp deque + concurrent
 count; an `add()` past the limit returns `MempoolError::RateLimited`. The
-Commit is a normal signed transaction — its FALCON signature binds it to
+Commit is a normal signed transaction: its FALCON signature binds it to
 exactly one sender, so rate limits and bond attribution are unambiguous.
 
 ---
@@ -276,12 +276,12 @@ exactly one sender, so rate limits and bond attribution are unambiguous.
 
 This is the mechanism that actually defeats MEV. In the post-pivot DAG
 architecture, ordering and revelation are **structurally** separated in
-time — and, crucially, ordering happens *first*.
+time, and, crucially, ordering happens *first*.
 
 1. **Commit wave.** A `Commit` (0x11) lands in the DAG like any other
    transaction. The committed subdag traversal assigns it a **canonical
    position** among all transactions in that wave. That position is now
-   fixed — a deterministic function of vertices already in the DAG. At
+   fixed: a deterministic function of vertices already in the DAG. At
    this moment nobody, including validators, knows what the inner
    transaction does; they only hold its Blake3 commitment.
 
@@ -291,7 +291,7 @@ time — and, crucially, ordering happens *first*.
 
 3. **Resolution pass.** In the reveal wave's resolution pass, all inner
    transactions whose reveals have arrived are executed **in commit
-   order** — the DAG-sequenced order of their original *commits* — not in
+   order** (the DAG-sequenced order of their original *commits*), not in
    the order the reveals happened to arrive. Reveal arrival order is
    irrelevant; it cannot change execution order.
 
@@ -303,7 +303,7 @@ Reveal resolution: inner_A, inner_B, inner_C execute in COMMIT order A < B < C
 ```
 
 The critical property: **the order is fixed at commit time, before any
-content is knowable.** An adversary commits blind — they cannot see the
+content is knowable.** An adversary commits blind: they cannot see the
 content of Alice's commit, and their own position relative to hers was
 locked the instant both commits entered the DAG. By the time content is
 revealed, every position is already immutable. There is no actor who ever
@@ -313,20 +313,20 @@ those capabilities exist in non-overlapping phases.
 ### Why this is stronger than naive commit-reveal
 
 Ordinary commit-reveal schemes let whoever sequences the *reveals* pick
-their order — reintroducing exactly the reordering power they were meant
+their order, reintroducing exactly the reordering power they were meant
 to remove. Pyde does not order reveals at all. It orders **commits**, at
 commit time, via the DAG, and then binds each reveal back to its commit's
 frozen position. You don't trust any sequencer, because the sequence was
 determined by the DAG before contents could be read. No commitment
-signature or reveal-ordering rule is needed — the commit order *is* the
+signature or reveal-ordering rule is needed: the commit order *is* the
 DAG order.
 
 ### Implementation
 
 The canonical subdag traversal and ordering emission live in
-`crates/consensus/src/subdag.rs`. The commit-reveal resolution pass — hash
+`crates/consensus/src/subdag.rs`. The commit-reveal resolution pass (hash
 verification, window/expiry checks, bond settlement, and in-commit-order
-scheduling — lives in `crates/mempool/src/commit_reveal.rs` and
+scheduling) lives in `crates/mempool/src/commit_reveal.rs` and
 `crates/consensus/src/wave.rs`.
 
 ---
@@ -335,7 +335,7 @@ scheduling — lives in `crates/mempool/src/commit_reveal.rs` and
 
 Under HotStuff, a single proposer could selectively omit txs, motivating
 the local-view mandatory-inclusion check. Under Mysticeti DAG, there is
-**no single proposer** — every committee member produces a vertex each
+**no single proposer**: every committee member produces a vertex each
 round, each vertex references batches from any worker the producer
 gossiped with, and every committed wave traverses the entire subdag.
 
@@ -343,7 +343,7 @@ For a transaction to be censored, **a coalition of ≥ 44 validators**
 (equivocation threshold = `n - 2f = 128 - 84 = 44`) must all refuse to
 reference the batch containing it. Below that threshold, ≥ 85 honest
 vertices reference it and it lands in some committed subdag. This applies
-equally to Commits and Reveals — an adversary cannot censor a reveal to
+equally to Commits and Reveals: an adversary cannot censor a reveal to
 force a victim's bond to expire without a coalition-scale, visible attack.
 
 ```
@@ -361,7 +361,7 @@ visible attack with multiple independent forks of evidence.
 
 For tighter guarantees on a per-vertex basis, a validator can still skip
 or down-weight a vertex that omits txs visible in its local mempool view
-for >= grace_slots. This is **defensive**, not necessary for safety —
+for >= grace_slots. This is **defensive**, not necessary for safety;
 the DAG already guarantees inclusion at the wave level. The check
 catches single-validator censorship attempts before they require coalition.
 
@@ -403,14 +403,14 @@ tips, no validator gains anything from any of them.
 ### How ordering happens
 
 Under the DAG, ordering is a deterministic function of the committed
-subdag — not a proposer choice. The subdag traversal at each commit
+subdag, not a proposer choice. The subdag traversal at each commit
 emits transactions in a canonical order derived from vertex round, member
-id, and batch sequence. No actor — proposer, validator, observer —
+id, and batch sequence. No actor (proposer, validator, observer)
 chooses positions.
 
 For sequential nonce dependencies (a sender submitting txs `n`, `n+1`, `n+2`
 in quick succession), the protocol uses the 16-slot bitmap nonce window
-(see Chapter 11) — the txs can be included in any order within the window;
+(see Chapter 11): the txs can be included in any order within the window;
 gaps are tolerated.
 
 ---
@@ -515,7 +515,7 @@ Bribing a committee validator for ordering requires:
 ```
 
 Each attack requires a conjunction of capabilities. Pyde structurally
-denies at least one element of every conjunction — and for the core
+denies at least one element of every conjunction, and for the core
 front-running/sandwich attacks, it denies the very first one: you cannot
 read what you cannot decrypt, and there is no key.
 
@@ -529,15 +529,15 @@ If no valid reveal lands within `COMMIT_REVEAL_WINDOW_WAVES = 120` waves of
 the commit's inclusion wave, the commit expires. The inner transaction
 never executes and the bond is **burned**. Because any party may submit
 the reveal, expiry generally requires that the committer *and* every party
-who could benefit from the reveal all stay silent — an unusual, and
-self-punishing, outcome. The window is a pure view predicate: every node
+who could benefit from the reveal all stay silent (an unusual, and
+self-punishing, outcome). The window is a pure view predicate: every node
 computes it identically from the commit's inclusion wave, so there is no
 disagreement about whether a late reveal is valid.
 
 ### Reveal that doesn't match its commit
 
 A Reveal whose `Blake3("pyde-commit-reveal-v1" || inner_tx || nonce)` does
-not equal any open commitment is simply invalid — it matches nothing and
+not equal any open commitment is simply invalid: it matches nothing and
 schedules nothing. It cannot bind to someone else's commit (the hash won't
 match) and cannot replay an already-resolved commit (the commit is closed).
 An invalid reveal wastes the submitter's gas and does nothing else.
@@ -545,12 +545,12 @@ An invalid reveal wastes the submitter's gas and does nothing else.
 ### Malformed / junk inner transaction
 
 A user could commit to an inner tx that reveals correctly (the hash
-matches) but is itself malformed — a bad signature, a nonce out of window,
+matches) but is itself malformed: a bad signature, a nonce out of window,
 or calldata that reverts. The reveal is accepted (hash matched, so the
 bond is refunded), but the inner tx then fails normal execution
 validation: it consumes gas and reverts, exactly as any malformed
 plaintext tx would. There is no way to hide a valid-looking reveal that
-executes to something *other* than the committed bytes — the commitment
+executes to something *other* than the committed bytes: the commitment
 binds the exact `inner_tx` byte string.
 
 ### Grinding the commitment
@@ -564,7 +564,7 @@ direction, or the exact amount.
 ### Epoch boundary transitions
 
 Commit-reveal state is ordinary chain state (open commits, their inclusion
-waves, and escrowed bonds) — it carries across epoch boundaries with the
+waves, and escrowed bonds); it carries across epoch boundaries with the
 rest of the ledger. There is **no** key material to reshare and **no**
 threshold ceremony to coordinate across a committee rotation, because the
 lane holds no key. A commit made just before an epoch boundary is revealed
@@ -573,13 +573,13 @@ window is unaffected.
 
 ### One-shot ciphertext option (future)
 
-A single-transaction *ciphertext* private mempool — where the user submits
-one encrypted transaction instead of a commit/reveal pair — is a v2+
+A single-transaction *ciphertext* private mempool (where the user submits
+one encrypted transaction instead of a commit/reveal pair) is a v2+
 research direction ("Threshold-LWE") documented in
 [Chapter 20](20-future-direction.md). It would require a trustless PQ
 threshold-keygen breakthrough (lattice public keys do not combine
 homomorphically the way BLS does), and would ship as an *optional* lane
-alongside the keyless commit-reveal default — not a replacement for it.
+alongside the keyless commit-reveal default, not a replacement for it.
 
 ---
 
@@ -588,7 +588,7 @@ alongside the keyless commit-reveal default — not a replacement for it.
 The private mempool trades one extra round-trip for MEV protection: a
 protected transaction is a Commit followed by a Reveal, versus a single
 plaintext transaction. There is **no** threshold-decryption pipeline, no
-share gossip, and no combine step — those were removed with the threshold
+share gossip, and no combine step; those were removed with the threshold
 lane.
 
 | Step                        | Cost                    | Where it lives                            |
@@ -598,7 +598,7 @@ lane.
 | Reveal inclusion (DAG)      | ~500 ms median          | `crates/consensus/src/wave.rs`            |
 | Reveal hash-match + resolve | negligible per tx       | `crates/mempool/src/commit_reveal.rs`     |
 
-A protected transaction reaches execution after its reveal wave commits —
+A protected transaction reaches execution after its reveal wave commits:
 roughly **two** DAG commits (commit wave + reveal wave) rather than one, so
 on the order of ~1 s median vs ~500 ms for plaintext, depending on how
 quickly the reveal is submitted after the commit is seen included. There is
@@ -607,8 +607,8 @@ two Blake3 hashes (commit + verify). Plaintext-only usage pays zero of this
 overhead.
 
 The wire cost is one extra transaction (the Reveal, carrying `inner_tx` +
-32-byte `nonce`) per protected transaction — no per-validator share data on
-consensus vertices.
+32-byte `nonce`) per protected transaction, with no per-validator share
+data on consensus vertices.
 
 ---
 
@@ -638,7 +638,7 @@ reveal:
 
 For a private transaction you see *who* committed and an *upper bound* on
 the value they're moving. You don't see *what* they're doing, to *which*
-contract, or the *exact* amount — until the reveal, by which point the
+contract, or the *exact* amount until the reveal, by which point the
 order is already fixed.
 
 ---
@@ -650,7 +650,7 @@ Honest about the limits:
 - **Value-ceiling leakage.** The `value_ceiling` in a Commit leaks an
   *upper bound* on the inner transaction's value (it must, to size the
   bond). A user moving a large amount reveals that they are moving *at
-  most* that much — never the exact figure, the contract, or the
+  most* that much, never the exact figure, the contract, or the
   direction. Wallets can round the ceiling up to a coarse bucket to blunt
   even this signal.
 
@@ -660,7 +660,7 @@ Honest about the limits:
 
 - **Long-run statistical profiling.** A persistent attacker who correlates
   a sender's commit cadence and value ceilings over many transactions could
-  infer coarse behavior. This is a privacy concern, not an MEV one — the
+  infer coarse behavior. This is a privacy concern, not an MEV one: the
   individual transactions are still safe from front-running, since content
   and order are both settled before content is knowable.
 
@@ -690,10 +690,10 @@ interaction of four mechanisms:
 
 The whole scheme is **keyless and unconditionally trustless**: no committee
 holds a decryption key, so safety never rests on any quorum declining to
-collude. The only cryptography is Blake3 hashing and FALCON signatures —
+collude. The only cryptography is Blake3 hashing and FALCON signatures,
 both post-quantum. Content is hidden until *after* the DAG has fixed the
-order, so the two capabilities MEV requires — reading content and choosing
-position — never coexist in any actor. MEV extraction is not
+order, so the two capabilities MEV requires (reading content and choosing
+position) never coexist in any actor. MEV extraction is not
 "discouraged"; it is unexpressible in the protocol.
 
 **v1 scope.** The keyless commit-reveal private mempool is the permanent
@@ -701,8 +701,8 @@ MEV-protection mechanism. Local-view mandatory inclusion is implemented and
 safe (a defensive backstop on top of structural DAG inclusion).
 Cryptographically aggregated mempool commitments + on-chain censorship
 slashing are tracked as post-mainnet hardening. A one-shot *ciphertext*
-private mempool (Threshold-LWE) remains v2+ research —
-see [Chapter 20](20-future-direction.md) — and would be an optional lane
+private mempool (Threshold-LWE) remains v2+ research
+(see [Chapter 20](20-future-direction.md)) and would be an optional lane
 alongside commit-reveal, not a replacement.
 
 The next chapter covers the gas and fee model that the no-tip rule sits on

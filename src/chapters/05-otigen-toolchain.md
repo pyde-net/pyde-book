@@ -1,10 +1,10 @@
 # Chapter 5: Otigen Toolchain
 
-`otigen` is Pyde's developer toolchain — a single binary that **scaffolds** projects (from a language template or canonical example), **validates** the author's WASM build, **runs behaviour tests** against the compiled `.wasm`, **generates** the ABI from `otigen.toml`, **packages** the deploy bundle, **manages FALCON-512 keystores**, and handles **on-chain lifecycle commands** (deploy, upgrade, pause, kill, inspect, verify, console).
+`otigen` is Pyde's developer toolchain: a single binary that **scaffolds** projects (from a language template or canonical example), **validates** the author's WASM build, **runs behaviour tests** against the compiled `.wasm`, **generates** the ABI from `otigen.toml`, **packages** the deploy bundle, **manages FALCON-512 keystores**, and handles **on-chain lifecycle commands** (deploy, upgrade, pause, kill, inspect, verify, console).
 
 What `otigen` deliberately does NOT do: it does not compile WASM, it does not generate code, it does not interface with any language's build pipeline. Authors run their own `cargo build` / `asc` / `tinygo build` / `clang --target=wasm32` and `otigen` checks the result. This keeps the toolchain minimal and language-agnostic, and lets authors keep their full native toolchain experience.
 
-The name carries forward from an earlier design phase, when Otigen was Pyde's domain-specific smart-contract language. The language is retired; the name now describes the role it occupies best — the lightweight verifier and packager that makes WebAssembly deployment on Pyde coherent without forcing authors out of their language ecosystems. See [The Pivot](../preface/pivot.md) for the full story.
+The name carries forward from an earlier design phase, when Otigen was Pyde's domain-specific smart-contract language. The language is retired; the name now describes the role it occupies best: the lightweight verifier and packager that makes WebAssembly deployment on Pyde coherent without forcing authors out of their language ecosystems. See [The Pivot](../preface/pivot.md) for the full story.
 
 This chapter covers the toolchain's design, the subcommand surface, the `otigen.toml` schema, the per-language workflow, build verification, attributes, deploy/upgrade, wallet, behaviour tests, and the console.
 
@@ -24,7 +24,7 @@ By default `otigen` does not compile WASM. The author runs their language's nati
 
 This keeps the toolchain minimal (no per-language compiler invocation logic to maintain) and respects the author's native toolchain.
 
-For the common iterate-on-a-contract case there is also `otigen build --compile`: an opt-in flag that runs the per-language default build command first (the same invocation the templates document + `init`'s "next:" hint prints), then proceeds with the same verify + package pipeline. Both paths produce byte-identical bundles when the inputs are equivalent — `--compile` is a UX convenience, not a different build. Authors with custom build flags continue to compile manually and call `otigen build` (no flag) afterwards; that verify-only path stays supported forever.
+For the common iterate-on-a-contract case there is also `otigen build --compile`: an opt-in flag that runs the per-language default build command first (the same invocation the templates document + `init`'s "next:" hint prints), then proceeds with the same verify + package pipeline. Both paths produce byte-identical bundles when the inputs are equivalent: `--compile` is a UX convenience, not a different build. Authors with custom build flags continue to compile manually and call `otigen build` (no flag) afterwards; that verify-only path stays supported forever.
 
 ### Zero extra code in the author's project
 
@@ -34,41 +34,41 @@ State access and host-function calls go through whatever helper pattern the auth
 
 ### Two test layers, one toolchain
 
-Pyde splits contract testing by layer. **Language-native test frameworks** (`cargo test`, `npm test`, `go test`, the author's C test harness) cover pure helpers — math, parsing, formatting — at the function-internals layer. The toolchain doesn't wrap them; authors keep their language's standard test workflow.
+Pyde splits contract testing by layer. **Language-native test frameworks** (`cargo test`, `npm test`, `go test`, the author's C test harness) cover pure helpers (math, parsing, formatting) at the function-internals layer. The toolchain doesn't wrap them; authors keep their language's standard test workflow.
 
-**`otigen test`** covers the layer above: contract *behaviour* — does `transfer` decrement the right balance, emit the right event, revert on the right input. It runs the compiled `.wasm` inside a wasmtime sandbox with mock implementations of every `pyde::*` host function declared in the [Host Function ABI](../companion/HOST_FN_ABI_SPEC.md), driven by a TOML test spec (named accounts, named storage slots, time / wave / chain cheats, multi-call sequences, named event matching, named-or-substring revert assertions). The TOML format is language-agnostic — the same `.test.toml` runs against the contract regardless of source language. Full schema and semantics: [OTIGEN_TEST_SPEC](../companion/OTIGEN_TEST_SPEC.md).
+**`otigen test`** covers the layer above, contract *behaviour*: does `transfer` decrement the right balance, emit the right event, revert on the right input. It runs the compiled `.wasm` inside a wasmtime sandbox with mock implementations of every `pyde::*` host function declared in the [Host Function ABI](../companion/HOST_FN_ABI_SPEC.md), driven by a TOML test spec (named accounts, named storage slots, time / wave / chain cheats, multi-call sequences, named event matching, named-or-substring revert assertions). The TOML format is language-agnostic: the same `.test.toml` runs against the contract regardless of source language. Full schema and semantics: [OTIGEN_TEST_SPEC](../companion/OTIGEN_TEST_SPEC.md).
 
-The split mirrors Foundry's `forge test` (behaviour) vs Rust's `cargo test` (unit) — neither subsumes the other, both shipping in one toolchain doesn't compromise the language-agnostic posture.
+The split mirrors Foundry's `forge test` (behaviour) vs Rust's `cargo test` (unit): neither subsumes the other, and both shipping in one toolchain doesn't compromise the language-agnostic posture.
 
 ### Attributes and ABI declared in otigen.toml, enforced at runtime
 
-Function attributes (`view`, `payable`, `reentrant`, `sponsored`, `constructor`, `fallback`, `receive`, `entry`) and state schema are declared in `otigen.toml`. `otigen build` reads them, builds a `ContractAbi` struct, Borsh-encodes it, and **injects it as a WASM custom section named `pyde.abi`** directly into the .wasm artifact the language compiler produced. There is no separate `abi.json` file at deploy time — the ABI travels with the code as one binary. At runtime, the WASM execution layer extracts the `pyde.abi` section once, caches the parsed ABI alongside the compiled Module, and applies attribute-driven guards before every call (reentrancy block, view-mode state-write rejection, payable-mode value check, sponsored gas-tank debit, etc.). The WASM module itself does not carry attribute markers — the engine enforces them at the call boundary based on the parsed ABI. Full mechanics: [Host Function ABI Spec §3.5–§3.7](../companion/HOST_FN_ABI_SPEC.md).
+Function attributes (`view`, `payable`, `reentrant`, `sponsored`, `constructor`, `fallback`, `receive`, `entry`) and state schema are declared in `otigen.toml`. `otigen build` reads them, builds a `ContractAbi` struct, Borsh-encodes it, and **injects it as a WASM custom section named `pyde.abi`** directly into the .wasm artifact the language compiler produced. There is no separate `abi.json` file at deploy time: the ABI travels with the code as one binary. At runtime, the WASM execution layer extracts the `pyde.abi` section once, caches the parsed ABI alongside the compiled Module, and applies attribute-driven guards before every call (reentrancy block, view-mode state-write rejection, payable-mode value check, sponsored gas-tank debit, etc.). The WASM module itself does not carry attribute markers; the engine enforces them at the call boundary based on the parsed ABI. Full mechanics: [Host Function ABI Spec §3.5 to §3.7](../companion/HOST_FN_ABI_SPEC.md).
 
 ---
 
 ## 5.2 Subcommand Surface
 
-Every row links to its canonical [`OTIGEN_BINARY_SPEC`](../companion/OTIGEN_BINARY_SPEC.md) section — the spec is authoritative on flag tables, exit codes, and the per-command pipeline. This chapter is the narrative companion.
+Every row links to its canonical [`OTIGEN_BINARY_SPEC`](../companion/OTIGEN_BINARY_SPEC.md) section. The spec is authoritative on flag tables, exit codes, and the per-command pipeline. This chapter is the narrative companion.
 
 | Command | Purpose | Spec |
 |---------|---------|------|
 | `otigen init <name> --lang <rust\|as\|go\|c>` | Scaffold a new project directory from the language template. Writes `otigen.toml` + a hello-world contract + language-specific build config (Cargo.toml / package.json + asconfig.json / go.mod / Makefile). The Rust scaffold uses the macro substrate (`#[pyde::entry]` + `pyde::declare_storage!()` + `pyde::declare_events!()`); non-Rust scaffolds ship the raw `extern "C"` host-fn pattern. | [§3.1](../companion/OTIGEN_BINARY_SPEC.md#31-otigen-init) |
-| `otigen new <name> --from <template>` | Scaffold by cloning a canonical example bundle. Eight templates ship today (`counter`, `erc20-token`, `erc721-token`, `simple-multisig`, `upgradeable-proxy`, `merkle-claim-airdrop`, `vesting`, `dao-governance`) — all on the `#[pyde::entry]` + `declare_storage!()` macro substrate, all building clean. Produces a fully-working contract + passing test suite — the fastest path from zero to a green `otigen test`. `--list` shows the catalog. | [§3.11](../companion/OTIGEN_BINARY_SPEC.md#311-otigen-new) |
+| `otigen new <name> --from <template>` | Scaffold by cloning a canonical example bundle. Eight templates ship today (`counter`, `erc20-token`, `erc721-token`, `simple-multisig`, `upgradeable-proxy`, `merkle-claim-airdrop`, `vesting`, `dao-governance`), all on the `#[pyde::entry]` + `declare_storage!()` macro substrate, all building clean. Produces a fully-working contract + passing test suite: the fastest path from zero to a green `otigen test`. `--list` shows the catalog. | [§3.11](../companion/OTIGEN_BINARY_SPEC.md#311-otigen-new) |
 | `otigen build` | **Verify + package.** Reads `otigen.toml`, locates the `.wasm` at the declared path, validates the WASM module (well-formed, imports allowed only, no `wasi:*` / `env`), cross-checks declared `[functions]` exist as WASM exports, builds the `ContractAbi`, Borsh-encodes it, injects as the `pyde.abi` custom section, writes `<contract>.bundle/` atomically (via a `<name>.bundle.partial/` staging dir; a Ctrl-C SIGINT handler sweeps the partial before exit). By default the author runs their own language build; `--compile` opts in to running it automatically (`cargo` / `npm run build` / `tinygo` / `make`). Strict validation (rejection of test-only host fns like `pyde::debug_log`) is the **default**; `--no-strict` is the opt-out escape hatch for local inspection. `otigen deploy` always runs strict and ignores `--no-strict`. | [§3.2](../companion/OTIGEN_BINARY_SPEC.md#32-otigen-build) |
-| `otigen check` | Same validation pipeline as `otigen build` (spec §3.2 steps 1–7), minus the bundle write. Fast pre-commit / IDE / TDD gate. Per-violation diagnostics on stderr; exit 1 on any failure. | [§3.13](../companion/OTIGEN_BINARY_SPEC.md#313-otigen-check) |
-| `otigen deploy` | Sign and submit a deploy transaction. Loads the bundle, re-validates, fetches nonce via `pyde_getTransactionCount`, builds the canonical `Tx` envelope with `tx_type = Deploy` + borsh-encoded `DeployData{ name, wasm_bytes, contract_type, init_calldata }` in `tx.data`, FALCON-signs the Poseidon2 tx-hash, submits via `pyde_sendRawTransaction`, polls the receipt. `--dry-run` to inspect without submitting; `--no-wait` to skip the receipt poll. `--rpc-url <URL>` + `--chain-id <N>` give a one-shot override of `[network.<name>]` (mandatory pair — raw URL has no chain id, signing against `chain_id = 0` silently bricks the FALCON sig). | [§3.3](../companion/OTIGEN_BINARY_SPEC.md#33-otigen-deploy) |
+| `otigen check` | Same validation pipeline as `otigen build` (spec §3.2 steps 1 to 7), minus the bundle write. Fast pre-commit / IDE / TDD gate. Per-violation diagnostics on stderr; exit 1 on any failure. | [§3.13](../companion/OTIGEN_BINARY_SPEC.md#313-otigen-check) |
+| `otigen deploy` | Sign and submit a deploy transaction. Loads the bundle, re-validates, fetches nonce via `pyde_getTransactionCount`, builds the canonical `Tx` envelope with `tx_type = Deploy` + borsh-encoded `DeployData{ name, wasm_bytes, contract_type, init_calldata }` in `tx.data`, FALCON-signs the Poseidon2 tx-hash, submits via `pyde_sendRawTransaction`, polls the receipt. `--dry-run` to inspect without submitting; `--no-wait` to skip the receipt poll. `--rpc-url <URL>` + `--chain-id <N>` give a one-shot override of `[network.<name>]` (mandatory pair: raw URL has no chain id, signing against `chain_id = 0` silently bricks the FALCON sig). | [§3.3](../companion/OTIGEN_BINARY_SPEC.md#33-otigen-deploy) |
 | `otigen upgrade <target>` | **Engine-gated in v1.** The CLI builds the signed tx but refuses to submit (`EngineNotReady`) because the chain has no `TxType::Lifecycle` handler yet. v1 pattern: proxy + `delegate_call`. `--i-know-engine-rejects` bypasses the gate for stub-engine testing. Mandatory `--rpc-url` + `--chain-id` pair applies when overriding. | [§3.4](../companion/OTIGEN_BINARY_SPEC.md#34-otigen-upgrade) |
-| `otigen pause` / `unpause` / `kill` | **Engine-gated in v1** — same `EngineNotReady` refusal + `--i-know-engine-rejects` bypass as `upgrade`. v1 pattern: author-declared `paused: bool` / `killed: bool` in `[state]`, gated in entry-function bodies. `kill --yes` skips the retype-the-target confirmation; mandatory `--rpc-url` + `--chain-id` pair applies when overriding. | [§3.5](../companion/OTIGEN_BINARY_SPEC.md#35-otigen-pause--otigen-unpause--otigen-kill) |
-| `otigen call <target> <fn> [args...]` | Sign and submit a contract call (`TxType::Standard` with `data = borsh(CallPayload { function, calldata })`). Routes through the chain's `WasmExecutor::execute_call` for `entry`-attributed functions; view functions skip submission and go through `pyde_call` (free, no tx, no gas) when otigen recognises the `view` attribute from a local `otigen.toml`. Positional args are typed per `[functions.X].inputs` — `otigen call <addr> transfer devnet-1 100` Just Works; address values resolve wallet names from the local keystore; JSON array syntax `[1,2,3]` carries `vec(T)`; JSON5 struct + variant-name forms carry `[types.<Name>]` shapes (`{maker:0xaa…,id:1}`, `Pending`). `--args <hex>` is the escape hatch for raw pre-encoded calldata; view returns auto-decode per `[functions.X].outputs` (`--raw` keeps the hex); `--value <decimal>` attaches a native-token transfer alongside the call. | [§3.X](../companion/OTIGEN_BINARY_SPEC.md) |
-| `otigen inspect <target>` | Read deployed contract state via the rpc client. Default mode surfaces address, account type, balance, nonce, code hash, code size, state root, and (when the wasm carries a `pyde.abi` custom section) the full ABI summary: version, function count, constructor / fallback / receive bindings, state schema hash, per-function selector + attribute labels. `--state-field <name>` reads a substrate-typed scalar field — derives the slot `Poseidon2(self_address \|\| field_name)` (the chain's `sstore_scalar` convention), pulls the bytes, and decodes per the type token in `[state].schema`; renders contract / field / slot / raw / decoded value. `--field <name>` reads a legacy raw-storage slot via `Poseidon2(name)` — used by contracts that call `sstore` / `sload` directly; mutually exclusive with `--state-field`. `--rpc-url <URL>` one-shot override + `--at-wave <id>` for archive nodes. ⏳ Owner / version history land when the RPC catalog grows the corresponding endpoints. | [§3.6](../companion/OTIGEN_BINARY_SPEC.md#36-otigen-inspect) |
-| `otigen verify <target>` | Reproducibility check: compares the local bundle's `contract.wasm` against the chain-stored bytes from `pyde_getContractCode`. Exit 0 on match, 1 on mismatch with blake3 hashes + size delta + first-diff offset. Two clean local builds of the canonical hello-rust produce byte-identical `contract.wasm` + `abi.json` (modulo `manifest.build_timestamp`) — the `make reproducibility` gate locks the invariant. | [§3.9](../companion/OTIGEN_BINARY_SPEC.md#39-otigen-verify) |
+| `otigen pause` / `unpause` / `kill` | **Engine-gated in v1**: same `EngineNotReady` refusal + `--i-know-engine-rejects` bypass as `upgrade`. v1 pattern: author-declared `paused: bool` / `killed: bool` in `[state]`, gated in entry-function bodies. `kill --yes` skips the retype-the-target confirmation; mandatory `--rpc-url` + `--chain-id` pair applies when overriding. | [§3.5](../companion/OTIGEN_BINARY_SPEC.md#35-otigen-pause--otigen-unpause--otigen-kill) |
+| `otigen call <target> <fn> [args...]` | Sign and submit a contract call (`TxType::Standard` with `data = borsh(CallPayload { function, calldata })`). Routes through the chain's `WasmExecutor::execute_call` for `entry`-attributed functions; view functions skip submission and go through `pyde_call` (free, no tx, no gas) when otigen recognises the `view` attribute from a local `otigen.toml`. Positional args are typed per `[functions.X].inputs`: `otigen call <addr> transfer devnet-1 100` Just Works; address values resolve wallet names from the local keystore; JSON array syntax `[1,2,3]` carries `vec(T)`; JSON5 struct + variant-name forms carry `[types.<Name>]` shapes (`{maker:0xaa…,id:1}`, `Pending`). `--args <hex>` is the escape hatch for raw pre-encoded calldata; view returns auto-decode per `[functions.X].outputs` (`--raw` keeps the hex); `--value <decimal>` attaches a native-token transfer alongside the call. | [§3.X](../companion/OTIGEN_BINARY_SPEC.md) |
+| `otigen inspect <target>` | Read deployed contract state via the rpc client. Default mode surfaces address, account type, balance, nonce, code hash, code size, state root, and (when the wasm carries a `pyde.abi` custom section) the full ABI summary: version, function count, constructor / fallback / receive bindings, state schema hash, per-function selector + attribute labels. `--state-field <name>` reads a substrate-typed scalar field: derives the slot `Poseidon2(self_address \|\| field_name)` (the chain's `sstore_scalar` convention), pulls the bytes, and decodes per the type token in `[state].schema`; renders contract / field / slot / raw / decoded value. `--field <name>` reads a legacy raw-storage slot via `Poseidon2(name)`, used by contracts that call `sstore` / `sload` directly; mutually exclusive with `--state-field`. `--rpc-url <URL>` one-shot override + `--at-wave <id>` for archive nodes. ⏳ Owner / version history land when the RPC catalog grows the corresponding endpoints. | [§3.6](../companion/OTIGEN_BINARY_SPEC.md#36-otigen-inspect) |
+| `otigen verify <target>` | Reproducibility check: compares the local bundle's `contract.wasm` against the chain-stored bytes from `pyde_getContractCode`. Exit 0 on match, 1 on mismatch with blake3 hashes + size delta + first-diff offset. Two clean local builds of the canonical hello-rust produce byte-identical `contract.wasm` + `abi.json` (modulo `manifest.build_timestamp`). The `make reproducibility` gate locks the invariant. | [§3.9](../companion/OTIGEN_BINARY_SPEC.md#39-otigen-verify) |
 | `otigen validator <subcmd>` | Read-only validator-introspection over `pyde_getValidator` + `pyde_getOperatorValidators`. `show <addr>` returns one validator's full chain-side record (operator + pubkey + stake + status + jail / unbond timeline + last-claimed reward checkpoint + uptime bps); exits non-zero with `NotAValidator` for unregistered addresses so shell scripts can branch on exit code. `by-operator <addr>` lists every validator an operator runs. `--json` emits the same data as one NDJSON event per invocation. Registration / stake / unbond / unjail / key-rotation flows live on the `pyde stake` CLI (engine binary). | [§3.14](../companion/OTIGEN_BINARY_SPEC.md#314-otigen-validator) |
-| `otigen wallet` | FALCON-512 keystore management. Subcommands: `new <name>`, `list`, `show <name>`, `import <name> [--from-file <path> \| --from-devnet]`, `delete <name> [--yes]`, `password <name>`, `export <name> [--out <path>]`, `sign <name> --message <msg>`, `verify [name] --message <msg> --signature <hex>`. `import --from-devnet` re-derives the 10 deterministic prefunded `otigen devnet` accounts locally (no network call). ⏳ Only the chain-side `rotate` (`KeyRotationTx`) is deferred — it needs the chain to accept that tx variant. | [§3.7](../companion/OTIGEN_BINARY_SPEC.md#37-otigen-wallet) |
-| `otigen test` | Run contract behaviour tests declared in `tests/*.test.toml`. Executes through `pyde-engine-wasm-exec::WasmExecutor` by default — same code path mainnet uses — so authors get every `pyde::*` host fn at chain fidelity. `--no-engine` falls back to the legacy in-process mock surface for parachain contracts (parachain runtime ships in engine v2) and runner-side bisection. `--no-compile` skips the per-language compile step. Named-account + named-slot + cheatcode model, multi-call sequences with per-call and final-state assertions, typed-arg marshalling (`address` / `uint128` / `int128` / `bytes32` / `bytes` / primitive ints), FALCON DSL (`@pubkey:NAME` / `@sig:NAME:args.IDX`), `pyde::debug_log` test-only host fn, schema-aware encoding (incl. `struct(<Name>)` via `pyde::declare_storage!()`), `--watch` for Foundry parity, `--json` NDJSON event stream, standard `-v`/`-vv` clap verbosity. | [§3.10](../companion/OTIGEN_BINARY_SPEC.md#310-otigen-test) + [OTIGEN_TEST_SPEC](../companion/OTIGEN_TEST_SPEC.md) |
+| `otigen wallet` | FALCON-512 keystore management. Subcommands: `new <name>`, `list`, `show <name>`, `import <name> [--from-file <path> \| --from-devnet]`, `delete <name> [--yes]`, `password <name>`, `export <name> [--out <path>]`, `sign <name> --message <msg>`, `verify [name] --message <msg> --signature <hex>`. `import --from-devnet` re-derives the 10 deterministic prefunded `otigen devnet` accounts locally (no network call). ⏳ Only the chain-side `rotate` (`KeyRotationTx`) is deferred: it needs the chain to accept that tx variant. | [§3.7](../companion/OTIGEN_BINARY_SPEC.md#37-otigen-wallet) |
+| `otigen test` | Run contract behaviour tests declared in `tests/*.test.toml`. Executes through `pyde-engine-wasm-exec::WasmExecutor` by default (same code path mainnet uses), so authors get every `pyde::*` host fn at chain fidelity. `--no-engine` falls back to the legacy in-process mock surface for parachain contracts (parachain runtime ships in engine v2) and runner-side bisection. `--no-compile` skips the per-language compile step. Named-account + named-slot + cheatcode model, multi-call sequences with per-call and final-state assertions, typed-arg marshalling (`address` / `uint128` / `int128` / `bytes32` / `bytes` / primitive ints), FALCON DSL (`@pubkey:NAME` / `@sig:NAME:args.IDX`), `pyde::debug_log` test-only host fn, schema-aware encoding (incl. `struct(<Name>)` via `pyde::declare_storage!()`), `--watch` for Foundry parity, `--json` NDJSON event stream, standard `-v`/`-vv` clap verbosity. | [§3.10](../companion/OTIGEN_BINARY_SPEC.md#310-otigen-test) + [OTIGEN_TEST_SPEC](../companion/OTIGEN_TEST_SPEC.md) |
 | `otigen console` | Interactive REPL against a Pyde node. Shipping surface: `help`, `balance <addr>`, `nonce <addr>`, `call <addr> <fn> [hex]` (view, free), `tx <addr> <fn> [hex] [--value <decimal>]` (sign + submit + receipt poll), `state <addr> <field>` (substrate-typed scalar read; same `Blake3(self_address \|\| field_name)` derivation + `[state].schema` decoder `inspect --state-field` uses), `exit` / `quit`. Session-scoped `--network` / `--from` bind once at startup; wallet unlock is lazy (views never prompt, first `tx` asks for password once). Line-edited via rustyline with persisted history at `~/.otigen_console_history`. | [§3.8](../companion/OTIGEN_BINARY_SPEC.md#38-otigen-console) |
-| `otigen devnet` | One-command local devnet — **the chain runtime is embedded in the `otigen` binary**; there is no separate `pyde` download or process to fork. Spins up the in-process engine, pre-funds 10 deterministic accounts, exposes JSON-RPC on `127.0.0.1:9933` (plus `/ws` for subscriptions). Headliner is `--fork <FILE_OR_URL>`: accepts either a local borsh snapshot file (produced by the engine's `Snapshotter::build`) or an HTTP(S) URL pointing at a running validator's snapshot RPC. Flags: `--rpc-listen`, `--prefund-count`, `--prefund-amount`, `--chain-id`, `--tick-ms`. On Ctrl-C, all state is wiped. | [§3.12](../companion/OTIGEN_BINARY_SPEC.md#312-otigen-devnet) |
+| `otigen devnet` | One-command local devnet: **the chain runtime is embedded in the `otigen` binary**; there is no separate `pyde` download or process to fork. Spins up the in-process engine, pre-funds 10 deterministic accounts, exposes JSON-RPC on `127.0.0.1:9933` (plus `/ws` for subscriptions). Headliner is `--fork <FILE_OR_URL>`: accepts either a local borsh snapshot file (produced by the engine's `Snapshotter::build`) or an HTTP(S) URL pointing at a running validator's snapshot RPC. Flags: `--rpc-listen`, `--prefund-count`, `--prefund-amount`, `--chain-id`, `--tick-ms`. On Ctrl-C, all state is wiped. | [§3.12](../companion/OTIGEN_BINARY_SPEC.md#312-otigen-devnet) |
 
-There is no `otigen compile`. Authors use their language's native compiler (`cargo build --target wasm32-unknown-unknown --release`, `asc`, `tinygo build -target=wasi`, `clang --target=wasm32`). The `--compile` flag on `otigen build` is an opt-in convenience that invokes the language's default command — not a separate `compile` subcommand.
+There is no `otigen compile`. Authors use their language's native compiler (`cargo build --target wasm32-unknown-unknown --release`, `asc`, `tinygo build -target=wasi`, `clang --target=wasm32`). The `--compile` flag on `otigen build` is an opt-in convenience that invokes the language's default command, not a separate `compile` subcommand.
 
 ---
 
@@ -187,11 +187,11 @@ fields = [
 
 **`[network.*]`**: `[network.default.name]` selects which other `[network.<name>]` table the toolchain talks to. Each named entry carries `rpc_url`, `chain_id`, and an optional `explorer_url`. The global `--network <name>` flag overrides at the command line.
 
-**`[state]`**: the schema of the contract's storage. Used by `otigen build` to compute `state_schema_hash` (which the chain compares against on every state read for type-safety enforcement) and emitted in `abi.json` for explorers. The author's contract code still derives the storage slots itself — Pyde does not ship per-language storage bindings.
+**`[state]`**: the schema of the contract's storage. Used by `otigen build` to compute `state_schema_hash` (which the chain compares against on every state read for type-safety enforcement) and emitted in `abi.json` for explorers. The author's contract code still derives the storage slots itself. Pyde does not ship per-language storage bindings.
 
-**`[functions.<name>]`**: every callable function the runtime should dispatch to. `attributes` is the safety + dispatch attribute set documented in §5.6. `otigen build` cross-checks every `[functions.X]` has a matching WASM export named `X` and rejects exports that aren't declared. Optional `access_list` declares the storage slots the function touches; accurate lists optimize cache prefetch performance in the uniform Block-STM scheduler (declaring nothing still works — the chain just runs with a colder cache).
+**`[functions.<name>]`**: every callable function the runtime should dispatch to. `attributes` is the safety + dispatch attribute set documented in §5.6. `otigen build` cross-checks every `[functions.X]` has a matching WASM export named `X` and rejects exports that aren't declared. Optional `access_list` declares the storage slots the function touches; accurate lists optimize cache prefetch performance in the uniform Block-STM scheduler (declaring nothing still works: the chain just runs with a colder cache).
 
-**`[types.<Name>]`**: author-declared custom types. Two shapes: a struct declares `fields = [{ name, type }, ...]`; an enum declares `variants = [{ name = "X" }, ...]` (v1 is unit-only — no data-carrying variants). Functions reference custom types by **bare name** in `[functions.X].inputs` / `outputs` (e.g. `"Order"`); storage references them via the `struct(<Name>)` wrapper in `[state].schema` (e.g. `{ name = "current_order", type = "struct(Order)" }`), and `vec(<Name>)` similarly wraps for arrays. Rust contract code needs `#[derive(BorshSerialize, BorshDeserialize)]` on every custom type — the macro substrate's typed storage + entry-arg decoders depend on it.
+**`[types.<Name>]`**: author-declared custom types. Two shapes: a struct declares `fields = [{ name, type }, ...]`; an enum declares `variants = [{ name = "X" }, ...]` (v1 is unit-only: no data-carrying variants). Functions reference custom types by **bare name** in `[functions.X].inputs` / `outputs` (e.g. `"Order"`); storage references them via the `struct(<Name>)` wrapper in `[state].schema` (e.g. `{ name = "current_order", type = "struct(Order)" }`), and `vec(<Name>)` similarly wraps for arrays. Rust contract code needs `#[derive(BorshSerialize, BorshDeserialize)]` on every custom type. The macro substrate's typed storage + entry-arg decoders depend on it.
 
 **`[events.<name>]`**: emitted-event declarations. `signature` is the canonical string the chain hashes (Blake3) to derive the topic-0 value. Indexed fields are searchable via `pyde_getLogs`; non-indexed fields are Borsh-encoded into `data`.
 
@@ -258,7 +258,7 @@ otigen build                         # verify + package
 otigen deploy --network testnet
 ```
 
-The scaffold pins `runtime: "minimal"` in `asconfig.json` so the resulting WASM imports nothing outside `pyde` — anything else would fail the chain's import allowlist.
+The scaffold pins `runtime: "minimal"` in `asconfig.json` so the resulting WASM imports nothing outside `pyde`. Anything else would fail the chain's import allowlist.
 
 ### Go (TinyGo)
 
@@ -292,7 +292,7 @@ The scaffold's `Makefile` pins `-nostdlib` so libc never leaks into the resultin
 
 ### Why this split
 
-Authors keep their full language toolchain (build errors, IDE integration, dependency management, test runners, fuzzers, profilers — everything). The chain-specific concerns (ABI generation, deploy packaging, on-chain lifecycle) are owned by `otigen`. The interface between them is the `.wasm` file + the `otigen.toml` schema; both are inspectable, neither is generated by the other.
+Authors keep their full language toolchain (build errors, IDE integration, dependency management, test runners, fuzzers, profilers, everything). The chain-specific concerns (ABI generation, deploy packaging, on-chain lifecycle) are owned by `otigen`. The interface between them is the `.wasm` file + the `otigen.toml` schema; both are inspectable, neither is generated by the other.
 
 ---
 
@@ -336,11 +336,11 @@ Authors keep their full language toolchain (build errors, IDE integration, depen
     and blake3 prefixes (16 hex chars) per artifact.
 ```
 
-Exit codes: `0` on success, `1` on validation failure (with a structured error listing every violation), `2` if the `.wasm` was not found at the expected path. No partial bundles are ever written — the bundle dir is created last, after every validation has passed.
+Exit codes: `0` on success, `1` on validation failure (with a structured error listing every violation), `2` if the `.wasm` was not found at the expected path. No partial bundles are ever written. The bundle dir is created last, after every validation has passed.
 
 ### How Rust authors do state access (macro substrate)
 
-The Rust scaffold ships a thin SDK — `pyde-host` + the `#[pyde::entry]` macro + `pyde::declare_storage!()` + `pyde::declare_events!()` — that hides the WASM ABI entirely. Authors declare a typed state schema once and call generated module-path functions; the macros emit the void-void entry shim (`HOST_FN_ABI §3.5.2`), unpack borsh calldata into typed arguments, derive `Poseidon2(self_address ‖ field [‖ keys])` slots, and call the chain's `sstore_scalar` / `sload_scalar` / `sstore_map<N>` / `sload_map<N>` host fns.
+The Rust scaffold ships a thin SDK (`pyde-host` + the `#[pyde::entry]` macro + `pyde::declare_storage!()` + `pyde::declare_events!()`) that hides the WASM ABI entirely. Authors declare a typed state schema once and call generated module-path functions; the macros emit the void-void entry shim (`HOST_FN_ABI §3.5.2`), unpack borsh calldata into typed arguments, derive `Poseidon2(self_address ‖ field [‖ keys])` slots, and call the chain's `sstore_scalar` / `sload_scalar` / `sstore_map<N>` / `sload_map<N>` host fns.
 
 ```rust
 // src/lib.rs — Rust macro substrate.
@@ -396,7 +396,7 @@ The mechanism changed (config-declared metadata enforced at the call boundary in
 
 ### Reentrancy is still blocked by default
 
-This is the most important property to preserve. Every public function gets an automatically generated reentrancy guard. To **opt OUT** of the guard — for a function that genuinely needs to allow re-entry — add the `#[reentrant]` attribute.
+This is the most important property to preserve. Every public function gets an automatically generated reentrancy guard. To **opt OUT** of the guard (for a function that genuinely needs to allow re-entry), add the `#[reentrant]` attribute.
 
 If you write nothing, you are protected.
 
@@ -404,7 +404,7 @@ If you write nothing, you are protected.
 
 | Attribute     | Effect                                                                                          |
 | ------------- | ----------------------------------------------------------------------------------------------- |
-| `view`        | Read-only function. Runtime rejects any state-modifying host call inside it. View calls are FREE (no gas) — see [HOST_FN_ABI_SPEC §7.8](../companion/HOST_FN_ABI_SPEC.md). |
+| `view`        | Read-only function. Runtime rejects any state-modifying host call inside it. View calls are FREE (no gas); see [HOST_FN_ABI_SPEC §7.8](../companion/HOST_FN_ABI_SPEC.md). |
 | `payable`     | Function accepts PYDE attached to the call. Non-`payable` functions reject any attached amount. |
 | `reentrant`   | **Opts INTO** allowing reentrancy. Default for every function is reentrancy-blocked.            |
 | `constructor` | Initialization-only. Callable exactly once, at deploy time.                                     |
@@ -442,7 +442,7 @@ attributes = ["constructor"]          # callable only at deploy time
 inputs     = ["uint128"]
 ```
 
-The author writes the corresponding WASM exports in their language as a void-void function (HOST_FN_ABI §3.5.2). In Rust, the `#[pyde::entry] fn balance(owner: Address) -> u128` macro emits the void-void shim. In AssemblyScript, `export function balance(): void`. In Go (TinyGo), `//go:wasmexport balance` on a `func balance()`. In C, `__attribute__((export_name("balance"))) void balance(void)`. Standard WASM-export idioms for each language; the void-void contract is non-negotiable — `otigen build`'s entry-shape validator rejects any non-void-void export declared in `[functions.<name>]`.
+The author writes the corresponding WASM exports in their language as a void-void function (HOST_FN_ABI §3.5.2). In Rust, the `#[pyde::entry] fn balance(owner: Address) -> u128` macro emits the void-void shim. In AssemblyScript, `export function balance(): void`. In Go (TinyGo), `//go:wasmexport balance` on a `func balance()`. In C, `__attribute__((export_name("balance"))) void balance(void)`. Standard WASM-export idioms for each language; the void-void contract is non-negotiable: `otigen build`'s entry-shape validator rejects any non-void-void export declared in `[functions.<name>]`.
 
 ### What the build tool does with attributes
 
@@ -521,7 +521,7 @@ otigen deploy --network testnet
 What happens, per spec §3.3:
 
 1. `otigen` resolves the bundle dir (default `./artifacts/<name>.bundle/` from `otigen.toml`'s `[contract.name]`, override via `--bundle <path>`).
-2. `otigen` loads the bundle (manifest.json + otigen.toml + contract.wasm) and re-validates WASM + ABI consistency — defense in depth even though the bundle came from `otigen build`.
+2. `otigen` loads the bundle (manifest.json + otigen.toml + contract.wasm) and re-validates WASM + ABI consistency: defense in depth even though the bundle came from `otigen build`.
 3. `otigen` resolves the network from `--network` or `[network.default.name]` and the signer wallet from `--from` or `[wallet.default_account]`. Prompts for the wallet password (no echo).
 4. `otigen` fetches the sender's nonce via `pyde_getTransactionCount`.
 5. `otigen` builds the canonical `Tx`:
@@ -556,7 +556,7 @@ otigen upgrade <target> --bundle <new-bundle-dir>     # contract path
 
 What happens (contract path):
 
-1. `otigen` resolves `<target>` — `0x`-prefixed address or registered name (auto-resolved via `pyde_resolveName`).
+1. `otigen` resolves `<target>`: `0x`-prefixed address or registered name (auto-resolved via `pyde_resolveName`).
 2. `otigen` reads the new wasm from `--wasm <file>` or `<bundle>/contract.wasm`.
 3. Same signing pipeline as deploy, but the wire shape is `Tx { tx_type: Standard, to: <target>, data: borsh(LifecyclePayload::Upgrade { new_wasm }) }`. The chain decodes the payload, re-runs ABI validation against the new bytes, stores the new code, and bumps `current_version`.
 
@@ -566,7 +566,7 @@ For parachain upgrades, the chain requires equal-power validator-quorum certs co
 
 ## 5.8 Wallet Management
 
-The wallet is built into the `otigen` binary directly — no separate wallet daemon, no external dependency, no extra install step. The cryptographic primitives (FALCON-512 keypair generation, AES-256-GCM keystore encryption, Argon2id key derivation, in-memory key unlock with zeroize-on-drop) carry forward from the archived `wright` toolchain; the on-disk format was redesigned for the WASM era to match spec §7.1.
+The wallet is built into the `otigen` binary directly: no separate wallet daemon, no external dependency, no extra install step. The cryptographic primitives (FALCON-512 keypair generation, AES-256-GCM keystore encryption, Argon2id key derivation, in-memory key unlock with zeroize-on-drop) carry forward from the archived `wright` toolchain; the on-disk format was redesigned for the WASM era to match spec §7.1.
 
 ### Subcommand surface
 
@@ -659,7 +659,7 @@ AES-GCM decryption failures all surface as the same `Error::DecryptionFailed` va
 
 Only one wallet operation from spec §3.7 is deferred:
 
-- `rotate <name>` — submits a chain-side `KeyRotationTx` so an existing account can move to a fresh FALCON keypair without changing its address. Distinct from `password` (which only re-encrypts the local keystore entry). Blocked on the engine accepting the `KeyRotationTx` variant.
+- `rotate <name>`: submits a chain-side `KeyRotationTx` so an existing account can move to a fresh FALCON keypair without changing its address. Distinct from `password` (which only re-encrypts the local keystore entry). Blocked on the engine accepting the `KeyRotationTx` variant.
 
 Hardware-wallet bridges and HSM-backed signing (spec §7.4) are post-mainnet; no FALCON-aware hardware wallets exist yet.
 
@@ -667,7 +667,7 @@ Hardware-wallet bridges and HSM-backed signing (spec §7.4) are post-mainnet; no
 
 ## 5.9 The Console
 
-`otigen console` is an interactive REPL against a Pyde node — the natural shape for exploration and ad-hoc debugging once a contract is deployed and you want to poke at it without re-typing connection info on every command.
+`otigen console` is an interactive REPL against a Pyde node: the natural shape for exploration and ad-hoc debugging once a contract is deployed and you want to poke at it without re-typing connection info on every command.
 
 Pair it with `pyde devnet` for the canonical local loop: one terminal runs the devnet, another runs `otigen console` against it. Session-scoped `--network` + `--from` bind once at startup so every command in the session reuses the same RPC URL + sender; wallet unlock is lazy (view-only commands never prompt, first `tx` asks for the password once).
 
@@ -678,9 +678,9 @@ Pair it with `pyde devnet` for the canonical local loop: one terminal runs the d
 | `help` | Lists the full command catalog with one-line descriptions. |
 | `balance <addr>` | Calls `pyde_getBalance`; renders raw quanta + pretty-printed PYDE. |
 | `nonce <addr>` | Calls `pyde_getTransactionCount`; shows the next-acceptable nonce. |
-| `call <addr> <fn> [hex]` | View-mode `pyde_call` — free, no nonce, no receipt. Returns the contract's `return_data` bytes; `--json` mode surfaces it on the `call_included` event. |
+| `call <addr> <fn> [hex]` | View-mode `pyde_call`: free, no nonce, no receipt. Returns the contract's `return_data` bytes; `--json` mode surfaces it on the `call_included` event. |
 | `tx <addr> <fn> [hex] [--value <decimal>]` | Builds a `Standard` tx, FALCON-signs it, submits via `pyde_sendRawTransaction`, polls the receipt. |
-| `state <addr> <field>` | Reads a substrate-typed scalar storage field — derives the slot `Poseidon2(self_address ‖ field_name)` (the chain's `sstore_scalar` convention), pulls the bytes, decodes per the type token in `[state].schema`. Map fields print a clear "scalar-only MVP scope" message rather than truncating. |
+| `state <addr> <field>` | Reads a substrate-typed scalar storage field: derives the slot `Poseidon2(self_address ‖ field_name)` (the chain's `sstore_scalar` convention), pulls the bytes, decodes per the type token in `[state].schema`. Map fields print a clear "scalar-only MVP scope" message rather than truncating. |
 | `exit` / `quit` | Leaves the REPL with status 0. |
 
 Address arguments accept either `0x`-hex or a registered name (when [`pyde_resolveName`](../companion/HOST_FN_ABI_SPEC.md) lands; today only hex resolves).
@@ -689,8 +689,8 @@ Address arguments accept either `0x`-hex or a registered name (when [`pyde_resol
 
 Both use the same Poseidon2 slot derivation and the same primitive-type decoder. The difference is the workflow:
 
-- `inspect --state-field` is the **scriptable** path — one-shot, `--json`-able, designed for CI / deploy scripts that want to assert a single value after a deploy.
-- `console state` is the **interactive** path — drop into a REPL, poke at multiple fields across multiple contracts without re-typing the RPC URL or sender, exit when you're done.
+- `inspect --state-field` is the **scriptable** path: one-shot, `--json`-able, designed for CI / deploy scripts that want to assert a single value after a deploy.
+- `console state` is the **interactive** path: drop into a REPL, poke at multiple fields across multiple contracts without re-typing the RPC URL or sender, exit when you're done.
 
 Implementation lives in a single `otigen-cli::state_decode` module both surfaces consume, so the decoder vocabulary stays in lockstep.
 
@@ -702,8 +702,8 @@ Line-edited via [rustyline](https://docs.rs/rustyline) with persisted history at
 
 Two REPL commands are reserved by spec but blocked on engine work:
 
-- `events <addr> [--from N] [--to N]` — historical event-log query. Needs `pyde_getLogs` (filtered + cursor-paginated). Ask filed.
-- `subscribe <addr>` — live event tail. Needs both `pyde_getLogs` and a websocket transport on the devnet.
+- `events <addr> [--from N] [--to N]`: historical event-log query. Needs `pyde_getLogs` (filtered + cursor-paginated). Ask filed.
+- `subscribe <addr>`: live event tail. Needs both `pyde_getLogs` and a websocket transport on the devnet.
 
 Both will land in a follow-up once the chain-side methods ship.
 
@@ -726,7 +726,7 @@ The toolchain wraps deployment-specific concerns + the chain-aware behaviour-tes
 
 ## 5.11 Performance
 
-The whole toolchain side of the pipeline — parse `otigen.toml`, validate every cross-cutting rule, walk the compiled `.wasm` for imports + exports + deterministic-feature compliance, build the canonical `ContractAbi`, Borsh-encode it, inject the `pyde.abi` custom section — measures in **single-digit microseconds end-to-end**. Validation work is essentially free against the file-system overhead of reading the `.wasm` and writing the four bundle files; a typical `otigen build` invocation is dominated by I/O (~1–5 ms in practice), not by validator CPU.
+The whole toolchain side of the pipeline (parse `otigen.toml`, validate every cross-cutting rule, walk the compiled `.wasm` for imports + exports + deterministic-feature compliance, build the canonical `ContractAbi`, Borsh-encode it, inject the `pyde.abi` custom section) measures in **single-digit microseconds end-to-end**. Validation work is essentially free against the file-system overhead of reading the `.wasm` and writing the four bundle files; a typical `otigen build` invocation is dominated by I/O (~1 to 5 ms in practice), not by validator CPU.
 
 Reference numbers on an Apple M-series dev machine (arm64, macOS 15), measured by the criterion benches committed under `crates/<crate>/benches/baseline/*.json` in the `pyde-net/otigen` repo. Reproduce with `cargo bench -p otigen-toml --bench parse_validate` and `cargo bench -p otigen-abi --bench abi_pipeline`.
 
@@ -749,13 +749,13 @@ Reference numbers on an Apple M-series dev machine (arm64, macOS 15), measured b
 
 These numbers are tracked from commit `pyde-net/otigen#6` forward. Future regressions surface on PRs that run `cargo bench --baseline=v1`.
 
-The benches are intentionally tight scope — they measure the toolchain-side work, not the chain-side deploy validator (which redoes every check at deploy time per `HOST_FN_ABI_SPEC.md` §3.7 layer 3) and not the wasmtime AOT compilation step (which happens on the chain at first invocation of a deployed contract, not at `otigen build` time).
+The benches are intentionally tight scope: they measure the toolchain-side work, not the chain-side deploy validator (which redoes every check at deploy time per `HOST_FN_ABI_SPEC.md` §3.7 layer 3) and not the wasmtime AOT compilation step (which happens on the chain at first invocation of a deployed contract, not at `otigen build` time).
 
 ---
 
 ## 5.12 Contract Behaviour Tests (`otigen test`)
 
-The toolchain ships a TOML-driven contract test runner. Authors write `tests/<name>.test.toml`, run `otigen test`, and get pass / fail per scenario — the same workflow Foundry users know from `forge test`, adapted to Pyde's host-function surface.
+The toolchain ships a TOML-driven contract test runner. Authors write `tests/<name>.test.toml`, run `otigen test`, and get pass / fail per scenario: the same workflow Foundry users know from `forge test`, adapted to Pyde's host-function surface.
 
 The full schema, name-resolution rules, cheatcode catalogue, mock host-function behaviour, and limitations are documented in [`OTIGEN_TEST_SPEC.md`](../companion/OTIGEN_TEST_SPEC.md). The short overview:
 
@@ -807,16 +807,16 @@ Named accounts resolve to 32-byte addresses via the chain's name registry; stora
 - Real `hash_poseidon2` / `hash_blake3` / `falcon_verify` (via `pyde-crypto`) so author-side slot derivation + signature verification match the runner exactly.
 - Mock storage (`sload` / `sstore` / `sdelete`), account (`balance` / `transfer`), context (`caller` / `self_address` / `wave_id` / `wave_timestamp` / `chain_id`), tx (`tx_value`), events (`emit_event`), halt (`revert`), cross-call (`cross_call` / `delegate_call`), and parachain §8 host fns (`parachain_storage_{read,write,delete}` / `parachain_id` / `parachain_version` / `parachain_emit_event`) against an in-memory state map.
 - Test-only `pyde::debug_log` printf-style host fn captured in the call's debug log buffer; rejected by `otigen build` (strict is the default) and always rejected by `otigen deploy`. Use `otigen build --no-strict` for local inspection only.
-- Host fns that trap with `UnsupportedHostFn` in v1: `origin`, `tx_hash`, `tx_gas_remaining`, `calldata_size`, `calldata_copy`, `hash_keccak256`, `cross_call_static`, `consume_gas`, `beacon_get`, plus the reserved `threshold_encrypt` / `threshold_decrypt` surface (not in v1; a v2+ research direction — see [Chapter 20](./20-future-direction.md)). Each either depends on chain-derived state the runner doesn't model, or no canonical example exercises it yet.
+- Host fns that trap with `UnsupportedHostFn` in v1: `origin`, `tx_hash`, `tx_gas_remaining`, `calldata_size`, `calldata_copy`, `hash_keccak256`, `cross_call_static`, `consume_gas`, `beacon_get`, plus the reserved `threshold_encrypt` / `threshold_decrypt` surface (not in v1; a v2+ research direction; see [Chapter 20](./20-future-direction.md)). Each either depends on chain-derived state the runner doesn't model, or no canonical example exercises it yet.
 
 ### What it doesn't do (v1)
 
 - No parallel-execution simulation; calls run sequentially.
 - No fuzzing / property tests; example-based only (reserved for a future polish item).
-- No multi-tx context — each test starts from fresh state; "deploy in tx1, then call from a different sender in tx2 within one test" isn't expressible (use `otigen devnet` + `otigen call` for multi-tx flows).
-- No simulating chain-side validators (mempool, access-list, nonce window) — those run on a real node; pair with `otigen deploy --network devnet` for end-to-end verification.
+- No multi-tx context: each test starts from fresh state; "deploy in tx1, then call from a different sender in tx2 within one test" isn't expressible (use `otigen devnet` + `otigen call` for multi-tx flows).
+- No simulating chain-side validators (mempool, access-list, nonce window): those run on a real node; pair with `otigen deploy --network devnet` for end-to-end verification.
 
-Every limitation has a future-phase plan in `OTIGEN_TEST_SPEC.md` §9. The v1 surface is deliberately scoped to what most contract authors need on day one — behaviour, state, events, reverts, gas tracking, cross-contract, FALCON sigs, schema-aware typed args, parachain extension surface — without buying the complexity of fuzz / multi-tx orchestration up front.
+Every limitation has a future-phase plan in `OTIGEN_TEST_SPEC.md` §9. The v1 surface is deliberately scoped to what most contract authors need on day one (behaviour, state, events, reverts, gas tracking, cross-contract, FALCON sigs, schema-aware typed args, parachain extension surface) without buying the complexity of fuzz / multi-tx orchestration up front.
 
 ### When to use what
 

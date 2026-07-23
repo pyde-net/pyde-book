@@ -58,7 +58,8 @@ The reasoning:
 
 2. **Pyde handles state cleanup at the engine layer** via PIP-4's write-back cache + state pruning policy, not via user incentives. Storage doesn't accumulate unbounded regardless of whether users explicitly delete. The financial incentive is unnecessary.
 
-3. **Simpler accounting.** No refund-capping rules, no two-step charge-then-refund logic, no edge cases. Receipts carry one number — `gas_used` — and that's the charge.
+3. **Simpler accounting.** No refund-capping rules, no two-step charge-then-refund logic, no edge cases.
+   Receipts carry one number, `gas_used`, and that's the charge.
 
 ### Why fuel, not opcode counting
 
@@ -72,7 +73,8 @@ Earlier drafts of this book described a two-dimensional gas model
 (`exec_cost + prove_cost`) intended to price both CPU work and ZK proving
 work separately. With ZK proving deferred to post-mainnet, the
 proving-cost dimension does not exist at launch and the two-dimensional
-model collapses into a single number — the chain-level gas total derived from wasmtime fuel consumption.
+model collapses into a single number: the chain-level gas total derived
+from wasmtime fuel consumption.
 
 Should ZK proving land later, the second dimension can be re-introduced as a separate counter without changing the wire format (transactions already carry only `gas_limit`).
 
@@ -88,9 +90,9 @@ based on whether the previous block exceeded or fell below the gas target.
 | Constant              | Value                          | Meaning                            |
 | --------------------- | ------------------------------ | ---------------------------------- |
 | `GAS_TARGET`          | 400,000,000                    | 50% of the elastic ceiling         |
-| `GAS_CEILING`         | 1,600,000,000                  | 4× target — hard block ceiling     |
+| `GAS_CEILING`         | 1,600,000,000                  | 4× target; hard block ceiling      |
 | `GENESIS_BASE_FEE`    | 50,000,000,000 quanta          | Initial value at genesis           |
-| `MIN_BASE_FEE`        | 1                              | Floor — cannot drop to zero        |
+| `MIN_BASE_FEE`        | 1                              | Floor; cannot drop to zero         |
 | `ADJUSTMENT_DIVISOR`  | 8                              | 1/8 = 12.5% max change per block   |
 
 ### Adjustment formula
@@ -125,7 +127,7 @@ Properties:
 
 Mysticeti DAG produces a commit every ~500 ms median (Chapter 6).
 Each commit is the unit at which the base fee is recomputed (`block` and
-`commit` are interchangeable here — Pyde collapses both concepts
+`commit` are interchangeable here; Pyde collapses both concepts
 since the DAG commits at per-commit granularity).
 
 | Scenario                    | Time to 2× the fee         |
@@ -175,9 +177,9 @@ target┤----+                 +---+----  target line
   and execute. The per-validator memory ceiling caps how high this
   can safely go on commodity hardware.
 - **Reveal-resolution + voting timing.** A 4× wave's private-mempool
-  reveal-resolution pass — re-executing revealed inner transactions in
-  deterministic commit order — takes longer; the commit timing budget assumes
-  the worst case fits.
+  reveal-resolution pass (re-executing revealed inner transactions in
+  deterministic commit order) takes longer; the commit timing budget
+  assumes the worst case fits.
 - **State growth.** Larger blocks drive faster state growth. The 4× ceiling
   bounds worst-case growth by the same factor.
 
@@ -191,17 +193,19 @@ At 2 commits/sec (~500 ms commit), `GAS_TARGET = 400M`, `GAS_CEILING = 1.6B`:
 | Token transfer (ERC-20) | 65,000  | Moderate                   | awaiting harness |
 | DEX swap                | 200,000 | Lowest                     | awaiting harness |
 
-**Honest v1 numbers.** The gas-bound ceiling above is a mechanical cap — block
-gas budget ÷ gas-per-tx — assuming committee hardware fully saturates execution. In practice, the v1 honest throughput
+**Honest v1 numbers.** The gas-bound ceiling above is a mechanical cap
+(block gas budget ÷ gas-per-tx), assuming committee hardware fully
+saturates execution. In practice, the v1 honest throughput
 target (to be established by the multi-region performance harness) is set on
 commodity committee hardware (500 Mbps NIC, 32-core, 64 GB). Higher numbers
 require larger NICs and more cores; see Chapter 19 for the launch-strategy
 capacity table.
 
 Real numbers depend on workload composition. The performance harness
-([companion/PERFORMANCE_HARNESS.md](../companion/PERFORMANCE_HARNESS.md)) is the only valid source of TPS claims —
-publish only what the harness measures under sustained, production-realistic
-conditions, never lab extrapolations or microbenchmark peaks. The headline
+([companion/PERFORMANCE_HARNESS.md](../companion/PERFORMANCE_HARNESS.md))
+is the only valid source of TPS claims: publish only what the harness
+measures under sustained, production-realistic conditions, never lab
+extrapolations or microbenchmark peaks. The headline
 number is never the theoretical max.
 
 ---
@@ -228,13 +232,13 @@ Chapter 9; the gas-economics consequences are:
 ### How does ordering happen, then?
 
 Under the Mysticeti DAG, ordering is a deterministic function of the
-committed subdag — vertices are produced independently each round, the
+committed subdag: vertices are produced independently each round, the
 anchor commit selects a canonical traversal, and transactions emerge in a
 fixed canonical order. No actor chooses positions; the order is structural
 (Chapters 6 and 9).
 
 For sequential nonce dependencies, the protocol uses the 16-slot **nonce
-bitmap window** (Chapter 11) — a sender can submit txs `n`, `n+1`, `n+2`
+bitmap window** (Chapter 11): a sender can submit txs `n`, `n+1`, `n+2`
 out of order; gaps are tolerated up to the window size.
 
 ### Legitimate urgency
@@ -242,7 +246,7 @@ out of order; gaps are tolerated up to the window size.
 Use cases that need fast inclusion (liquidations, bridges, time-sensitive
 trades) have two routes:
 
-- **Pre-fund a paymaster's gas tank** (sponsored tx — see §10.7) so the
+- **Pre-fund a paymaster's gas tank** (sponsored tx; see §10.7) so the
   user doesn't bottleneck on liquidity.
 - **Use the deadline field** to expire stale txs that were not included
   quickly, freeing the nonce slot for a fresh attempt.
@@ -349,7 +353,7 @@ base_fee = 25,000,000,000 quanta
 fee = 21,000 * 25,000,000,000 = 525,000,000,000,000 quanta = 0.000525 PYDE
 ```
 
-The base fee keeps adjusting until the market clears — congestion makes it
+The base fee keeps adjusting until the market clears: congestion makes it
 expensive to spam, low usage makes inclusion cheap.
 
 ---
@@ -393,7 +397,7 @@ tx.fee_payer = FeePayer::Paymaster(paymaster_address)
 ```
 
 The engine calls the paymaster's `validate_sponsorship(user, target,
-calldata) -> bool` function (gas-bounded — see below). If it returns true,
+calldata) -> bool` function (gas-bounded; see below). If it returns true,
 gas is debited from the paymaster's gas tank.
 
 ```
@@ -486,12 +490,12 @@ The transaction validator
 | Max calldata size | 64 KB      | `MAX_CALLDATA`             |
 
 `MAX_CALLDATA` is a separate cap from `MAX_TX_SIZE` (per the audit
-recommendation — task 055 in the mainnet plan). The split prevents an
+recommendation, task 055 in the mainnet plan). The split prevents an
 attacker from building a tx whose calldata fills the entire 128 KB tx
 budget and starves the rest of the encoded fields.
 
 A transaction that fails any of these checks is rejected at the RPC node
-and never enters the mempool — pollution is constrained to that single
+and never enters the mempool, so pollution is constrained to that single
 ingress node.
 
 ---
@@ -552,7 +556,7 @@ access list.
 ### Integer arithmetic
 
 All fee calculations use integer arithmetic to avoid floating-point
-non-determinism. Quanta are `u128` (1 PYDE = 10^9 quanta — note this is
+non-determinism. Quanta are `u128` (1 PYDE = 10^9 quanta; note this is
 **not** Ethereum's 10^18 wei scale).
 
 ### Overflow protection
@@ -565,7 +569,7 @@ overflow check guards against pathological encodings.
 ### Base fee in the commit header
 
 Pyde's commit header is the equivalent of Ethereum's block header
-for fee-market purposes — each commit carries the base fee for
+for fee-market purposes. Each commit carries the base fee for
 transactions executed in that commit:
 
 ```rust
@@ -583,7 +587,7 @@ struct CommitHeader {
 external tooling expects "block" terminology.)
 
 The base fee for block `N+1` is computed from block `N`'s header by
-`adjust_base_fee()` — every honest node arrives at the same value.
+`adjust_base_fee()`, so every honest node arrives at the same value.
 
 ---
 
@@ -595,7 +599,7 @@ The base fee for block `N+1` is computed from block `N`'s header by
 | Base fee mechanism        | EIP-1559, ±12.5% per block adjustment           |
 | Genesis base fee          | 50,000,000,000 quanta                            |
 | Gas target                | 400,000,000 (50% of ceiling)                    |
-| Gas ceiling               | 1,600,000,000 (4× target — elastic max)         |
+| Gas ceiling               | 1,600,000,000 (4× target; elastic max)          |
 | Priority fee / tip        | None                                             |
 | Fee distribution          | 70% burn / 20% reward pool / 10% treasury       |
 | Sponsored transactions    | Native (`gas_tank` field + paymaster pattern)   |
@@ -605,5 +609,5 @@ The base fee for block `N+1` is computed from block `N`'s header by
 | Min gas limit             | 21,000                                           |
 | Storage rent              | None                                             |
 
-The next chapter covers the account model the fee model sits on top of —
+The next chapter covers the account model the fee model sits on top of:
 addresses, the nonce window, multisig, and batch transactions.

@@ -76,16 +76,16 @@ The corresponding strategic / paper-drill walk-throughs live in [companion/FAILU
 
 Every runbook has six sections:
 
-1. **Symptom** — the literal log lines, dashboard panels, and pager alerts an operator sees first.
-2. **First check** — one curl / one grep / one `df` that confirms you're in the right runbook. Don't trust the alert; verify.
-3. **Triage decision tree** — 3-5 yes/no branches. Each branch routes either to a fix or to another runbook.
-4. **Recovery** — exact commands. No prose. Copy-paste-able.
-5. **Verify recovery** — one curl + one query. If both green, you're done.
-6. **Post-mortem template** — empty fields the operator fills in before closing the incident.
+1. **Symptom**: the literal log lines, dashboard panels, and pager alerts an operator sees first.
+2. **First check**: one curl / one grep / one `df` that confirms you're in the right runbook. Don't trust the alert; verify.
+3. **Triage decision tree**: 3-5 yes/no branches. Each branch routes either to a fix or to another runbook.
+4. **Recovery**: exact commands. No prose. Copy-paste-able.
+5. **Verify recovery**: one curl + one query. If both green, you're done.
+6. **Post-mortem template**: empty fields the operator fills in before closing the incident.
 
 ## Drill schedule
 
-Pull from [companion/FAILURE_SCENARIOS.md](../../companion/FAILURE_SCENARIOS.md) — runbook drills run on the cadence defined there. Specifically for testnet launch this week, prioritise drills for:
+Pull from [companion/FAILURE_SCENARIOS.md](../../companion/FAILURE_SCENARIOS.md): runbook drills run on the cadence defined there. Specifically for testnet launch this week, prioritise drills for:
 
 - **chain-halted** (quarterly live)
 - **state-root-divergence-detected** (quarterly live, inject in testnet)
@@ -93,4 +93,4 @@ Pull from [companion/FAILURE_SCENARIOS.md](../../companion/FAILURE_SCENARIOS.md)
 - **public-rpc-DDoS** (quarterly live: hammer your own RPC from a separate VM)
 - **explorer-indexer-behind** (continuous: every soak)
 
-The other runbooks drill annually or paper-only — they're rarer and lower frequency.
+The other runbooks drill annually or paper-only; they're rarer and lower frequency.

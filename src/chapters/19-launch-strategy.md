@@ -1,6 +1,6 @@
 # Chapter 19: Launch Strategy
 
-This chapter is the road from "code in a repo" to "live mainnet" — the principles and the shape of the path, not the calendar.
+This chapter is the road from "code in a repo" to "live mainnet": the principles and the shape of the path, not the calendar.
 
 There are no specific launch dates in this document. Phasing is honest; calendar commitments are not made.
 
@@ -22,7 +22,7 @@ The plan is conservative on purpose. A delayed launch is recoverable; a botched 
 
 ## 19.2 The Shape of the Path
 
-The plan groups work into sequenced phases. They are not strictly linear — many items run in parallel within a phase — but each phase has a bar that gates the next.
+The plan groups work into sequenced phases. They are not strictly linear (many items run in parallel within a phase), but each phase has a bar that gates the next.
 
 Summary, in order:
 
@@ -45,7 +45,7 @@ Each phase's deliverables and exit criteria are tracked to the smallest actionab
 Pyde mainnet ships with:
 
 - Post-quantum cryptography: FALCON signatures, Poseidon2 + Blake3 hashing.
-- MEV resistance via the keyless commit-reveal private mempool — commit order is fixed by the DAG before content is revealed; no committee decryption key.
+- MEV resistance via the keyless commit-reveal private mempool: commit order is fixed by the DAG before content is revealed; no committee decryption key.
 - Mysticeti-style consensus with sub-second median commit and 85-of-128 FALCON quorum certificates.
 - WASM execution via wasmtime + Cranelift AOT, with the host-function ABI v1.0.
 - JMT state with dual-hash (Blake3 + Poseidon2) per node, PIP-2 clustered keys, PIP-3 prefetch, PIP-4 write-back cache.
@@ -56,14 +56,14 @@ Pyde mainnet ships with:
 
 Mainnet does **not** ship with:
 
-- Programmable accounts (post-mainnet — `Programmable` enum variant reserved at v1 so contracts written today survive).
+- Programmable accounts (post-mainnet; `Programmable` enum variant reserved at v1 so contracts written today survive).
 - Native session keys (post-mainnet, paired with programmable accounts).
 - Live parachain operator network (designed for v1, implementation in a later phase; the interfaces ship at v1 so the design forward-commits).
 - ZK-aggregated FALCON signatures (the path to substantially higher signature-verification throughput; v2/v3 work).
 - zk-WASM proven execution (research-stage; integrated when the upstream provers reach production quality).
 - Cross-chain bridges to other L1s (post-mainnet, only with proven security models).
 
-This split is intentional. v1 ships the properties that justify Pyde's existence — post-quantum security, MEV resistance, sub-second finality, commodity-hardware decentralization, multi-language WASM contracts. Everything else is sequenced honestly and shipped when ready.
+This split is intentional. v1 ships the properties that justify Pyde's existence: post-quantum security, MEV resistance, sub-second finality, commodity-hardware decentralization, multi-language WASM contracts. Everything else is sequenced honestly and shipped when ready.
 
 ---
 
@@ -71,7 +71,7 @@ This split is intentional. v1 ships the properties that justify Pyde's existence
 
 A discipline carried forward from the consensus pivot:
 
-> No external TPS claim is published until the performance harness exists, has been run on production-realistic conditions, and the methodology is reproducible by third parties. Publish only what the harness measures under sustained, production-realistic conditions — never burst, never microbenchmark, never single-machine if multi-region is the relevant scope.
+> No external TPS claim is published until the performance harness exists, has been run on production-realistic conditions, and the methodology is reproducible by third parties. Publish only what the harness measures under sustained, production-realistic conditions: never burst, never microbenchmark, never single-machine if multi-region is the relevant scope.
 
 The earlier consensus implementation hit roughly 4K TPS in lab tests despite a higher claimed design target. The discipline above prevents that gap from recurring. The v1 honest throughput target (to be established by the multi-region performance harness) on commodity validator hardware comes from this discipline.
 
@@ -83,8 +83,8 @@ See the [Performance Harness](../companion/PERFORMANCE_HARNESS.md) companion doc
 
 For context (see [The Pivot](../preface/pivot.md) for the full story):
 
-- **HotStuff-era consensus work** — properties, lessons, and invariants carry forward; the code is archived and the consensus layer is being rebuilt around Mysticeti.
-- **Otigen-era execution work** — the safety properties (reentrancy guards, checked arithmetic, typed storage, no `tx.origin`, compile-time access-list inference) carry forward as patterns in the WASM host-function ABI and the binding generators; the language and custom VM are retired.
+- **HotStuff-era consensus work**: properties, lessons, and invariants carry forward; the code is archived and the consensus layer is being rebuilt around Mysticeti.
+- **Otigen-era execution work**: the safety properties (reentrancy guards, checked arithmetic, typed storage, no `tx.origin`, compile-time access-list inference) carry forward as patterns in the WASM host-function ABI and the binding generators; the language and custom VM are retired.
 
 Both pivots reset the critical path for the affected layer but did not invalidate the work on adjacent layers (state, accounts, transactions, tokenomics, vesting, multisig, all preserved across both pivots).
 
@@ -92,7 +92,7 @@ Both pivots reset the critical path for the affected layer but did not invalidat
 
 ## 19.6 Reading on
 
-- [Preface: The Pivot](../preface/pivot.md) — context on both architectural pivots.
-- [Performance Harness](../companion/PERFORMANCE_HARNESS.md) — testing methodology.
-- [Chapter 16: Security](./16-security.md) — threat model and audit scope.
-- [Chapter 6: Consensus](./06-consensus.md) — the consensus design that ships at mainnet.
+- [Preface: The Pivot](../preface/pivot.md): context on both architectural pivots.
+- [Performance Harness](../companion/PERFORMANCE_HARNESS.md): testing methodology.
+- [Chapter 16: Security](./16-security.md): threat model and audit scope.
+- [Chapter 6: Consensus](./06-consensus.md): the consensus design that ships at mainnet.

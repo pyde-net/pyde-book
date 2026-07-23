@@ -13,9 +13,11 @@ Pyde supports two contract surfaces:
 1. **Smart contracts**: sandboxed WASM modules deployed to the chain.
    Standard L1 contract development; read [Chapter 3: Execution
    Layer](../chapters/03-virtual-machine.md) for the runtime model.
-2. **Parachains**: permissionless side-runtimes that share Pyde's
-   finality and validator set, with their own state subtree and an
-   extended ABI for cross-chain messaging + threshold cryptography.
+2. **Parachains** (v2): permissionless decentralized networks that do
+   one job the base chain cannot — foreign-chain adapters, data feeds,
+   real-world IO — with their own staked validators and their own
+   state, anchored to and re-validated by Pyde, and an extended ABI
+   for declared IO + cross-parachain messaging.
    Read [Chapter 13: Parachains](../chapters/13-cross-chain.md).
 
 Both compile to WebAssembly. Pyde executes them via

@@ -555,5 +555,6 @@ Honest about what is not in the network layer at launch:
 | Symmetric encryption       | TLS 1.3 inside QUIC                                   |
 | Bandwidth (committee)      | 500 Mbps, scales with throughput (Ch 19)              |
 
-The next chapter covers the cross-chain and parachain story — what's in
-scope for mainnet, what isn't, and what the SDK direction looks like.
+The next chapter covers the parachain layer — Pyde's one mechanism for
+everything off-chain, from foreign chains to data feeds — what's locked
+at mainnet, what ships after, and how the layer stays honest.

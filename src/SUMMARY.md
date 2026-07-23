@@ -44,7 +44,7 @@
 
 - [Account Model](chapters/11-account-model.md)
 - [Networking](chapters/12-networking.md)
-- [Cross-Chain (Parachains)](chapters/13-cross-chain.md)
+- [Parachains and Cross-Chain](chapters/13-cross-chain.md)
 
 # Ecosystem
 

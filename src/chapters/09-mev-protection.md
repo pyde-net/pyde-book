@@ -417,6 +417,10 @@ gaps are tolerated.
 
 ## 9.7 The End-to-End Walkthrough
 
+![The keyless commit-reveal lane: commit, DAG order lock, reveal, resolution in commit order, execution; a searcher sees only the commitment, ceiling, and bond.](../assets/diagrams/ch09-commit-reveal.svg)
+
+*The commit-reveal lane: the DAG fixes a commitment's position before anyone can read its content, so revealed transactions execute in an order no one could have gamed.*
+
 A swap from Alice's wallet through the full private-mempool pipeline:
 
 ```

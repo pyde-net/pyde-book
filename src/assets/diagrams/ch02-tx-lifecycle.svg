@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="660" viewBox="0 0 1200 660" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, sans-serif">
+  <defs>
+    <filter id="sh" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="3" stdDeviation="7" flood-color="#000000" flood-opacity="0.08"/></filter>
+    <marker id="ar" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#b2b2ba"/></marker>
+  </defs>
+  <rect width="1200" height="660" fill="#ffffff"/>
+  <text x="600" y="58" text-anchor="middle" font-size="30" font-weight="700" fill="#16161a">Life of a transaction</text>
+  <text x="600" y="92" text-anchor="middle" font-size="16" fill="#8a8a92">From wallet signature to finality in about half a second</text>
+
+  <!-- row 1 arrows -->
+  <g stroke="#cfcfd6" stroke-width="2.2">
+    <line x1="270" y1="205" x2="308" y2="205" marker-end="url(#ar)"/>
+    <line x1="560" y1="205" x2="598" y2="205" marker-end="url(#ar)"/>
+    <line x1="850" y1="205" x2="888" y2="205" marker-end="url(#ar)"/>
+  </g>
+  <text x="579" y="188" text-anchor="middle" font-size="12" fill="#9a9aa2">batch hashes by reference</text>
+
+  <!-- row 1 -->
+  <g filter="url(#sh)"><rect x="20" y="155" width="250" height="100" rx="14" fill="#f6f6f7" stroke="#e4e4e8" stroke-width="1.5"/></g>
+  <text x="145" y="198" text-anchor="middle" font-size="18" font-weight="650" fill="#16161a">Wallet submits</text>
+  <text x="145" y="222" text-anchor="middle" font-size="12.5" fill="#7a7a82">FALCON-signed; commit-reveal</text>
+  <text x="145" y="238" text-anchor="middle" font-size="12.5" fill="#7a7a82">pair for the private lane</text>
+
+  <g filter="url(#sh)"><rect x="310" y="155" width="250" height="100" rx="14" fill="#f6f6f7" stroke="#e4e4e8" stroke-width="1.5"/></g>
+  <text x="435" y="198" text-anchor="middle" font-size="18" font-weight="650" fill="#16161a">Worker</text>
+  <text x="435" y="222" text-anchor="middle" font-size="12.5" fill="#7a7a82">verifies, batches,</text>
+  <text x="435" y="238" text-anchor="middle" font-size="12.5" fill="#7a7a82">gossips batches once</text>
+
+  <g filter="url(#sh)"><rect x="600" y="155" width="250" height="100" rx="14" fill="#f6f6f7" stroke="#e4e4e8" stroke-width="1.5"/></g>
+  <text x="725" y="198" text-anchor="middle" font-size="18" font-weight="650" fill="#16161a">Primary vertex</text>
+  <text x="725" y="222" text-anchor="middle" font-size="12.5" fill="#7a7a82">one per member per round</text>
+  <text x="725" y="238" text-anchor="middle" font-size="12.5" fill="#7a7a82">(~150ms), tiny by design</text>
+
+  <g filter="url(#sh)"><rect x="890" y="155" width="250" height="100" rx="14" fill="#16161a"/></g>
+  <text x="1015" y="198" text-anchor="middle" font-size="18" font-weight="650" fill="#ffffff">Wave commit</text>
+  <text x="1015" y="222" text-anchor="middle" font-size="12.5" fill="#b6b6be">anchor selected, subdag walked,</text>
+  <text x="1015" y="238" text-anchor="middle" font-size="12.5" fill="#b6b6be">canonical order emitted</text>
+
+  <!-- wrap arrow row1 -> row2 -->
+  <path d="M1015,255 C1015,320 420,300 278,368" fill="none" stroke="#cfcfd6" stroke-width="2.2" marker-end="url(#ar)"/>
+  <text x="660" y="318" text-anchor="middle" font-size="12" fill="#9a9aa2">revealed inner txs spliced into DAG-fixed order</text>
+
+  <!-- row 2 arrows -->
+  <g stroke="#cfcfd6" stroke-width="2.2">
+    <line x1="400" y1="425" x2="438" y2="425" marker-end="url(#ar)"/>
+    <line x1="690" y1="425" x2="728" y2="425" marker-end="url(#ar)"/>
+  </g>
+  <text x="709" y="408" text-anchor="middle" font-size="12" fill="#9a9aa2">signed by the committee</text>
+
+  <!-- row 2 -->
+  <g filter="url(#sh)"><rect x="150" y="375" width="250" height="100" rx="14" fill="#f6f6f7" stroke="#e4e4e8" stroke-width="1.5"/></g>
+  <text x="275" y="418" text-anchor="middle" font-size="18" font-weight="650" fill="#16161a">Block-STM execution</text>
+  <text x="275" y="442" text-anchor="middle" font-size="12.5" fill="#7a7a82">every tx in parallel;</text>
+  <text x="275" y="458" text-anchor="middle" font-size="12.5" fill="#7a7a82">wasmtime, Cranelift AOT</text>
+
+  <g filter="url(#sh)"><rect x="440" y="375" width="250" height="100" rx="14" fill="#f6f6f7" stroke="#e4e4e8" stroke-width="1.5"/></g>
+  <text x="565" y="418" text-anchor="middle" font-size="18" font-weight="650" fill="#16161a">State root</text>
+  <text x="565" y="442" text-anchor="middle" font-size="12.5" fill="#7a7a82">JMT updates, dual-hash:</text>
+  <text x="565" y="458" text-anchor="middle" font-size="12.5" fill="#7a7a82">Blake3 + Poseidon2</text>
+
+  <g filter="url(#sh)"><rect x="730" y="375" width="250" height="100" rx="14" fill="#16161a"/></g>
+  <text x="855" y="418" text-anchor="middle" font-size="18" font-weight="650" fill="#ffffff">Finality</text>
+  <text x="855" y="442" text-anchor="middle" font-size="12.5" fill="#b6b6be">at least 85 of 128 state-root</text>
+  <text x="855" y="458" text-anchor="middle" font-size="12.5" fill="#b6b6be">FALCON signatures</text>
+
+  <!-- callout -->
+  <rect x="150" y="545" width="900" height="64" rx="15" fill="#fafafa" stroke="#ececf0" stroke-width="1.5"/>
+  <text x="600" y="585" text-anchor="middle" font-size="17" font-weight="600" fill="#2a2a30">Transactions travel the network exactly once; consensus vertices carry only batch hashes.</text>
+</svg>

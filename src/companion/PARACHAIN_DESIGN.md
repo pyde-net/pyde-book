@@ -101,7 +101,7 @@ And the parachain's relationship to Pyde:
    Pyde (base chain)                                   parachain network
 ┌──────────────────────────┐                     ┌──────────────────────────┐
 │ Parachain anchor account  │   forwarded         │ validators (open, staked) │
-│  · parachain_id, name     │   cross_calls       │ own consensus (preset)    │
+│  · parachain_id, name     │   parachain_calls   │ own consensus (preset)    │
 │  · config + capability    │────────────────────►│ own blocks                │
 │  · canonical image digest │                     │ own working state         │
 │  · stake bookkeeping      │◄────────────────────│                          │
@@ -115,7 +115,7 @@ And the parachain's relationship to Pyde:
 identity: registry entry, config, capability declaration, canonical
 image digest, stake bookkeeping, version history, and the latest
 re-validated state roots. It is small, and it is what Pyde consults
-before forwarding a `cross_call`.
+before forwarding a `parachain_call`.
 
 **The working state** lives with the parachain network itself, in its
 own tree, committed per block under its own consensus. The
@@ -336,7 +336,7 @@ agreement-rule declaration and execution, the canonical-image
 discipline, stake handling, the forwarded-call intake protocol, and the
 callback contract.
 
-**Forwarding.** Pyde validators forward a contract's `cross_call` to a
+**Forwarding.** Pyde validators forward a contract's `parachain_call` to a
 parachain only while the parachain is conformant and unchallenged. The
 routing is principle-based: the contract names the parachain and the
 capability it expects; Pyde checks the anchor account (active, staked,
@@ -347,7 +347,7 @@ anchor block (bad signatures, root discontinuity, agreement-rule
 violation, off-image execution evidence), Pyde challenges it:
 
 1. The anchor is rejected and the parachain enters `CHALLENGED`.
-2. Forwarding stops immediately: no new `cross_call` reaches it until
+2. Forwarding stops immediately: no new `parachain_call` reaches it until
    the challenge is resolved (the liveness lever).
 3. Offending validators are slashed per the parachain's preset plus the
    layer's fraud schedule (the economic lever, §13).
@@ -510,7 +510,7 @@ self-report.
 
 ## 15. Parachain economics
 
-PYDE is the gas token across the layer. A contract's `cross_call` into
+PYDE is the gas token across the layer. A contract's `parachain_call` into
 a parachain pays that parachain's **declared gas charge** (in config,
 visible in the anchor account) on top of standard execution gas.
 Parachain validators earn the charge for honest service; registration

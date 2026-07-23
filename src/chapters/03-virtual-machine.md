@@ -26,6 +26,10 @@ The price for these properties: a small overhead on the order of 5-15% relative 
 
 ## 3.2 Runtime Architecture
 
+![Block-STM parallel execution: optimistic parallel execution over MVCC, validation against canonical order, free re-incarnation of losers, and a bit-identical finalized state.](../assets/diagrams/ch03-block-stm.svg)
+
+*A committed wave's transactions execute optimistically in parallel over the MVCC layer; validation catches conflicts against canonical order, losers re-execute for free, and the finalized write set is bit-identical on every validator.*
+
 Execution sits inside the `wasm-exec` crate of the engine workspace. The crate exposes a single `WasmExecutor` type that owns the wasmtime engine, the compiled-module cache, and the host function bindings. The transaction pipeline calls into `WasmExecutor` per invocation; the executor handles the rest.
 
 ```

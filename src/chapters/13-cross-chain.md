@@ -6,7 +6,7 @@ arbitrary APIs. Pyde reaches all of it through one mechanism, the
 **parachain layer**.
 
 A parachain is a small, decentralized, staked network that does one job
-the base chain deliberately cannot do on its own, then reports the
+the base chain deliberately cannot do on its own, then posts the
 result back to Pyde in a form Pyde can check. One parachain speaks to a
 foreign chain through that chain's light client. Another publishes
 price data. Another reports real-world events or moves files. A
@@ -49,9 +49,9 @@ Each one re-introduces exactly the trusted party the chain existed to
 remove.
 
 Pyde's position: keep the wall, build a proper door. The door is a
-decentralized network with its own stake and its own consensus, whose
-work Pyde re-validates. Not a multisig. Not an operator whitelist. Not
-a promise.
+decentralized, staked network that attests its work into Pyde's own
+security, where Pyde re-validates it. Not a multisig. Not an operator
+whitelist. Not a promise.
 
 ---
 
@@ -60,7 +60,7 @@ a promise.
 ![Pyde in the center with parachains around it, each doing a different job: Chain X and Chain Y adapters running light clients, price feeds, events and file IO.](../assets/diagrams/parachain-concept.svg)
 
 *One off-chain layer, many jobs: every parachain is its own staked,
-decentralized network, anchored to and re-validated by Pyde.*
+decentralized network, attesting its results into Pyde's own security.*
 
 Each parachain declares one **capability**: what job it does, what a
 request payload looks like, and how its validators agree on a result.
@@ -80,8 +80,8 @@ result:
 ![A Pyde contract issues a parachain_call; the parachain signs and submits on Chain X, watches through its light client, confirms, and Pyde runs the callback while the parachain anchors the result in its own block.](../assets/diagrams/parachain-flow.svg)
 
 *A contract drives an action on another network and gets a verified
-result back; in parallel, the parachain seals the exchange into its own
-block and broadcasts it to Pyde for re-validation.*
+result back: the parachain attests the result and posts it to Pyde as
+an ordinary result transaction, ordered in the DAG like any other.*
 
 1. The contract issues a `parachain_call` naming the parachain, the action,
    the payload (target address, function, arguments), and the callback
@@ -92,18 +92,22 @@ block and broadcasts it to Pyde for re-validation.*
 4. The parachain watches the transaction through its Chain X light
    client, confirms the receipt, and processes whatever it needs on its
    own side, including its own state.
-5. The callback fires back into Pyde, and the calling contract's named
-   handler runs with the verified result.
+5. The attested result posts back to Pyde as an ordinary transaction
+   of a dedicated result type; the calling contract reads it through a
+   view (pull-first), with a push handler form to follow once the
+   result path is proven.
 
-In parallel with steps 4 and 5, the parachain seals the whole exchange
-into its own block, under its own consensus, commits its state root,
-and broadcasts the block to the Pyde network for re-validation. That
-anchor is what makes the layer honest: the work is not just reported,
-it is recorded, checkable, and slashable.
+The result becomes canonical the same way everything on Pyde does: it
+is an ordered transaction, gossiped, sequenced in the DAG, and
+dispatched deterministically. The parachain's members attest it with
+the same per-member aggregated FALCON signing the base chain's beacon
+already uses, so no new consensus primitive exists anywhere in the
+path. The work is not just reported: it is recorded, checkable, and
+slashable.
 
-If a parachain submits a fraudulent or invalid block, Pyde challenges
-it, and until the parachain resolves the challenge, Pyde stops
-forwarding requests to it. Forwarding cutoff is the liveness lever;
+If a parachain attests a fraudulent or invalid result, Pyde challenges
+it, and until the challenge resolves, Pyde stops forwarding requests
+to it. Forwarding cutoff is the liveness lever;
 slashing of the offending validators' stake is the economic one. Both
 apply.
 
@@ -183,8 +187,8 @@ design:
  │             │                                                              │
  │   ┌─────────▼─────────────────────────────────────────────┐                │
  │   │ Pyde-provided operator binary                          │                │
- │   │ networking, peer discovery, stake wiring,               │                │
- │   │ parachain consensus, anchor broadcast to Pyde           │                │
+ │   │ networking, peer discovery, stake wiring, result        │                │
+ │   │ agreement, attestation + result posting to Pyde         │                │
  │   └───────────────────────────────────────────────────────┘                │
  │                                                                            │
  │   all of it shipped as one canonical Docker image,                          │
@@ -208,14 +212,18 @@ non-determinism cannot hurt anything.
 **The operator binary** is provided by Pyde and is the same for every
 parachain. It handles what authors should never have to build:
 networking, peer discovery, the connection to the Pyde network, stake
-verification, running the parachain's consensus, and broadcasting the
-anchor blocks back to Pyde. An operator points it at a parachain id and
+verification, running the agreement rule over results, and posting the
+attested result transactions back to Pyde. An operator points it at a parachain id and
 a config; it pulls everything else.
 
 **The canonical image.** Each parachain version registers its Docker
 image digest in the parachain's on-chain state. Every operator runs the
 same verified bytes; drift is detectable; upgrades are explicit state
-changes. The image is public so anyone can pull, inspect, and join.
+changes. The image is public so anyone can pull, inspect, and join. And
+the image is the messy part, sandboxed, never the trusted part: it is
+third-party code on validator hardware, so it runs contained, and the
+guarantee comes from validators agreeing on the result, not from
+trusting the image.
 
 ### Why the IO split is the whole trick
 
@@ -227,10 +235,10 @@ If the contract made the network call itself, every validator would get
 a slightly different answer (timing, peers, API jitter) and the
 parachain could never agree on a block. So the deterministic core
 declares the IO as data (target, method, payload schema, timeout) and
-the relay backend performs it off the consensus path. What goes back
-*into* consensus is the result, and the validators' one job is to agree
-on that result before it is sealed and anchored. Determinism inside,
-reality outside, agreement at the boundary.
+the relay backend performs it outside the agreement path. What comes
+back is the result, and the validators' one job is to agree on that
+result before it is attested into Pyde. Determinism inside, reality
+outside, agreement at the boundary.
 
 ### How validators agree on a result
 
@@ -240,13 +248,14 @@ divides into two honesty classes:
 | Data class | Example | Agreement | Trust basis |
 |---|---|---|---|
 | **Provable** | a Chain X receipt | exact match | verified against Chain X's own consensus via light client; Pyde can re-check it |
-| **Attested** | a price, a weather reading, an API response | quorum within a declared tolerance (median or trimmed of N observations) | validator quorum + stake + slashing; this is an oracle, and the layer says so honestly |
+| **Attested** | a price, a weather reading, an API response | each validator fetches independently and commits to its value before revealing (the base chain's own commit-reveal, reused), then the median of the revealed quorum within a declared tolerance | validator quorum + stake + slashing; this is an oracle, and the layer says so honestly |
 
-Pyde re-validates what can be re-validated: consensus signatures,
-light-client proofs, the deterministic parts of the anchored block. For
-attested data, the guarantee is economic, a quorum of independent
-staked observers agreed within tolerance, and diverging from the quorum
-is slashable.
+Pyde re-validates what can be re-validated: the aggregated member
+attestation, light-client proofs, and the deterministic dispatch of the
+result transaction. For attested data, the guarantee is economic: a
+quorum of independent staked observers agreed within tolerance, a
+minority cannot swing the median, and sitting persistently outside the
+tolerance is slashable.
 
 ---
 
@@ -339,24 +348,35 @@ What the layer removes:
   it.
 - The oracle whitelist. Feeds are open networks anyone can stake into,
   with declared agreement rules, not an operator agreement.
-- The silent failure. Every result is anchored into a block Pyde
-  re-validates; fraud is challengeable, slashable, and cuts off
-  forwarding.
+- The silent failure. Every result lands on Pyde as an ordered,
+  attested transaction; fraud is challengeable, slashable, and cuts
+  off forwarding.
 
 What remains, named rather than waved away:
 
 - **Attested data is attested.** No mechanism makes a price *provable*;
   the layer makes the attestation economic and its rule explicit.
-- **Outbound key custody.** An adapter signs real transactions on a
-  foreign chain. That signing authority must itself be threshold-held
-  across the parachain's validators; a single signer would be the old
-  bridge failure mode wearing new clothes. The threshold scheme is a
-  primary open design item, treated with the same seriousness as
-  consensus itself.
-- **Dispute mechanics.** Challenge windows, fraud-proof format, and
-  who adjudicates the edge cases are open design, tracked in
+- **Outbound key custody: three keys, not one threshold.** Pyde's own
+  consensus stays FALCON, and a parachain attests its results with the
+  same per-member aggregated FALCON the beacon already uses, so no
+  post-quantum threshold scheme is reintroduced anywhere. Only the key
+  that submits on a foreign chain is different, and it has to be: the
+  target chain dictates its scheme (a chain that verifies secp256k1
+  cannot verify FALCON), so that one foreign-facing key is held under a
+  standard MPC scheme across the parachain's validators, never a
+  single signer, backed by slashing. The read-only side, oracles and
+  provable-state reads, needs no outbound key at all. The operational
+  security of that key (ceremony, resharing, making a stolen key
+  unprofitable) is a primary open design item.
+- **Dispute mechanics.** Challenge windows, the fraud-proof format for
+  provable data, and who adjudicates the edge cases are open design,
+  tracked in
   [companion/PARACHAIN_DESIGN.md](../companion/PARACHAIN_DESIGN.md),
   not silently assumed solved.
+- **Deterministic timeouts.** A request that times out for one
+  validator but not another must still resolve to one agreed outcome,
+  so the timeout is folded into what the quorum attests rather than
+  left to each validator's wall clock. Open design, named as such.
 
 ---
 
@@ -397,7 +417,7 @@ becomes stake and slashing.
 | Stage | Capability |
 | --- | --- |
 | **Mainnet (v1)** | Surface locked: `cross_call` + callbacks live for contract-to-contract; `HardFinalityCert` format stable; `type = "parachain"` schema + gated host-fn namespace reserved |
-| **Post-mainnet (v2), first wave** | Parachain layer live: operator binary, canonical images, staking + slashing, anchor re-validation; first data-feed parachains |
+| **Post-mainnet (v2), first wave** | Parachain layer live: operator binary, canonical images, staking + slashing, result transactions; first data-feed parachains |
 | **Post-mainnet (v2), second wave** | First chain adapters (light client + threshold outbound signing), starting with one high-value counterparty chain |
 | **Later** | ZK-aggregated FALCON verification (collapses proof costs for adapters and committees); zk-WASM proven execution where research heads |
 
@@ -414,7 +434,7 @@ on credible auditor capacity, not on a calendar.
 | Hard-finality certificate (format) | Yes | The outbound proof primitive for adapters |
 | `cross_call` host function (interface) | Yes | The callback model `parachain_call` extends to parachains, then foreign chains through adapters |
 | Smart-contract → smart-contract calls | Yes (working) | Performance optimizations |
-| Parachain layer (operator network) | Surface reserved | Ships as v2: staking, consensus, anchoring, slashing |
+| Parachain layer (operator network) | Surface reserved | Ships as v2: staking, attestation into Pyde, result transactions, slashing |
 | Smart-contract → parachain calls | Interface only | Live with the layer |
 | Foreign-chain reach | No | Through adapter parachains: light clients in, finality certs out, no multisig anywhere |
 | Off-chain data (prices, events, IO) | App-layer trusted feeds possible | Decentralized, staked, agreement-ruled parachains |

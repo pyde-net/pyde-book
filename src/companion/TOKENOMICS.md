@@ -40,7 +40,7 @@ Inflation accrues to the **reward pool**, distributed per the same rule as the f
 Every transaction has:
 - **Base fee:** dynamically adjusted per block (EIP-1559 mechanism, target 50% block utilization)
 - **No priority tip.** The keyless commit-reveal private mempool eliminates the information asymmetry that priority fees price. Priority would re-introduce ordering exploitation.
-- **Combined gas:** for `cross_call!` invocations (post-mainnet), Pyde-side + parachain-side gas billed in one transaction
+- **Combined gas:** for `parachain_call!` invocations (post-mainnet), Pyde-side + parachain-side gas billed in one transaction
 
 ### Block Elasticity
 
@@ -156,7 +156,7 @@ threshold + 30-day-bounded emergency pause provide checks.
 
 ## Parachain Operator Economics (Post-Mainnet)
 
-Parachain operators stake PYDE as their bond and earn from the **combined gas** of every `cross_call!` invocation. The split is:
+Parachain operators stake PYDE as their bond and earn from the **combined gas** of every `parachain_call!` invocation. The split is:
 
 - **70% to parachain operator(s)** providing the cross-chain service
 - **20% to the Pyde-side reward pool** (for executing the originating transaction)

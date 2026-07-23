@@ -55,7 +55,7 @@ and the post-mainnet plan.
 | **Nonce window**     | 16-slot bitmap of in-flight nonces per account.                              |
 | **Gas tank**         | Per-account dedicated balance for sponsoring user transactions.              |
 | **Paymaster**        | A contract that pays gas on behalf of a user, with custom validation logic. |
-| **Parachain operator** | Permissionless v2 actor who stakes PYDE, fulfills `cross_call!` to other chains, earns gas fees. |
+| **Parachain operator** | Permissionless v2 actor who stakes PYDE, fulfills `parachain_call!` requests to other chains and data sources, earns gas fees. |
 
 ---
 
@@ -410,7 +410,7 @@ Pyde is a sovereign post-quantum L1. Mainnet ships:
 - **Private mempool (keyless commit-reveal)**: opt in per-tx for MEV protection; no committee decryption key. Commit then reveal; inner txs execute in DAG commit order (Chapter 9). A one-shot ciphertext lane stays v2+ research (Chapter 20).
 - **No tip mechanism**: fees are exactly `gas_used × base_fee`.
 - **No on-chain stake-weighted vote**: governance is PIPs + on-chain multisig.
-- **No bridge at v1**: `cross_call!` macro stable; parachain operator layer ships post-mainnet.
+- **No bridge at v1**: `parachain_call!` surface reserved; parachain operator layer ships post-mainnet.
 - **Structural MEV protection**: commit-reveal + structural ordering + no tips = unexpressible MEV.
 
 Everything that doesn't ship at mainnet is tracked, scoped, and

@@ -17,7 +17,7 @@ Pyde is a Layer 1 blockchain built greenfield to ship four properties as default
 
 4. **Commodity-hardware decentralization.** Full nodes and validators awaiting committee selection run on 8 cores / 16 GB RAM. Validators on the active committee at production throughput require a 500 Mbps to 1 Gbps NIC; every committee seat carries one vote regardless of stake. Enterprises that want to verify the chain independently can do so at hardware costs measured in thousands per year, not the $20K+/month that production-grade validators on the highest-throughput chains run.
 
-The execution layer is **WebAssembly via wasmtime** (with Cranelift AOT) and a **uniform Block-STM scheduler**: every tx runs optimistically in parallel through an MVCC layer, conflicts are caught at validation, losers re-execute until fixpoint. Wallet-attached access lists from `pyde_simulateTransaction` drive PIP-3 multiget prefetch into the dashmap cache before workers start; the lists are performance hints, not scheduling decisions, and never affect correctness. Developers author smart contracts in Rust, AssemblyScript, Go (TinyGo), or C/C++ (any wasm32-target language) with Pyde safety attributes (reentrancy off by default, checked arithmetic, typed storage, no `tx.origin`, compile-time access-list inference) preserved as language-native attributes and enforced at runtime. No proprietary VM or new language to learn; teams use the stack they already know. The `otigen` developer toolchain handles project scaffolding, build, state binding generation, and deployment. Everything outside the chain (foreign chains, oracles, off-chain compute and IO) is served by the **parachain layer** (post-mainnet), proofs gated by `HardFinalityCert`, a FALCON quorum certificate verifiable on any chain. The parachain layer lets developer teams launch their own decentralized networks (foreign-chain adapters, oracle networks, confidential-vote chains, gaming-specific subchains) without slot auctions or central gatekeeping; operators anywhere stake PYDE to run third-party parachains (no committee prerequisite) and earn the parachain's fees, with every parachain block anchored back to Pyde for re-validation.
+The execution layer is **WebAssembly via wasmtime** (with Cranelift AOT) and a **uniform Block-STM scheduler**: every tx runs optimistically in parallel through an MVCC layer, conflicts are caught at validation, losers re-execute until fixpoint. Wallet-attached access lists from `pyde_simulateTransaction` drive PIP-3 multiget prefetch into the dashmap cache before workers start; the lists are performance hints, not scheduling decisions, and never affect correctness. Developers author smart contracts in Rust, AssemblyScript, Go (TinyGo), or C/C++ (any wasm32-target language) with Pyde safety attributes (reentrancy off by default, checked arithmetic, typed storage, no `tx.origin`, compile-time access-list inference) preserved as language-native attributes and enforced at runtime. No proprietary VM or new language to learn; teams use the stack they already know. The `otigen` developer toolchain handles project scaffolding, build, state binding generation, and deployment. Everything outside the chain (foreign chains, oracles, off-chain compute and IO) is served by the **parachain layer** (post-mainnet), proofs gated by `HardFinalityCert`, a FALCON quorum certificate verifiable on any chain. The parachain layer lets developer teams launch their own decentralized networks (foreign-chain adapters, oracle networks, confidential-vote chains, gaming-specific subchains) without slot auctions or central gatekeeping; operators anywhere stake PYDE to run third-party parachains (no committee prerequisite) and earn the parachain's fees, with every attested result posted back to Pyde as an ordinary transaction, and fraud slashable.
 
 This document presents the current design following a **2026 architectural pivot** from an in-house HotStuff variant (whose persistent wedges and stalls at 400 ms slot timing motivated a clean rebuild) to a DAG-based consensus inspired by Narwhal, Bullshark, and Mysticeti. The pivot scoped the chain to its execution and cryptography layers first; the consensus layer is being rebuilt design-first against the new foundation.
 
@@ -382,21 +382,20 @@ Committee NIC requirement at v1's honest throughput target (to be established by
 
 ## 11. Cross-Chain: The Parachain Layer (Post-Mainnet)
 
-Cross-chain interactions in Pyde (calling functions on other chains, querying oracles, requesting off-chain compute, indexing on-chain data) happen through a **parachain layer of permissionless decentralized infrastructure providers**. A parachain is an open-source implementation of a Pyde-published specification, run by operators who stake PYDE, follow protocol-defined rules, and earn gas fees from contracts that call them. It is its own small network with its own consensus and state, every block anchored back to Pyde for re-validation, with fraud slashable and forwarding cut off until resolved.
+Cross-chain interactions in Pyde (calling functions on other chains, querying oracles, requesting off-chain compute, indexing on-chain data) happen through a **parachain layer of permissionless decentralized infrastructure providers**. A parachain is an open-source implementation of a Pyde-published specification, run by operators who stake PYDE, follow protocol-defined rules, and earn gas fees from contracts that call them. Rather than bootstrapping its own economic security from a cold start, a parachain's validators stake PYDE and attest into Pyde's security: each result carries the parachain's per-member aggregated FALCON attestation and is posted to Pyde as an ordinary transaction of a dedicated result type, ordered in the DAG and dispatched deterministically like any other. Fraud is slashable, and forwarding is cut off until a challenge resolves.
 
-### 11.1 The `cross_call!` Macro
+### 11.1 The `parachain_call!` Macro
 
 ```rust
-cross_call!(
-    target_chain = "ethereum",
-    contract = "0x...",
-    function = "balanceOf",
-    args = [...],
-    callback = "handle_balance_response",
+parachain_call!(
+    parachain = "chainx-adapter",      // the adapter parachain, by name
+    action    = "balance_of",
+    args      = [...],
+    on_result = "handle_balance_response",
 );
 ```
 
-The macro is asynchronous. The originating transaction marks the call pending and emits an event; the actual cross-chain or oracle work happens off-chain at the parachain operator set; the result arrives in a separate callback transaction.
+The macro is asynchronous by construction. The originating transaction marks the request pending and emits an event; the actual cross-chain or oracle work happens off-chain at the parachain operator set; the attested result returns to Pyde as an ordinary result transaction. The first version is pull-first (the call yields a request id and the contract reads the settled result through a view), with the push form, a result transaction invoking a named handler as an ordinary entrypoint, to follow once the result path is proven. The in-chain `cross_call` primitive for contract-to-contract calls is separate and ships at v1.
 
 ### 11.2 HardFinalityCert
 
@@ -404,7 +403,7 @@ A FALCON quorum certificate over `(wave_id, blake3_state_root, poseidon2_state_r
 
 ### 11.3 Architecture vs Implementation
 
-The protocol-level surface (the `cross_call!` macro, `HardFinalityCert`, unified gas model) is settled at genesis. The actual parachain layer (specification, reference implementations, operator economics, bridges to Ethereum / Cosmos / Solana) ships post-mainnet. The mainnet `cross_call!` initially returns a runtime "not yet supported"; contracts written today work without rewriting when parachains activate.
+The protocol-level surface (the callback model, `HardFinalityCert`, unified gas model) is settled at genesis; `parachain_call!` enters through the ABI's additive path when the layer ships. The actual parachain layer (specification, reference implementations, operator economics, bridges to Ethereum / Cosmos / Solana) ships post-mainnet. Contracts written today against the settled surface work without rewriting when parachains activate.
 
 ### 11.4 Why the Parachain Framework Is the Most Consequential Adoption Surface
 
@@ -588,7 +587,7 @@ The `AuthKeys` enum reserves the `Programmable` variant (tag `0x03`) at genesis.
 
 ### 17.5 Parachain Layer
 
-The protocol-level cross-chain primitives (`cross_call!`, `HardFinalityCert`) ship at genesis with mainnet stubs. The full parachain layer (specification, reference implementations, operator economics, bridges to Ethereum / Cosmos / Solana) ships post-mainnet.
+The protocol-level cross-chain primitives (the callback model behind `parachain_call!`, and `HardFinalityCert`) ship at genesis as reserved surface. The full parachain layer (specification, reference implementations, operator economics, bridges to Ethereum / Cosmos / Solana) ships post-mainnet.
 
 ---
 

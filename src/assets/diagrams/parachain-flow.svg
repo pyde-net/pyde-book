@@ -43,7 +43,7 @@
   <!-- box 5 -->
   <g filter="url(#s2)"><rect x="1002" y="185" width="168" height="90" rx="14" fill="#f6f6f7" stroke="#e4e4e8" stroke-width="1.5"/></g>
   <text x="1086" y="224" text-anchor="middle" font-size="17.5" font-weight="650" fill="#16161a">Pyde</text>
-  <text x="1086" y="247" text-anchor="middle" font-size="12.5" fill="#8a8a92">runs callback</text>
+  <text x="1086" y="247" text-anchor="middle" font-size="12.5" fill="#8a8a92">result lands, read via view</text>
 
   <!-- band -->
   <rect x="110" y="395" width="980" height="104" rx="15" fill="#fafafa" stroke="#ececf0" stroke-width="1.5"/>

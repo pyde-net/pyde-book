@@ -45,6 +45,6 @@
 
   <!-- box 4: consensus on result (dark, wide) -->
   <g filter="url(#s3)"><rect x="250" y="410" width="700" height="112" rx="16" fill="#16161a"/></g>
-  <text x="600" y="455" text-anchor="middle" font-size="20" font-weight="700" fill="#ffffff">Validators agree on the result, then seal it in the block</text>
+  <text x="600" y="455" text-anchor="middle" font-size="20" font-weight="700" fill="#ffffff">Validators agree on the result, then attest it into Pyde</text>
   <text x="600" y="486" text-anchor="middle" font-size="14.5" fill="#b6b6be">exact match for provable data, or agreed within tolerance for noisy data</text>
 </svg>

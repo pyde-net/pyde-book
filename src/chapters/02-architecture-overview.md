@@ -169,9 +169,9 @@ Accounts hold:
 
 ## Cross-Chain and Off-Chain (Post-Mainnet)
 
-Everything outside the chain (foreign chains, price feeds, real-world data, arbitrary IO) is reached through one permissionless **parachain layer**: small decentralized networks that each do one declared job, staked in PYDE, running their own consensus, anchored to and re-validated by Pyde. A bridge to another chain is just one kind of parachain (an adapter running that chain's light client); an oracle feed is another. Contracts reach any of them via the `cross_call!` macro and get a verified result back through a callback (Chapter 13).
+Everything outside the chain (foreign chains, price feeds, real-world data, arbitrary IO) is reached through one permissionless **parachain layer**: small decentralized networks that each do one declared job, staked in PYDE and attesting into Pyde's own security. A bridge to another chain is just one kind of parachain (an adapter running that chain's light client); an oracle feed is another. Contracts reach any of them via the `parachain_call!` macro and get a verified result back as an ordinary result transaction (Chapter 13).
 
-The protocol-level surface (`cross_call!` macro, `HardFinalityCert` primitive, unified gas model, the `type = "parachain"` manifest schema) is settled at v1 genesis. The actual parachain layer ships post-mainnet.
+The protocol-level surface (the `cross_call` callback model that `parachain_call!` extends, the `HardFinalityCert` primitive, the unified gas model, and the `type = "parachain"` manifest schema) is settled at v1 genesis. The actual parachain layer ships post-mainnet.
 
 ## Three-Tier Node Model
 

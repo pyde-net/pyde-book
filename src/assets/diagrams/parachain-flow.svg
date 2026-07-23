@@ -47,7 +47,7 @@
 
   <!-- band -->
   <rect x="110" y="395" width="980" height="104" rx="15" fill="#fafafa" stroke="#ececf0" stroke-width="1.5"/>
-  <text x="600" y="435" text-anchor="middle" font-size="16.5" font-weight="600" fill="#2a2a30">In parallel, the parachain records the result in its own block and broadcasts it to Pyde</text>
-  <text x="600" y="462" text-anchor="middle" font-size="16.5" font-weight="600" fill="#2a2a30">for re-validation.</text>
-  <text x="600" y="484" text-anchor="middle" font-size="14" fill="#8a8a92">A fraudulent or invalid block is slashed and cut off from future calls.</text>
+  <text x="600" y="435" text-anchor="middle" font-size="16.5" font-weight="600" fill="#2a2a30">The parachain attests the result (aggregated member signatures) and posts it to Pyde</text>
+  <text x="600" y="462" text-anchor="middle" font-size="16.5" font-weight="600" fill="#2a2a30">as an ordinary result transaction, ordered in the DAG.</text>
+  <text x="600" y="484" text-anchor="middle" font-size="14" fill="#8a8a92">A fraudulent attested result is slashed and cut off from future calls.</text>
 </svg>

@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="500" viewBox="0 0 1200 500" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, sans-serif">
+  <defs>
+    <filter id="sh2" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="3" stdDeviation="7" flood-color="#000000" flood-opacity="0.08"/>
+    </filter>
+    <marker id="arw2" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#b2b2ba"/>
+    </marker>
+  </defs>
+
+  <rect width="1200" height="500" fill="#ffffff"/>
+
+  <text x="600" y="60" text-anchor="middle" font-size="31" font-weight="700" fill="#17171b">Verifying a token is a checksum, not an audit</text>
+  <text x="600" y="95" text-anchor="middle" font-size="17" fill="#8a8a92">Rebuild it from the manifest, compare the bytes, done</text>
+
+  <!-- arrows behind -->
+  <path d="M320,205 C400,205 410,258 480,262" fill="none" stroke="#c9c9d0" stroke-width="2.2" marker-end="url(#arw2)"/>
+  <path d="M320,365 C400,365 410,312 480,308" fill="none" stroke="#c9c9d0" stroke-width="2.2" marker-end="url(#arw2)"/>
+  <line x1="690" y1="285" x2="850" y2="285" stroke="#c9c9d0" stroke-width="2.2" marker-end="url(#arw2)"/>
+
+  <!-- top-left: deployed -->
+  <g filter="url(#sh2)"><rect x="70" y="150" width="250" height="110" rx="16" fill="#f6f6f7" stroke="#e4e4e8" stroke-width="1.5"/></g>
+  <text x="195" y="198" text-anchor="middle" font-size="21" font-weight="650" fill="#17171b">Deployed token</text>
+  <text x="195" y="226" text-anchor="middle" font-size="14.5" fill="#7a7a82">the bytes on-chain</text>
+
+  <!-- bottom-left: manifest -->
+  <g filter="url(#sh2)"><rect x="70" y="310" width="250" height="110" rx="16" fill="#f6f6f7" stroke="#e4e4e8" stroke-width="1.5"/></g>
+  <text x="195" y="358" text-anchor="middle" font-size="21" font-weight="650" fill="#17171b">Its manifest</text>
+  <text x="195" y="386" text-anchor="middle" font-size="14.5" fill="#7a7a82">rebuilt locally</text>
+
+  <!-- center: compare (emphasis) -->
+  <g filter="url(#sh2)"><rect x="480" y="225" width="210" height="120" rx="16" fill="#17171b"/></g>
+  <text x="585" y="278" text-anchor="middle" font-size="22" font-weight="650" fill="#ffffff">Compare</text>
+  <text x="585" y="307" text-anchor="middle" font-size="14.5" fill="#b6b6be">byte for byte</text>
+
+  <!-- right: verified (subtle accent) -->
+  <g filter="url(#sh2)"><rect x="850" y="225" width="290" height="120" rx="16" fill="#eef6f1" stroke="#cbe3d6" stroke-width="1.5"/></g>
+  <text x="995" y="278" text-anchor="middle" font-size="22" font-weight="700" fill="#1f6b47">Identical &#10003;</text>
+  <text x="995" y="307" text-anchor="middle" font-size="14.5" fill="#4f8a6c">verified, no audit</text>
+
+  <!-- callout -->
+  <rect x="205" y="410" width="790" height="62" rx="15" fill="#fafafa" stroke="#ececf0" stroke-width="1.5"/>
+  <text x="600" y="448" text-anchor="middle" font-size="18.5" font-weight="600" fill="#2a2a30">If the bytes match, the token is exactly the standard. Trust becomes arithmetic.</text>
+</svg>

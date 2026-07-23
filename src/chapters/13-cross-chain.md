@@ -77,7 +77,7 @@ how to check the work.
 A contract on Pyde wants to run a swap on Chain X and act on the
 result:
 
-![A Pyde contract issues a parachain_call; the parachain signs and submits on Chain X, watches through its light client, confirms, and Pyde runs the callback while the parachain anchors the result in its own block.](../assets/diagrams/parachain-flow.svg)
+![A Pyde contract issues a parachain_call; the parachain signs and submits on Chain X, watches through its light client, confirms, attests the result, and posts it to Pyde as an ordinary result transaction.](../assets/diagrams/parachain-flow.svg)
 
 *A contract drives an action on another network and gets a verified
 result back: the parachain attests the result and posts it to Pyde as

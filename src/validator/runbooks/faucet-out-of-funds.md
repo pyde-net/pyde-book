@@ -1,4 +1,4 @@
-# Runbook — faucet out of funds
+# Runbook: faucet out of funds
 
 `faucet.testnet.pyde.network` is rejecting drip requests with insufficient-balance errors. The faucet's funding account is drained.
 

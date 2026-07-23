@@ -245,7 +245,7 @@ changes. The image is public so anyone can pull, inspect, and join.
 If the contract made the network call itself, every validator would get
 a slightly different answer (timing, peers, API jitter) and the
 parachain could never agree on a block. So the deterministic core
-declares the IO as data — target, method, payload schema, timeout — and
+declares the IO as data (target, method, payload schema, timeout) and
 the relay backend performs it off the consensus path. What goes back
 *into* consensus is the result, and the validators' one job is to agree
 on that result before it is sealed and anchored. Determinism inside,
@@ -429,7 +429,7 @@ on credible auditor capacity, not on a calendar.
 
 | Capability | At mainnet? | Post-mainnet plan |
 | --- | --- | --- |
-| Sovereign L1 | Yes | — |
+| Sovereign L1 | Yes | none |
 | Hard-finality certificate (format) | Yes | The outbound proof primitive for adapters |
 | `cross_call` host function (interface) | Yes | Same interface reaches parachains, then foreign chains through adapters |
 | Smart-contract → smart-contract calls | Yes (working) | Performance optimizations |

@@ -32,7 +32,7 @@ T+30d   Drill that scenario in testnet
 
 - **Trigger:** Validator's server crashes (disk, power, etc.)
 - **Detection:** Auto-detected within 2 rounds (no vertex from validator)
-- **Initial Response:** None needed — other 127 continue normally
+- **Initial Response:** None needed; other 127 continue normally
 - **Investigation:** Operator diagnoses (off-chain)
 - **Recovery:** Operator replaces hardware, runs state sync, resumes
 - **Time to Recovery:** 4-24 hours
@@ -78,7 +78,7 @@ T+30d   Drill that scenario in testnet
 ### Scenario 4: State Root Divergence Detected
 
 - **Trigger:** Bug in WASM execution layer or non-determinism
-- **Detection:** Auto — 2+ validators sign contradictory state roots for same commit → hard halt
+- **Detection:** Auto: 2+ validators sign contradictory state roots for same commit → hard halt
 - **Initial Response:**
   - All validators halt
   - Forensic state preserved

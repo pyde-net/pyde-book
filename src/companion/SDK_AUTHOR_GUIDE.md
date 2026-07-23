@@ -10,11 +10,11 @@ Pyde itself ships **no per-language SDKs** beyond the Rust reference. The chain 
 
 A complete language SDK gives an author three things:
 
-1. **Host-fn import wrappers** — typed in the language's idiom (e.g., a Go `package pyde` exposing `Sstore(...)`, an AS `class Pyde { static sload(...) }`, a Zig `pub fn sload(...)`).
-2. **An `entry` decorator / macro** — wraps the author's function in the `() -> ()` shim required by [§3.0 of HOST_FN_ABI_SPEC](HOST_FN_ABI_SPEC.md). Decodes calldata into the author's declared params; encodes the return value into a `pyde::return` call.
-3. **A `declare_storage` decorator / macro** — generates typed accessors from the `[state]` schema in `otigen.toml`, so authors write `storage::balances().write(&from, amount)` instead of `pyde::sstore_map1(...)` directly.
+1. **Host-fn import wrappers**: typed in the language's idiom (e.g., a Go `package pyde` exposing `Sstore(...)`, an AS `class Pyde { static sload(...) }`, a Zig `pub fn sload(...)`).
+2. **An `entry` decorator / macro**: wraps the author's function in the `() -> ()` shim required by [§3.0 of HOST_FN_ABI_SPEC](HOST_FN_ABI_SPEC.md). Decodes calldata into the author's declared params; encodes the return value into a `pyde::return` call.
+3. **A `declare_storage` decorator / macro**: generates typed accessors from the `[state]` schema in `otigen.toml`, so authors write `storage::balances().write(&from, amount)` instead of `pyde::sstore_map1(...)` directly.
 
-A *minimal* SDK can ship just (1) — authors will hand-write the entry shim and call host fns directly. Most language communities will want (2) at least; (3) is the polish that makes day-to-day development feel native.
+A *minimal* SDK can ship just (1): authors will hand-write the entry shim and call host fns directly. Most language communities will want (2) at least; (3) is the polish that makes day-to-day development feel native.
 
 ## 2. The four invariants every SDK must hold
 
@@ -58,11 +58,11 @@ Why borsh and not "negotiate per SDK":
 
 - **Cross-SDK interop.** A Go contract calling a Rust contract via `cross_call` needs both sides to encode the calldata identically. The chain doesn't impose this; it's an SDK-layer convention. Sharing borsh means a Go author can call a Rust contract without writing a Rust-specific shim, and vice versa.
 - **Tooling.** `otigen call --args <hex>` and the canonical e2e harnesses in `examples/storage-stress/` produce borsh-encoded calldata. A custom encoding would force every author to ship a CLI helper.
-- **The chain's own RPC.** `pyde_call`'s data field is borsh-encoded `CallPayload { function: String, calldata: Vec<u8> }`. The `calldata` inner Vec is whatever the SDK author chose — but the chain handles borsh for the outer envelope regardless.
+- **The chain's own RPC.** `pyde_call`'s data field is borsh-encoded `CallPayload { function: String, calldata: Vec<u8> }`. The `calldata` inner Vec is whatever the SDK author chose, but the chain handles borsh for the outer envelope regardless.
 
 Borsh v1 implementations exist for: Rust (`borsh`), Go (`github.com/near/borsh-go`), TypeScript (`borsh-ts`), C++, Python, Java/Kotlin, Swift, AssemblyScript (community ports). For languages without an existing borsh library, porting the v1 spec (a single-page document, ~200 lines of code) is the standard path.
 
-If your SDK *must* use a different encoding (e.g., a language where borsh isn't viable), document it explicitly: any contract built with your SDK becomes a closed-world ecosystem — cross-callable only by callers that speak your encoding. This is a real cost; weigh it against the cost of porting borsh.
+If your SDK *must* use a different encoding (e.g., a language where borsh isn't viable), document it explicitly: any contract built with your SDK becomes a closed-world ecosystem, cross-callable only by callers that speak your encoding. This is a real cost; weigh it against the cost of porting borsh.
 
 ### 2.3 Host-fn import declarations match HOST_FN_ABI_SPEC exactly
 
@@ -74,7 +74,7 @@ Common pitfalls:
 
 - **`calldata_copy` is 2-arg, not 3.** Signature: `(out_ptr: i32, out_len_ptr: i32) -> i32`. The contract writes the buffer limit (LE u32) at `out_len_ptr`; the host caps at that limit, copies bytes, and writes the actual length back. The Rust SDK shipped a 3-arg version briefly; if you're porting from an old reference, fix this.
 - **Multi-byte values are always LE.** WASM linear memory is little-endian; the host expects LE everywhere (HOST_FN_ABI_SPEC §3.2).
-- **Pointers are `i32`.** WASM32 — even though the Rust SDK declares `*mut u8` in extern "C" decls (which lowers to i32), the chain sees i32.
+- **Pointers are `i32`.** This is WASM32: even though the Rust SDK declares `*mut u8` in extern "C" decls (which lowers to i32), the chain sees i32.
 
 ### 2.4 Bundle assembly: `pyde.abi` custom section
 
@@ -82,7 +82,7 @@ The chain reads the contract's ABI from a WASM custom section named **`pyde.abi`
 
 The canonical bundle-assembly pipeline lives in `otigen-abi` (Rust). SDK authors have two options:
 
-1. **Delegate to `otigen build` (recommended).** Author's `otigen.toml` + compiled `.wasm` go through the same toolchain pipeline that every other contract uses. The SDK only needs to emit a `.wasm` with the right exports — `otigen build` handles ABI parsing, custom-section insertion, and bundle wrapping.
+1. **Delegate to `otigen build` (recommended).** Author's `otigen.toml` + compiled `.wasm` go through the same toolchain pipeline that every other contract uses. The SDK only needs to emit a `.wasm` with the right exports. `otigen build` handles ABI parsing, custom-section insertion, and bundle wrapping.
 2. **Build the bundle yourself.** Possible if your language community wants a single-binary toolchain that doesn't depend on `otigen`. You must:
    - Serialize the borsh-encoded `ContractAbi` exactly as `otigen-abi` would (the layout is stable; see `engine/crates/types/src/abi.rs` for the canonical Rust struct).
    - Insert the custom section using a WASM-encoder library (e.g., `wasm-encoder` in Rust, `binaryen` in C++, `binaryen-loader` for Node).
@@ -138,10 +138,10 @@ A handful of surfaces are intentionally underspecified in v1; we'll close them o
 
 ## 7. References
 
-- [HOST_FN_ABI_SPEC §3.0](HOST_FN_ABI_SPEC.md) — `() -> ()` entry-point WASM signature
-- [HOST_FN_ABI_SPEC §3.7](HOST_FN_ABI_SPEC.md) — `pyde.abi` custom section layout
-- [HOST_FN_ABI_SPEC §7](HOST_FN_ABI_SPEC.md) — full host-fn catalog with signatures + gas costs
-- [HOST_FN_ABI_SPEC §10](HOST_FN_ABI_SPEC.md) — gas table
-- [OTIGEN_BINARY_SPEC](OTIGEN_BINARY_SPEC.md) — bundle format
-- [WASM_AUTHOR_GUIDE](WASM_AUTHOR_GUIDE.md) — author-facing guide to writing contracts (the audience downstream of your SDK)
-- [examples/storage-stress](https://github.com/pyde-net/otigen/tree/main/examples/storage-stress) — the canonical SDK-acceptance contract
+- [HOST_FN_ABI_SPEC §3.0](HOST_FN_ABI_SPEC.md): `() -> ()` entry-point WASM signature
+- [HOST_FN_ABI_SPEC §3.7](HOST_FN_ABI_SPEC.md): `pyde.abi` custom section layout
+- [HOST_FN_ABI_SPEC §7](HOST_FN_ABI_SPEC.md): full host-fn catalog with signatures + gas costs
+- [HOST_FN_ABI_SPEC §10](HOST_FN_ABI_SPEC.md): gas table
+- [OTIGEN_BINARY_SPEC](OTIGEN_BINARY_SPEC.md): bundle format
+- [WASM_AUTHOR_GUIDE](WASM_AUTHOR_GUIDE.md): author-facing guide to writing contracts (the audience downstream of your SDK)
+- [examples/storage-stress](https://github.com/pyde-net/otigen/tree/main/examples/storage-stress): the canonical SDK-acceptance contract

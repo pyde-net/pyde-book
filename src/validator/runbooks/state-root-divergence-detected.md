@@ -1,13 +1,13 @@
-# Runbook — state root divergence detected
+# Runbook: state root divergence detected
 
-Two or more validators have signed contradictory state_roots for the same `wave_id`. This is a hard halt — the chain is fork-suspended until the divergence is reconciled.
+Two or more validators have signed contradictory state_roots for the same `wave_id`. This is a hard halt: the chain is fork-suspended until the divergence is reconciled.
 
 ## Symptom
 
 - Logs: `state_root mismatch at wave_id=N expected=0x… got=0x…` (engine `wave_committer` emits this).
-- Grafana "Consensus participation" panel: `state_root_sigs_received` is split — half the committee on one root, half on another.
+- Grafana "Consensus participation" panel: `state_root_sigs_received` is split, with half the committee on one root, half on another.
 - Pager: `PydeChainHalted` fires after the 2-minute window because no wave can advance past the divergence point.
-- Full nodes downstream go silent on `wave_committed` — they refuse to advance past a wave they can't verify.
+- Full nodes downstream go silent on `wave_committed`: they refuse to advance past a wave they can't verify.
 
 ## First check
 

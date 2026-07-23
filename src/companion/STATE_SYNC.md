@@ -2,7 +2,7 @@
 
 **Version 0.1**
 
-How new nodes join the network at any point in time. At the chain's sustained throughput, replaying from genesis is infeasible — snapshot sync is the default.
+How new nodes join the network at any point in time. At the chain's sustained throughput, replaying from genesis is infeasible, so snapshot sync is the default.
 
 ## Sync Modes
 
@@ -57,8 +57,8 @@ Both computed at snapshot time, both signed by committee.
 
 | Component | v1 mainnet | 5-year projection |
 |---|---|---|
-| Account state (~10M accounts × ~150B) | 150 MB – 1.5 GB | 5-10 GB |
-| Contract storage (~5× accounts × 64B) | 500 MB – 3 GB | 20 GB |
+| Account state (~10M accounts × ~150B) | 150 MB to 1.5 GB | 5-10 GB |
+| Contract storage (~5× accounts × 64B) | 500 MB to 3 GB | 20 GB |
 | Contract code (~50K contracts × 50KB) | ~2.5 GB | 20 GB |
 | **Total** | **~1-3 GB** | **~50 GB** |
 
@@ -86,7 +86,7 @@ struct Chunk {
 
 ### Why fringe siblings
 
-The chunk doesn't contain the entire JMT — that would be every other chunk too. It contains some contiguous portion (e.g., "all nodes whose NibblePath starts with `3a`"). To prove that portion is part of the canonical state at the snapshot's version, the chunk must include the sibling hashes along the boundary.
+The chunk doesn't contain the entire JMT (that would be every other chunk too). It contains some contiguous portion (e.g., "all nodes whose NibblePath starts with `3a`"). To prove that portion is part of the canonical state at the snapshot's version, the chunk must include the sibling hashes along the boundary.
 
 ```text
 Conceptual example:
@@ -134,9 +134,9 @@ For each chunk received:
 ### Properties
 
 - Each chunk is independently verifiable. Lose one chunk, request from another peer; no cascading failure.
-- The fringe siblings are small (~few hundred bytes per chunk) — they don't materially inflate chunk size.
-- The proof is **non-interactive** — chunk + fringe siblings is enough; no back-and-forth needed.
-- Standard cryptographic primitive — Aptos's JMT uses this; Ethereum's MPT has similar range-proof support. Not novel.
+- The fringe siblings are small (~few hundred bytes per chunk), so they don't materially inflate chunk size.
+- The proof is **non-interactive**: chunk + fringe siblings is enough; no back-and-forth needed.
+- Standard cryptographic primitive: Aptos's JMT uses this; Ethereum's MPT has similar range-proof support. Not novel.
 
 ### Snapshot manifest RPC handler
 

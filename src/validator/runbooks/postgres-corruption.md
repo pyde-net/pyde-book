@@ -1,4 +1,4 @@
-# Runbook — explorer Postgres corruption
+# Runbook: explorer Postgres corruption
 
 The explorer's Postgres database (`pyde-postgres` container or RDS instance) has corrupted pages, refuses connections, or returns stale / wrong data on indexer queries.
 
@@ -40,7 +40,8 @@ If Postgres logs reference `invalid page`, `PANIC`, or won't start, this is real
    - Stale → wipe + re-index.
 
 4. **Is replication / WAL streaming the corruption source?**
-   - `docker exec pyde-postgres ls /var/lib/postgresql/data/pg_wal | wc -l` — pathological growth = stuck replication.
+   - `docker exec pyde-postgres ls /var/lib/postgresql/data/pg_wal | wc -l`:
+     pathological growth = stuck replication.
 
 ## Recovery
 
@@ -82,7 +83,8 @@ aws rds restore-db-instance-from-db-snapshot \
 # Once the new instance is healthy, repoint the indexer's DATABASE_URL and restart.
 ```
 
-Always prefer wipe + re-index for a corrupted explorer DB — the chain has all the data and the index is meant to be cheap to rebuild.
+Always prefer wipe + re-index for a corrupted explorer DB: the chain has
+all the data and the index is meant to be cheap to rebuild.
 
 ## Verify recovery
 

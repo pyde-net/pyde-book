@@ -2,7 +2,7 @@
 
 Operating a deployed contract over time: upgrading the logic, pausing it under incident, retiring it permanently.
 
-> **Honest status (v1).** The four CLI subcommands — `otigen upgrade`, `otigen pause`, `otigen unpause`, `otigen kill` — exist and sign correctly, but the chain has **no `TxType::Lifecycle` handler** yet. Submitting one today is refused at the CLI by an `EngineNotReady` gate (see §4 below). Per [`OTIGEN_BINARY_SPEC §8.2`/`§8.3`](../companion/OTIGEN_BINARY_SPEC.md), v1 ships **no chain-side upgrade/pause/unpause/kill tx types**. The patterns in §2 (proxy upgrades, author-declared pause / kill booleans) are how you get the same operational outcomes today.
+> **Honest status (v1).** The four CLI subcommands (`otigen upgrade`, `otigen pause`, `otigen unpause`, `otigen kill`) exist and sign correctly, but the chain has **no `TxType::Lifecycle` handler** yet. Submitting one today is refused at the CLI by an `EngineNotReady` gate (see §4 below). Per [`OTIGEN_BINARY_SPEC §8.2`/`§8.3`](../companion/OTIGEN_BINARY_SPEC.md), v1 ships **no chain-side upgrade/pause/unpause/kill tx types**. The patterns in §2 (proxy upgrades, author-declared pause / kill booleans) are how you get the same operational outcomes today.
 
 ---
 
@@ -114,13 +114,13 @@ schema = [
 ]
 ```
 
-The `proxy_` prefix on the privileged fields is intentional. Pyde's storage slots are derived as `Poseidon2(self_address || field_name)`, and under delegate-call the logic sees the proxy's `self_address` — so a logic contract that happens to declare a field named `admin` would otherwise clobber the proxy's admin slot. Prefixing makes the collision a loud, deliberate choice rather than a silent footgun.
+The `proxy_` prefix on the privileged fields is intentional. Pyde's storage slots are derived as `Poseidon2(self_address || field_name)`, and under delegate-call the logic sees the proxy's `self_address`, so a logic contract that happens to declare a field named `admin` would otherwise clobber the proxy's admin slot. Prefixing makes the collision a loud, deliberate choice rather than a silent footgun.
 
-The proxy address never changes. Storage lives in the proxy. The logic contract is a pure code blob — its address rotates each upgrade. Callers point at the proxy's address forever.
+The proxy address never changes. Storage lives in the proxy. The logic contract is a pure code blob: its address rotates each upgrade. Callers point at the proxy's address forever.
 
 Trade-offs vs a native engine upgrade:
 
-- **Cost**: every call pays a `delegate_call` indirection — flat 1,200 gas + 8 gas per calldata byte on top of the sub-call's own gas (per `HOST_FN_ABI_SPEC` §7.8).
+- **Cost**: every call pays a `delegate_call` indirection, a flat 1,200 gas + 8 gas per calldata byte on top of the sub-call's own gas (per `HOST_FN_ABI_SPEC` §7.8).
 - **Storage discipline**: the logic's storage slot derivation lives in the proxy's address space. Renaming a field is a wire break across upgrades (the slot hash changes); use append-only field order.
 - **Admin key risk**: lose the admin key, lose upgradability. Pair with a multisig for production (see [`simple-multisig`](https://github.com/pyde-net/otigen/tree/main/examples/simple-multisig)). Lifecycle ops then go through multisig proposals + signature collection.
 
@@ -184,7 +184,7 @@ fn kill() {
 }
 ```
 
-Storage is retained on-chain — there is no v1 mechanism to free the contract's slot space or release its name. If a future chain release adds a native `kill` tx, the engine ask proposes zeroing `code_hash` (effectively deleting the bytecode while keeping the address registered to prevent name-squatting).
+Storage is retained on-chain: there is no v1 mechanism to free the contract's slot space or release its name. If a future chain release adds a native `kill` tx, the engine ask proposes zeroing `code_hash` (effectively deleting the bytecode while keeping the address registered to prevent name-squatting).
 
 ---
 
@@ -199,7 +199,7 @@ otigen unpause my-counter --from deployer
 otigen kill my-counter --from deployer --yes
 ```
 
-All four sign txs with `tx_type = Standard` and a borsh-encoded `LifecyclePayload` in `tx.data`. The engine sees a Standard tx to a contract address, tries to decode `tx.data` as a `CallPayload { function: String, calldata: Vec<u8> }`, and reverts with `decode CallPayload: Unexpected length of input` — burning gas on a guaranteed-failed tx.
+All four sign txs with `tx_type = Standard` and a borsh-encoded `LifecyclePayload` in `tx.data`. The engine sees a Standard tx to a contract address, tries to decode `tx.data` as a `CallPayload { function: String, calldata: Vec<u8> }`, and reverts with `decode CallPayload: Unexpected length of input`, burning gas on a guaranteed-failed tx.
 
 The CLI refuses to submit by default to avoid that gas burn (see §4). Until the engine ships `TxType::Lifecycle`, prefer the §2 patterns.
 
@@ -220,7 +220,7 @@ otigen [ERROR] EngineNotReady: `pause` lifecycle ops are not yet wired
             engine).
 ```
 
-Exit code is `1` (`VALIDATION_FAILURE` — same code as `--rpc-url` without `--chain-id`).
+Exit code is `1` (`VALIDATION_FAILURE`, the same code as `--rpc-url` without `--chain-id`).
 
 ### When you'd ever want the bypass
 
@@ -229,7 +229,7 @@ Exit code is `1` (`VALIDATION_FAILURE` — same code as `--rpc-url` without `--c
 1. **CLI development against a stub engine.** Submitting the tx exercises the FALCON signing path, the wave-canonical tx-hash computation, and the wallet keystore flow. The tx itself reverts but everything up to submission is real.
 2. **CI / regression tests** that mock the chain side. The wire bytes are still meaningful for test fixtures.
 
-For everyday contract work — **don't pass it.** Burn no gas on a guaranteed-failed tx.
+For everyday contract work, **don't pass it.** Burn no gas on a guaranteed-failed tx.
 
 ```bash
 # Will be refused (correctly):
@@ -280,4 +280,4 @@ When the engine catches up and lifecycle ops actually submit, the on-chain `Acco
 
 ## What's next
 
-[Debugging](./debugging.md) catalogs the error surfaces you'll hit and how to recover — including the `EngineNotReady` gate above, the `--rpc-url` + `--chain-id` consistency check, and the common deploy + call failure modes.
+[Debugging](./debugging.md) catalogs the error surfaces you'll hit and how to recover, including the `EngineNotReady` gate above, the `--rpc-url` + `--chain-id` consistency check, and the common deploy + call failure modes.

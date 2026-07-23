@@ -3,7 +3,7 @@
 Pyde's P2P network sits on libp2p over QUIC, with purpose-specific
 gossipsub channels and an application-layer FALCON-512 handshake that binds
 each peer's libp2p PeerId to a post-quantum identity. **Peer discovery
-uses a layered approach (no Kademlia DHT) — hardcoded seeds, then DNS,
+uses a layered approach (no Kademlia DHT): hardcoded seeds, then DNS,
 then the on-chain validator registry, then PEX**. This was a deliberate
 post-pivot choice: a DHT for a 128-member committee is more attack surface
 than it is value.
@@ -14,7 +14,7 @@ transaction batches peer-to-peer (high-volume data dissemination);
 primaries gossip vertices (low-volume consensus structure). A vertex
 carries batch hashes by reference, never full payloads.
 
-The encryption story is layered — libp2p's standard Ed25519/X25519 handles
+The encryption story is layered: libp2p's standard Ed25519/X25519 handles
 peer routing, FALCON does the heavy lifting at the application layer where
 quantum-safety matters. Committee defense uses the **sentry node pattern**
 (Cosmos-style): committee validators are reachable only through sentry
@@ -53,7 +53,7 @@ The libp2p config is set up in `crates/net/src/node.rs` via
 
 ### Identity at the libp2p layer
 
-libp2p PeerIds in Pyde are derived from **Ed25519 / X25519** keys — the
+libp2p PeerIds in Pyde are derived from **Ed25519 / X25519** keys, the
 libp2p default. The choice is intentional: libp2p's PeerId routing,
 Kademlia DHT lookups, and QUIC handshake all assume one of the supported
 key types. Replacing the libp2p layer's identity with FALCON would require
@@ -63,8 +63,8 @@ The **post-quantum identity** layer sits one step higher: every consensus
 and validator-channel message is signed with FALCON-512, and the
 application-level peer handshake (§12.4) binds the libp2p PeerId to a
 FALCON public key. Pyde's threat model treats the libp2p layer as fungible
-peer routing; the cryptographic claims that matter — vote authenticity,
-finality cert verification, evidence verification — all sit on FALCON.
+peer routing; the cryptographic claims that matter (vote authenticity,
+finality cert verification, evidence verification) all sit on FALCON.
 
 ---
 
@@ -137,7 +137,7 @@ rejected and the originating peer takes a reputation penalty.
 | `gossip_lazy`            | 8                    | Number of IHAVE peers              |
 | `history_length`         | 6                    | Recent message-id buffer (heartbeats)|
 | `history_gossip`         | 3                    | Size of the IHAVE batch            |
-| `duplicate_cache_time`   | 60 s                 | Dedup window — handles small-net jitter|
+| `duplicate_cache_time`   | 60 s                 | Dedup window; handles small-net jitter|
 | `flood_publish`          | true                 | Initial publish reaches all mesh peers|
 | `max_transmit_size`      | 1 MB                 | Per-message cap (channels override)|
 
@@ -145,7 +145,7 @@ rejected and the originating peer takes a reputation penalty.
 
 Strict gossipsub validation requires the application layer to call
 `report_message_validation_result` for every message before it gets
-forwarded. Earlier Pyde code didn't do this on every path — the result was
+forwarded. Earlier Pyde code didn't do this on every path. The result was
 that, on a small (4-validator) testnet, transactions only reached the
 direct peer of the submitting node. They never propagated through the
 mesh.
@@ -160,8 +160,8 @@ The fix (commit 2018b17) was twofold:
 The combination raised sustained TPS from ~1K to ~4K on the same testnet
 hardware. There is also a paired change in the wave executor that skips
 redundant per-tx FALCON verification when the wave-level batched verify
-already passed (`block_sigs_pre_verified` flag in `WaveContext`) —
-roughly 70% reduction in wave-execution CPU.
+already passed (`block_sigs_pre_verified` flag in `WaveContext`), for
+roughly a 70% reduction in wave-execution CPU.
 
 ---
 
@@ -212,7 +212,7 @@ enum AuthOutcome {
 }
 ```
 
-A `RebindRejected` is suspicious — once a PeerId is bound to a FALCON
+A `RebindRejected` is suspicious: once a PeerId is bound to a FALCON
 pubkey, attempts to re-bind it are denied (a PeerId switching pubkeys mid
 session is either a bug or an attack).
 
@@ -266,13 +266,13 @@ dns_seed = "seed.pyde.network"
 Each committee validator's `(falcon_pubkey, peer_id, multiaddr)` is on
 chain in the validator-registry account, updated when a validator joins
 the committee. A new node fetching the genesis block (or any later state
-snapshot) has the complete committee directory — no DHT lookup required.
+snapshot) has the complete committee directory: no DHT lookup required.
 
 ### Peer exchange (PEX)
 
 Once connected, peers periodically gossip a short list of other peers
 they're currently connected to. PEX uses a small dedicated request/response
-protocol (`/pyde/pex/1`) — not the gossipsub channels — to avoid mixing
+protocol (`/pyde/pex/1`), not the gossipsub channels, to avoid mixing
 discovery traffic with consensus.
 
 ### Why this is enough
@@ -280,7 +280,7 @@ discovery traffic with consensus.
 - **128 committee members** is small enough that the on-chain registry is
   the entire ground truth. No DHT-style scalability is needed.
 - **Sentry node pattern** (next section) hides committee identities from
-  public peers anyway — the committee discovery layer is private.
+  public peers anyway; the committee discovery layer is private.
 - **Layered fallback** means no single point of failure: seeds, DNS,
   on-chain, PEX, cache.
 
@@ -328,7 +328,7 @@ RateLimiter {
 
 Evidence ingest, in particular, is rate-limited (per the post-Phase-1
 audit hardening: `task 014d`). Without the limit, a non-validator peer
-could spam garbage-sig evidence at ~60 µs of FALCON verify each — enough
+could spam garbage-sig evidence at ~60 µs of FALCON verify each, enough
 to consume validator CPU at scale. With the limit, repeat offenders are
 dropped after the first failure.
 
@@ -362,7 +362,7 @@ reputation = messages_received - (invalid_messages * 10)
 ```
 
 Peers with strongly negative reputation are dropped and rate-limited. The
-scoring is deliberately simple — Pyde does not currently ship a
+scoring is deliberately simple: Pyde does not currently ship a
 sophisticated gossip score (no `peer_score_thresholds`), trusting the
 combination of validator-channel filtering, FALCON binding, and
 token-bucket rate limits to handle the major attack vectors.
@@ -409,21 +409,21 @@ Recommended links:
 
 | Role         | Bandwidth          | Connections |
 | ------------ | ------------------ | ----------- |
-| Validator    | 100+ Mbps symmetric| 50–100      |
-| Full node    | 100 Mbps symmetric | 30–60       |
-| Light client | 1 Mbps             | 3–5         |
+| Validator    | 100+ Mbps symmetric| 50 to 100   |
+| Full node    | 100 Mbps symmetric | 30 to 60    |
+| Light client | 1 Mbps             | 3 to 5      |
 
-These are well within commodity hosting tiers — no datacenter requirement.
+These are well within commodity hosting tiers: no datacenter requirement.
 
 ### Bandwidth reductions
 
 - **Transaction batching** within gossipsub (configurable batch + 50 ms
   flush window).
-- **Compact blocks** for large block bodies — short tx IDs (6 bytes of
+- **Compact blocks** for large block bodies: short tx IDs (6 bytes of
   Poseidon2 hash) instead of full tx hashes (32 bytes).
 - **LZ4 / Snappy compression** on gossip payloads (~60% reduction on
   transaction batches).
-- **Mesh dedup cache** — `duplicate_cache_time = 60 s` prevents the same
+- **Mesh dedup cache**: `duplicate_cache_time = 60 s` prevents the same
   message from being forwarded multiple times.
 
 ---
@@ -478,7 +478,7 @@ These feed into the `docker/grafana` dashboards that ship with the repo.
 ## 12.12 Sentry Node Pattern (Committee Defense)
 
 Committee validators have stake at risk and produce vertices on a tight
-~500ms cadence — losing connectivity for a few rounds risks liveness
+~500ms cadence; losing connectivity for a few rounds risks liveness
 penalties. To insulate them from direct attack, Pyde supports the
 **sentry node pattern** (Cosmos-style):
 
@@ -503,7 +503,7 @@ Internet
   sentry IPs. Public peers never know its IP.
 - **Sentry nodes** are full nodes that route traffic to the validator.
   They run no stake; if attacked, they're disposable.
-- **PEX-suppressed** — the committee validator does not gossip its address
+- **PEX-suppressed**: the committee validator does not gossip its address
   via PEX, so its IP doesn't leak through the discovery layer.
 
 The pattern is supported in `pyde.toml`:
@@ -542,7 +542,7 @@ Honest about what is not in the network layer at launch:
 | Transport                  | libp2p over QUIC (TCP fallback)                       |
 | libp2p identity            | Ed25519 (PeerId routing only)                          |
 | Application identity       | FALCON-512 (vertex sigs, attestations, evidence)       |
-| Channels                   | 5 — vertices / transactions / batches / sync / evidence |
+| Channels                   | 5: vertices / transactions / batches / sync / evidence |
 | Validator channel filter   | FALCON pubkey ∈ current committee                      |
 | Gossipsub mode             | `Permissive` + `flood_publish = true`                 |
 | Heartbeat                  | 150 ms (matches DAG round cadence)                    |
@@ -555,6 +555,6 @@ Honest about what is not in the network layer at launch:
 | Symmetric encryption       | TLS 1.3 inside QUIC                                   |
 | Bandwidth (committee)      | 500 Mbps, scales with throughput (Ch 19)              |
 
-The next chapter covers the parachain layer — Pyde's one mechanism for
-everything off-chain, from foreign chains to data feeds — what's locked
+The next chapter covers the parachain layer (Pyde's one mechanism for
+everything off-chain, from foreign chains to data feeds): what's locked
 at mainnet, what ships after, and how the layer stays honest.

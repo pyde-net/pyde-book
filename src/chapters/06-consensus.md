@@ -14,8 +14,8 @@ The DAG approach removes the fragile parts:
 
 | Problem in HotStuff | DAG resolution |
 |---|---|
-| Single proposer bottleneck | No proposer — every member contributes |
-| View change protocol complexity | No view changes — eliminated entire failure class |
+| Single proposer bottleneck | No proposer; every member contributes |
+| View change protocol complexity | No view changes; eliminated entire failure class |
 | Timing-driven slot pipeline | Data-driven rounds advance with quorum, not clock |
 | Proposer can censor selectively | 127 honest can include; censorship requires near-unanimous |
 | Proposer can extract MEV | No single party reorders; order emerges from DAG |
@@ -28,7 +28,7 @@ The same lab/laptop devnet that hit ~4K TPS under pre-pivot HotStuff is the base
 
 Each validator runs:
 - **Workers (1 or more processes):** handle high-volume transaction ingress, build batches, gossip batches peer-to-peer
-- **Primary (1 process per validator):** handles consensus — produces vertices, gathers parents, signs state roots
+- **Primary (1 process per validator):** handles consensus: produces vertices, gathers parents, signs state roots
 
 ```
 ┌──────────────────────────────────────────────────┐
@@ -68,7 +68,7 @@ Three categories of references in a vertex:
 - **parent_vertex_refs:** point to consensus structure (prior round's vertices)
 - **state_root_sigs + prev_anchor_attestation:** point to consensus output (recent commits)
 
-A vertex is dual-role: **header** (declaring what data I have) AND **attestation** (acknowledging prior-round work via parent refs). Parent refs ARE the implicit votes — no separate vote messages.
+A vertex is dual-role: **header** (declaring what data I have) AND **attestation** (acknowledging prior-round work via parent refs). Parent refs ARE the implicit votes; there are no separate vote messages.
 
 ### Vertex Size
 
@@ -169,7 +169,7 @@ Validator's local processing:
 
 **Critical principle:** validators NEVER assume "the vertex wasn't gossipped" when missing it. They assume "I haven't received it yet" and fetch. Dropping waves on missing vertices would make the chain trivially censurable.
 
-**The fetch protocol** lives in the network layer (Chapter 12 + [companion/NETWORK_PROTOCOL.md](../companion/NETWORK_PROTOCOL.md)) as a libp2p request-response stream, separate from gossipsub. The fetch is fire-and-retry — ask peer A, if no response in 500ms ask peer B, etc.
+**The fetch protocol** lives in the network layer (Chapter 12 + [companion/NETWORK_PROTOCOL.md](../companion/NETWORK_PROTOCOL.md)) as a libp2p request-response stream, separate from gossipsub. The fetch is fire-and-retry: ask peer A, if no response in 500ms ask peer B, etc.
 
 ### Skipped-round recovery walkthrough
 
@@ -240,7 +240,7 @@ When the anchor vertex collects sufficient support from later rounds (Mysticeti 
 
 ### No Skip Penalty
 
-When a round skips, its vertices aren't lost — the next round's commit absorbs them via parent-chain traversal. Slow validators just contribute slightly later.
+When a round skips, its vertices aren't lost; the next round's commit absorbs them via parent-chain traversal. Slow validators just contribute slightly later.
 
 ## 7. Committee
 
@@ -249,7 +249,7 @@ When a round skips, its vertices aren't lost — the next round's commit absorbs
 - **128 active committee members per epoch**, selected from the global validator pool
 - **Selection: uniform random** from all validators with stake ≥ `MIN_VALIDATOR_STAKE` = 10,000 PYDE (single-tier model; no separate committee vs non-committee stake floor)
 - **Anti-Sybil:** operator identity binding, **max 3 validators per operator**
-- **Epoch length:** ~3 hours wall-clock (commit count varies with network conditions — typically ~21,600 commits at the 500 ms median cadence)
+- **Epoch length:** ~3 hours wall-clock (commit count varies with network conditions; typically ~21,600 commits at the 500 ms median cadence)
 
 ```python
 # T-30min in epoch N: beacon_N+1 has just been finalized (see §9).
@@ -305,7 +305,7 @@ Holds under partial synchrony (messages eventually delivered, bounded clock skew
 
 Each epoch's beacon is produced by the **previous** epoch's committee. The beacon for epoch N+1 must be finalized with enough lead time for committee N+1 to be selected (via VRF on `beacon_N+1`) before the epoch boundary. The architectural target uses a threshold-signature primitive; v1 ships a FALCON-aggregate approximation (called out below).
 
-### Target design (threshold-sig — long-term)
+### Target design (threshold-sig: long-term)
 
 ```
 1. All 128 committee N members sign known message "epoch_N+1_beacon" with
@@ -316,13 +316,13 @@ Each epoch's beacon is produced by the **previous** epoch's committee. The beaco
 ```
 
 Properties of the target design:
-- **Deterministic** given any 85 of 128 shares (Lagrange invariance — same aggregated sig regardless of which 85 contribute)
+- **Deterministic** given any 85 of 128 shares (Lagrange invariance: same aggregated sig regardless of which 85 contribute)
 - **Unpredictable** until ≥85 shares combine (no single party knows it)
 - **Bias-resistant:** shares determined by DKG-derived keys, no individual member can grind by choosing whether to participate; the aggregated output doesn't depend on subset selection
 
 ### v1 implementation (FALCON-aggregate approximation)
 
-`pyde-crypto` does not yet ship a post-quantum threshold-signature primitive — post-quantum threshold sigs are research-level (see WHITEPAPER §3 honest-tradeoffs section). v1 ships a `FalconBeaconScheme` that approximates the target by hash-concatenating individual FALCON sigs:
+`pyde-crypto` does not yet ship a post-quantum threshold-signature primitive; post-quantum threshold sigs are research-level (see WHITEPAPER §3 honest-tradeoffs section). v1 ships a `FalconBeaconScheme` that approximates the target by hash-concatenating individual FALCON sigs:
 
 ```
 1. Each member i signs the epoch message with their own individual FALCON
@@ -341,7 +341,7 @@ When `pyde-crypto` ships threshold-FALCON or an equivalent post-quantum threshol
 
 ## 10. Epoch Transition & Committee Handover
 
-Each epoch transition hands consensus from committee N to committee N+1. Because Pyde's private mempool is a **keyless commit-reveal** design (Chapter 9), there is **no threshold decryption key to generate** — so there is no DKG, no Shamir shares, and no per-epoch key ceremony. The handover is purely: publish the beacon, select the next committee, swap in.
+Each epoch transition hands consensus from committee N to committee N+1. Because Pyde's private mempool is a **keyless commit-reveal** design (Chapter 9), there is **no threshold decryption key to generate**, so there is no DKG, no Shamir shares, and no per-epoch key ceremony. The handover is purely: publish the beacon, select the next committee, swap in.
 
 ```
 T-30min (last 30 min of epoch N):
@@ -362,11 +362,11 @@ Committee selection needs only the beacon and each validator's own VRF, so the h
 
 ## 11. Private Mempool Resolution (Commit-Reveal)
 
-Pyde's MEV protection is a **keyless commit-reveal private mempool** — there is no committee decryption key and no per-transaction decryption ceremony. Safety is unconditionally trustless: it never depends on any quorum of committee members declining to collude, because a commit is just a hash. [Chapter 9](./09-mev-protection.md) is the full specification; the consensus-relevant mechanics are:
+Pyde's MEV protection is a **keyless commit-reveal private mempool**: there is no committee decryption key and no per-transaction decryption ceremony. Safety is unconditionally trustless: it never depends on any quorum of committee members declining to collude, because a commit is just a hash. [Chapter 9](./09-mev-protection.md) is the full specification; the consensus-relevant mechanics are:
 
 - A **Commit** transaction (TxType `0x11`) carries only a Blake3 `commitment` plus a bond; the DAG fixes its position in the total order at commit time, before anyone knows the contents.
 - A **Reveal** transaction (TxType `0x12`) later supplies the inner transaction. Any account may submit it, and it must land within `COMMIT_REVEAL_WINDOW_WAVES = 120` waves of the commit's inclusion wave, else the commit expires and the bond is forfeit.
-- In the reveal wave's resolution pass, revealed inner transactions execute **in commit order** — the DAG-sequenced order of the commits — **not reveal order**. Order is locked before content is known, so front-running is structurally impossible.
+- In the reveal wave's resolution pass, revealed inner transactions execute **in commit order** (the DAG-sequenced order of the commits), **not reveal order**. Order is locked before content is known, so front-running is structurally impossible.
 
 Both primitives are already post-quantum: Blake3 for the commitment, FALCON for authorization. There is no lattice encryption, no Shamir split, and no share combine on this path.
 
@@ -374,7 +374,7 @@ Both primitives are already post-quantum: Blake3 for the commitment, FALCON for 
 
 Because resolution is deterministic bookkeeping (match reveals to open commits, splice into commit order), it adds only a few milliseconds of post-commit work per wave. No shares propagate ahead of the commit and there is no ceremony to pipeline.
 
-> **Future work.** A one-shot ciphertext ("Threshold-LWE") lane — an *optional* private-mempool alternative alongside the keyless commit-reveal default, gated on a trustless PQ threshold-keygen breakthrough — is a v2+ research direction documented in [Chapter 20](./20-future-direction.md). It is not part of the shipping protocol.
+> **Future work.** A one-shot ciphertext ("Threshold-LWE") lane, an *optional* private-mempool alternative alongside the keyless commit-reveal default and gated on a trustless PQ threshold-keygen breakthrough, is a v2+ research direction documented in [Chapter 20](./20-future-direction.md). It is not part of the shipping protocol.
 
 ## 12. State Root Attestation
 
@@ -406,11 +406,11 @@ Three types of halts:
 | Hard halt | Contradictory state roots, equivocation cluster, DAG fork | Protocol-detected automatic |
 | Emergency halt | Off-chain bug report, active exploit | Governance multisig (7-of-12) |
 
-See [CHAIN_HALT.md](../companion/CHAIN_HALT.md) for full halt + recovery procedures. Rollback is bounded to 1 epoch (~3 hours) — operational flexibility without arbitrary commit reversibility.
+See [CHAIN_HALT.md](../companion/CHAIN_HALT.md) for full halt + recovery procedures. Rollback is bounded to 1 epoch (~3 hours): operational flexibility without arbitrary commit reversibility.
 
 ## 14. Slashing
 
-Equivocation, bad state-root signatures, invalid vertices, extended downtime — all slashable. See [SLASHING.md](../companion/SLASHING.md) for the full catalog.
+Equivocation, bad state-root signatures, invalid vertices, and extended downtime are all slashable. See [SLASHING.md](../companion/SLASHING.md) for the full catalog.
 
 Correlated slashing applies a 2× multiplier when many validators offend simultaneously (punishes coordination, protects isolated failures).
 
@@ -441,7 +441,7 @@ The chain self-heals from any subset failure that maintains ≥85 functional val
 🔴 **Mysticeti DAG implementation: not yet built.** Pre-pivot HotStuff archived in `archive/`.
 
 Implementation strategies:
-- **Option A: Fork Sui's Mysticeti** (open source) and adapt to FALCON sigs. Saves substantial consensus engineering — Mysten Labs has spent years getting the algorithm correct.
+- **Option A: Fork Sui's Mysticeti** (open source) and adapt to FALCON sigs. Saves substantial consensus engineering; Mysten Labs has spent years getting the algorithm correct.
 - **Option B: Write from scratch** for full control. Larger surface to audit, more bugs to find.
 
 Recommendation: Option A for v1. The work is audit + adaptation for FALCON sigs; correctness of the core algorithm leverages Mysten Labs' existing engineering.

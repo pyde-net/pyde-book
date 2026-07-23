@@ -8,10 +8,10 @@ This document specifies all slashable offenses, detection mechanisms, slash amou
 
 ## Principles
 
-1. **Safety vs Liveness distinction** — different severity, detection, and slash amounts
-2. **Correlated slashing for safety** — coordinated attacks lose more
-3. **Permissionless evidence** — anyone can submit cryptographic evidence; reporter reward incentivizes monitoring
-4. **Bounded slashing** — per-epoch caps prevent stacking attacks
+1. **Safety vs Liveness distinction**: different severity, detection, and slash amounts
+2. **Correlated slashing for safety**: coordinated attacks lose more
+3. **Permissionless evidence**: anyone can submit cryptographic evidence; reporter reward incentivizes monitoring
+4. **Bounded slashing**: per-epoch caps prevent stacking attacks
 
 ## Offense Catalog
 
@@ -19,17 +19,17 @@ This document specifies all slashable offenses, detection mechanisms, slash amou
 
 | # | Offense | First instance | Max (correlation/repeat) | Jail | Distribution |
 |---|---|---|---|---|---|
-| 1 | Equivocation (vertex) — two different vertices for same (round, member_id) | **10%** | 50% | 1 epoch | 50% burn / 30% treasury / 20% reporter |
-| 2 | Bad state-root signature — two contradictory state roots for same commit | **10%** | 50% | 1 epoch | Same as above |
-| 3 | Bad anchor attestation — vertex's prev_anchor_attestation contradicts 85+ honest majority | **5%** | 20% | 1 epoch | Same as above |
-| 4 | Invalid vertex structure — parent refs out of order, refs to non-existent batches | **5%** | 30% | 1 epoch | 100% burn |
+| 1 | Equivocation (vertex): two different vertices for same (round, member_id) | **10%** | 50% | 1 epoch | 50% burn / 30% treasury / 20% reporter |
+| 2 | Bad state-root signature: two contradictory state roots for same commit | **10%** | 50% | 1 epoch | Same as above |
+| 3 | Bad anchor attestation: vertex's prev_anchor_attestation contradicts 85+ honest majority | **5%** | 20% | 1 epoch | Same as above |
+| 4 | Invalid vertex structure: parent refs out of order, refs to non-existent batches | **5%** | 30% | 1 epoch | 100% burn |
 
 ### Liveness Offenses (Auto-Detected, Graduated)
 
 | # | Offense | Per-event | Per-epoch cap | Jail | Distribution |
 |---|---|---|---|---|---|
-| 5 | Extended downtime — no vertices produced for N consecutive rounds | 0.05%/round | 10%/epoch | After 5% reached | 100% burn |
-| 6 | Bad batch attestation — worker gossips batch with invalid txs | 2% | 5% | None (warning) | 100% burn |
+| 5 | Extended downtime: no vertices produced for N consecutive rounds | 0.05%/round | 10%/epoch | After 5% reached | 100% burn |
+| 6 | Bad batch attestation: worker gossips batch with invalid txs | 2% | 5% | None (warning) | 100% burn |
 
 ### Future / Deferred
 
@@ -129,9 +129,9 @@ When a validator is jailed:
 - Cannot rejoin until `unjail()` transaction executed
 - Unjail requirements:
   - Time elapsed ≥ jail period
-  - Pays unjail fee (10 PYDE — anti-griefing)
+  - Pays unjail fee (10 PYDE, anti-griefing)
   - Remaining stake ≥ minimum bond for the validator's tier
-    (MIN_VALIDATOR_STAKE = 10K PYDE — single tier)
+    (MIN_VALIDATOR_STAKE = 10K PYDE, single tier)
 
 ### Escalating Jail Periods
 
@@ -184,7 +184,7 @@ Slashing applies during BOTH bonded and unbonding states. After withdrawal (past
 ### 1. Network Partition
 
 If >43 validators go offline simultaneously due to network split:
-- Downtime slashing PAUSES (auto-detected by protocol — committee active count < 85 → liveness mode)
+- Downtime slashing PAUSES (auto-detected by protocol: committee active count < 85 → liveness mode)
 - Resumes once active count ≥ 85
 - Prevents punishing the 85+ honest majority while 43+ are partitioned
 
@@ -212,8 +212,8 @@ If chain hard-forks:
 
 At the bond floor, total committee bond: 128 × 10K = **1.28M PYDE**.
 In practice operators stake more to absorb minor penalties without
-falling below the floor — realistic total committee bond depends on
-actual operator behavior post-launch.
+falling below the floor. The realistic total committee bond depends
+on actual operator behavior post-launch.
 
 Max single-event slash at floor (42 offenders × equivocation × 2× correlation):
 ```
@@ -228,7 +228,7 @@ Max correlated attack across epoch (42 offenders × 5 events × 2× correlation,
 These dollar numbers are intentionally not the load-bearing deterrent.
 Pyde's security argument (Chapter 16 §16.4) is that the keyless
 commit-reveal private mempool removes the *attack-profit motive*
-entirely — there is no MEV-extraction revenue to recoup. Stake serves as a credible-commitment deposit
+entirely: there is no MEV-extraction revenue to recoup. Stake serves as a credible-commitment deposit
 against slashable misbehavior plus the input the slashing mechanism
 has to slash. The operator-identity cap, KYC binding, and slashing-with-
 finder's-fee do the heavy lifting on Sybil resistance.

@@ -1,4 +1,4 @@
-# Runbook — bootnode down
+# Runbook: bootnode down
 
 One of `bootnode-1..N.testnet.pyde.network` isn't accepting libp2p dials. New validators / full nodes can't bootstrap into the network.
 

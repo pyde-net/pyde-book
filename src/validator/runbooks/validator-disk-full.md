@@ -1,4 +1,4 @@
-# Runbook — validator disk full
+# Runbook: validator disk full
 
 `/var/lib/pyde` (or its mount) is at or above 95% full. RocksDB write-stalls trigger first, then the wave-committer wedges, then systemd's restart loop fails because the validator can't allocate WAL space.
 

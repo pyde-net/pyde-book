@@ -3,21 +3,21 @@
 Most real projects are more than one contract: a token plus a vault, a
 registry plus the things it registers, a router plus its pools. A
 **workspace** groups several contracts that build, test, and deploy
-together — and lets one contract's constructor take another's deployed
+together, and lets one contract's constructor take another's deployed
 address without you copy-pasting hex.
 
 `otigen init` scaffolds a workspace. `otigen new` adds a contract to it.
-Every command you already know — `build`, `test`, `deploy`, `inspect`,
-`verify`, `call` — works across the whole workspace or, with
+Every command you already know (`build`, `test`, `deploy`, `inspect`,
+`verify`, `call`) works across the whole workspace or, with
 `--contract <name>`, against a single member.
 
 **One contract per crate.** Each member is a self-contained project with
-its own `otigen.toml`, source, and tests — a Rust member is its own
+its own `otigen.toml`, source, and tests. A Rust member is its own
 crate. The workspace is the coordination layer; it doesn't merge the
 members into one binary.
 
-For the single-contract flow this chapter builds on — writing a
-contract, the bundle internals, receipts — see [Your First
+For the single-contract flow this chapter builds on (writing a
+contract, the bundle internals, receipts), see [Your First
 Contract](first-contract.md) and [Shipping Contracts](shipping.md).
 
 ---
@@ -57,7 +57,7 @@ shop/
 
 The root `otigen.toml` carries a `[workspace]` table; the member under
 `contracts/counter/` is an ordinary single-contract project. The starter
-is named `counter` (its `[contract].name`) — **rename it before a real
+is named `counter` (its `[contract].name`): **rename it before a real
 deploy**, because on-chain names are globally unique.
 
 `--lang` picks the language for the starter member; `TinyGo`,
@@ -85,7 +85,7 @@ otigen new vault --from counter --lang rust
     otigen deploy                   # deploy every member in order
 ```
 
-This scaffolds `contracts/vault/` and registers it in the root manifest —
+This scaffolds `contracts/vault/` and registers it in the root manifest,
 appending `contracts/vault` to `[workspace].members` and `vault` to
 `[workspace].order`, preserving your formatting and comments. (`otigen
 new` run *outside* a workspace still scaffolds a standalone
@@ -130,14 +130,14 @@ Three things to know:
   key off the member's `[contract].name`. They differ if you rename a
   contract without moving its directory.
 - **`order`** is the deploy sequence. When it's set, it must list every
-  member — otherwise a member would be silently skipped. A contract must
+  member. Otherwise a member would be silently skipped. A contract must
   come *after* everything it references via `@name`.
 - **`[workspace.args]`** are constructor arguments, one array per member.
   A `@name` entry resolves to that member's deployed address; everything
   else (wallet names, `0x…` addresses, numbers, booleans) is passed
   through to the member's declared constructor inputs (the `[functions.*]` entry tagged `constructor`).
 
-The workspace `[network.*]` tables are **authoritative** — every member
+The workspace `[network.*]` tables are **authoritative**: every member
 deploys, and every workspace-level `call` / `inspect` / `verify`
 resolves, against these, not against a member's own network table.
 
@@ -178,7 +178,7 @@ default_account` in the workspace manifest if you set one. `otigen
 deploy` at a workspace root does the whole thing in one command:
 
 1. **Builds every member first** (compile + bundle), so a deploy always
-   uses fresh artifacts — there's no separate "run `otigen build` first"
+   uses fresh artifacts. There's no separate "run `otigen build` first"
    step.
 2. **Prints the plan**, then deploys each member in `[workspace].order`,
    resolving `@name` cross-references as it goes.
@@ -204,9 +204,10 @@ unlocked once and the nonce is sequenced locally across all members.
 
 ### Preview without deploying
 
-`--dry-run` prints the full plan — network, RPC, account, order, and each
-member's resolved args (`@refs` shown as a zero-address placeholder) —
-and submits nothing, builds nothing. It never asks for a wallet password
+`--dry-run` prints the full plan (network, RPC, account, order, and
+each member's resolved args, with `@refs` shown as a zero-address
+placeholder) and submits nothing, builds nothing. It never asks for a
+wallet password
 and doesn't need a running node: the preview is fully offline.
 
 ```bash
@@ -228,8 +229,8 @@ otigen deploy --dry-run --from devnet-0
 
 - `otigen deploy --contract vault` deploys just that member.
 - With `--contract`, constructor args can come straight from the command
-  line instead of `[workspace.args]` — handy for one-off deploys with
-  values you don't want to commit to the manifest:
+  line instead of `[workspace.args]`, which is handy for one-off deploys
+  with values you don't want to commit to the manifest:
 
   ```bash
   otigen deploy --contract usdc usdc-token USDC 6 100000000000000 --from devnet-0
@@ -238,10 +239,10 @@ otigen deploy --dry-run --from devnet-0
   Positional args override that member's `[workspace.args]` entry;
   `@name` values still resolve to member addresses; `--args 0x<hex>` is
   the raw-calldata escape hatch, and `--value <quanta>` funds the
-  constructor. (Without `--contract`, CLI args are rejected — one arg
+  constructor. (Without `--contract`, CLI args are rejected: one arg
   set can't address several members.)
 - Deploy is **idempotent**: on a re-run, a member that's already
-  registered on-chain (by name) is skipped — so re-running after a
+  registered on-chain (by name) is skipped, so re-running after a
   partial failure only deploys what's missing. If you passed explicit
   CLI args and the member is skipped, otigen warns you they had no
   effect (a registered name can't be deployed twice).
@@ -290,18 +291,18 @@ otigen verify vault                             # bundle == deployed bytecode
 ```
 
 `inspect` and `verify` accept `--rpc-url` to target any endpoint
-directly, bypassing the manifest — useful for querying a member on a
-chain you don't have the project tree for. For the full read surface —
-`--field`, `--state-field`, byte-diffing a mismatch — see [Inspect &
-Verify](inspecting.md).
+directly, bypassing the manifest, which is useful for querying a member
+on a chain you don't have the project tree for. For the full read
+surface (`--field`, `--state-field`, byte-diffing a mismatch), see
+[Inspect & Verify](inspecting.md).
 
 ## When to use a workspace
 
 Reach for a workspace when your contracts are deployed and versioned
 together and reference each other. If you're writing a single standalone
 contract, `otigen new <name>` (outside a workspace) still gives you a
-plain single-contract project — no workspace overhead. You can always
-start single and regroup later.
+plain single-contract project with no workspace overhead. You can
+always start single and regroup later.
 
 | | Single contract | Workspace |
 | --- | --- | --- |

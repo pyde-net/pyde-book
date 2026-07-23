@@ -2,7 +2,7 @@
 
 ## System Architecture
 
-Pyde is a monolithic Layer 1 — consensus, execution, and state in a single binary. Validators and full nodes run the same `pyde` process; role differentiation is configuration (whether the node stakes, whether it joins the active committee, whether it serves RPC).
+Pyde is a monolithic Layer 1: consensus, execution, and state in a single binary. Validators and full nodes run the same `pyde` process; role differentiation is configuration (whether the node stakes, whether it joins the active committee, whether it serves RPC).
 
 ```
 ┌─────────────────────────────────────────────┐
@@ -34,7 +34,7 @@ Pyde is a monolithic Layer 1 — consensus, execution, and state in a single bin
 Within each validator, the consensus role is split:
 
 - **Workers (N processes per validator):** handle transaction ingress, build batches of incoming transactions, gossip batches peer-to-peer with other validators' workers
-- **Primary (one process per validator):** handles consensus — produces vertices each round, gathers parent references, signs state roots
+- **Primary (one process per validator):** handles consensus; produces vertices each round, gathers parent references, signs state roots
 
 This separation decouples high-volume data dissemination from low-volume consensus structure. Transactions travel the network exactly once (via worker gossip); consensus vertices stay tiny (carry only batch hashes by reference).
 
@@ -82,17 +82,17 @@ End-to-end commit latency: **~500ms median**.
 
 After consensus commits a wave (canonical ordered transactions), the execution layer:
 
-1. **Commit-reveal resolution** — revealed inner transactions from prior commits are spliced into their DAG-fixed commit order (keyless private mempool; see Chapter 9)
-2. **Access-list prefetch** — one batched `state_cf.multi_get` (PIP-3) over the union of every tx's declared `(addr, slot)` pairs lands warm values in the dashmap (PIP-4) before workers start. The lists are hints only; they never partition the wave or affect correctness.
+1. **Commit-reveal resolution**: revealed inner transactions from prior commits are spliced into their DAG-fixed commit order (keyless private mempool; see Chapter 9)
+2. **Access-list prefetch**: one batched `state_cf.multi_get` (PIP-3) over the union of every tx's declared `(addr, slot)` pairs lands warm values in the dashmap (PIP-4) before workers start. The lists are hints only; they never partition the wave or affect correctness.
 3. **Block-STM scheduler** runs every tx in parallel on a `rayon` pool: optimistic execute against an MVCC layer + validate against canonical tx_index order + cascade-invalidate + re-incarnate on conflict + fixpoint. Final state per slot is the highest-tx_index's last write. Full algorithm in [companion/BLOCK_STM_EXECUTION.md](../companion/BLOCK_STM_EXECUTION.md).
 4. **wasmtime executes** each tx with Cranelift AOT and fuel-based gas metering. Smart contracts compile from Rust, AssemblyScript, Go, or C/C++ to WASM.
-5. **State root computed** — dual-hash (Blake3 + Poseidon2) per JMT node
+5. **State root computed**: dual-hash (Blake3 + Poseidon2) per JMT node
 6. **Committee FALCON-signs state root** (piggybacked on next vertices)
 7. **Finality** when ≥85 state root signatures collected
 
 ## State: Jellyfish Merkle Tree
 
-Account state and contract storage are stored in a **Jellyfish Merkle Tree (JMT)** — radix-16, path-compressed. Compared to a fixed-depth-256 Sparse Merkle Tree:
+Account state and contract storage are stored in a **Jellyfish Merkle Tree (JMT)**: radix-16, path-compressed. Compared to a fixed-depth-256 Sparse Merkle Tree:
 
 - ~5-10 nodes touched per state operation (vs ~256)
 - Substantial I/O savings at high TPS
@@ -111,7 +111,7 @@ Three primitives form the cryptographic foundation:
 NIST FIPS 206 standard. Used for: user tx authorization, vertex production, state root attestations, beacon shares. 666-byte signature, ~80μs verification.
 
 ### Keyless Commit-Reveal (MEV Protection)
-Pyde's private mempool needs **no encryption primitive and no committee key**. A commitment is a Blake3 hash of the inner transaction; the reveal carries the plaintext, and the DAG fixes commit order before contents are known. Both primitives are already post-quantum (Blake3 hashing, FALCON signatures), and safety is unconditionally trustless — it never rests on a threshold of honest committee members. See Chapter 9. (A ciphertext-based lane remains v2+ research — Chapter 20.)
+Pyde's private mempool needs **no encryption primitive and no committee key**. A commitment is a Blake3 hash of the inner transaction; the reveal carries the plaintext, and the DAG fixes commit order before contents are known. Both primitives are already post-quantum (Blake3 hashing, FALCON signatures), and safety is unconditionally trustless: it never rests on a threshold of honest committee members. See Chapter 9. (A ciphertext-based lane remains v2+ research; see Chapter 20.)
 
 ### Poseidon2 + Blake3 (Hashing)
 Hybrid layered: Blake3 for high-volume native paths (JMT internals), Poseidon2 for ZK-bearing paths (state root commitment exposed to future ZK proofs, address derivation, FALCON sig hashing inside ZK circuits).
@@ -119,7 +119,7 @@ Hybrid layered: Blake3 for high-volume native paths (JMT internals), Poseidon2 f
 ## Network Layer
 
 - **Transport:** QUIC over UDP (no HOL blocking, TLS 1.3 built-in, mature in Rust via quinn). TCP fallback.
-- **P2P library:** libp2p (Rust) — mature, audited, used by Ethereum/Filecoin/Polkadot
+- **P2P library:** libp2p (Rust), mature, audited, used by Ethereum/Filecoin/Polkadot
 - **Peer discovery:** layered (hardcoded → DNS → on-chain validator registry → PEX → cache). No DHT.
 - **Gossip:** Gossipsub with per-topic meshes
 - **DoS protection:** 4-layer (connection / message / peer-scoring / application)
@@ -132,17 +132,17 @@ Committee NIC requirement at v1's honest throughput target (to be established by
 Accounts hold:
 - nonce (8 bytes)
 - balance (16 bytes, u128)
-- gas_tank (16 bytes — pre-deposited gas for sponsored transactions)
+- gas_tank (16 bytes, pre-deposited gas for sponsored transactions)
 - auth_keys (variable: Single | Multisig | Programmable)
 - code_hash (32 bytes, for contracts)
 - storage_root (32 bytes, JMT subtree for contract storage)
 - key_nonce (4 bytes, FALCON key rotation counter)
 
-**Native multisig** at v1 — `AuthKeys::Multisig(M, [pubkey_1, ..., pubkey_N])` with max 16 signers. Better than Gnosis Safe contract-multisig (Ethereum), which reimplements the same logic with subtle bugs across projects.
+**Native multisig** at v1: `AuthKeys::Multisig(M, [pubkey_1, ..., pubkey_N])` with max 16 signers. Better than Gnosis Safe contract-multisig (Ethereum), which reimplements the same logic with subtle bugs across projects.
 
 **Programmable accounts** and **session keys** ship post-mainnet. v1 reserves the `Programmable` enum variant so contracts written today survive the upgrade without rewriting.
 
-**16-slot nonce window** — accounts can have up to 16 transactions in-flight out-of-order within the window. Decouples user-level submission from consensus-level execution ordering.
+**16-slot nonce window**: accounts can have up to 16 transactions in-flight out-of-order within the window. Decouples user-level submission from consensus-level execution ordering.
 
 ## Transaction Lifecycle
 
@@ -165,7 +165,7 @@ Accounts hold:
 
 ## Cross-Chain and Off-Chain (Post-Mainnet)
 
-Everything outside the chain — foreign chains, price feeds, real-world data, arbitrary IO — is reached through one permissionless **parachain layer**: small decentralized networks that each do one declared job, staked in PYDE, running their own consensus, anchored to and re-validated by Pyde. A bridge to another chain is just one kind of parachain (an adapter running that chain's light client); an oracle feed is another. Contracts reach any of them via the `cross_call!` macro and get a verified result back through a callback (Chapter 13).
+Everything outside the chain (foreign chains, price feeds, real-world data, arbitrary IO) is reached through one permissionless **parachain layer**: small decentralized networks that each do one declared job, staked in PYDE, running their own consensus, anchored to and re-validated by Pyde. A bridge to another chain is just one kind of parachain (an adapter running that chain's light client); an oracle feed is another. Contracts reach any of them via the `cross_call!` macro and get a verified result back through a callback (Chapter 13).
 
 The protocol-level surface (`cross_call!` macro, `HardFinalityCert` primitive, unified gas model, the `type = "parachain"` manifest schema) is settled at v1 genesis. The actual parachain layer ships post-mainnet.
 
@@ -174,10 +174,10 @@ The protocol-level surface (`cross_call!` macro, `HardFinalityCert` primitive, u
 | Tier | Stake | Committee Role | Earns |
 |---|---|---|---|
 | Committee validator | ≥10K PYDE (single-tier min) | Active (1 of 128) | Activity rewards + pool yield + inflation |
-| Non-committee validator | ≥10K PYDE (single-tier min — same floor) | Stake-only, waiting selection | Pool yield + inflation |
+| Non-committee validator | ≥10K PYDE (single-tier min, same floor) | Stake-only, waiting selection | Pool yield + inflation |
 | RPC node | None | None | Off-chain RPC fees (market-set) |
 
-RPC providers (Infura/Alchemy analog) fit Tier 3 — no stake, no slashing risk.
+RPC providers (Infura/Alchemy analog) fit Tier 3: no stake, no slashing risk.
 
 ## Key Differentiators
 
@@ -194,10 +194,10 @@ RPC providers (Infura/Alchemy analog) fit Tier 3 — no stake, no slashing risk.
 
 ## Next Chapters
 
-- Chapter 3: Execution Layer — wasmtime runtime, host function ABI, Cranelift AOT, fuel-based gas, determinism boundary
-- Chapter 4: State Model — JMT details, dual-hash strategy, PIP-2 clustering
-- Chapter 5: Otigen Toolchain — the developer-facing binary (build, deploy, wallet, ABI extraction, per-language attribute declaration)
-- Chapter 6: Consensus — full Mysticeti DAG specification
-- Chapter 7: State Sync & Chain Halt — operational protocols
-- Chapter 8: Cryptography — FALCON, Poseidon2, Blake3, hashing and signature details
-- Chapter 9: MEV Protection — keyless commit-reveal private mempool
+- Chapter 3: Execution Layer (wasmtime runtime, host function ABI, Cranelift AOT, fuel-based gas, determinism boundary)
+- Chapter 4: State Model (JMT details, dual-hash strategy, PIP-2 clustering)
+- Chapter 5: Otigen Toolchain, the developer-facing binary (build, deploy, wallet, ABI extraction, per-language attribute declaration)
+- Chapter 6: Consensus (full Mysticeti DAG specification)
+- Chapter 7: State Sync & Chain Halt (operational protocols)
+- Chapter 8: Cryptography (FALCON, Poseidon2, Blake3, hashing and signature details)
+- Chapter 9: MEV Protection (keyless commit-reveal private mempool)

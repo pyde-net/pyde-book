@@ -23,9 +23,9 @@ and the post-mainnet plan.
 | **Poseidon2**        | Algebraic hash over the Goldilocks field. State root commit, addresses, MAC, VRF, ZK-bearing paths. |
 | **FALCON-512**       | NIST FIPS 206 post-quantum signature scheme. ~666-byte sigs, 897-byte pks.   |
 | **Kyber-768**        | NIST FIPS 203 post-quantum KEM. P2P / transport session keys.              |
-| **Threshold encryption** *(retired)* | A committee-key encrypted mempool (Kyber + Shamir 85-of-128) from earlier drafts. Removed from the protocol — trustless PQ threshold keygen is research-blocked (lattice pubkeys do not combine homomorphically). MEV protection is now the keyless private mempool (commit-reveal, Chapter 9). A one-shot ciphertext lane stays v2+ research; see [Chapter 20](20-future-direction.md). |
-| **PSS** *(retired)*  | Proactive Secret Sharing — refreshed threshold key shares in the retired encrypted-mempool design. Gone with the threshold lane. |
-| **DKG** *(retired)*  | Distributed Key Generation — per-epoch threshold-pubkey ceremony in the retired encrypted-mempool design. Gone with the threshold lane. |
+| **Threshold encryption** *(retired)* | A committee-key encrypted mempool (Kyber + Shamir 85-of-128) from earlier drafts. Removed from the protocol: trustless PQ threshold keygen is research-blocked (lattice pubkeys do not combine homomorphically). MEV protection is now the keyless private mempool (commit-reveal, Chapter 9). A one-shot ciphertext lane stays v2+ research; see [Chapter 20](20-future-direction.md). |
+| **PSS** *(retired)*  | Proactive Secret Sharing, which refreshed threshold key shares in the retired encrypted-mempool design. Gone with the threshold lane. |
+| **DKG** *(retired)*  | Distributed Key Generation: the per-epoch threshold-pubkey ceremony in the retired encrypted-mempool design. Gone with the threshold lane. |
 | **VRF**              | Verifiable Random Function. Lattice-based; built from FALCON + Poseidon2.   |
 | **Mysticeti**        | The DAG-based consensus protocol Pyde uses (post-2026 pivot, formerly HotStuff). |
 | **DAG**              | Directed Acyclic Graph. Every round, each committee member produces a vertex; parents must be strictly prior rounds. |
@@ -37,7 +37,7 @@ and the post-mainnet plan.
 | **HardFinalityCert** | ≥ 85 FALCON sigs over `(wave_id, blake3_state_root, poseidon2_state_root)`. |
 | **Committee**        | The 128 active validators per epoch. Equal vote weight; uniform random selection. |
 | **Epoch**            | ~3 hours of waves. Committee rotation + next-epoch beacon fire at the boundary. |
-| **Validator**        | Node staking ≥ `MIN_VALIDATOR_STAKE` (10,000 PYDE). Single tier — uniform-random committee selection picks 128 from the eligible pool each epoch. |
+| **Validator**        | Node staking ≥ `MIN_VALIDATOR_STAKE` (10,000 PYDE). Single tier; uniform-random committee selection picks 128 from the eligible pool each epoch. |
 | **Full node**        | Node that executes waves and serves RPC, but does not stake.                |
 | **MEV**              | Maximal Extractable Value. The MEV class is structurally closed in Pyde.    |
 | **Private mempool**  | Optional keyless commit-reveal lane for MEV-sensitive txs: Commit (0x11) locks a Blake3 commitment + bond, Reveal (0x12) discloses the inner tx after DAG order is fixed. No committee key, no decryption. See Chapter 9. |
@@ -175,7 +175,7 @@ Defined in `crates/state/src/keys.rs`.
 
 Defined in `crates/tx/src/types.rs`.
 
-Tag `2` is intentionally vacant — `Batch` was prototyped pre-mainnet and
+Tag `2` is intentionally vacant: `Batch` was prototyped pre-mainnet and
 removed before launch (see Chapter 11 §11.9). A forged `tx_type = 2`
 fails decode.
 
@@ -201,7 +201,7 @@ fails decode.
 
 ## I. WASM Host Function Surface (Summary)
 
-Pyde's execution layer is WebAssembly. The WASM instruction set itself is the WebAssembly Core Specification — defined and maintained externally, not by Pyde. What Pyde defines is the **Host Function ABI**: the chain-side surface that contracts call to interact with state, accounts, crypto, events, and other chain primitives.
+Pyde's execution layer is WebAssembly. The WASM instruction set itself is the WebAssembly Core Specification, defined and maintained externally, not by Pyde. What Pyde defines is the **Host Function ABI**: the chain-side surface that contracts call to interact with state, accounts, crypto, events, and other chain primitives.
 
 The full Host Function ABI specification (signatures, memory layout conventions, gas cost table, versioning rules, parachain-extension allowlist, forbidden imports) lives at [companion/HOST_FN_ABI_SPEC.md](../companion/HOST_FN_ABI_SPEC.md). The high-level surface, organized by category:
 
@@ -333,7 +333,7 @@ For readers diving into the source. The pre-pivot crates listed below
 node) live in the [`pyde-net/archive`](https://github.com/pyde-net/archive)
 repository, preserved with full git history. The post-pivot WASM
 execution layer crate (`wasm-exec`) is to be implemented in a
-freshly-cut workspace when the WASM-era engine repo is bootstrapped —
+freshly-cut workspace when the WASM-era engine repo is bootstrapped;
 the row below is forward-looking. Paths are relative to whichever
 workspace the file ends up in (archive workspace for pre-pivot rows,
 the future post-pivot workspace for `wasm-exec`).
@@ -370,7 +370,7 @@ The key headline figures, with their sources:
 | ~150 ms DAG round period            | `ROUND_PERIOD_MS` in `consensus/round.rs`     |
 | ~500 ms median commit          | `COMMIT_TARGET_MS` in `consensus/commit.rs`|
 | v1 plaintext throughput target      | Awaiting multi-region performance harness measurement; publish only what the harness measures under sustained, production-realistic conditions ([companion/PERFORMANCE_HARNESS.md](../companion/PERFORMANCE_HARNESS.md)) |
-| v1 private-mempool throughput        | Same harness; Commit + Reveal are two ordinary txs — no decryption stage |
+| v1 private-mempool throughput        | Same harness; Commit + Reveal are two ordinary txs (no decryption stage) |
 | 70 / 20 / 10 fee split              | `FEE_BURN_PCT` etc in `tx/execution.rs`        |
 | 5% → 1% inflation schedule          | `INFLATION_BPS` in `tx/fee.rs`                 |
 | 10,000 PYDE validator min stake     | `MIN_VALIDATOR_STAKE` in `tx/pipeline.rs` (single tier)|
@@ -404,20 +404,20 @@ are welcomed via PR.
 
 Pyde is a sovereign post-quantum L1. Mainnet ships:
 
-- **No elliptic curves** — FALCON-512, Kyber-768, Blake3, Poseidon2, lattice VRF.
-- **Mysticeti-style consensus, no proposers** — each round every committee member produces a vertex; canonical order is structural.
-- **Uniform Block-STM execution** — optimistic parallel exec + MVCC validation; access lists from `pyde_simulateTransaction` drive PIP-3 multiget prefetch into the dashmap cache, never partition the wave.
-- **Private mempool (keyless commit-reveal)** — opt in per-tx for MEV protection; no committee decryption key. Commit then reveal; inner txs execute in DAG commit order (Chapter 9). A one-shot ciphertext lane stays v2+ research (Chapter 20).
-- **No tip mechanism** — fees are exactly `gas_used × base_fee`.
-- **No on-chain stake-weighted vote** — governance is PIPs + on-chain multisig.
-- **No bridge at v1** — `cross_call!` macro stable; parachain operator layer ships post-mainnet.
-- **Structural MEV protection** — commit-reveal + structural ordering + no tips = unexpressible MEV.
+- **No elliptic curves**: FALCON-512, Kyber-768, Blake3, Poseidon2, lattice VRF.
+- **Mysticeti-style consensus, no proposers**: each round every committee member produces a vertex; canonical order is structural.
+- **Uniform Block-STM execution**: optimistic parallel exec + MVCC validation; access lists from `pyde_simulateTransaction` drive PIP-3 multiget prefetch into the dashmap cache, never partition the wave.
+- **Private mempool (keyless commit-reveal)**: opt in per-tx for MEV protection; no committee decryption key. Commit then reveal; inner txs execute in DAG commit order (Chapter 9). A one-shot ciphertext lane stays v2+ research (Chapter 20).
+- **No tip mechanism**: fees are exactly `gas_used × base_fee`.
+- **No on-chain stake-weighted vote**: governance is PIPs + on-chain multisig.
+- **No bridge at v1**: `cross_call!` macro stable; parachain operator layer ships post-mainnet.
+- **Structural MEV protection**: commit-reveal + structural ordering + no tips = unexpressible MEV.
 
 Everything that doesn't ship at mainnet is tracked, scoped, and
 prioritized for post-launch work. Honesty about what's in vs out is the
 single biggest difference between this book and earlier drafts.
 
-The next thing to read isn't a separate file — it's chapter 19
+The next thing to read isn't a separate file; it's chapter 19
 (Launch Strategy), where the phased work-in-flight to mainnet lives.
 The [Companion Specifications](../SUMMARY.md) section of this book holds
 the full technical specs (Whitepaper, Design, Threat Model, Performance

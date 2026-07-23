@@ -3,7 +3,7 @@
 **Version:** v1.0 (draft)
 **Status:** Authoritative for v1 mainnet. Subject to revision until mainnet genesis; frozen at v1 launch and only extended in backwards-compatible ways thereafter.
 
-This document is the canonical specification of the **`otigen` developer toolchain binary** — the command-line program contract authors use to scaffold projects, drive language-specific builds, validate against the chain ABI, sign and submit deploys, manage wallets, and interact with running networks.
+This document is the canonical specification of the **`otigen` developer toolchain binary**: the command-line program contract authors use to scaffold projects, drive language-specific builds, validate against the chain ABI, sign and submit deploys, manage wallets, and interact with running networks.
 
 Where [`HOST_FN_ABI_SPEC.md`](./HOST_FN_ABI_SPEC.md) defines the binary surface between the WASM execution layer and contract code, this document defines the surface between the *author* and the chain.
 
@@ -31,9 +31,9 @@ This spec defines:
 This spec does **not** define:
 
 - The Host Function ABI (see [HOST_FN_ABI_SPEC.md](./HOST_FN_ABI_SPEC.md))
-- Language compiler internals (those belong to upstream — rustc, asc, TinyGo, clang)
+- Language compiler internals (those belong to upstream: rustc, asc, TinyGo, clang)
 - The chain's transaction wire format (see [Chapter 11: Account Model](../chapters/11-account-model.md))
-- Per-language SDKs — `otigen` is not an SDK; it's a build harness (see [PARACHAIN_DESIGN §10](./PARACHAIN_DESIGN.md) for the no-SDK rationale)
+- Per-language SDKs; `otigen` is not an SDK, it's a build harness (see [PARACHAIN_DESIGN §10](./PARACHAIN_DESIGN.md) for the no-SDK rationale)
 
 ---
 
@@ -64,7 +64,7 @@ All subcommands accept the global flags:
 
 | Flag | Effect |
 |---|---|
-| `-v, --verbose` | Verbose logging. Counter flag — `-v` info, `-vv` debug. `otigen test` extends the ladder to `-vvv` (per-call traces) and `-vvvv` (storage diffs); see §3.11. |
+| `-v, --verbose` | Verbose logging. Counter flag: `-v` info, `-vv` debug. `otigen test` extends the ladder to `-vvv` (per-call traces) and `-vvvv` (storage diffs); see §3.11. |
 | `-q, --quiet` | Suppress non-error output |
 | `--json` | Output structured JSON (for CI / scripting) |
 | `--network <name>` | Override the default network (default: read from `otigen.toml` → `[network.default]`) |
@@ -91,7 +91,7 @@ Side effects:
 
 1. Creates `<dir>/`.
 2. Writes `<dir>/otigen.toml` from the language template (see §4 for schema).
-3. Writes `<dir>/src/` containing a hello-world contract. The Rust scaffold uses the macro substrate (`#[pyde::entry]` + `pyde::declare_storage!()`) so authors get typed accessors + a `() -> ()` ABI shim with zero hand-written `extern "C"` boilerplate. Non-Rust scaffolds (`--lang as|go|c`) ship the raw `extern "C"` host-fn pattern — the macro substrate is Rust-only; community SDK authors targeting other languages reference `examples/counter-{as,go,c}/` and the `SDK_AUTHOR_GUIDE`.
+3. Writes `<dir>/src/` containing a hello-world contract. The Rust scaffold uses the macro substrate (`#[pyde::entry]` + `pyde::declare_storage!()`) so authors get typed accessors + a `() -> ()` ABI shim with zero hand-written `extern "C"` boilerplate. Non-Rust scaffolds (`--lang as|go|c`) ship the raw `extern "C"` host-fn pattern (the macro substrate is Rust-only); community SDK authors targeting other languages reference `examples/counter-{as,go,c}/` and the `SDK_AUTHOR_GUIDE`.
 4. Writes language-specific config (e.g., `Cargo.toml` for Rust, `package.json` for AS, `go.mod` for Go).
 5. Writes `.gitignore` excluding `target/`, `node_modules/`, `build/`.
 
@@ -99,7 +99,7 @@ Exit codes: `0` on success, `1` if `<dir>` already exists, `2` if the language i
 
 ### 3.2 `otigen build`
 
-Verify + package. By default does **not** invoke the language compiler — that is the author's responsibility (run `cargo build` first, etc.). The opt-in `--compile` flag inverts this: it runs the per-language default build command first, then proceeds with the same verify + package pipeline. Both paths produce byte-identical bundles when the inputs are equivalent — `--compile` is a UX convenience, not a different build.
+Verify + package. By default does **not** invoke the language compiler; that is the author's responsibility (run `cargo build` first, etc.). The opt-in `--compile` flag inverts this: it runs the per-language default build command first, then proceeds with the same verify + package pipeline. Both paths produce byte-identical bundles when the inputs are equivalent; `--compile` is a UX convenience, not a different build.
 
 ```
 otigen build [--release|--debug] [--compile] [--out <path>]
@@ -109,7 +109,7 @@ otigen build [--release|--debug] [--compile] [--out <path>]
 |---|---|---|
 | `--release` | (default) | Validate against release-build expectations |
 | `--debug` | off | Allow debug-build artifacts (useful for local dev) |
-| `--compile` | off | Invoke the per-language build command first. Dispatch table: `rust` → `cargo build --target wasm32-unknown-unknown --release`, `as` → `npm install && npm run build`, `go` → `tinygo build -target=wasm-unknown -o <output> .`, `c` → `make`. (Important: TinyGo uses `wasm-unknown`, **not** `wasi` — the `wasi` target imports `wasi_snapshot_preview1.fd_write` which the build validator rejects.) Only the default invocation per language; authors with custom build flags continue to compile manually and run `otigen build` afterwards. After the compiler exits, otigen discovers the actual emit path from each language's native config (`Cargo.toml`'s `[package].name` for Rust, `asconfig.json`'s `targets.release.outFile` for AssemblyScript; Go uses our `-o` flag, C uses the Makefile-declared path) and copies the `.wasm` to `[contract.lang.output]` if they differ, with a `Reconciling emit path` notice. Discovery falls back to `[contract.lang.output]` on workspace `Cargo.toml`, missing / malformed configs, or features we don't parse (JSON5 in asconfig). Error codes: `ToolchainMissing` when the compiler isn't on `PATH`; resource failure on non-zero compiler exit; `CompileOutputMissing` when the compiler exited 0 but emitted nowhere we can find. |
+| `--compile` | off | Invoke the per-language build command first. Dispatch table: `rust` → `cargo build --target wasm32-unknown-unknown --release`, `as` → `npm install && npm run build`, `go` → `tinygo build -target=wasm-unknown -o <output> .`, `c` → `make`. (Important: TinyGo uses `wasm-unknown`, **not** `wasi`; the `wasi` target imports `wasi_snapshot_preview1.fd_write` which the build validator rejects.) Only the default invocation per language; authors with custom build flags continue to compile manually and run `otigen build` afterwards. After the compiler exits, otigen discovers the actual emit path from each language's native config (`Cargo.toml`'s `[package].name` for Rust, `asconfig.json`'s `targets.release.outFile` for AssemblyScript; Go uses our `-o` flag, C uses the Makefile-declared path) and copies the `.wasm` to `[contract.lang.output]` if they differ, with a `Reconciling emit path` notice. Discovery falls back to `[contract.lang.output]` on workspace `Cargo.toml`, missing / malformed configs, or features we don't parse (JSON5 in asconfig). Error codes: `ToolchainMissing` when the compiler isn't on `PATH`; resource failure on non-zero compiler exit; `CompileOutputMissing` when the compiler exited 0 but emitted nowhere we can find. |
 | `--out` | `./artifacts/` | Output directory for the deploy bundle |
 
 Pipeline:
@@ -162,8 +162,8 @@ otigen deploy [--network <name>] [--from <addr-or-keyname>] [--bundle <path>] [-
 
 Pipeline:
 
-1. Load bundle. **Re-validate both the project's `otigen.toml` and the bundle's copy of `otigen.toml` against the schema** — same `validate()` pass that `otigen build` runs. Defense-in-depth: catches hand-edits between build and deploy, bundles produced by a forked toolchain that skipped validation, and bundles built before charset rules existed. The `[contract].name` from the bundle's `otigen.toml` is hashed into the deployed address by the chain, so a malformed name reaching this step would persist on-chain.
-2. Re-validate WASM + ABI consistency (`otigen-abi::validate_all` in strict mode — same checks the chain-side validator runs).
+1. Load bundle. **Re-validate both the project's `otigen.toml` and the bundle's copy of `otigen.toml` against the schema**: the same `validate()` pass that `otigen build` runs. Defense-in-depth: catches hand-edits between build and deploy, bundles produced by a forked toolchain that skipped validation, and bundles built before charset rules existed. The `[contract].name` from the bundle's `otigen.toml` is hashed into the deployed address by the chain, so a malformed name reaching this step would persist on-chain.
+2. Re-validate WASM + ABI consistency (`otigen-abi::validate_all` in strict mode, the same checks the chain-side validator runs).
 3. Construct a `DeployTx`:
    ```
    DeployTx {
@@ -186,7 +186,7 @@ Exit codes: `0` on inclusion + success, `1` on validation failure (including the
 
 #### 3.3.1 `--rpc-url` + `--chain-id` (signed-tx RPC override)
 
-The pair is **mutually load-bearing**: passing one without the other returns `InvalidArgs` with exit `1`. The resolver returns `chain_id = 0` on the raw-`--rpc-url` path (a raw URL doesn't advertise a chain id), and signing a tx against `chain_id = 0` silently bricks the FALCON signature against the chain's tx-hash domain — the engine rejects the tx but the cost is paid in gas before that revert.
+The pair is **mutually load-bearing**: passing one without the other returns `InvalidArgs` with exit `1`. The resolver returns `chain_id = 0` on the raw-`--rpc-url` path (a raw URL doesn't advertise a chain id), and signing a tx against `chain_id = 0` silently bricks the FALCON signature against the chain's tx-hash domain: the engine rejects the tx but the cost is paid in gas before that revert.
 
 Use case: a CI worker spinning a devnet on a non-default port because `127.0.0.1:9933` is already taken by another instance (multi-validator cluster, parallel test runs). The override lets `deploy` target that instance without editing the bundle's baked `otigen.toml`:
 
@@ -198,7 +198,7 @@ otigen deploy --bundle <bundle> \
               --password-stdin
 ```
 
-Match `--chain-id` to what `pyde_chainId` reports on the target RPC. The same pair is required across §3.4 (`call` — mutating mode), §3.5 (`upgrade`), §3.6 (`pause` / `unpause` / `kill`), and §3.14's submitting variants — every CLI subcommand that signs a tx.
+Match `--chain-id` to what `pyde_chainId` reports on the target RPC. The same pair is required across §3.4 (`call` in mutating mode), §3.5 (`upgrade`), §3.6 (`pause` / `unpause` / `kill`), and §3.14's submitting variants: every CLI subcommand that signs a tx.
 
 ### 3.4 `otigen call`
 
@@ -244,7 +244,7 @@ By default, view returns are decoded per `[functions.<fn>].outputs`:
 - Multi-output → tuple syntax (e.g. `(true, 1000000)`).
 - Compound shapes (`vec(T)`, `struct(<Name>)`, enum) → JSON5-style rendering.
 
-`--raw` preserves the on-wire hex (`0x40420f00…`) — useful for piping into external decoders or for contracts the CLI doesn't have a schema for.
+`--raw` preserves the on-wire hex (`0x40420f00…`), useful for piping into external decoders or for contracts the CLI doesn't have a schema for.
 
 In `--json` mode, the `call_result` event carries `return_data` as the raw hex and the decoded form in a separate `decoded` field.
 
@@ -298,7 +298,7 @@ otigen upgrade <name-or-address> [--bundle <path> | --wasm <path>] [--from <key>
 | `--i-know-engine-rejects` | off | Bypass the engine-not-ready gate (see §3.6.1). |
 | `--rpc-url` / `--chain-id` | none | RPC override pair, same contract as §3.3.1. |
 
-For contracts: signs an `UpgradeContractTx` (`TxType::Lifecycle` / `LifecyclePayload::Upgrade { new_wasm }` per §8.3). **As of v1 the engine has no `TxType::Lifecycle` handler** — the tx is built and signed correctly by the CLI but refused at the engine. See §3.6.1.
+For contracts: signs an `UpgradeContractTx` (`TxType::Lifecycle` / `LifecyclePayload::Upgrade { new_wasm }` per §8.3). **As of v1 the engine has no `TxType::Lifecycle` handler**: the tx is built and signed correctly by the CLI but refused at the engine. See §3.6.1.
 
 For parachains: requires governance certs collected separately (per [PARACHAIN_DESIGN §6.2](./PARACHAIN_DESIGN.md)). `otigen upgrade --parachain` runs the full vote flow if `[parachain.governance.auto_collect]` is true; otherwise the author submits the proposal, gathers votes externally, and runs `otigen upgrade --finalize <proposal-id>` to submit the activation tx.
 
@@ -356,12 +356,12 @@ otigen inspect <name-or-address> [--state-field <NAME> | --field <NAME>]
 
 | Flag | Default | Description |
 |---|---|---|
-| `--state-field <NAME>` | none | Substrate-typed storage read. Slot = `Poseidon2(self_address ‖ field_name)`, matching the chain's `sstore_scalar` / `sload_scalar` host fns. Decoded per the type token declared in `[state].schema`. Use this for any contract written with `#[pyde::declare_storage]` — the canonical path. |
-| `--field <NAME>` | none | Legacy raw-storage read for pre-substrate contracts. Slot = `Poseidon2(name.as_bytes())` — the convention hand-written examples used before the substrate macros existed. Mutually exclusive with `--state-field`. |
+| `--state-field <NAME>` | none | Substrate-typed storage read. Slot = `Poseidon2(self_address ‖ field_name)`, matching the chain's `sstore_scalar` / `sload_scalar` host fns. Decoded per the type token declared in `[state].schema`. Use this for any contract written with `#[pyde::declare_storage]`; this is the canonical path. |
+| `--field <NAME>` | none | Legacy raw-storage read for pre-substrate contracts. Slot = `Poseidon2(name.as_bytes())`, the convention hand-written examples used before the substrate macros existed. Mutually exclusive with `--state-field`. |
 | `--at-wave <N>` | none | State as of a historical wave. Honored only by archive nodes; v1 toolchain forwards the value but otherwise shows current state. |
 | `--rpc-url <URL>` | from `otigen.toml` | One-shot RPC URL override. Skips `otigen.toml` network resolution entirely. Unlike the signing subcommands, `inspect` is read-only and does NOT require `--chain-id`. |
 
-Default output (no `--state-field` / `--field`) — account snapshot per the chain's `pyde_getAccount` RPC:
+Default output (no `--state-field` / `--field`) is the account snapshot per the chain's `pyde_getAccount` RPC:
 
 - `Target` / `Address`: the supplied name/address + the resolved 32-byte address.
 - `Account type`: `eoa`, `contract`, or `system` (chain's [`AccountType`](https://github.com/pyde-net/engine/blob/main/crates/types/src/account.rs) discriminant).
@@ -373,7 +373,7 @@ Default output (no `--state-field` / `--field`) — account snapshot per the cha
 
 With `--state-field` or `--field`: focused single-slot read; prints the slot hash + raw bytes + decoded value (per `[state].schema` for `--state-field`).
 
-> **Note.** Earlier drafts of this spec listed `version` / `total_versions` / `owner` / `status` fields. None of these exist on the engine's `Account` in v1 — see §8.2/§8.3 for what v1 actually provides and the v2 plan. The v1 lifecycle story is author-declared booleans + proxy upgrades; chain-side support is deferred.
+> **Note.** Earlier drafts of this spec listed `version` / `total_versions` / `owner` / `status` fields. None of these exist on the engine's `Account` in v1; see §8.2/§8.3 for what v1 actually provides and the v2 plan. The v1 lifecycle story is author-declared booleans + proxy upgrades; chain-side support is deferred.
 
 ### 3.8 `otigen wallet`
 
@@ -395,11 +395,11 @@ otigen wallet verify [NAME] --message <MSG> --signature <HEX> [--hex] [--pubkey 
                                                                              # verify a signature; exit 0 = valid, 1 = invalid
 ```
 
-`NAME` under `--from-devnet` is ignored — that mode generates names `<prefix>0`..`<prefix>N-1` (default `devnet-0`..`devnet-9`).
+`NAME` under `--from-devnet` is ignored; that mode generates names `<prefix>0`..`<prefix>N-1` (default `devnet-0`..`devnet-9`).
 
 `wallet export` does NOT prompt for a password: it ciphers the keystore entry as-is and writes the same Argon2id + AES-256-GCM ciphertext under a new filename. The original password still decrypts it.
 
-> **Note.** Earlier drafts of this spec listed `wallet rotate <name>` (submitting a `KeyRotationTx`). That subcommand is **not shipped** in the current binary — chain-side key rotation lives behind v2 engine work. If you need to rotate an account's encryption password (vs the underlying FALCON key), use `wallet password`.
+> **Note.** Earlier drafts of this spec listed `wallet rotate <name>` (submitting a `KeyRotationTx`). That subcommand is **not shipped** in the current binary; chain-side key rotation lives behind v2 engine work. If you need to rotate an account's encryption password (vs the underlying FALCON key), use `wallet password`.
 
 Keystore format: see §6.
 
@@ -416,7 +416,7 @@ otigen console [--network <name>] [--from <key>] [--password-stdin]
 
 Session-scoped: `--network` and `--from` bind once at REPL
 startup, every per-command call reuses the same `RpcClient`.
-Wallet unlock is lazy — views never prompt; the first `tx` asks
+Wallet unlock is lazy: views never prompt; the first `tx` asks
 for the password once (or reads it from stdin with
 `--password-stdin` for CI / scripted flows) and the unlocked
 signer is cached for the rest of the session.
@@ -437,7 +437,7 @@ Address inputs accept either a `0x`-prefixed 32-byte hex address
 or a registered name resolved via `pyde_resolveName`.
 
 Deferred (follow-up PRs):
-- ABI-aware calldata typing (Foundry's `cast send --json-abi` shape) — currently calldata is supplied as raw hex.
+- ABI-aware calldata typing (Foundry's `cast send --json-abi` shape); currently calldata is supplied as raw hex.
 
 ### 3.10 `otigen verify`
 
@@ -451,7 +451,7 @@ otigen verify <name-or-address> [--bundle <path>] [--strict-toolchain]
 | Flag | Default | Description |
 |---|---|---|
 | `--bundle <PATH>` | `./artifacts/<name>.bundle/` | Local bundle directory to compare against. |
-| `--strict-toolchain` | off | Also compare the toolchain version pin in `manifest.json` against the running rustc / TinyGo / asc / clang. Mismatch fails verify even when bytes match — useful for reproducing audited builds at the exact toolchain. |
+| `--strict-toolchain` | off | Also compare the toolchain version pin in `manifest.json` against the running rustc / TinyGo / asc / clang. Mismatch fails verify even when bytes match, which is useful for reproducing audited builds at the exact toolchain. |
 | `--explorer <URL>` | none | Submit the bundle to an external verifying explorer. Posts a multipart form `(contract.wasm, manifest.json, metadata.json)` to `<URL>/api/v1/contracts/<addr>/verify`. |
 | `--api-key-env <VAR>` | none | Read the explorer's bearer token from the named environment variable. |
 | `--api-key-stdin` | off | Read the explorer's bearer token from stdin. Mutually exclusive with `--api-key-env`. |
@@ -485,17 +485,17 @@ otigen test [--dry-run] [--filter <pattern>] [--bundle <path>] [--watch]
 
 > **Note.** Earlier drafts of this spec listed `--no-color`, `--show-output`, and a four-level Foundry-style `-vvvv` verbosity ladder (per-call traces + storage diffs). The current binary rejects `--no-color` / `--show-output` and uses standard clap `-v` counting only. Per-call expectations + storage diffs are declared in `[tests.expect]` / `expect.*` in the test TOML; failures print the expected-vs-actual. A Foundry-shape trace renderer is tracked for a follow-up; until then declarative assertions are the surface.
 
-**Runtime selection.** `otigen test` runs through `pyde-engine-wasm-exec::WasmExecutor` by default — the same execution code path mainnet uses. Per the project principle "same crypto / same VM everywhere across mainnet / testnet / devnet" the engine path is the source of truth; the legacy in-process mock surface still ships behind `--no-engine` for two cases:
+**Runtime selection.** `otigen test` runs through `pyde-engine-wasm-exec::WasmExecutor` by default, the same execution code path mainnet uses. Per the project principle "same crypto / same VM everywhere across mainnet / testnet / devnet" the engine path is the source of truth; the legacy in-process mock surface still ships behind `--no-engine` for two cases:
 
-- **Parachain contracts** (`contract.type = "parachain"`) — parachain host fns live behind engine v2; until then `otigen test` against a parachain bundle requires `--no-engine` and gets the legacy mock surface with `parachain_*` mocks (see "Legacy mock surface" below). `otigen test --engine` against a parachain pre-flights with `ParachainEngineUnsupported` pointing at `--no-engine`.
-- **Bisection / debugging** — running both paths against the same test and comparing surfaces which side is misbehaving.
+- **Parachain contracts** (`contract.type = "parachain"`): parachain host fns live behind engine v2; until then `otigen test` against a parachain bundle requires `--no-engine` and gets the legacy mock surface with `parachain_*` mocks (see "Legacy mock surface" below). `otigen test --engine` against a parachain pre-flights with `ParachainEngineUnsupported` pointing at `--no-engine`.
+- **Bisection / debugging**: running both paths against the same test and comparing surfaces which side is misbehaving.
 
 Discovery order:
 1. `tests/*.test.toml` (canonical)
 2. `tests/*.toml`
 3. `./contract.test.toml` (single-file projects)
 
-Each file's `[[tests]]` array contributes to the total count. Tests run sequentially; each starts from a fresh state store backed by a tempdir — no state leaks between cases. The engine path builds a fresh `EngineRunner` per test case; the legacy path builds a fresh in-process `TestEnv` per case.
+Each file's `[[tests]]` array contributes to the total count. Tests run sequentially; each starts from a fresh state store backed by a tempdir, so no state leaks between cases. The engine path builds a fresh `EngineRunner` per test case; the legacy path builds a fresh in-process `TestEnv` per case.
 
 Per-test pipeline (engine path):
 
@@ -503,12 +503,12 @@ Per-test pipeline (engine path):
 2. Resolve account names → 32-byte Blake3 addresses; resolve storage field names → slot hashes per the contract's `[state]` schema (the chain derives `Blake3(self_address || field_name || keys...)` host-side for the typed-storage path; Poseidon2 host-side for the legacy raw-host-fn path).
 3. Pre-populate storage from `[tests.setup].storage` + balances from `[tests.setup].balances`.
 4. Record start time.
-5. For each `[[tests.calls]]` entry: marshal typed args (`address` / `uint128` / `int128` / `bytes32` / `bytes` / primitive ints) into wasm linear memory + params, invoke the WASM export through the engine's `WasmExecutor::execute_call`, capture the return value + emitted events + revert reason. On trap, the per-call `TxOverlay` discards (so a reverting call mid-test doesn't roll back state from earlier successful calls — matching mainnet semantics). Check per-call `expect`.
+5. For each `[[tests.calls]]` entry: marshal typed args (`address` / `uint128` / `int128` / `bytes32` / `bytes` / primitive ints) into wasm linear memory + params, invoke the WASM export through the engine's `WasmExecutor::execute_call`, capture the return value + emitted events + revert reason. On trap, the per-call `TxOverlay` discards (so a reverting call mid-test doesn't roll back state from earlier successful calls, matching mainnet semantics). Check per-call `expect`.
 6. After the call sequence, check `[tests.expect]` (final-state assertions: storage values, balances, event totals).
 7. Record end time; compute `duration_ms`.
 8. Emit pass / fail (with `duration_ms` included in the NDJSON event under `--json`).
 
-**Engine path host-fn surface.** The engine path links the **real** `pyde::*` ABI — same host fns mainnet runs (HOST_FN_ABI_SPEC §7). The runner stubs nothing beyond the test-only `debug_log` (printf-style; not registered chain-side, see "Test-only host fns" below). Authors writing contracts that hit `tx_hash`, `calldata_copy`, `consume_gas`, `cross_call_static`, `return`, `hash_keccak256`, `beacon_get`, or `origin` get them at chain-fidelity behaviour.
+**Engine path host-fn surface.** The engine path links the **real** `pyde::*` ABI, the same host fns mainnet runs (HOST_FN_ABI_SPEC §7). The runner stubs nothing beyond the test-only `debug_log` (printf-style; not registered chain-side, see "Test-only host fns" below). Authors writing contracts that hit `tx_hash`, `calldata_copy`, `consume_gas`, `cross_call_static`, `return`, `hash_keccak256`, `beacon_get`, or `origin` get them at chain-fidelity behaviour.
 
 **Legacy mock surface (`--no-engine` only).** The legacy path runs each contract in an in-process wasmtime instance wired to test-runner mocks. Useful for parachain contracts (whose chain runtime ships in v2) and for runner-side debugging. Mocked host fns:
 
@@ -518,11 +518,11 @@ Per-test pipeline (engine path):
 - **Transaction context**: `tx_value`
 - **Events + halt**: `emit_event`, `revert`
 - **Hashing**: `hash_blake3`, `hash_poseidon2`, `hash_keccak256`
-- **Post-quantum crypto**: `falcon_verify` — real verification via the runner's bundled `pyde-crypto`; pairs with the `@sig:NAME:args.IDX` DSL (see [`OTIGEN_TEST_SPEC §6`](./OTIGEN_TEST_SPEC.md))
-- **Cross-contract**: `cross_call`, `delegate_call` — multi-contract topology declared via `[[contracts]]`; each secondary instance gets its own Store + storage namespace
+- **Post-quantum crypto**: `falcon_verify` (real verification via the runner's bundled `pyde-crypto`); pairs with the `@sig:NAME:args.IDX` DSL (see [`OTIGEN_TEST_SPEC §6`](./OTIGEN_TEST_SPEC.md))
+- **Cross-contract**: `cross_call`, `delegate_call`, with multi-contract topology declared via `[[contracts]]`; each secondary instance gets its own Store + storage namespace
 - **Parachain §8** (when `[contract].type = "parachain"`): `parachain_id`, `parachain_version`, `parachain_storage_read`, `parachain_storage_write`, `parachain_storage_delete`, `parachain_emit_event`
 
-**Test-only host fns (both paths).** `debug_log(msg_ptr, len) -> ()` — printf-style; writes `[debug] <fn_name>: <msg>` to stderr and captures into the test report's `debug_logs`. Not registered chain-side; `otigen build` and `otigen deploy` reject contracts that import it (HOST_FN_ABI_SPEC §9.1).
+**Test-only host fns (both paths).** `debug_log(msg_ptr, len) -> ()`: printf-style; writes `[debug] <fn_name>: <msg>` to stderr and captures into the test report's `debug_logs`. Not registered chain-side; `otigen build` and `otigen deploy` reject contracts that import it (HOST_FN_ABI_SPEC §9.1).
 
 Exit codes: `0` all-pass; `1` any failure; `2` resource failure (test file unreadable, bundle missing); `4` schema error (malformed TOML, reference to undeclared `[state]` field, parachain contract attempted on engine path).
 
@@ -532,13 +532,13 @@ Exit codes: `0` all-pass; `1` any failure; `2` resource failure (test file unrea
   - Surfaced at `-v` and above in the plain-text output.
   - Optionally asserted via `expect.gas` (exact) or `expect.gas_max` (upper bound) per call. See [`OTIGEN_TEST_SPEC §4.5`](./OTIGEN_TEST_SPEC.md).
 
-Note: the runner's fuel units correlate to but are not bit-identical with on-chain Pyde gas. Foundry has the same caveat — gas reports under `forge test` are estimates, not chain billing.
+Note: the runner's fuel units correlate to but are not bit-identical with on-chain Pyde gas. Foundry has the same caveat: gas reports under `forge test` are estimates, not chain billing.
 
 The full TOML schema, name resolution rules, cheatcode catalogue, host-function behaviour, and limitations are documented in [`OTIGEN_TEST_SPEC.md`](./OTIGEN_TEST_SPEC.md). That spec is authoritative.
 
 ### 3.12 `otigen new`
 
-Scaffold a project by cloning a canonical example from the [`pyde-net/otigen` example catalogue](https://github.com/pyde-net/otigen/tree/main/examples). Where `otigen init` writes a minimal hello-world, `otigen new` produces a fully-working contract with a passing TOML test suite — the fastest path from zero to a green `otigen test` run.
+Scaffold a project by cloning a canonical example from the [`pyde-net/otigen` example catalogue](https://github.com/pyde-net/otigen/tree/main/examples). Where `otigen init` writes a minimal hello-world, `otigen new` produces a fully-working contract with a passing TOML test suite, the fastest path from zero to a green `otigen test` run.
 
 ```
 otigen new <name> --from <template> [--dir <path>]
@@ -547,19 +547,19 @@ otigen new --list
 
 | Arg | Required | Description |
 |---|---|---|
-| `<name>` | yes (unless `--list`) | Project name. Lowercase + hyphens (ENS-style, 1–32 chars). Used for the contract identity and the directory. |
+| `<name>` | yes (unless `--list`) | Project name. Lowercase + hyphens (ENS-style, 1 to 32 chars). Used for the contract identity and the directory. |
 | `--from` | yes (unless `--list`) | Template to clone. Run `otigen new --list` for the catalogue. |
 | `--list` | no | List available templates and exit. Mutually exclusive with `<name>`, `--from`, and `--dir`. |
 | `--dir` | no | Target directory (default: `./<name>`). |
 
-Canonical templates exposed by `otigen new --list` — the binary's template registry. Every entry uses the `#[pyde::entry]` + `pyde::declare_storage!()` macro substrate per `HOST_FN_ABI_SPEC §3.5.2` (void-void entries) and builds + tests clean.
+Canonical templates exposed by `otigen new --list`, the binary's template registry. Every entry uses the `#[pyde::entry]` + `pyde::declare_storage!()` macro substrate per `HOST_FN_ABI_SPEC §3.5.2` (void-void entries) and builds + tests clean.
 
 | Template | Status | Highlights |
 |---|---|---|
 | `counter` | ✅ builds + tests | Minimum viable contract. Single `u64` slot via typed `storage::counter()` accessor. Equivalent of `otigen init --lang rust`. |
 | `fungible-token` | ✅ builds + tests | PTS-F reference (pts-f/1). Scalar + 1-key + 2-key map storage shapes, indexed-field event encoding, typed-arg calldata. |
 | `nft-token` | ✅ builds + tests | PTS-N reference (pts-n/1). Per-id ownership + balance_of + single-spender approval cleared atomically on `transfer_from`. |
-| `upgradeable-proxy` | ⚠️ builds, shipped tests broken | `delegate_call`-based upgrade pattern. Admin-controlled implementation slot. The shipped `tests/contract.test.toml` references entrypoint names that no longer match the source — tests fail 0/7 until the fixture is regenerated. The contract itself deploys + delegates fine. |
+| `upgradeable-proxy` | ⚠️ builds, shipped tests broken | `delegate_call`-based upgrade pattern. Admin-controlled implementation slot. The shipped `tests/contract.test.toml` references entrypoint names that no longer match the source; tests fail 0/7 until the fixture is regenerated. The contract itself deploys + delegates fine. |
 | `dao-governance` | ✅ builds + tests | FALCON-signed votes + time phases + `hash_blake3`-committed execution. The most-composed v1 reference. |
 | `simple-multisig` | ✅ builds + tests | 3-signer FALCON-512 multisig via `pyde::raw::falcon_verify` + signer-ID lookup on typed-storage maps; `Hash32` (`bytes32` alias) keys + values. |
 | `merkle-claim-airdrop` | ✅ builds + tests | Merkle-tree airdrop claim via `pyde::hash::blake3`; `Vec<u8>`-typed proof argument decoded by the macro substrate. |
@@ -570,14 +570,14 @@ Canonical templates exposed by `otigen new --list` — the binary's template reg
 Side effects:
 
 1. Creates `<dir>/` and copies every file from the template into it.
-2. Rewrites identity fields to `<name>` in `otigen.toml` (`[contract].name`), `Cargo.toml` / `package.json` / `go.mod` (per-language idiom), and the `Makefile`'s display strings. The rewriter is word-boundary-safe — scaffolding `vesting-app` from `vesting` no longer produces the malformed `vesting_app-app` of earlier toolchain versions.
-3. Preserves every other file byte-for-byte — `src/`, `tests/`, the per-template `README.md`, the build config — so `cd <name> && otigen test` produces an identical result to running the template in-tree.
+2. Rewrites identity fields to `<name>` in `otigen.toml` (`[contract].name`), `Cargo.toml` / `package.json` / `go.mod` (per-language idiom), and the `Makefile`'s display strings. The rewriter is word-boundary-safe: scaffolding `vesting-app` from `vesting` no longer produces the malformed `vesting_app-app` of earlier toolchain versions.
+3. Preserves every other file byte-for-byte (`src/`, `tests/`, the per-template `README.md`, the build config) so `cd <name> && otigen test` produces an identical result to running the template in-tree.
 
 Exit codes: `0` on success, `1` if `<dir>` already exists or the template is unknown (`UnknownTemplate(name)` error → run with `--list` to see the catalogue).
 
 ### 3.13 `otigen devnet`
 
-Run a local devnet. The chain runtime is **embedded in the `otigen` binary** — no separate `pyde` download or path resolution. The devnet's `ValidatorRuntime` builds on a tempdir-backed `StateStore`, applies the genesis prefund via a `ValidatorPreRunHook`, binds the JSON-RPC server, and runs until Ctrl-C. State is wiped on shutdown.
+Run a local devnet. The chain runtime is **embedded in the `otigen` binary**: no separate `pyde` download or path resolution. The devnet's `ValidatorRuntime` builds on a tempdir-backed `StateStore`, applies the genesis prefund via a `ValidatorPreRunHook`, binds the JSON-RPC server, and runs until Ctrl-C. State is wiped on shutdown.
 
 ```
 otigen devnet [--fork <FILE_OR_URL>] [--rpc-listen <ADDR>]
@@ -594,7 +594,7 @@ otigen devnet [--fork <FILE_OR_URL>] [--rpc-listen <ADDR>]
 | `--chain-id <ID>` | 31337 | Chain id this devnet signs against. The canonical "dev chain, don't replay" sentinel. |
 | `--tick-ms <MS>` | 1000 | Idle-wave tick interval in milliseconds. Even with no pending txs the devnet commits an empty wave every `--tick-ms` so `wave_id` advances. |
 
-> **Note.** Earlier drafts of this spec listed `--engine-bin <PATH>` (with `PYDE_BIN` env fallback). That flag is **not shipped** — the chain runtime is no longer a separate process. Validator + full-node roles still ship via the engine's own `pyde` binary; those are operator concerns, not author concerns.
+> **Note.** Earlier drafts of this spec listed `--engine-bin <PATH>` (with `PYDE_BIN` env fallback). That flag is **not shipped**; the chain runtime is no longer a separate process. Validator + full-node roles still ship via the engine's own `pyde` binary; those are operator concerns, not author concerns.
 
 stdin/stdout/stderr inherit from the parent so the embedded runtime's startup banner + any `RUST_LOG=info` traces flow straight through; Ctrl-C triggers graceful shutdown via the validator's signal handler.
 
@@ -604,7 +604,7 @@ Exit codes: `0` on graceful shutdown, `1` on validation failure (conflicting fla
 
 ### 3.14 `otigen check`
 
-Validate the project without packaging. Same checks as `otigen build` steps 1–7 (read + schema-validate `otigen.toml`, locate `.wasm`, every WASM-level validator, ABI build) minus the bundle write. Intended for pre-commit hooks, IDE integrations, and tight iteration loops where the bundle write is wasted I/O.
+Validate the project without packaging. Same checks as `otigen build` steps 1 to 7 (read + schema-validate `otigen.toml`, locate `.wasm`, every WASM-level validator, ABI build) minus the bundle write. Intended for pre-commit hooks, IDE integrations, and tight iteration loops where the bundle write is wasted I/O.
 
 ```
 otigen check [--compile]
@@ -624,7 +624,7 @@ Read-only validator-introspection over the engine's
 `pyde_getValidator` + `pyde_getOperatorValidators` RPCs.
 Backs explorers, off-chain indexers, and operator dashboards
 without scripting raw JSON-RPC. **Registration / stake /
-unbond / unjail / key-rotation are out of scope** — those tx
+unbond / unjail / key-rotation are out of scope**; those tx
 flows live on the `pyde stake` CLI shipped with the engine
 binary.
 
@@ -639,7 +639,7 @@ otigen validator by-operator <operator-address>
 | `by-operator <addr>` | List every validator the queried operator runs, in registration-order. Empty list for unknown operators. |
 
 Both subcommands accept a 32-byte `0x`-prefixed hex address.
-Address validation is local — typos don't burn an RPC round
+Address validation is local, so typos don't burn an RPC round
 trip.
 
 **Wire shapes** match the engine handlers landed in
@@ -657,7 +657,7 @@ Exit codes:
 | Code | Cause |
 |---|---|
 | `0` | Success: `show` rendered a record; `by-operator` rendered the (possibly empty) list. |
-| `1` | `show` only — the queried address is not a registered validator (engine returned `null`). Diagnostic on stderr: `NotAValidator: 0x… is not registered as a validator`. Scripts can branch on this without parsing stdout. |
+| `1` | `show` only: the queried address is not a registered validator (engine returned `null`). Diagnostic on stderr: `NotAValidator: 0x… is not registered as a validator`. Scripts can branch on this without parsing stdout. |
 | `2` | Validation failure: malformed address, missing `[network.<name>]`, RPC client construction failed. |
 | `4` | RPC transport / decode failure (chain unreachable, response shape didn't decode). |
 
@@ -761,8 +761,8 @@ fields = [
 
 | Key | Type | Required | Default | Validation |
 |---|---|---|---|---|
-| `name` | string | ✅ | — | 1-32 chars, **lowercase ASCII + digits + `-`**, no leading / trailing / consecutive dashes. Matches ENS-style naming (see [Chapter 11](../chapters/11-account-model.md)). This is the chain-level identifier that resolves to the deployed address; if `[metadata].name` is also set, the two must use the same charset (see §4.12). |
-| `version` | string | ✅ | — | semver |
+| `name` | string | ✅ | none | 1-32 chars, **lowercase ASCII + digits + `-`**, no leading / trailing / consecutive dashes. Matches ENS-style naming (see [Chapter 11](../chapters/11-account-model.md)). This is the chain-level identifier that resolves to the deployed address; if `[metadata].name` is also set, the two must use the same charset (see §4.12). |
+| `version` | string | ✅ | none | semver |
 | `description` | string | ❌ | empty | ≤ 200 chars |
 | `type` | enum | ❌ | `"contract"` | `"contract"` or `"parachain"` |
 
@@ -770,21 +770,21 @@ fields = [
 
 | Key | Type | Required | Default | Notes |
 |---|---|---|---|---|
-| `language` | enum | ✅ | — | `"rust"`, `"as"`, `"go"`, `"c"` |
-| `output` | path | ✅ | — | Path (relative to project root) where the language compiler writes the `.wasm` |
+| `language` | enum | ✅ | none | `"rust"`, `"as"`, `"go"`, `"c"` |
+| `output` | path | ✅ | none | Path (relative to project root) where the language compiler writes the `.wasm` |
 
-The `[contract.lang.toolchain]` subtable holds language-specific version pins. `otigen build` does not invoke the compiler — it only validates that the output `.wasm` exists. But it records the declared toolchain in the bundle manifest for reproducibility.
+The `[contract.lang.toolchain]` subtable holds language-specific version pins. `otigen build` does not invoke the compiler; it only validates that the output `.wasm` exists. But it records the declared toolchain in the bundle manifest for reproducibility.
 
 ### 4.4 `[functions.<name>]` keys
 
 | Key | Type | Required | Default | Validation |
 |---|---|---|---|---|
-| `attributes` | array of strings | ✅ | — | Any subset of `view`, `payable`, `reentrant`, `sponsored`, `constructor`, `fallback`, `receive`, `entry`. Subject to compatibility rules per [HOST_FN_ABI_SPEC §3.5.1](./HOST_FN_ABI_SPEC.md) |
+| `attributes` | array of strings | ✅ | none | Any subset of `view`, `payable`, `reentrant`, `sponsored`, `constructor`, `fallback`, `receive`, `entry`. Subject to compatibility rules per [HOST_FN_ABI_SPEC §3.5.1](./HOST_FN_ABI_SPEC.md) |
 | `inputs` | array of strings | ❌ | `[]` | Parameter types in declaration order |
 | `outputs` | array of strings | ❌ | `[]` | Return types in declaration order |
-| `access_list` | array of strings | ❌ | `[]` | Optional prefetch hint — pairs of `(address, slot)` patterns the chain may use to warm cache before Block-STM workers start. Not a scheduling primitive; v1 execution is uniform Block-STM regardless of declared access list. Runtime enforcement of declared scope (rejecting out-of-list reads) is a v2 hardening. |
+| `access_list` | array of strings | ❌ | `[]` | Optional prefetch hint: pairs of `(address, slot)` patterns the chain may use to warm cache before Block-STM workers start. Not a scheduling primitive; v1 execution is uniform Block-STM regardless of declared access list. Runtime enforcement of declared scope (rejecting out-of-list reads) is a v2 hardening. |
 
-`inputs` / `outputs` accept the storage type vocabulary in §4.6 (`uint128`, `address`, `bool`, `vec(uint64)`, …) plus the **bare name** of any custom type declared in `[types.<Name>]` (§4.13). For example, `inputs = ["Order", "uint128"]` references the struct declared in `[types.Order]`. The asymmetry with `[state].schema` (which wraps custom types as `struct(<Name>)`) is intentional — see §4.13.
+`inputs` / `outputs` accept the storage type vocabulary in §4.6 (`uint128`, `address`, `bool`, `vec(uint64)`, …) plus the **bare name** of any custom type declared in `[types.<Name>]` (§4.13). For example, `inputs = ["Order", "uint128"]` references the struct declared in `[types.Order]`. The asymmetry with `[state].schema` (which wraps custom types as `struct(<Name>)`) is intentional; see §4.13.
 
 A function declared in `[functions.X]` must have a matching WASM export named `X`. The reverse must also hold (no orphan exports), unless the export name starts with `_` (internal helper convention).
 
@@ -792,25 +792,25 @@ A function declared in `[functions.X]` must have a matching WASM export named `X
 
 | Key | Type | Required | Default | Notes |
 |---|---|---|---|---|
-| `signature` | string | ✅ | — | Canonical signature string (Solidity-style), e.g. `"Transfer(address,address,uint128)"`. Must match the field types in declaration order. |
-| `fields` | array of tables | ✅ | — | Field metadata (name, type, indexed flag). See [HOST_FN_ABI_SPEC §14.1](./HOST_FN_ABI_SPEC.md). |
+| `signature` | string | ✅ | none | Canonical signature string (Solidity-style), e.g. `"Transfer(address,address,uint128)"`. Must match the field types in declaration order. |
+| `fields` | array of tables | ✅ | none | Field metadata (name, type, indexed flag). See [HOST_FN_ABI_SPEC §14.1](./HOST_FN_ABI_SPEC.md). |
 
 Each field entry:
 
 | Key | Type | Required | Default |
 |---|---|---|---|
-| `name` | string | ✅ | — |
-| `type` | string | ✅ | — |
+| `name` | string | ✅ | none |
+| `type` | string | ✅ | none |
 | `indexed` | bool | ❌ | `false` |
 
 Rules (validated at `otigen build`):
-- **Up to 3 fields can be `indexed`** (so total topics, including `topic[0]` = signature hash, ≤ 4 — matches EVM LOG4).
+- **Up to 3 fields can be `indexed`** (so total topics, including `topic[0]` = signature hash, ≤ 4; matches EVM LOG4).
 - The `signature` string must, when parsed, yield exactly the field types in order. `otigen build` cross-checks.
 - Event names are unique within a contract.
 
 ### 4.6 `[state]` table
 
-Declares the contract's storage schema. Embedded in the bundle and used for type-safe inspection (`otigen inspect --field`), explorer UI rendering, the `state_schema_hash` value in the deployed ABI, AND — for Rust contracts on the macro substrate — by `pyde::declare_storage!()` at compile time to generate typed accessors. Non-Rust contracts call the chain's typed-storage host fns (`sstore_scalar` / `sload_scalar` / `sstore_map1`…`map3`) directly; the chain derives the slot internally as `Blake3(self_address || field_name || keys...)`.
+Declares the contract's storage schema. Embedded in the bundle and used for type-safe inspection (`otigen inspect --field`), explorer UI rendering, the `state_schema_hash` value in the deployed ABI, AND, for Rust contracts on the macro substrate, by `pyde::declare_storage!()` at compile time to generate typed accessors. Non-Rust contracts call the chain's typed-storage host fns (`sstore_scalar` / `sload_scalar` / `sstore_map1`…`map3`) directly; the chain derives the slot internally as `Blake3(self_address || field_name || keys...)`.
 
 `schema` is an ordered array of `{ name, type, ... }` entries.
 
@@ -824,10 +824,10 @@ Field type vocabulary:
 | `address` / `hash32` | 32 | Raw 32-byte array. `bytes32` is an alias for `hash32` (Solidity migration ergonomics). |
 | `bytes` | variable | u32-len-prefix + bytes. |
 | `string` | variable | u32-len-prefix + UTF-8 bytes. |
-| `vec(<inner>)` | variable | u32-len-prefix + N × fixed-width inner. Inner must be fixed-width (`u8`..`u128`, `i8`..`i128`, `bool`, `address`, `hash32`, `bytes32`) — `vec(bytes)` / `vec(string)` / `vec(<Custom>)` / `vec(vec(...))` rejected at parse time. Workaround for arrays-of-struct: use the indexed-map pattern `map<u64, struct(<Name>)>` (same I/O shape from the contract's perspective; see §4.13). |
+| `vec(<inner>)` | variable | u32-len-prefix + N × fixed-width inner. Inner must be fixed-width (`u8`..`u128`, `i8`..`i128`, `bool`, `address`, `hash32`, `bytes32`); `vec(bytes)` / `vec(string)` / `vec(<Custom>)` / `vec(vec(...))` rejected at parse time. Workaround for arrays-of-struct: use the indexed-map pattern `map<u64, struct(<Name>)>` (same I/O shape from the contract's perspective; see §4.13). |
 | `struct(<Name>)` | variable | Borsh round-trip. Author declares `#[derive(BorshSerialize, BorshDeserialize)]` on `<Name>` and the struct in `[types.<Name>]` (§4.13); the macro emits typed accessors that borsh-encode/decode through the chain's variable-length storage host fns. Chain-side maps to `ScalarType::Bytes`. |
 
-Map shape — two equivalent surfaces. Either form may be used; the canonical-form keys/value path is the underlying representation and the sugar form is lowered to it at build time.
+Map shape: two equivalent surfaces. Either form may be used; the canonical-form keys/value path is the underlying representation and the sugar form is lowered to it at build time.
 
 **Canonical form** (`type = "map"` + explicit `keys` + `value`):
 
@@ -862,7 +862,7 @@ Map values: any scalar type from the vocabulary above, including `struct(<Name>)
 | Key | Type | Default |
 |---|---|---|
 | `default_keystore` | path | `~/.pyde/keystore.json` |
-| `default_account` | string | — |
+| `default_account` | string | none |
 
 ### 4.9 `[network.X]` tables
 
@@ -899,7 +899,7 @@ See [PARACHAIN_DESIGN](./PARACHAIN_DESIGN.md) for the semantics of each preset.
 
 ### 4.11 `[paths]` table (Foundry-style project layout overrides)
 
-Optional. Every key has a sensible default, so the table is only needed when an author's project tree diverges from the conventional layout. Declared keys override individually — undeclared keys keep their default.
+Optional. Every key has a sensible default, so the table is only needed when an author's project tree diverges from the conventional layout. Declared keys override individually; undeclared keys keep their default.
 
 ```toml
 [paths]
@@ -922,7 +922,7 @@ Foundry parity. Authors moving Solidity projects to Pyde recognise the shape fro
 
 ### 4.12 `[metadata]` table (contract-level display info)
 
-Optional. Every field is optional and validated at `otigen build` so a bundle that builds clean is also accepted by the explorer's verify endpoint without surprise. The whole section can be omitted — defaults are "no metadata declared." Lives bundle-side only; the deployed WASM never carries these bytes.
+Optional. Every field is optional and validated at `otigen build` so a bundle that builds clean is also accepted by the explorer's verify endpoint without surprise. The whole section can be omitted; defaults are "no metadata declared." Lives bundle-side only; the deployed WASM never carries these bytes.
 
 ```toml
 [metadata]
@@ -944,23 +944,23 @@ discord           = "pyde"
 
 | Key | Type | Validation |
 |---|---|---|
-| `name` | string | **1-64 chars, lowercase ASCII + digits + `-`, must start with a letter or digit.** Same charset as `[contract].name`. Dots specifically reserved — the explorer composes the display form `<name>.<category>` itself (e.g. `pyde.oracle`, `usdt.token`), so user-supplied dots collide with the join character. No uppercase, no underscores, no spaces, no symbols, no emoji. |
-| `description` | string | ≤ 280 chars on the explorer surface, ≤ 1000 at `otigen build` (the explorer cap is stricter; bundles that pass otigen but exceed 280 chars are rejected at verify). Free text — emoji are fine here. |
+| `name` | string | **1-64 chars, lowercase ASCII + digits + `-`, must start with a letter or digit.** Same charset as `[contract].name`. Dots specifically reserved: the explorer composes the display form `<name>.<category>` itself (e.g. `pyde.oracle`, `usdt.token`), so user-supplied dots collide with the join character. No uppercase, no underscores, no spaces, no symbols, no emoji. |
+| `description` | string | ≤ 280 chars on the explorer surface, ≤ 1000 at `otigen build` (the explorer cap is stricter; bundles that pass otigen but exceed 280 chars are rejected at verify). Free text; emoji are fine here. |
 | `website` / `logo_url` / `repository_url` / `documentation_url` | string | ≤ 256 chars, must start with `https://` or `ipfs://`. `http://` is rejected (no non-TLS links on verified records), as are `javascript:` / `data:` / `file:` (XSS / phishing vectors). |
 | `license` | string | Must be a known SPDX identifier (`MIT`, `Apache-2.0`, `GPL-3.0-only`, `BUSL-1.1`, …). The accepted list lives in [OTIGEN_BINARY_SPEC §4.12.1](#4121-license-spdx-list) (TODO) and the `validate_contract_metadata` source. |
 | `authors` | array of strings | ≤ 5 entries, each ≤ 64 chars. |
 | `tags` | array of strings | ≤ 4 entries, each ≤ 32 chars; each must be slug-shaped (`[a-z0-9-]+`). |
-| `declared_category` | string | Reserved for the category enum (token / dex / nft / dao / oracle / bridge / multisig / staking / proxy / escrow / app — final list pending). The explorer composes the display form `<name>.<category>` from this field. |
+| `declared_category` | string | Reserved for the category enum (token / dex / nft / dao / oracle / bridge / multisig / staking / proxy / escrow / app; final list pending). The explorer composes the display form `<name>.<category>` from this field. |
 | `twitter` / `telegram` / `discord` | string | Handle only, no `@` prefix, no URL. ≤ 32 chars. |
 | `github` | string | Handle or `org/repo` shape, ≤ 64 chars. |
 
-Two caps are intentionally stricter on the explorer side (280 vs 1000 for description; 4 vs 32 for tags; 5 vs 32 for authors). The explorer ones are the binding limit — they're what the verify endpoint actually enforces and what the verified-card UI is sized for. Plan to converge otigen-toml down to the explorer values in a follow-up.
+Two caps are intentionally stricter on the explorer side (280 vs 1000 for description; 4 vs 32 for tags; 5 vs 32 for authors). The explorer ones are the binding limit: they're what the verify endpoint actually enforces and what the verified-card UI is sized for. Plan to converge otigen-toml down to the explorer values in a follow-up.
 
 `[contract].name` and `[metadata].name` are independent fields but must share a charset (lowercase ENS-style) so a bundle that builds also verifies. The chain-level identifier (`[contract].name`) is what derives the deployed address; `[metadata].name` is purely display.
 
 ### 4.13 `[types.<Name>]` table
 
-Declares contract-local named types — structs and unit-variant enums — so they can be referenced by bare name in `[functions.<fn>].inputs` / `outputs` and via the `struct(<Name>)` wrapper in `[state].schema`. Lets contracts pass typed records across the chain ABI without falling back to opaque `bytes`.
+Declares contract-local named types (structs and unit-variant enums) so they can be referenced by bare name in `[functions.<fn>].inputs` / `outputs` and via the `struct(<Name>)` wrapper in `[state].schema`. Lets contracts pass typed records across the chain ABI without falling back to opaque `bytes`.
 
 Two shapes, chosen by which key is present.
 
@@ -976,7 +976,7 @@ fields = [
 ]
 ```
 
-Field declaration order is wire-load-bearing — borsh keys positional offsets. Reordering breaks compatibility for any contract previously deployed against the old order.
+Field declaration order is wire-load-bearing: borsh keys positional offsets. Reordering breaks compatibility for any contract previously deployed against the old order.
 
 **Enum (unit-variant only)**: `variants = [{ name = "..." }, ...]`:
 
@@ -989,7 +989,7 @@ variants = [
 ]
 ```
 
-Variant declaration order is the u8 tag (0-based: `Pending = 0`, `Active = 1`, `Cancelled = 2`). Reordering breaks the wire. v1 supports unit-variant enums only — no data-carrying variants. Rationale: cross-language portability. Rust / C++ / Zig have native sum types, but Go / TypeScript / Python need per-variant boilerplate that the bare-tag enum sidesteps. Data-carrying variants are tracked for a v2 follow-up.
+Variant declaration order is the u8 tag (0-based: `Pending = 0`, `Active = 1`, `Cancelled = 2`). Reordering breaks the wire. v1 supports unit-variant enums only, with no data-carrying variants. Rationale: cross-language portability. Rust / C++ / Zig have native sum types, but Go / TypeScript / Python need per-variant boilerplate that the bare-tag enum sidesteps. Data-carrying variants are tracked for a v2 follow-up.
 
 #### Referencing custom types
 
@@ -1005,7 +1005,7 @@ Function dispatch reads bare names directly from the ABI; the storage macro subs
 
 #### Storage `vec(T)` constraint
 
-Stored arrays must hold a fixed-width inner type: `u8`..`u128`, `i8`..`i128`, `bool`, `address`, `hash32`, `bytes32`. Variable-width inners (`string`, `bytes`, `vec(...)`, `struct(<Name>)`) are rejected at parse time — slot derivation collides on variable-width offsets.
+Stored arrays must hold a fixed-width inner type: `u8`..`u128`, `i8`..`i128`, `bool`, `address`, `hash32`, `bytes32`. Variable-width inners (`string`, `bytes`, `vec(...)`, `struct(<Name>)`) are rejected at parse time: slot derivation collides on variable-width offsets.
 
 Workaround for stored arrays-of-struct (or any non-fixed-width vec element): use an indexed-map pattern.
 
@@ -1017,11 +1017,11 @@ schema = [
 ]
 ```
 
-`orders[i]` for `i in 0..order_count` is the same I/O shape as a `vec(struct(Order))` from the contract author's perspective — same `read`/`write` calls, no surprise about iteration cost.
+`orders[i]` for `i in 0..order_count` is the same I/O shape as a `vec(struct(Order))` from the contract author's perspective: same `read`/`write` calls, no surprise about iteration cost.
 
 #### Rust contract requirement
 
-Every custom type referenced from `[types.<Name>]` must carry `#[derive(BorshSerialize, BorshDeserialize)]` on the Rust side. Without the derives, the macro substrate (`#[pyde::entry]` arg-decode + `pyde::declare_storage!()` typed storage accessors) fails to compile — the generated code calls borsh's `try_from_slice` / `serialize` on these types.
+Every custom type referenced from `[types.<Name>]` must carry `#[derive(BorshSerialize, BorshDeserialize)]` on the Rust side. Without the derives, the macro substrate (`#[pyde::entry]` arg-decode + `pyde::declare_storage!()` typed storage accessors) fails to compile: the generated code calls borsh's `try_from_slice` / `serialize` on these types.
 
 ```rust
 use borsh::{BorshSerialize, BorshDeserialize};
@@ -1077,7 +1077,7 @@ The mechanism by which `otigen build` integrates ABI metadata into the WASM arti
 
 A `ContractAbi` struct, Borsh-encoded.
 
-The **canonical shape is defined in [`HOST_FN_ABI_SPEC.md` §3.7](./HOST_FN_ABI_SPEC.md)** — every byte the chain side reads at deploy time. The struct is deliberately lean: only what the chain's dispatch wrapper needs at runtime (per-function name + selector + attribute bitfield + access list, plus the schema hash + dispatch indices).
+The **canonical shape is defined in [`HOST_FN_ABI_SPEC.md` §3.7](./HOST_FN_ABI_SPEC.md)**: every byte the chain side reads at deploy time. The struct is deliberately lean: only what the chain's dispatch wrapper needs at runtime (per-function name + selector + attribute bitfield + access list, plus the schema hash + dispatch indices).
 
 For reference, repeated here:
 
@@ -1104,7 +1104,7 @@ The lean shape is intentional. Two design decisions follow from it:
 
 - **Events are not embedded in `pyde.abi`.** Event metadata (signature, indexed fields, topic-hash derivation) is a runtime convention: contracts call `host_emit_event(topics, data)` and the chain stores topics + data verbatim. Wallets and indexers reconstruct event semantics from the event signature alone (the canonical encoding of which is documented in [HOST_FN_ABI_SPEC §14.1](./HOST_FN_ABI_SPEC.md)). The bundle's `otigen.toml` (shipped alongside `contract.wasm` per §9) carries the `[events.X]` declarations for tooling that wants the full picture.
 
-- **Function `inputs` / `outputs` are not embedded either.** The chain dispatches by selector — it does not need typed parameter or return-value metadata to invoke a function. Wallets that want to construct calldata from typed arguments read the bundle's `otigen.toml` (or its richer `abi.json` mirror, per §9.3) which retains the `[functions.X]` `inputs` / `outputs` lists.
+- **Function `inputs` / `outputs` are not embedded either.** The chain dispatches by selector; it does not need typed parameter or return-value metadata to invoke a function. Wallets that want to construct calldata from typed arguments read the bundle's `otigen.toml` (or its richer `abi.json` mirror, per §9.3) which retains the `[functions.X]` `inputs` / `outputs` lists.
 
 If the implementation and this document disagree on the byte shape, [`HOST_FN_ABI_SPEC.md` §3.7](./HOST_FN_ABI_SPEC.md) is authoritative.
 
@@ -1124,7 +1124,7 @@ module.section(&CustomSection {
 let final_wasm: Vec<u8> = module.finish();
 ```
 
-The code section is untouched — `otigen` does not modify a single executable byte. Only a new metadata section is appended.
+The code section is untouched: `otigen` does not modify a single executable byte. Only a new metadata section is appended.
 
 ### 6.3 Verification
 
@@ -1171,7 +1171,7 @@ Decryption: `key = Argon2id(password, salt, kdf_params)`; `secret_key = AES-256-
 2. Prompt the user for a password.
 3. Derive `key = Argon2id(password, random_16_byte_salt, kdf_params)`.
 4. Encrypt the secret key: `ciphertext = AES-256-GCM-Encrypt(secret_key, key, random_12_byte_nonce)`.
-5. Compute the address: `addr = Poseidon2(falcon_public_key_bytes)` (full 32 bytes, no truncation). Matches [Chapter 11 §11.2](../chapters/11-account-model.md) and the [`address-naming-collision`](https://book.pyde.network/companion/IMPLEMENTATION_PLAN) locked-in derivation — every EOA on Pyde is `Poseidon2(falcon_public_key_bytes)`. The input is the raw 897-byte FALCON-512 public key; the output is the full 32-byte Poseidon2 hash.
+5. Compute the address: `addr = Poseidon2(falcon_public_key_bytes)` (full 32 bytes, no truncation). Matches [Chapter 11 §11.2](../chapters/11-account-model.md) and the [`address-naming-collision`](https://book.pyde.network/companion/IMPLEMENTATION_PLAN) locked-in derivation: every EOA on Pyde is `Poseidon2(falcon_public_key_bytes)`. The input is the raw 897-byte FALCON-512 public key; the output is the full 32-byte Poseidon2 hash.
 6. Append the entry to the keystore.
 
 ### 7.3 Signing pipeline
@@ -1233,13 +1233,13 @@ v1 does NOT ship a chain-side `UpgradeContractTx` tx type or an `Account::Contra
 The v1 upgrade story is the proxy / `delegate_call` pattern, demonstrated by the `upgradeable-proxy` acceptance contract:
 
 - Deploy a thin `proxy` contract that holds `logic: Address` + `admin: Address` in its state.
-- Every entry on the proxy is `forward(function: String, calldata: Vec<u8>)` which `delegate_call`s into `logic` — the delegated code runs in the proxy's frame, so state writes land in the proxy's slots.
+- Every entry on the proxy is `forward(function: String, calldata: Vec<u8>)` which `delegate_call`s into `logic`; the delegated code runs in the proxy's frame, so state writes land in the proxy's slots.
 - Admin-gated `upgrade_to(new_logic)` swaps `logic` on the proxy. State survives the swap because it lives at the proxy's address; the new logic's code is unchanged code at its own address.
 
 Why deferred rather than shipped:
 
-- Chain-blessed contract ownership (an `Account::Contract.owner` field) competes with the deliberately-ownerless [`address-naming-collision`](../chapters/11-account-model.md) model — addresses are `Poseidon2(name)`, ownership is contract-internal.
-- Chain-level upgrade is less flexible than the proxy pattern: the proxy can hold multiple logic versions, time-lock swaps, gate them on governance, expose multi-sig admin, etc. — all expressible in contract code.
+- Chain-blessed contract ownership (an `Account::Contract.owner` field) competes with the deliberately-ownerless [`address-naming-collision`](../chapters/11-account-model.md) model: addresses are `Poseidon2(name)`, ownership is contract-internal.
+- Chain-level upgrade is less flexible than the proxy pattern: the proxy can hold multiple logic versions, time-lock swaps, gate them on governance, expose multi-sig admin, etc., all expressible in contract code.
 - Versioning, code-cf GC, owner-rotation semantics, and parachain-governance-cert-gated upgrades all hang off the chain-side variant; none of them earn their keep before v1 mainnet.
 
 For parachains: governance-cert-gated runtime upgrades remain documented in [PARACHAIN_DESIGN §6.2](./PARACHAIN_DESIGN.md) as a v2 deliverable; v1 parachains are pinned to a fixed runtime.
@@ -1272,13 +1272,13 @@ pub fn pause() {
 }
 ```
 
-Note that `TxType::EmergencyPause` / `TxType::EmergencyResume` (`0x0B` / `0x0C`) are chain-wide — they freeze block production via the treasury multisig per Chapter 15 governance. They are NOT per-contract.
+Note that `TxType::EmergencyPause` / `TxType::EmergencyResume` (`0x0B` / `0x0C`) are chain-wide: they freeze block production via the treasury multisig per Chapter 15 governance. They are NOT per-contract.
 
 #### How `otigen-cli` handles this today
 
 The `otigen pause / unpause / kill / upgrade` CLI subcommands build a `Standard` tx with `data = borsh(LifecyclePayload::{Pause, Unpause, Kill, Upgrade})`. The chain decodes contract-call `data` as `CallPayload { function, calldata }` and reverts on the unrecognised envelope.
 
-To avoid users pointing live txs at this broken path, the CLI refuses to submit by default — see §3.5.1 (the `EngineNotReady` gate). The four subcommands return exit `1` with a clear error pointing at the v1 alternatives (proxy upgrades, author-declared pause/kill booleans). `--i-know-engine-rejects` opts past the gate for CI / engine-side handler development.
+To avoid users pointing live txs at this broken path, the CLI refuses to submit by default; see §3.5.1 (the `EngineNotReady` gate). The four subcommands return exit `1` with a clear error pointing at the v1 alternatives (proxy upgrades, author-declared pause/kill booleans). `--i-know-engine-rejects` opts past the gate for CI / engine-side handler development.
 
 The replacement story going forward:
 
@@ -1324,7 +1324,7 @@ The replacement story going forward:
 }
 ```
 
-Field semantics — three distinct version fields, separately governed:
+Field semantics: three distinct version fields, separately governed:
 
 | Field | What it versions | Authoritative source |
 |---|---|---|
@@ -1383,7 +1383,7 @@ should produce byte-identical `contract.wasm` and `manifest.json` (modulo `build
 
 #### Stability contract (`otigen-events-v1`)
 
-This is `otigen-events-v1` — the JSON event surface as of `bundle_format_version = 1`. The stability guarantees:
+This is `otigen-events-v1`, the JSON event surface as of `bundle_format_version = 1`. The stability guarantees:
 
 - **Existing event variants never disappear.** `build_start`, `test_pass`, `verify_result`, etc., emit forever with their existing required fields. Older parsers keep working.
 - **New fields may be added** to existing events. Parsers MUST tolerate unknown keys (the standard "don't break on additions" JSON discipline).

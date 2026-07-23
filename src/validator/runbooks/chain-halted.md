@@ -1,6 +1,6 @@
-# Runbook — chain halted (no waves committing)
+# Runbook: chain halted (no waves committing)
 
-The chain has stopped advancing. Every validator's `waves_committed` counter is flat. This is the highest-severity incident — the network produces nothing until it's resolved.
+The chain has stopped advancing. Every validator's `waves_committed` counter is flat. This is the highest-severity incident: the network produces nothing until it's resolved.
 
 ## Symptom
 
@@ -30,7 +30,7 @@ If both calls return the same value, the chain is halted on at least this node. 
 
 2. **Are vertices still being produced?**
    - `curl -s http://127.0.0.1:9933/metrics | grep -E '^pyde_node_(vertices_produced|vertices_received)_total'`
-   - Yes (counters climbing) → DAG growing but no anchor — likely VRF / committee mismatch or quorum lost → go to step 3.
+   - Yes (counters climbing) → DAG growing but no anchor, likely VRF / committee mismatch or quorum lost → go to step 3.
    - No (counters flat) → producer loop wedged → check journald for panics, then [validator-OOM](validator-OOM.md) if memory pressure, otherwise restart this validator (`sudo systemctl restart pyde-validator`).
 
 3. **Is the committee quorum reachable?**
@@ -52,7 +52,7 @@ If both calls return the same value, the chain is halted on at least this node. 
 
 ## Recovery
 
-Pick the matching branch above. If you reach this point with no branch matching, the chain halt is novel — open an incident channel, preserve state, then coordinate a software restart from the validator quorum.
+Pick the matching branch above. If you reach this point with no branch matching, the chain halt is novel: open an incident channel, preserve state, then coordinate a software restart from the validator quorum.
 
 ```bash
 # Forensic snapshot on each validator BEFORE restart:

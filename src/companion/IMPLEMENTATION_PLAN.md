@@ -17,7 +17,7 @@ For the design philosophy ("v1 ships interfaces, v2 ships implementations") see 
 
 ## 1. The three-session model
 
-Pyde's v1 implementation is structured as three parallel work streams, each owning its own clear scope. The streams are designed to be independently parallelizable — the only synchronization point is at integration time (MC-2).
+Pyde's v1 implementation is structured as three parallel work streams, each owning its own clear scope. The streams are designed to be independently parallelizable; the only synchronization point is at integration time (MC-2).
 
 | Stream | Codename | Repository | Primary spec | What it builds |
 |---|---|---|---|---|
@@ -70,14 +70,14 @@ The prerequisite to safe parallelism. Without MC-0 complete, the three streams c
 2. **Cargo workspace skeleton** with stubs for every crate listed in §5.
 3. **`types` crate** fully written. Every type used across crate boundaries lives here, frozen at end of MC-0. Includes: `Address`, `SlotHash`, `Value`, `Balance`, `Nonce`, `Tx`, `TxHash`, `Receipt`, `StateRoot` (Blake3 + Poseidon2), `EventRecord`, `WaveId`, `Round`, `VertexHash`, `Vertex`, `WaveCommitRecord`, `HardFinalityCert`, `FalconPubkey`, `FalconSignature`, error codes per [HOST_FN_ABI_SPEC §4](./HOST_FN_ABI_SPEC.md).
 4. **`interfaces` crate** fully written. The cross-crate traits that decouple β and γ:
-   - `trait StateView` — read-only state access (used by mempool validation, view-call execution)
-   - `trait StateMutator` — apply a wave's worth of writes atomically
-   - `trait Executor` — invoke a tx (called by consensus when committing a wave)
-   - `trait MempoolView` — what consensus reads from the mempool
-   - `trait NetworkView` — gossipsub send/recv abstraction
-   - `trait ConsensusEngine` — the consensus loop the node binary drives
+   - `trait StateView`: read-only state access (used by mempool validation, view-call execution)
+   - `trait StateMutator`: apply a wave's worth of writes atomically
+   - `trait Executor`: invoke a tx (called by consensus when committing a wave)
+   - `trait MempoolView`: what consensus reads from the mempool
+   - `trait NetworkView`: gossipsub send/recv abstraction
+   - `trait ConsensusEngine`: the consensus loop the node binary drives
    - Each trait ships with a **mock implementation** so β and γ can write tests in isolation.
-5. **CI baseline** — `.github/workflows/ci.yml` runs `cargo build`, `cargo test`, `cargo clippy --workspace -- -D warnings`, `cargo fmt --all -- --check` on every PR.
+5. **CI baseline**: `.github/workflows/ci.yml` runs `cargo build`, `cargo test`, `cargo clippy --workspace -- -D warnings`, `cargo fmt --all -- --check` on every PR.
 6. **Branching protocol** documented (§6).
 7. **Initial commit** tagged `phase-0-foundation`.
 
@@ -91,24 +91,24 @@ The three streams (α, β, γ) work concurrently against the locked Phase 0 foun
 
 #### Stream α: Toolchain (`pyde-net/otigen` repo)
 
-Implements [`OTIGEN_BINARY_SPEC.md`](./OTIGEN_BINARY_SPEC.md) end-to-end. Independent of engine internals — only depends on the locked Host Function ABI spec to validate WASM modules. Specific deliverables in §3.2 of the spec; first milestone is `otigen build` working against the canonical Rust hello-world contract.
+Implements [`OTIGEN_BINARY_SPEC.md`](./OTIGEN_BINARY_SPEC.md) end-to-end. Independent of engine internals; it only depends on the locked Host Function ABI spec to validate WASM modules. Specific deliverables in §3.2 of the spec; first milestone is `otigen build` working against the canonical Rust hello-world contract.
 
 Crates (in `pyde-net/otigen` workspace):
 
-- `otigen-cli` — the binary
-- `otigen-toml` — config parser + schema validation
-- `otigen-abi` — `pyde.abi` custom-section construction + injection (via `wasm-encoder`)
-- `otigen-rpc` — JSON-RPC client
-- `otigen-wallet` — keystore (Argon2id + AES-256-GCM) + FALCON-512 signing
-- `otigen-test` — wasmtime-driven contract behaviour test runner (see [`OTIGEN_TEST_SPEC.md`](./OTIGEN_TEST_SPEC.md))
-- (later) `otigen-console` — REPL
+- `otigen-cli`: the binary
+- `otigen-toml`: config parser + schema validation
+- `otigen-abi`: `pyde.abi` custom-section construction + injection (via `wasm-encoder`)
+- `otigen-rpc`: JSON-RPC client
+- `otigen-wallet`: keystore (Argon2id + AES-256-GCM) + FALCON-512 signing
+- `otigen-test`: wasmtime-driven contract behaviour test runner (see [`OTIGEN_TEST_SPEC.md`](./OTIGEN_TEST_SPEC.md))
+- (later) `otigen-console`: REPL
 
 External dependencies:
-- `pyde-crypto` (sibling polyrepo) — FALCON, Argon2id, AES-GCM, Borsh
-- `wasmparser`, `wasm-encoder` (Bytecode Alliance) — WASM inspection + custom-section writing
-- `clap` — CLI framework
-- `serde`, `toml` — config parsing
-- `reqwest`, `tokio-tungstenite` — HTTP + WebSocket
+- `pyde-crypto` (sibling polyrepo): FALCON, Argon2id, AES-GCM, Borsh
+- `wasmparser`, `wasm-encoder` (Bytecode Alliance): WASM inspection + custom-section writing
+- `clap`: CLI framework
+- `serde`, `toml`: config parsing
+- `reqwest`, `tokio-tungstenite`: HTTP + WebSocket
 
 #### Stream β: Engine Execution (`pyde-net/engine`, branch `execution-side`)
 
@@ -132,7 +132,7 @@ Spec map:
 Crates owned:
 - `consensus`: Mysticeti DAG, vertex/round/anchor/wave logic, BFS subdag walk, slashing evidence collection, equivocation detection, missing-vertex fetch
 - `net`: libp2p + QUIC + Gossipsub, peer discovery (layered, no DHT), sentry-node pattern, vertex-fetch protocol
-- `beacon`: per-member beacon keypairs + aggregated-signature combine (no DKG — the private mempool is keyless)
+- `beacon`: per-member beacon keypairs + aggregated-signature combine (no DKG; the private mempool is keyless)
 - `slashing`: validator state machine, the offense catalog, slashing escrow, jail mechanics, reward distribution
 - `node`: the binary, JSON-RPC server, validator role, `consensus_store` with `set_sync(true)`, persistence
 
@@ -173,7 +173,7 @@ Owner: shared between β and γ as the changes touch both sides. Coordinated by 
 
 ### 3.5 MC-4: Performance + Failure Handling (parallel within)
 
-- **Performance harness build-out**: multi-region workload generation, soak testing, and the publishing discipline (publish only what the harness measures under sustained, production-realistic conditions — never lab extrapolations or microbenchmark peaks). Spec: `PERFORMANCE_HARNESS.md`.
+- **Performance harness build-out**: multi-region workload generation, soak testing, and the publishing discipline (publish only what the harness measures under sustained, production-realistic conditions, never lab extrapolations or microbenchmark peaks). Spec: `PERFORMANCE_HARNESS.md`.
 - **Chaos / failure injection**: failure-scenarios catalog walkthroughs (`FAILURE_SCENARIOS.md`).
 - **Chain halt recovery drills**: `CHAIN_HALT.md` playbooks executed in test environments.
 
@@ -186,7 +186,7 @@ Owner: shared between β and γ as the changes touch both sides. Coordinated by 
 
 Spec map: Chapter 19 (Launch Strategy).
 
-**Mainnet ships when the validation work passes — not before, not on a calendar.**
+**Mainnet ships when the validation work passes: not before, not on a calendar.**
 
 ---
 
@@ -198,7 +198,7 @@ The load-bearing table of this document. Every crate has exactly one owning stre
 
 | Crate | Owner | Branch | Depends on |
 |---|---|---|---|
-| `types` | **MC-0** (frozen) | `main` | (none — leaf crate) |
+| `types` | **MC-0** (frozen) | `main` | (none; leaf crate) |
 | `interfaces` | **MC-0** (frozen) | `main` | `types` |
 | `account` | **β** | `execution-side` | `types`, `pyde-crypto` |
 | `state` | **β** | `execution-side` | `types`, `interfaces` |
@@ -224,7 +224,7 @@ The load-bearing table of this document. Every crate has exactly one owning stre
 
 ### `pyde-net/pyde-crypto` (existing polyrepo)
 
-Already in place. Both engine streams + α import from it. Out of scope for new implementation work in MC-1 — only additions (Blake3 commit-reveal helpers, beacon aggregation) added as needed.
+Already in place. Both engine streams + α import from it. Out of scope for new implementation work in MC-1; only additions (Blake3 commit-reveal helpers, beacon aggregation) are added as needed.
 
 ### Top-level files in `pyde-net/engine`
 
@@ -361,9 +361,9 @@ main                ← integration branch; both streams merge here
 
 ## 7. Session handoff prompts (paste-ready)
 
-The three prompts below are designed to be self-contained — each prompt initializes a new Claude session with full context to start work on its assigned stream.
+The three prompts below are designed to be self-contained: each prompt initializes a new Claude session with full context to start work on its assigned stream.
 
-### 7.1 Stream α — Toolchain session prompt
+### 7.1 Stream α: Toolchain session prompt
 
 ````
 # Pyde Session α — Otigen Toolchain Implementation
@@ -463,7 +463,7 @@ Read OTIGEN_BINARY_SPEC.md end-to-end. Read chapter 5 for context.
 Verify the workspace setup. Begin first-milestone work.
 ````
 
-### 7.2 Stream β — Engine Execution session prompt
+### 7.2 Stream β: Engine Execution session prompt
 
 ````
 # Pyde Session β — Engine Execution Layer
@@ -573,7 +573,7 @@ Read chapters 03, 04, 11, 10. Verify branch + workspace state.
 Begin with `state` crate (foundational; everything else builds on it).
 ````
 
-### 7.3 Stream γ — Engine Consensus + Network session prompt
+### 7.3 Stream γ: Engine Consensus + Network session prompt
 
 ````
 # Pyde Session γ — Engine Consensus + Network Layer
@@ -709,7 +709,7 @@ CHAIN_HALT.md. Verify branch + workspace state. Begin with
 | **One stream lags substantially** | Medium | Weekly merges to `main` make lag visible early. If γ lags, β still ships; integration happens when both are ready. No artificial gating. |
 | **Spec ambiguity blocks implementation** | Medium | Open a PR against the relevant spec in `pyde-net/pyde-book`; both streams read updated spec from there. Treat spec as the contract. |
 | **Cross-stream blocker not surfaced** | Medium | GitHub issue tags both stream agents; weekly merge reviews catch silent blockers. |
-| **Integration (MC-2) bigger than expected** | Medium | γ owns the `node` crate from day one — eliminates a "who integrates" question. β provides clean trait implementations + tests that γ wires in. |
+| **Integration (MC-2) bigger than expected** | Medium | γ owns the `node` crate from day one, which eliminates a "who integrates" question. β provides clean trait implementations + tests that γ wires in. |
 | **Stream α blocked waiting on devnet** | Low | α first milestone (`otigen build`) needs no chain; second milestone (`otigen deploy`) is when chain matters. By then β+γ should have devnet running. If not, α can mock-deploy against a stub RPC. |
 
 ---

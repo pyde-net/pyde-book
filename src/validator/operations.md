@@ -1,6 +1,6 @@
 # Day-2 Operations
 
-Running a Pyde validator as a real service on a real machine — not a `pyde validator` you SIGINT when you close the laptop. This chapter covers systemd, monitoring, log rotation, encrypted-keypair workflow, and the operational hygiene that keeps you from getting slashed for downtime.
+Running a Pyde validator as a real service on a real machine, not a `pyde validator` you SIGINT when you close the laptop. This chapter covers systemd, monitoring, log rotation, encrypted-keypair workflow, and the operational hygiene that keeps you from getting slashed for downtime.
 
 Prereqs: you've installed `pyde` per the [Quickstart](quickstart.md), generated keys, and joined the network per [Joining a Public Testnet](joining-testnet.md). Your validator boots cleanly via `pyde validator …` and the metrics endpoint responds. Now we make that survive the host rebooting.
 
@@ -33,13 +33,13 @@ sudo chmod 640 /etc/pyde/falcon.keypair
 sudo chmod 644 /etc/pyde/genesis.toml /etc/pyde/bootnodes.txt
 ```
 
-The FALCON keypair is `640` so only the `pyde` group reads it. Genesis + bootnodes are world-readable — they're public network config.
+The FALCON keypair is `640` so only the `pyde` group reads it. Genesis + bootnodes are world-readable: they're public network config.
 
 ### Provide the FALCON keypair password
 
 Two options:
 
-**(a) systemd credential** (recommended on systemd ≥ 250 — Ubuntu 22.04+, RHEL 9+):
+**(a) systemd credential** (recommended on systemd ≥ 250: Ubuntu 22.04+, RHEL 9+):
 
 ```bash
 sudo systemd-creds encrypt --name=falcon-password - /etc/pyde/falcon-password.cred <<< 'your-falcon-passphrase'
@@ -56,7 +56,7 @@ sudo chown root:pyde /etc/pyde/falcon-password
 sudo chmod 640 /etc/pyde/falcon-password
 ```
 
-Less ideal — the password lives in plaintext on disk and is only protected by file perms. Acceptable for testnet operations; production should prefer (a) or an external secret manager.
+Less ideal: the password lives in plaintext on disk and is only protected by file perms. Acceptable for testnet operations; production should prefer (a) or an external secret manager.
 
 ### Write the service unit
 
@@ -157,7 +157,7 @@ You should see the validator-boot banner, then wave-commit lines flowing.
 
 ## 2. Set up monitoring
 
-The validator exposes a Prometheus `/metrics` endpoint on the same RPC port (`127.0.0.1:9933/metrics`). Scrape it from a Prometheus instance — run one on the same host or on an adjacent monitoring server.
+The validator exposes a Prometheus `/metrics` endpoint on the same RPC port (`127.0.0.1:9933/metrics`). Scrape it from a Prometheus instance. Run one on the same host or on an adjacent monitoring server.
 
 ### Minimal Prometheus scrape config
 
@@ -232,13 +232,13 @@ groups:
             consensus-store growth, or mempool capacity tuning.
 ```
 
-Wire the alerts to whatever paging system you have (PagerDuty, OpsGenie, ntfy, an SMS bridge, a Discord webhook — the SR side is the same).
+Wire the alerts to whatever paging system you have (PagerDuty, OpsGenie, ntfy, an SMS bridge, a Discord webhook). The SR side is the same.
 
 ---
 
 ## 3. Log rotation
 
-systemd's journald handles rotation by default — the journal file caps at ~10% of disk space and the oldest entries get evicted. Tune the cap if you want shorter retention:
+systemd's journald handles rotation by default: the journal file caps at ~10% of disk space and the oldest entries get evicted. Tune the cap if you want shorter retention:
 
 ```bash
 sudo sed -i 's/^#SystemMaxUse=.*/SystemMaxUse=2G/' /etc/systemd/journald.conf
@@ -282,7 +282,7 @@ Your FALCON keypair is the single secret controlling your validator's stake. Tre
 
 ### At-rest encryption
 
-The keypair file is encrypted with Argon2id + AES-256-GCM — the password you supplied to `pyde keys generate --password-stdin`. Without the password the file is opaque.
+The keypair file is encrypted with Argon2id + AES-256-GCM using the password you supplied to `pyde keys generate --password-stdin`. Without the password the file is opaque.
 
 ### Backups
 
@@ -332,7 +332,7 @@ The `.old` file can be archived for incident-response purposes, then securely de
 
 If you believe the FALCON keypair is compromised, **rotate immediately** as above; the rotation tx is signed by the old key so an attacker with the same key COULD also rotate. The race is yours to win.
 
-If you've already lost custody (the attacker submitted a `RotateValidatorKeys` first), your stake is gone — there's no recovery once the chain accepts a new pubkey. This is the same trust model as any FALCON-secured chain.
+If you've already lost custody (the attacker submitted a `RotateValidatorKeys` first), your stake is gone: there's no recovery once the chain accepts a new pubkey. This is the same trust model as any FALCON-secured chain.
 
 ---
 
@@ -344,7 +344,7 @@ Pyde stores three growing artifacts on disk:
 - **`state_store`**: JMT slots, account blobs, events. Also monotonic until pruning lands. ~1 GB/week.
 - **`/var/log/pyde`** + journald: bounded by the rotation / journald cap above.
 
-Plan for **~50 GB free disk** at minimum for a 3-month testnet operation. SSD strongly recommended — RocksDB's write amplification hits spinning rust hard.
+Plan for **~50 GB free disk** at minimum for a 3-month testnet operation. SSD strongly recommended: RocksDB's write amplification hits spinning rust hard.
 
 ---
 
@@ -354,9 +354,9 @@ The validator needs:
 
 - **Inbound TCP 30303** (or your `--listen` port): peers dial you here.
 - **Outbound TCP 30303 to bootnodes + peers**: `pyde validator` initiates the gossipsub mesh.
-- **Outbound HTTPS to your state-sync source** (first boot only — for the snapshot fetch).
+- **Outbound HTTPS to your state-sync source** (first boot only, for the snapshot fetch).
 
-RPC (`127.0.0.1:9933`) stays loopback. **Never expose RPC publicly** without a TLS-terminating reverse proxy + per-method auth — v1 RPC has no auth and accepts `pyde_sendRawTransaction` from any caller.
+RPC (`127.0.0.1:9933`) stays loopback. **Never expose RPC publicly** without a TLS-terminating reverse proxy + per-method auth: v1 RPC has no auth and accepts `pyde_sendRawTransaction` from any caller.
 
 Sample `ufw`:
 

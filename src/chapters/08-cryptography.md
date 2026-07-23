@@ -1,7 +1,7 @@
 # Chapter 8: Cryptography
 
 Pyde's cryptographic stack is post-quantum from genesis. There are no elliptic
-curves anywhere in the protocol — no secp256k1, no ed25519, no BLS12-381. Every
+curves anywhere in the protocol: no secp256k1, no ed25519, no BLS12-381. Every
 primitive used to authenticate transactions, exchange keys, hash state, or
 prove randomness is built on lattices or hash functions.
 
@@ -65,13 +65,13 @@ signature scheme. NIST standardized it as part of FIPS 206. Pyde uses the
 
 | Scheme       | Pubkey | Signature | Verify time | Notes                       |
 | ------------ | ------ | --------- | ----------- | --------------------------- |
-| FALCON-512   | 897 B  | 600–900 B | very fast   | smallest sigs, lattice (NTRU) |
+| FALCON-512   | 897 B  | 600 to 900 B | very fast | smallest sigs, lattice (NTRU) |
 | Dilithium-2  | 1312 B | 2420 B    | fast        | larger sigs, module-LWE     |
 | SPHINCS+-128 | 32 B   | 7856 B    | slow        | hash-based, huge sigs       |
 
 A blockchain hashes signatures into every transaction, every consensus vote,
 and every finality certificate. A 666 B FALCON sig × 128 committee × per-slot
-finality cert × 10K blocks/hour adds up — Dilithium's 2420 B would inflate
+finality cert × 10K blocks/hour adds up. Dilithium's 2420 B would inflate
 that by 3.6×, SPHINCS+ by ~12×. FALCON's compactness is what keeps the
 bandwidth budget reasonable.
 
@@ -83,7 +83,7 @@ bandwidth budget reasonable.
 | Modulus q           | 12,289                             |
 | Public key          | 897 bytes                          |
 | Secret key          | 1,281 bytes                        |
-| Signature           | 600–900 bytes (variable, accepted) |
+| Signature           | 600 to 900 bytes (variable, accepted) |
 | Security level      | NIST Level 1 (128-bit post-quantum)|
 
 ### API
@@ -102,7 +102,7 @@ pub fn falcon_batch_verify(items: &[(&FalconPublicKey, &[u8], &FalconSignature)]
 Signing is deterministic. The implementation ties the FALCON Gaussian sampler
 to a deterministic context derived from the input message, so the same
 `(secret_key, message)` always produces the same signature. This is what
-makes the lattice VRF (§8.6) work — the output is a deterministic function of
+makes the lattice VRF (§8.6) work: the output is a deterministic function of
 the inputs.
 
 The domain-separation tag `b"pyde-falcon-v1"` is mixed into the signing
@@ -126,7 +126,7 @@ context to prevent cross-protocol signature reuse.
 ### Batch verification
 
 `falcon_batch_verify` checks an array of `(pk, msg, sig)` triples
-sequentially. The current implementation is **not** algebraically batched —
+sequentially. The current implementation is **not** algebraically batched:
 it returns true only if every individual verification succeeds. Algebraic
 batch verification (sharing FFT operations across signatures) is on the
 post-mainnet hardening list; the sequential version is correct and meets the
@@ -171,7 +171,7 @@ pub fn kyber_encapsulate(pk: &KyberPublicKey) -> (KyberCiphertext, SharedSecret)
 pub fn kyber_decapsulate(sk: &KyberSecretKey, ct: &KyberCiphertext) -> SharedSecret;
 ```
 
-The dependency is `ml_kem = "0.3.0-rc.0"` — a release-candidate of the NIST
+The dependency is `ml_kem = "0.3.0-rc.0"`, a release-candidate of the NIST
 final standard. Upgrading to the stable release once published is tracked as
 post-mainnet hardening (`task 057` in the mainnet plan).
 
@@ -199,7 +199,7 @@ Pyde uses **two** hash functions, each chosen for a class of paths:
 
 ### Blake3
 
-Blake3 is the BLAKE family successor — based on the BLAKE2 compression
+Blake3 is the BLAKE family successor, based on the BLAKE2 compression
 function arranged as a parallelizable Merkle tree, with hardware
 acceleration on every modern CPU. Pyde uses Blake3 in its default
 configuration (256-bit output) for every hash that lives entirely off-chain
@@ -226,8 +226,8 @@ to a ZK circuit, plus a handful of legacy paths kept for compatibility.
 ### Why not Keccak or SHA-256?
 
 Inside an algebraic system (a STARK, an MPC protocol, a future ZK validity
-proof), bitwise hash functions like Keccak-256 are catastrophically expensive
-— roughly 150,000 algebraic constraints per Keccak hash compared to a few
+proof), bitwise hash functions like Keccak-256 are catastrophically expensive:
+roughly 150,000 algebraic constraints per Keccak hash compared to a few
 hundred for Poseidon2. Even though Pyde doesn't ship a STARK at mainnet, the
 lattice VRF benefits from a hash that's cheap inside an algebraic field, and
 the JMT itself amortizes the per-Merkle work better when the hash is
@@ -278,7 +278,7 @@ bytes at a time (avoiding values that exceed the Goldilocks modulus).
 3. **Contract / child address derivation:** `Poseidon2("pyde-contract:" ||
    name)` for named deploys and `Poseidon2("pyde-child:" || parent ||
    template || salt)` for factory children (no CREATE / CREATE2, no deploy
-   nonce — see Chapter 11).
+   nonce; see Chapter 11).
 4. **Storage key derivation:** `Poseidon2(contract, slot)` for single
    fields, doubled for maps. Encoded as build-time constants by the
    `otigen` developer toolchain's state binding generator.
@@ -294,7 +294,7 @@ bytes at a time (avoiding values that exceed the Goldilocks modulus).
 
 Pyde's front-running protection is a **keyless commit-reveal** private mempool.
 It uses no encryption key, no committee decryption, and no threshold ceremony:
-the only primitives involved are Blake3 hashing and FALCON signatures — both
+the only primitives involved are Blake3 hashing and FALCON signatures, both
 post-quantum. Safety never depends on any set of validators declining to
 collude, because there is no shared secret to collude over. This makes the
 scheme **unconditionally trustless**.
@@ -325,7 +325,7 @@ about `inner_tx` and cannot later be opened to a different transaction.
 
 ### The reveal
 
-Once the commit's DAG position is fixed, the sender (or **any** account —
+Once the commit's DAG position is fixed, the sender (or **any** account;
 the reveal need not come from the committer) publishes a **Reveal** (TxType
 `0x12`) carrying `RevealPayload { commitment, nonce, inner_tx }`. The protocol
 recomputes `Blake3("pyde-commit-reveal-v1" || borsh(inner_tx) || nonce)` and
@@ -337,7 +337,7 @@ guarantees the revealed transaction is exactly the one committed to.
 Order is fixed **before** content is known. The DAG deterministically sequences
 commits at commit time; in the reveal wave's resolution pass, revealed inner
 transactions execute **in commit order**, not reveal order. An adversary who
-sees a commit sees only an opaque Blake3 digest — the payload is hidden — and
+sees a commit sees only an opaque Blake3 digest (the payload is hidden), and
 by the time the payload is revealed, its execution position is already locked.
 There is no window in which an attacker can observe a pending transaction's
 content and reorder around it. Front-running is not "discouraged"; it is
@@ -380,7 +380,7 @@ timer.
 
 ### Why not threshold encryption
 
-Earlier Pyde drafts protected the mempool with a threshold-encrypted lane —
+Earlier Pyde drafts protected the mempool with a threshold-encrypted lane:
 transactions encrypted to a committee Kyber-768 key whose secret was
 Shamir-split across the validator set and reconstructed after ordering. That
 lane has been **removed** from the protocol. The blocker is fundamental:
@@ -391,7 +391,7 @@ dealer. Commit-reveal sidesteps the problem entirely by holding **no key at
 all**.
 
 A one-shot ciphertext mempool ("Threshold-LWE") remains a **v2+ research
-direction** — it would run as an *optional* lane alongside the keyless
+direction**: it would run as an *optional* lane alongside the keyless
 commit-reveal default, gated on a trustless PQ threshold-keygen breakthrough.
 See Chapter 20, "Threshold-LWE One-Shot Private Mempool," for that future
 work.
@@ -431,7 +431,7 @@ Verify(pk, input, output, proof):
    computed as `Hash(beacon, round, prev_state_root) mod 128` (see
    Chapter 6 §3). The beacon itself is the quorum-aggregated VRF
    output of the prior epoch's committee (an aggregate of ≥ quorum
-   per-member contributions, not a threshold-shared secret) — so VRF
+   per-member contributions, not a threshold-shared secret), so VRF
    underpins anchor selection one step removed, not per-round.
 2. **Epoch randomness contributions.** Each member of the previous epoch's
    committee contributes a VRF share that, combined with 84 others, seeds
@@ -447,9 +447,9 @@ Verify(pk, input, output, proof):
 
 All symmetric encryption uses **AES-256-GCM**:
 
-1. **P2P channel encryption** (after the libp2p QUIC handshake — see
+1. **P2P channel encryption** (after the libp2p QUIC handshake; see
    Chapter 12).
-2. **Wallet keystore encryption** (`crates/pyde-rust-sdk/src/wallet.rs`) —
+2. **Wallet keystore encryption** (`crates/pyde-rust-sdk/src/wallet.rs`),
    protecting a FALCON secret key at rest on disk.
 
 ### Properties
@@ -540,7 +540,7 @@ is a wallet-side concern; the protocol doesn't care.
 No elliptic curves anywhere. No trusted setup. Every primitive is either a
 NIST FIPS-standardized scheme (FALCON, ML-KEM, AES) or a widely-studied
 algebraic construction (Poseidon2). The MEV-protection path (§8.5) holds no
-key at all — it is pure Blake3 + FALCON.
+key at all: it is pure Blake3 + FALCON.
 
 ---
 
@@ -554,7 +554,7 @@ restructuring the rest of the system.
 
 Because the address format is bound to a hash of the public key (not the
 key itself), a future migration to a different post-quantum signature scheme
-would change addresses — but the upgrade path is well-defined: a one-time
+would change addresses, but the upgrade path is well-defined: a one-time
 key-rotation transaction signed by both old and new keys, with the address
 derivation domain-separated by scheme version.
 
@@ -576,6 +576,6 @@ happen if a substantive cryptanalytic break appeared.
 | Lattice VRF        | Anchor seeding, randomness, committee score      | `crates/crypto/src/vrf.rs`       |
 | AES-256-GCM        | Symmetric AEAD (P2P transport, wallet keystore)  | (via the `aes-gcm` crate)        |
 
-The next chapter walks through MEV protection end-to-end — how these
+The next chapter walks through MEV protection end-to-end: how these
 primitives combine in the DAG commit pipeline to make front-running
 and sandwich attacks not "discouraged," but unexpressible.

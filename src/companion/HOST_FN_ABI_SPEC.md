@@ -3,11 +3,11 @@
 **Version:** v1.0 (draft)
 **Status:** Authoritative for v1 mainnet. Subject to revision until mainnet genesis; frozen at v1 launch and only extended in backwards-compatible ways thereafter.
 
-This document is the canonical specification of the **Host Function ABI** — the surface a WebAssembly contract or parachain uses to interact with the Pyde chain. The execution layer (`wasm-exec`) is the implementation of this spec. The `otigen` toolchain validates contracts against this spec at build and deploy time. Independent auditors verify the implementation matches the spec.
+This document is the canonical specification of the **Host Function ABI**: the surface a WebAssembly contract or parachain uses to interact with the Pyde chain. The execution layer (`wasm-exec`) is the implementation of this spec. The `otigen` toolchain validates contracts against this spec at build and deploy time. Independent auditors verify the implementation matches the spec.
 
 If the wasm-exec implementation and this document disagree, **this document is authoritative**. Implementation bugs are bugs in wasm-exec, not in the spec.
 
-For the conceptual surface and rationale, see [Chapter 3 — Execution Layer](../chapters/03-virtual-machine.md). For parachain-only extensions, see [Chapter 13 — Parachains](../chapters/13-cross-chain.md) and [companion/PARACHAIN_DESIGN.md](./PARACHAIN_DESIGN.md).
+For the conceptual surface and rationale, see [Chapter 3: Execution Layer](../chapters/03-virtual-machine.md). For parachain-only extensions, see [Chapter 13: Parachains](../chapters/13-cross-chain.md) and [companion/PARACHAIN_DESIGN.md](./PARACHAIN_DESIGN.md).
 
 ---
 
@@ -21,14 +21,14 @@ This spec defines:
 - The **gas cost** of every host function (fuel charged per call)
 - The **error codes** returned by every host function
 - The **memory layout conventions** for passing data across the WASM ⇄ host boundary
-- The **forbidden imports list** — functions a deployed module is rejected for importing
+- The **forbidden imports list**: functions a deployed module is rejected for importing
 - The **ABI versioning rules** that govern how this spec evolves post-v1
 
 This spec does **not** define:
 
 - The WASM core instruction set (that is the [WebAssembly Core Specification](https://webassembly.github.io/spec/))
 - The wasmtime runtime configuration (see [Chapter 3 §3.2](../chapters/03-virtual-machine.md))
-- The toolchain mechanics for declaring host imports in source language (see [Chapter 5 — Otigen Toolchain](../chapters/05-otigen-toolchain.md))
+- The toolchain mechanics for declaring host imports in source language (see [Chapter 5: Otigen Toolchain](../chapters/05-otigen-toolchain.md))
 - The fuel-to-gas mapping internals (see [Chapter 10 §10.1](../chapters/10-gas-and-fee-model.md))
 
 ---
@@ -76,13 +76,13 @@ Every function a contract exports to the chain has the WASM-level signature:
 (func (export "function_name"))
 ```
 
-That is: **zero params, zero results.** The chain looks up the function by name in the deployed `pyde.abi` section (§3.7), invokes the exported `() -> ()` WASM function, and exchanges all data through host-function calls — calldata flows in via `calldata_size` + `calldata_copy` (§7.4), the return value flows out via `pyde::return` (§7.7).
+That is: **zero params, zero results.** The chain looks up the function by name in the deployed `pyde.abi` section (§3.7), invokes the exported `() -> ()` WASM function, and exchanges all data through host-function calls: calldata flows in via `calldata_size` + `calldata_copy` (§7.4), the return value flows out via `pyde::return` (§7.7).
 
 Why void-void at the boundary:
 
-1. **WASM's value-type vocabulary is too narrow for chain semantics.** WASM functions can only pass `i32`/`i64`/`f32`/`f64` directly. Pyde transports addresses (32 bytes), `u128` amounts (16 bytes), variable-length bytes/strings, structs, and `Vec` — none fit a single WASM value-type slot. A multi-arg signature would force the chain to invent a per-function ABI marshalling layer at the WASM boundary, doubling the surface for ABI divergence. Going through linear memory + host fns keeps a single canonical transport (the `calldata_*` family) for every entry on every contract.
+1. **WASM's value-type vocabulary is too narrow for chain semantics.** WASM functions can only pass `i32`/`i64`/`f32`/`f64` directly. Pyde transports addresses (32 bytes), `u128` amounts (16 bytes), variable-length bytes/strings, structs, and `Vec`. None of these fit a single WASM value-type slot. A multi-arg signature would force the chain to invent a per-function ABI marshalling layer at the WASM boundary, doubling the surface for ABI divergence. Going through linear memory + host fns keeps a single canonical transport (the `calldata_*` family) for every entry on every contract.
 
-2. **Decouples chain ABI from language ABI.** Languages disagree on how to lay out structs at function boundaries (Rust's `extern "C"`, Go's calling convention, AssemblyScript's, etc.). At the void-void boundary the chain doesn't see any of that — each language emits the same `() -> ()` shape and decodes calldata internally with its own decoder.
+2. **Decouples chain ABI from language ABI.** Languages disagree on how to lay out structs at function boundaries (Rust's `extern "C"`, Go's calling convention, AssemblyScript's, etc.). At the void-void boundary the chain doesn't see any of that: each language emits the same `() -> ()` shape and decodes calldata internally with its own decoder.
 
 3. **Per-call dispatch stays a single linker entry point.** Wasmtime's `Instance::get_typed_func::<(), ()>` looks up every entry the same way, with no per-function type construction. This is what makes the dispatch flow in §3.5.2 a single code path regardless of the contract's surface area.
 
@@ -103,7 +103,7 @@ The reference implementation in Rust is the `#[pyde::entry]` proc macro in the `
 - A contract cannot expose a "fast path" entry with primitive params (e.g., `(export "set_value") (func (param i64))`). That export would deploy nothing; it must go through `calldata_copy` like every other entry.
 - A contract cannot return data directly via the WASM result type. `pyde::return` is the only return-data path the engine reads.
 
-`fallback` is the one exception to the name-based dispatch rule (see §3.5 attribute table) — it's triggered by a name miss, not a name match — but it still has the `() -> ()` WASM signature and reads the unparsed calldata blob via `calldata_copy`. `receive` likewise: void-void, with the attached value visible via `tx_value` (§7.4).
+`fallback` is the one exception to the name-based dispatch rule (see §3.5 attribute table): it's triggered by a name miss, not a name match, but it still has the `() -> ()` WASM signature and reads the unparsed calldata blob via `calldata_copy`. `receive` likewise: void-void, with the attached value visible via `tx_value` (§7.4).
 
 ### 3.1 Import module name
 
@@ -145,9 +145,9 @@ Fixed sizes used by the ABI:
 
 Every host function returns an **i32 result code**:
 
-- `0` — success
-- Positive non-zero — currently unused; reserved for future warning/info codes
-- Negative — error (see §4)
+- `0`: success
+- Positive non-zero: currently unused; reserved for future warning/info codes
+- Negative: error (see §4)
 
 Functions that conceptually return data (e.g., `balance()`) write the data to a caller-provided output pointer and return the i32 result code. Functions that conceptually return a small scalar (e.g., `wave_id()`) return the scalar directly via WASM's normal return mechanism (e.g., `-> i64`).
 
@@ -157,8 +157,8 @@ Convention summary:
 |---|---|
 | `-> i32` (error code only) | Mutating ops without return data (`transfer`, `emit_event`). Returns `0` for success; reserved slot lets v2 carry information (event ordinal, byte count, etc.) without a hard fork. |
 | `-> ()` (no return) | Mutating ops that trap on failure (`sstore`, `sdelete`) |
-| `-> i32` + writes to out_ptr | Returns fixed-size data (`caller`, `balance`) — writes a known byte width into `out_ptr` |
-| `-> i32` (actual_len) + writes to out_ptr (up to `out_max_len`) | **Variable-size storage reads** (`sload`) — caller passes a max length, host writes `min(actual, max)` and returns the true length. `-1` for missing. |
+| `-> i32` + writes to out_ptr | Returns fixed-size data (`caller`, `balance`): writes a known byte width into `out_ptr` |
+| `-> i32` (actual_len) + writes to out_ptr (up to `out_max_len`) | **Variable-size storage reads** (`sload`): caller passes a max length, host writes `min(actual, max)` and returns the true length. `-1` for missing. |
 | `-> i32` + writes to out_ptr + out_len_ptr | Returns variable-size data with separate length out-param (`calldata_copy`, `parachain_storage_read`) |
 | `-> i64` | Returns a single u64/i64 scalar (`wave_id`, `wave_timestamp`) |
 | `(never returns)` | Halt operations (`return`, `revert`) trap to end execution |
@@ -171,7 +171,7 @@ Maximum linear memory size: **64 MB** (hard cap, see [Chapter 3 §3.5b](../chapt
 
 ### 3.5 Function attributes
 
-WebAssembly itself has no concept of `view`/`payable`/`reentrant`/etc. — those are chain-level constraints applied at the **engine ⇄ WASM boundary**. The `otigen` toolchain reads attributes from `otigen.toml` and embeds them as a WASM custom section (§3.7) for the engine to consume at runtime.
+WebAssembly itself has no concept of `view`/`payable`/`reentrant`/etc. Those are chain-level constraints applied at the **engine ⇄ WASM boundary**. The `otigen` toolchain reads attributes from `otigen.toml` and embeds them as a WASM custom section (§3.7) for the engine to consume at runtime.
 
 The attribute set:
 
@@ -186,7 +186,7 @@ The attribute set:
 | `receive` | Invoked on bare PYDE transfers (no selector, value > 0). At most one per contract. Function takes no arguments. **Must also be `payable`** (otherwise it would reject the value it's meant to accept). Default if absent: bare value transfers return `ERR_VALUE_TRANSFER_NOT_PAYABLE` | Engine dispatches to receive on bare-value tx |
 | `entry` | Declares the function is callable from outside the contract (top-level tx or cross_call). Required for any function not marked with another dispatch attribute (constructor, fallback, receive). Internal helpers omit this and are not exposed | Deploy validator strips non-`entry` non-dispatch fns from the public selector table |
 
-**Storage:** the attribute bitfield is part of the `pyde.abi` custom section (§3.7), not the WASM bytecode. The same `.wasm` would behave identically regardless of attributes — the engine wraps every call with attribute-driven pre-checks.
+**Storage:** the attribute bitfield is part of the `pyde.abi` custom section (§3.7), not the WASM bytecode. The same `.wasm` would behave identically regardless of attributes: the engine wraps every call with attribute-driven pre-checks.
 
 ### 3.5.1 Attribute compatibility rules
 
@@ -198,7 +198,7 @@ Some combinations are nonsensical or unsafe. The build (`otigen build`) and the 
 | `view` + `constructor` | ❌ Rejected | Constructors initialise state; view can't |
 | `view` + `reentrant` | ❌ Rejected | Views are inherently reentrant (they make no state changes there's no guard to opt out of); the attribute is meaningless on a view |
 | `view` + `sponsored` | ❌ Rejected | Views are FREE (§7.8); sponsoring zero gas is meaningless |
-| `view` + `fallback` | ❌ Rejected | Fallback is the catch-all dispatch; restricting it to read-only is a footgun — authors expect to be able to do anything in a fallback |
+| `view` + `fallback` | ❌ Rejected | Fallback is the catch-all dispatch; restricting it to read-only is a footgun: authors expect to be able to do anything in a fallback |
 | `view` + `receive` | ❌ Rejected | Receive accepts value; view can't accept value |
 | `payable` + `constructor` | ✅ Allowed | Constructors can initialise with funds |
 | `payable` + `reentrant` | ⚠️ Warning, allowed | DAO-attack pattern. Build emits warning; deploy accepts |
@@ -236,7 +236,7 @@ The host-side reference implementation of this dispatch wrapper is the subject o
 
 ### 3.6 Module cache
 
-After the engine compiles a contract's WASM (via Cranelift AOT, see [Chapter 3](../chapters/03-virtual-machine.md)), the compiled `wasmtime::Module` is large in memory (typically ~2–10× the input WASM size) but expensive to re-derive. Pyde caches it.
+After the engine compiles a contract's WASM (via Cranelift AOT, see [Chapter 3](../chapters/03-virtual-machine.md)), the compiled `wasmtime::Module` is large in memory (typically ~2 to 10× the input WASM size) but expensive to re-derive. Pyde caches it.
 
 ```text
 ModuleCache (in-memory, per node):
@@ -318,14 +318,14 @@ bitflags! {
 **Deploy-time:** the deploy validator extracts and parses the `pyde.abi` section and runs a three-layer validation pipeline (the build-time check is best-effort author ergonomics; the deploy-time re-check is the chain-facing defense; the runtime is the definitive guarantee):
 
 1. **Schema check**: version compatibility (`pyde_abi_version` ≤ engine's max supported), well-formed Borsh decoding, every required field present.
-2. **Cross-reference check**: every `FunctionAbi.name` matches a WASM `(export "name" (func ...))`; every WASM-exported function (other than internal helpers — TBD how to mark) appears in `functions[*]`. No drift between declarations and code.
+2. **Cross-reference check**: every `FunctionAbi.name` matches a WASM `(export "name" (func ...))`; every WASM-exported function (other than internal helpers, TBD how to mark) appears in `functions[*]`. No drift between declarations and code.
 3. **Attribute compatibility check**: every function's `attributes` bitfield is a legal combination per §3.5.1. At most one `FALLBACK`, at most one `RECEIVE`, `RECEIVE` implies `PAYABLE`, etc.
 4. **Static call-graph check (view enforcement)**: for each function with the `VIEW` attribute, build the call graph from its body. Walk every transitively-reachable function. If any reachable function imports `pyde::sstore`, `pyde::sdelete`, `pyde::transfer`, `pyde::emit_event`, `pyde::parachain_storage_write`, `pyde::parachain_storage_delete`, or `pyde::parachain_emit_event`, REJECT the deploy with `DeployRejected: ViewMutatesState(<fn_name>, <mutating_import>)`. Indirect calls (`call_indirect`) are conservatively treated as potentially-anything; a view that uses `call_indirect` is rejected unless every possible target is also statically provable to be view-safe.
-5. **Static access-list check (best-effort)**: for each function with a declared access list, scan all statically-resolvable `pyde::sload`/`sstore` call sites; verify the slot pattern matches the declared list. Dynamic slot computation can't be checked statically — runtime enforcement (Layer 3, below) is the actual guarantee.
+5. **Static access-list check (best-effort)**: for each function with a declared access list, scan all statically-resolvable `pyde::sload`/`sstore` call sites; verify the slot pattern matches the declared list. Dynamic slot computation can't be checked statically. Runtime enforcement (Layer 3, below) is the actual guarantee.
 
 On any check failure: deploy is rejected with a specific error code identifying the failing step. On success: the entire .wasm (with custom section intact) is stored in `state_cf` at the contract's code slot.
 
-**Runtime (Layer 3 — the definitive guarantee):**
+**Runtime (Layer 3: the definitive guarantee):**
 
 The static checks above are best-effort and cannot catch everything (indirect calls, computed slot hashes, transitive-through-table calls). The runtime is the actual enforcement boundary:
 
@@ -333,7 +333,7 @@ The static checks above are best-effort and cannot catch everything (indirect ca
 - The engine installs the declared `access_list` in `host_state.access_list` before invoking. `host_sload`/`host_sstore` check membership; reject with `ERR_ACCESS_LIST_VIOLATION` on miss.
 - The engine maintains the active call stack and rejects re-entry into non-`reentrant` functions.
 
-The chain is therefore safe even if a malicious author hand-crafts a `.wasm` that bypasses the deploy validator's static checks (e.g., via cleverly-constructed `call_indirect` patterns) — the runtime catches mutations at the point of attempt. The cost of a bypass attempt is paid by the attacker (gas burned up to the trap, tx reverts, no harm done).
+The chain is therefore safe even if a malicious author hand-crafts a `.wasm` that bypasses the deploy validator's static checks (e.g., via cleverly-constructed `call_indirect` patterns): the runtime catches mutations at the point of attempt. The cost of a bypass attempt is paid by the attacker (gas burned up to the trap, tx reverts, no harm done).
 
 **Runtime:** the engine loads the .wasm into wasmtime, extracts and parses the `pyde.abi` section once, caches the parsed `ContractAbi` alongside the compiled module in the ModuleCache (§3.6). All subsequent invocations of the contract read attributes from this in-memory cache. There is no per-call disk read for ABI metadata.
 
@@ -366,9 +366,9 @@ Negative i32 values returned by host functions. Each function lists which codes 
 | `-15` | `ERR_PARACHAIN_ONLY` | Function callable only from parachain context |
 | `-16` | `ERR_CIPHERTEXT_INVALID` | Threshold-decryption input malformed |
 | `-17` | `ERR_SIGNATURE_INVALID` | FALCON signature verification failed |
-| `-40` | `ERR_INSTANTIATE_CTOR_REVERTED` | Child constructor reverted during `instantiate`. The whole instantiate unwinds atomically — no child account, endowment refunded to the factory; the ctor's revert payload flows back verbatim in `return_data` (§7.12) |
+| `-40` | `ERR_INSTANTIATE_CTOR_REVERTED` | Child constructor reverted during `instantiate`. The whole instantiate unwinds atomically: no child account, endowment refunded to the factory; the ctor's revert payload flows back verbatim in `return_data` (§7.12) |
 | `-43` | `ERR_TEMPLATE_NOT_FOUND` | `instantiate` template address is not a deployed contract / has no code |
-| `-44` | `ERR_CHILD_ADDRESS_OCCUPIED` | Derived child address is occupied by a NON-mergeable account (code-bearing, keyed, nonce-used, or non-EOA). A balance-only EOA shell is NOT occupied — it merges into the child (§7.12) |
+| `-44` | `ERR_CHILD_ADDRESS_OCCUPIED` | Derived child address is occupied by a NON-mergeable account (code-bearing, keyed, nonce-used, or non-EOA). A balance-only EOA shell is NOT occupied: it merges into the child (§7.12) |
 | `-45` | `ERR_CTOR_MISMATCH` | Non-empty `init_calldata` passed to a template with no constructor |
 | `-46` | `ERR_PIP2_PREFIX_COLLISION` | Child address's 16-byte prefix collides in the PIP-2 prefix registry |
 | `-48` | `ERR_INSTANTIATE_CAP_EXCEEDED` | Per-transaction instantiate cap (`MAX_INSTANTIATES_PER_TX = 64`) exceeded |
@@ -420,9 +420,9 @@ All functions below are available to **every** deployed module (contracts + para
 
 ### 7.1 Storage
 
-Pyde's storage model is a **key-value store with variable-length values** (up to `MAX_STORAGE_VALUE_BYTES = 16 KB` per slot), NOT EVM-style fixed 32-byte words. Keys are 32 bytes (Poseidon2-derived); values are arbitrary raw bytes — Borsh-encoded structs, packed arrays, anything the contract author chooses to write. The width is the contract's call, the chain only enforces the 16 KB upper bound.
+Pyde's storage model is a **key-value store with variable-length values** (up to `MAX_STORAGE_VALUE_BYTES = 16 KB` per slot), NOT EVM-style fixed 32-byte words. Keys are 32 bytes (Poseidon2-derived); values are arbitrary raw bytes: Borsh-encoded structs, packed arrays, anything the contract author chooses to write. The width is the contract's call, the chain only enforces the 16 KB upper bound.
 
-**Why variable-length, not 32-byte words.** WASM operates on linear memory, not 256-bit words; forcing slot values into 32 bytes would (a) require contracts to manually pack non-uint256 data, and (b) burn one slot per logical field regardless of size — blowing up state-tree node count for the common case of small structs. Variable-length lets a `Position { trader, size, entry, leverage }` at ~80 bytes fit in one slot, one read, one decode. For values larger than 16 KB the canonical pattern is slot-chunking: `slot[H(base ‖ i)] = chunk_i`.
+**Why variable-length, not 32-byte words.** WASM operates on linear memory, not 256-bit words; forcing slot values into 32 bytes would (a) require contracts to manually pack non-uint256 data, and (b) burn one slot per logical field regardless of size, blowing up state-tree node count for the common case of small structs. Variable-length lets a `Position { trader, size, entry, leverage }` at ~80 bytes fit in one slot, one read, one decode. For values larger than 16 KB the canonical pattern is slot-chunking: `slot[H(base ‖ i)] = chunk_i`.
 
 The 16 KB cap is a RocksDB write-amplification budget (per-slot write costs scale with size; >16 KB starts to hurt LSM compaction). It's a chain-spec parameter, tunable via a future PIP if load demands.
 
@@ -501,7 +501,7 @@ Pyde's canonical slot derivation is:
 slot = Poseidon2(self_address || field_bytes [|| key_bytes])
 ```
 
-`field_bytes` is whatever raw bytes the contract chooses (e.g., `b"balances"`). `key_bytes` is optional — used for mappings like `balances[user_address]`.
+`field_bytes` is whatever raw bytes the contract chooses (e.g., `b"balances"`). `key_bytes` is optional, used for mappings like `balances[user_address]`.
 
 Contracts compute this themselves via `hash_poseidon2` + `self_address`, then call the raw `sload` / `sstore` / `sdelete` above. A typical 5-line helper:
 
@@ -518,7 +518,7 @@ fn derive_slot(field: &[u8], key: &[u8]) -> [u8; 32] {
 }
 ```
 
-This was previously offered as a host-side convenience trio (`sload_by_field` / `sstore_by_field` / `sdelete_by_field`) — dropped in the variable-length storage migration to keep the storage host fn surface minimal and uniform with the engine's executor. The 5-line helper recovers the ergonomics without adding host fns.
+This was previously offered as a host-side convenience trio (`sload_by_field` / `sstore_by_field` / `sdelete_by_field`). It was dropped in the variable-length storage migration to keep the storage host fn surface minimal and uniform with the engine's executor. The 5-line helper recovers the ergonomics without adding host fns.
 
 The macro-substrate typed-storage host fns (`sstore_scalar` / `sload_scalar` / `sstore_map<N>` / `sload_map<N>`) derive slots host-side using the **same** Poseidon2 preimage as the raw path above: `Poseidon2(self_address || field_name_bytes [|| key_bytes ...])`. Authors using `#[pyde::entry]` + `declare_storage!()` get this derivation transparently; raw + typed paths share one canonical slot per `(contract, field, keys)` triple, so any tooling that resolves a slot from a schema (e.g., `otigen test`'s `[tests.expect].storage.<field>` resolver) reads the same slot the contract writes regardless of which host-fn surface the contract used.
 
@@ -999,7 +999,7 @@ one-shot ciphertext lane for adversary-private randomness is v2+ research (Chapt
 
 ### 7.12 Factory instantiation
 
-Added in ABI v1.3 — the 41st core host function. A contract (the FACTORY) creates a
+Added in ABI v1.3 as the 41st core host function. A contract (the FACTORY) creates a
 child instance of an already-deployed TEMPLATE contract **by reference**: the child is
 a full first-class contract (own address, own account, own isolated storage) whose
 `code_hash` points at the template's one cached blob. No bytes cross the wire; nothing
@@ -1074,7 +1074,7 @@ storage (the UniswapV2 getPair pattern), or blind-instantiate and treat -44 as
 
 #### Deriving child addresses
 
-The child address is a **pure function** — computable on-chain (via
+The child address is a **pure function**, computable on-chain (via
 `hash_poseidon2`), off-chain, and by the engine, with byte-identical results:
 
 ```text
@@ -1088,32 +1088,32 @@ PREIMAGE = 107 bytes, fixed-width, NO length prefixes, NO separators:
 ```
 
 - **Namespacing**: `parent` comes from the executing frame, so a contract can only
-  mint into its OWN namespace — cross-namespace minting is cryptographically
+  mint into its OWN namespace: cross-namespace minting is cryptographically
   impossible. Under `delegate_call`, the frame address is the DELEGATOR.
 - **Poseidon2 binding**: the digest is `pyde-crypto`'s Poseidon2 (PaddingFreeSponge
   over Goldilocks, WIDTH=8 / RATE=4 / OUT=4, the HL round-constant set). Variable-
-  length input packs as **7-byte little-endian chunks** — one field element each,
-  zero-padded — **plus a trailing input-length field element** (load-bearing for
+  length input packs as **7-byte little-endian chunks** (one field element each,
+  zero-padded) **plus a trailing input-length field element** (load-bearing for
   injectivity); the empty input is the single exception: one zero element, NO length
   element. Output = 4 canonical u64, little-endian, 32 bytes. **Do NOT hand-roll the
-  permutation** — bind `pyde-crypto` (Rust / engine) or `pyde-crypto-wasm` (TS / AS);
+  permutation**: bind `pyde-crypto` (Rust / engine) or `pyde-crypto-wasm` (TS / AS);
   a third-party Poseidon2 that disagrees forks every address. Implementations
-  without a Poseidon2 binding (Go, C) conformance-test their PREIMAGE assembly —
-  every vector carries the `preimage` field for exactly this — and inherit digest
+  without a Poseidon2 binding (Go, C) conformance-test their PREIMAGE assembly
+  (every vector carries the `preimage` field for exactly this) and inherit digest
   correctness from the bound library's own KATs plus the live-network parity tests.
 - **Salt** is exactly 32 opaque bytes; the engine never interprets it. Deriving it
-  is the caller's job: identity salts (`Poseidon2(borsh(identity))` — deterministic,
+  is the caller's job: identity salts (`Poseidon2(borsh(identity))`: deterministic,
   counterfactual) or a factory-owned storage counter. There is **no nonce anywhere**.
   - **Identity encoding**: borsh of the typed identity value, encoded ONCE as a
     single value (tuples are frameless field concatenation, matching the calldata
     convention).
-  - **Unordered pairs** (one child per pair of addresses — the UniswapV2 case):
+  - **Unordered pairs** (one child per pair of addresses, the UniswapV2 case):
     sort the two 32-byte values **ascending BYTEWISE** (lexicographic on bytes),
     concatenate (raw 64 bytes, no framing), hash. `(a, b)` and `(b, a)` MUST yield
     the same salt; skipping the sort silently forks the "same" pair into two
     different children.
 - **Conformance vectors are the drift guard**: `vectors/child_address.json` (repo
-  root) is the golden set every implementation replays — engine KAT, all four
+  root) is the golden set every implementation replays: engine KAT, all four
   language bindings, both off-chain SDKs, the CLI. Identity-salt vectors carry
   `salt_source_typed` (the normative description of the typed value) +
   `salt_source_borsh`; the unordered-pair vector additionally records its two
@@ -1142,7 +1142,7 @@ topic[2] = template_address  (32 bytes)
 data     = parent(32) ‖ salt(32) ‖ value_le(16)   = 80 bytes, no length prefixes
 ```
 
-Decoder drift here forks explorers (not consensus) — all SDK decoders and the
+Decoder drift here forks explorers (not consensus), so all SDK decoders and the
 explorer mirror this exact split.
 
 ---
@@ -1285,7 +1285,7 @@ Rate limit: 64 outgoing messages per wave per parachain by default
 > **Status: reserved / not live in v1.** These entries reserve the ABI surface
 > for an application-level confidentiality primitive (blinded auctions, sealed-bid
 > markets, MEV-protected DEX matching at parachain layer). They depend on a
-> committee threshold-decryption ceremony that is **not** part of the v1 protocol —
+> committee threshold-decryption ceremony that is **not** part of the v1 protocol.
 > L1 MEV protection is the keyless commit-reveal private mempool (Chapter 9), which
 > needs no committee key. A one-shot ciphertext lane (Threshold-LWE) that would back
 > these host functions remains v2+ research, gated on a trustless PQ threshold-keygen
@@ -1341,7 +1341,7 @@ The deploy validator rejects any module whose WASM import section references any
 
 | Module | Function | Reason |
 |---|---|---|
-| `wasi_snapshot_preview1` | (any) | File I/O, system clock, env vars — non-deterministic |
+| `wasi_snapshot_preview1` | (any) | File I/O, system clock, env vars: non-deterministic |
 | `wasi_unstable` | (any) | Same |
 | `wasi:*` | (any) | Same |
 | `env` | (any) | Generic env-namespace functions out of scope for Pyde ABI |
@@ -1378,14 +1378,14 @@ fn in any module shipped to mainnet or testnet.
 
 Use cases: ad-hoc value dumps, breadcrumb traces, asserting intermediate state in tests without polluting events. Bridges the gap that previously forced devs to call `revert(b"value=42")` to surface intermediate values.
 
-**Stripping for deploy:** `otigen build` is strict by default and rejects any bundle that imports `pyde::debug_log`, surfacing `ValidationError::TestOnlyHostFn`. Pass `--no-strict` to opt out for local inspection — `otigen deploy` always runs the strict gate and ignores `--no-strict`, so the chain never sees a `debug_log` import. The chain's deploy validator also hard-rejects modules whose import section names `debug_log` regardless of how they were bundled (defence in depth).
+**Stripping for deploy:** `otigen build` is strict by default and rejects any bundle that imports `pyde::debug_log`, surfacing `ValidationError::TestOnlyHostFn`. Pass `--no-strict` to opt out for local inspection. `otigen deploy` always runs the strict gate and ignores `--no-strict`, so the chain never sees a `debug_log` import. The chain's deploy validator also hard-rejects modules whose import section names `debug_log` regardless of how they were bundled (defence in depth).
 
 | Path | Test-only fns accepted? |
 |---|---|
-| `otigen build` (default) | **no** — strict is default |
-| `otigen build --no-strict` | yes — local-only escape hatch |
+| `otigen build` (default) | **no** (strict is default) |
+| `otigen build --no-strict` | yes (local-only escape hatch) |
 | `otigen check` | yes |
-| `otigen deploy` | **no** — strict, not opt-out-able |
+| `otigen deploy` | **no** (strict, not opt-out-able) |
 | `otigen test` runner | mocked (writes to stderr) |
 
 The honour-system rule is therefore: drop `debug_log` calls (or guard them behind `#[cfg(feature = "debug")]`) before shipping. A grep over the source tree (`grep -rn debug_log src/`) is a fast pre-flight check, but the build gate catches anything that slips.
@@ -1415,33 +1415,33 @@ Authoritative gas costs for every host function. This table is the source of tru
 |---|---|---|---|
 | `sload` | 100 | 1 / byte copied | Returns actual length or `-1` (`SLOAD_MISSING`) |
 | `sstore` | 5,000 | 32 / byte | Variable-length value (≤ 16 KB) |
-| `sdelete` | 5,000 | — | No refund (PIP-4 `gas-no-refund`) |
-| `balance` | 100 | — | |
-| `transfer` | 7,000 | — | |
-| `caller`, `origin`, `self_address` | 5 | — | |
-| `wave_id`, `wave_timestamp`, `chain_id` | 2 | — | |
-| `tx_hash` | 5 | — | |
-| `tx_value` | 5 | — | |
-| `tx_gas_remaining` | 2 | — | |
-| `calldata_size` | 2 | — | |
+| `sdelete` | 5,000 | none | No refund (PIP-4 `gas-no-refund`) |
+| `balance` | 100 | none | |
+| `transfer` | 7,000 | none | |
+| `caller`, `origin`, `self_address` | 5 | none | |
+| `wave_id`, `wave_timestamp`, `chain_id` | 2 | none | |
+| `tx_hash` | 5 | none | |
+| `tx_value` | 5 | none | |
+| `tx_gas_remaining` | 2 | none | |
+| `calldata_size` | 2 | none | |
 | `calldata_copy` | 8 | 1 / byte | |
 | `emit_event` | 100 | + 50 / topic + 8 / data byte | 1 to 4 topics; topic[0] conventionally signature hash |
 | `hash_blake3` | 15 | 3 / word (8 bytes) | |
 | `hash_poseidon2` | 100 | 30 / word | ZK-friendly, expensive |
 | `hash_keccak256` | 30 | 6 / word | EVM-compat |
-| `falcon_verify` | 50,000 | — | ~80μs commodity |
+| `falcon_verify` | 50,000 | none | ~80μs commodity |
 | `cross_call` | 1,000 | 8 / byte calldata + sub-call gas | |
-| `cross_call_static` | 50 | — | Sub-call execution is FREE; caller pays only the dispatch base. Sub-call bounded by VIEW_FUEL_CAP (default 10M instructions ≈ 3ms) |
+| `cross_call_static` | 50 | none | Sub-call execution is FREE; caller pays only the dispatch base. Sub-call bounded by VIEW_FUEL_CAP (default 10M instructions ≈ 3ms) |
 | `delegate_call` | 1,200 | 8 / byte calldata + sub-call gas | Caller's storage context |
-| `return` | 0 | — | Halt op |
-| `revert` | 0 | — | Halt op |
+| `return` | 0 | none | Halt op |
+| `revert` | 0 | none | Halt op |
 | `consume_gas` | 2 | + amount | Pure manual metering |
-| `beacon_get` | 50 | — | |
+| `beacon_get` | 50 | none | |
 | `parachain_storage_read` | 250 | 1 / byte returned | Parachain only |
 | `parachain_storage_write` | 5,500 | 10 / byte | Parachain only |
-| `parachain_storage_delete` | 250 | — | Parachain only |
-| `parachain_id` | 5 | — | Parachain only |
-| `parachain_version` | 5 | — | Parachain only |
+| `parachain_storage_delete` | 250 | none | Parachain only |
+| `parachain_id` | 5 | none | Parachain only |
+| `parachain_version` | 5 | none | Parachain only |
 | `parachain_emit_event` | 100 | + 50 / topic + 8 / data byte | Parachain only; same multi-topic surface as core emit_event |
 | `send_xparachain_message` | 10,000 | 8 / byte | Parachain only |
 | `threshold_encrypt` | 80,000 | 100 / byte | Parachain only |
@@ -1455,11 +1455,11 @@ These values are **initial calibration**, set against representative benchmarks 
 
 ## 11. Native (non-WASM) transaction types
 
-Several transaction types **bypass the WASM execution layer entirely** and run as native handlers in the engine. These do not use the Host Function ABI — they are listed here for completeness so contract authors understand which operations are "free of WASM overhead":
+Several transaction types **bypass the WASM execution layer entirely** and run as native handlers in the engine. These do not use the Host Function ABI. They are listed here for completeness so contract authors understand which operations are "free of WASM overhead":
 
 | Transaction type | Cost | Path |
 |---|---|---|
-| `Standard` with `value > 0` and empty `data` | ~21,000 gas | Native fast path inside the `Standard` handler — no wasmtime instantiation |
+| `Standard` with `value > 0` and empty `data` | ~21,000 gas | Native fast path inside the `Standard` handler (no wasmtime instantiation) |
 | `StakeDeposit` (`0x03`) | Native | |
 | `StakeWithdraw` (`0x04`) | Native | |
 | `Slash` (`0x05`) | Native | |
@@ -1475,11 +1475,11 @@ See [Chapter 3 §3.9b](../chapters/03-virtual-machine.md) for the dispatch logic
 
 ## 12. Invoking host functions from contract code
 
-This section explains the WASM imports mechanism with concrete language examples — the most-asked question from contract authors.
+This section explains the WASM imports mechanism with concrete language examples, the most-asked question from contract authors.
 
 ### 12.1 What an import declaration actually is
 
-A WebAssembly module's binary format includes an **import section** listing every external function the module needs. Each entry pairs a `(module_name, function_name)` with a function type signature. The module body never includes the implementation; it just declares "I'll call this — somebody provide it at instantiation time."
+A WebAssembly module's binary format includes an **import section** listing every external function the module needs. Each entry pairs a `(module_name, function_name)` with a function type signature. The module body never includes the implementation; it just declares "I'll call this: somebody provide it at instantiation time."
 
 Pyde reserves the module name **`pyde`** for all host functions. A contract that declares an import like:
 
@@ -1487,7 +1487,7 @@ Pyde reserves the module name **`pyde`** for all host functions. A contract that
 (import "pyde" "sload" (func (param i32 i32 i32) (result i32)))
 ```
 
-is saying: "Give me a function named `sload` from module `pyde`, taking (i32, i32, i32) and returning i32 (the `(slot_ptr, out_ptr, out_max_len) -> actual_len` shape)." At instantiation time, wasmtime walks the import section and looks each one up in a host-provided `Linker`. If the entry exists, the contract's call is wired to the host's Rust implementation. If not, instantiation fails — and the deploy validator rejects the contract before it ever reaches a node.
+is saying: "Give me a function named `sload` from module `pyde`, taking (i32, i32, i32) and returning i32 (the `(slot_ptr, out_ptr, out_max_len) -> actual_len` shape)." At instantiation time, wasmtime walks the import section and looks each one up in a host-provided `Linker`. If the entry exists, the contract's call is wired to the host's Rust implementation. If not, instantiation fails, and the deploy validator rejects the contract before it ever reaches a node.
 
 ### 12.2 Rust contract: declaring imports
 
@@ -1755,7 +1755,7 @@ When A invokes `cross_call(B_addr, "fn_name", calldata, value, gas_limit, return
 8. **Create a new wasmtime Store + Instance** for B with: fresh linear memory (B cannot see A's memory directly); fuel = `gas_limit`; the same `Linker` (so B has the same host functions available); `HostState` pointing to `overlay_B` and the active call stack with B pushed on.
 9. **Copy calldata** from A's memory into B's memory at a host-chosen offset (typically the start of B's memory's calldata region).
 10. **Apply value transfer**: if `value > 0`, atomically debit A's balance and credit B's by `value`. This happens before B's code runs so B's first `tx_value()` call sees the right amount.
-11. **Invoke B's entry function** with calldata. B's WASM executes in isolation — its `sload`/`sstore` operate on `overlay_B`; its own `cross_call` would push *another* overlay on top.
+11. **Invoke B's entry function** with calldata. B's WASM executes in isolation: its `sload`/`sstore` operate on `overlay_B`; its own `cross_call` would push *another* overlay on top.
 12. **On B's exit**, handle the outcome:
     - **Success (B returned normally)**: merge `overlay_B` into `overlay_A`; copy return data from B's memory into A's memory at `return_data_out_ptr`; write actual length at `return_data_out_len_ptr`; consume B's actual fuel from A's remaining budget; return `0` to A.
     - **Trap (B hit OutOfFuel, MemoryOutOfBounds, reverted, etc.)**: discard `overlay_B` entirely; revert the value transfer from step 10; consume B's actual fuel from A's remaining; return `ERR_CROSS_CALL_FAILED` to A.
@@ -1795,7 +1795,7 @@ A and B have **completely separate WASM linear memories**. They cannot see each 
 
 - **A → B**: the calldata bytes copied at step 9
 - **B → A**: the return data copied at step 12 (success path)
-- **A ↔ B (shared)**: state, but only through the overlay stack — there is no shared memory region
+- **A ↔ B (shared)**: state, but only through the overlay stack (there is no shared memory region)
 
 This means a malicious B cannot read A's stack, A's locals, A's other variables. The sandbox is per-instance.
 
@@ -1808,17 +1808,17 @@ To prevent runaway recursion (e.g., a contract that calls itself unboundedly thr
 - **Reservation**: A pre-charges `gas_limit` from its remaining budget at step 2 (the host function refuses to start the sub-call if A can't afford the reservation).
 - **Forwarding**: B receives a fresh fuel counter of `gas_limit`.
 - **Consumption**: After B exits, A's budget is debited by B's *actual* fuel consumed (which may be less than `gas_limit`).
-- **No refund**: any unused portion of `gas_limit` is *not* returned to A (consistent with the no-refund policy). A consumed gas it didn't end up using — that's the tradeoff for the simpler accounting model. Authors are advised to size `gas_limit` carefully.
+- **No refund**: any unused portion of `gas_limit` is *not* returned to A (consistent with the no-refund policy). A consumed gas it didn't end up using. That's the tradeoff for the simpler accounting model. Authors are advised to size `gas_limit` carefully.
 
 ### 13.6 Why `cross_call_static` exists
 
 `cross_call_static` is the read-only variant. It enforces:
 
-- Target function must be marked `#[view]` — if not, returns `ERR_FORBIDDEN`.
+- Target function must be marked `#[view]`. If not, returns `ERR_FORBIDDEN`.
 - Sub-call cannot mutate state, emit events, or transfer value (the view-mode flag in the overlay rejects writes).
 - No new overlay is needed (no writes possible); reads walk the existing stack.
 
-This is cheaper (no overlay push/merge) and safer (no reentrancy risk — view functions can't change anything observable).
+This is cheaper (no overlay push/merge) and safer (no reentrancy risk: view functions can't change anything observable).
 
 ---
 
@@ -1830,7 +1830,7 @@ Each event carries **1 to 4 topics** (each 32 bytes) plus an **opaque data paylo
 
 Topics are how events are indexed and filtered on-chain. Each event has 1 to 4 topics. By convention:
 
-- **`topic[0]`** is *always* `Blake3(canonical_event_signature)`. This is the event-type identifier — what subscribers and indexers match on as the primary filter.
+- **`topic[0]`** is *always* `Blake3(canonical_event_signature)`. This is the event-type identifier: what subscribers and indexers match on as the primary filter.
 - **`topic[1..topics_count]`** are indexed-field values, in author-declared order.
 
 Authors mark fields as indexed in `otigen.toml`:
@@ -1845,7 +1845,7 @@ fields = [
 ]
 ```
 
-Up to **3 fields can be `indexed`** (giving a total of 4 topics — signature plus 3 — matching EVM's LOG4 limit).
+Up to **3 fields can be `indexed`** (giving a total of 4 topics, signature plus 3, matching EVM's LOG4 limit).
 
 #### Topic value encoding
 
@@ -1892,15 +1892,15 @@ Examples:
 "OrderFilled(address,string,uint128,uint64[],enum)"
 ```
 
-The signature string is **not stored on chain** — only `Blake3(signature)` is, as `topic[0]`. Indexers and SDKs maintain a registry of signatures they care about and hash them locally to match against event topics. The `pyde.abi` custom section of the deployed contract carries the full signature for any explorer that wants to render the event with field names.
+The signature string is **not stored on chain**: only `Blake3(signature)` is, as `topic[0]`. Indexers and SDKs maintain a registry of signatures they care about and hash them locally to match against event topics. The `pyde.abi` custom section of the deployed contract carries the full signature for any explorer that wants to render the event with field names.
 
 ### 14.2 Data
 
-The **data** field is the event payload as bytes. The chain stores it verbatim — encoding is the author's choice.
+The **data** field is the event payload as bytes. The chain stores it verbatim: encoding is the author's choice.
 
 **Borsh is the recommended encoding.** Pyde's toolchain, SDKs, indexers, wallets, and example contracts all assume Borsh by default; choosing it gets you out-of-the-box decoding everywhere. `otigen` ships Borsh helpers as part of the canonical project templates. `pyde-rust-sdk` and `pyde-ts-sdk` ship Borsh decoders that match topics to signature registries and auto-deserialize. Block explorers built on these SDKs render Borsh-encoded events without any per-contract integration.
 
-Authors picking a different encoding (raw bytes for tiny events, Protobuf for cross-team contracts, custom format for niche cases) are free to do so — the chain doesn't care — but they take on the integration burden: SDK consumers need custom decoders, wallet previews can't auto-render the event, indexers need per-contract logic.
+Authors picking a different encoding (raw bytes for tiny events, Protobuf for cross-team contracts, custom format for niche cases) are free to do so (the chain doesn't care), but they take on the integration burden: SDK consumers need custom decoders, wallet previews can't auto-render the event, indexers need per-contract logic.
 
 Borsh chosen as the recommended default over alternatives:
 
@@ -2136,7 +2136,7 @@ events_by_contract_cf  (index)
 
 **Atomicity:** on every wave commit, the engine writes one RocksDB `WriteBatch` containing all three CFs' updates plus the wave commit record. Atomic: either all three indexes update together or none does.
 
-**Write cost per event:** `1 + topics_count + 1` RocksDB puts — one primary, one per topic, one contract index. At sustained ~2,000 events/wave with an average of ~2 topics each, that's ~8,000 puts/wave, which RocksDB handles in single-digit ms with the existing PIP-4 write-back cache architecture (Chapter 4).
+**Write cost per event:** `1 + topics_count + 1` RocksDB puts: one primary, one per topic, one contract index. At sustained ~2,000 events/wave with an average of ~2 topics each, that's ~8,000 puts/wave, which RocksDB handles in single-digit ms with the existing PIP-4 write-back cache architecture (Chapter 4).
 
 ### 15.4 Historical query
 
@@ -2261,7 +2261,7 @@ Events follow the same retention tiering as state (Chapter 4):
 | Committee validator | Last 30 days |
 | Light client | No primary storage; verifies inclusion proofs against signed `events_root` |
 
-**Pruning:** at every epoch boundary, the engine sweeps `events_cf`, `events_by_topic_cf`, and `events_by_contract_cf` together, removing entries with `wave_id < (current_wave - retention_waves)`. Lockstep — never partial. The wave commit records themselves are retained per the wave-commit retention policy (longer than events; needed for chain-of-trust during state sync).
+**Pruning:** at every epoch boundary, the engine sweeps `events_cf`, `events_by_topic_cf`, and `events_by_contract_cf` together, removing entries with `wave_id < (current_wave - retention_waves)`. Lockstep, never partial. The wave commit records themselves are retained per the wave-commit retention policy (longer than events; needed for chain-of-trust during state sync).
 
 ### 15.7 Light client model
 
@@ -2275,7 +2275,7 @@ A light client doesn't store events. It can:
 
 Events from `parachain_emit_event` (§8.3) are recorded with the parachain's `parachain_id` in their `contract_addr` field (parachains and contracts share the address space; see [PARACHAIN_DESIGN.md](./PARACHAIN_DESIGN.md) §4). Subscribers filter on `contract_addr = parachain_id` to listen for a specific parachain's events.
 
-No separate parachain-events column family — they share the same `events_cf` / `events_by_topic_cf` / `events_by_contract_cf` machinery as ordinary contract events. The bloom filter aggregates both. The Merkle root commits to both. Parachain events are queryable identically.
+No separate parachain-events column family: they share the same `events_cf` / `events_by_topic_cf` / `events_by_contract_cf` machinery as ordinary contract events. The bloom filter aggregates both. The Merkle root commits to both. Parachain events are queryable identically.
 
 ### 15.9 Implementation notes for `wasm-exec`
 
@@ -2389,13 +2389,13 @@ fn finalize_wave_events(wave: &mut WaveCommit) {
 - **events_root_poseidon2.** ZK-friendly parallel root for the events tree, mirroring the dual-hash state-root pattern. v2 work; not on v1 critical path.
 - **Indexed wildcards / set matching on contract.** v1 contract filter is a single optional address. v2 could allow set membership and contract-name pattern matching.
 
-Note: multi-topic native (up to 4 topics per event with EVM-style indexed-field marking) **ships at v1** — see §14.1 for the encoding and §15.3-§15.5 for storage / query / subscription.
+Note: multi-topic native (up to 4 topics per event with EVM-style indexed-field marking) **ships at v1**. See §14.1 for the encoding and §15.3-§15.5 for storage / query / subscription.
 
 ---
 
 ## 16. Conformance test surface
 
-A conformance test suite — implementation of which is post-mainnet hardening work — must exercise every function in §7 and §8 with:
+A conformance test suite (implementation of which is post-mainnet hardening work) must exercise every function in §7 and §8 with:
 
 - Valid inputs returning expected outputs
 - Each error code's trigger condition
@@ -2413,7 +2413,7 @@ The conformance test suite ships in the post-pivot engine repo under `wasm-exec/
 ### 17.1 Adding a new function (minor version bump)
 
 1. PIP describing the new function: signature, semantics, gas cost, error codes, use case.
-2. PIP review + acceptance per [Chapter 15 — Governance](../chapters/15-governance.md).
+2. PIP review + acceptance per [Chapter 15: Governance](../chapters/15-governance.md).
 3. Engine implements the function under a `pyde_abi_v1_<N+1>` feature gate.
 4. New function is callable only by modules declaring `pyde_abi_version >= 1.(N+1)`.
 5. Modules built against earlier versions continue executing unchanged.
@@ -2441,10 +2441,10 @@ Contract-side bindings for AssemblyScript, Go (TinyGo), and C/C++ are community-
 
 ## 18. References
 
-- [Chapter 3 — Execution Layer](../chapters/03-virtual-machine.md): conceptual overview, wasmtime config, per-tx overlay model
-- [Chapter 5 — Otigen Toolchain](../chapters/05-otigen-toolchain.md): how authors declare host imports in their language of choice
-- [Chapter 10 — Gas and Fee Model](../chapters/10-gas-and-fee-model.md): fuel-to-gas mapping, EIP-1559, no-refund policy
-- [Chapter 13 — Parachains](../chapters/13-cross-chain.md): parachain framework overview
+- [Chapter 3: Execution Layer](../chapters/03-virtual-machine.md): conceptual overview, wasmtime config, per-tx overlay model
+- [Chapter 5: Otigen Toolchain](../chapters/05-otigen-toolchain.md): how authors declare host imports in their language of choice
+- [Chapter 10: Gas and Fee Model](../chapters/10-gas-and-fee-model.md): fuel-to-gas mapping, EIP-1559, no-refund policy
+- [Chapter 13: Parachains](../chapters/13-cross-chain.md): parachain framework overview
 - [companion/PARACHAIN_DESIGN.md](./PARACHAIN_DESIGN.md): full parachain design + ABI extension rationale
 - [companion/PERFORMANCE_HARNESS.md](./PERFORMANCE_HARNESS.md): gas-table calibration authority
 - [companion/THREAT_MODEL.md](./THREAT_MODEL.md): security review of every host function

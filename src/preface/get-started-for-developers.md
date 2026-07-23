@@ -14,14 +14,14 @@ Pyde supports two contract surfaces:
    Standard L1 contract development; read [Chapter 3: Execution
    Layer](../chapters/03-virtual-machine.md) for the runtime model.
 2. **Parachains** (v2): permissionless decentralized networks that do
-   one job the base chain cannot — foreign-chain adapters, data feeds,
-   real-world IO — with their own staked validators and their own
+   one job the base chain cannot (foreign-chain adapters, data feeds,
+   real-world IO), with their own staked validators and their own
    state, anchored to and re-validated by Pyde, and an extended ABI
    for declared IO + cross-parachain messaging.
    Read [Chapter 13: Parachains](../chapters/13-cross-chain.md).
 
 Both compile to WebAssembly. Pyde executes them via
-[wasmtime](https://wasmtime.dev) + Cranelift AOT — deterministic
+[wasmtime](https://wasmtime.dev) + Cranelift AOT: deterministic
 feature subset, per-tx overlay isolation, fuel-metered gas.
 
 ---
@@ -99,15 +99,15 @@ Pyde is **pre-mainnet**. What's already shippable:
 
 - The protocol spec (everything in this book).
 - The post-quantum cryptography crate: [pyde-crypto](https://github.com/pyde-net/pyde-crypto).
-- The engine workspace's interface layer (MC-0 — `phase-0-foundation`
+- The engine workspace's interface layer (MC-0, the `phase-0-foundation`
   tag on `pyde-net/engine`).
 - The marketing site you arrived from.
 
 What's in active build-out:
 
 - The engine (execution + consensus + node binary). MC-1 in flight
-  across two parallel streams — see [Implementation Plan §3.2](../companion/IMPLEMENTATION_PLAN.md).
-- The otigen toolchain. MC-1 Stream α — see `pyde-net/otigen`.
+  across two parallel streams; see [Implementation Plan §3.2](../companion/IMPLEMENTATION_PLAN.md).
+- The otigen toolchain. MC-1 Stream α; see `pyde-net/otigen`.
 
 What you can do right now:
 

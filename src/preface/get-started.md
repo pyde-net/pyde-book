@@ -27,6 +27,6 @@ Not sure which path? If you're going to type `cargo build` at any
 point, take the developer track. If you only ever interact with Pyde
 through a wallet or a dApp, the user track is where you belong.
 
-Both paths converge at the same set of canonical specs in the book —
-chapters 1–20 and the companion files — when you need to go deep on a
-specific topic.
+Both paths converge at the same set of canonical specs in the book
+(chapters 1 to 20 and the companion files) when you need to go deep on
+a specific topic.

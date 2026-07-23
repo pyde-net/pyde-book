@@ -1,11 +1,11 @@
 # Token Standard (PTS)
 
-> **Status: Accepted — `pts-f/1` shipped.** This page introduces
-> Pyde's native token standard — **PTS** (Pyde Token Standard) — and
+> **Status: Accepted; `pts-f/1` shipped.** This page introduces
+> Pyde's native token standard, **PTS** (Pyde Token Standard), and
 > the otigen features that enforce it. The normative specification is
 > [PIP-0005](https://github.com/pyde-net/pips/blob/main/pip-0005-pyde-token-standard.md)
-> (Accepted); the deep explainer — full surface, storage layout,
-> receiver protocol, conformance — is the
+> (Accepted); the deep explainer (full surface, storage layout,
+> receiver protocol, conformance) is the
 > [Token Standard companion](../companion/TOKEN_STANDARD.md). For
 > `pts-f/1` everything below is live: the `fungible-token` reference,
 > config-only `type = "token"` generation, and `otigen verify`
@@ -13,9 +13,9 @@
 > config-only generation is v1.1.
 
 Pyde does not inherit ERC-20. The research behind that decision is a
-long catalog of structural losses — standing-approval drains, tokens
+long catalog of structural losses (standing-approval drains, tokens
 stranded in contracts that never knew they arrived, transfer hooks
-that fired mid-update — and one convergent lesson from every ledger
+that fired mid-update) and one convergent lesson from every ledger
 that came after Ethereum: **the winning token standards moved balances
 out of hand-written per-token code and into one audited
 implementation.** Solana's shared token program, Cosmos's bank module,
@@ -63,36 +63,36 @@ transfer_call = true          # opt-in settle-then-notify deposit path
 
 `otigen build` sees `type = "token"` and generates the canonical
 interface, storage schema, events, and invariant-preserving internal
-APIs — the same audited implementation regardless of language — then
+APIs (the same audited implementation regardless of language), then
 compiles it to a normal contract WASM. The chain never learns what a
 "token" is; the artifact deploys, dispatches, and meters exactly like
 any hand-written contract.
 
-An NFT is a token too — non-fungible is in the name — so both
+An NFT is a token too (non-fungible is in the name), so both
 standards live under one `type = "token"`, differentiated by the
 `standard` field:
 
 | `type =`     | `standard =` | Result                                     |
 |--------------|--------------|--------------------------------------------|
-| `"contract"` | *(absent — presence is a build error)* | ordinary hand-written contract |
+| `"contract"` | *(absent; presence is a build error)* | ordinary hand-written contract |
 | `"token"`    | `"pts-f/1"`  | generated fungible surface: balances, expiring allowances, `transfer` / `transfer_call` / pull path |
 | `"token"`    | `"pts-n/1"`  | generated non-fungible surface: per-id owners, approvals, on-chain `token_uri` |
-| `"token"`    | *(missing or unknown)* | build error listing the known standards — fungible vs non-fungible is not a guessable default |
+| `"token"`    | *(missing or unknown)* | build error listing the known standards; fungible vs non-fungible is not a guessable default |
 
 `type` stays a tiny, stable vocabulary (which build pipeline);
 `standard` is where the family grows (a future multi-token `pts-m/1`
 adds a value, not a keyword). And because `standard` is a single
-scalar field, a fused fungible/NFT hybrid is not merely forbidden —
+scalar field, a fused fungible/NFT hybrid is not merely forbidden:
 it is unrepresentable.
 
 The `[token]` section is shared by both standards, but its **allowed
 keys are a function of the declared standard**, enforced at build
 time: `decimals` in a `pts-n/1` manifest is a build error ("a pts-f
-field — non-fungible tokens have no fractional units"), per-id
+field; non-fungible tokens have no fractional units"), per-id
 metadata knobs in a `pts-f/1` manifest likewise, and every such error
 names the offending key and the standard that owns it. And a token
 manifest is **config-only**: any `[functions.*]`, `[state]`, or
-`[events]` section — or a source directory at all — on
+`[events]` section (or a source directory at all) on
 `type = "token"` is a build error. Custom behaviour lives in a
 companion contract beside the token (below), never inside it, so
 overriding or extending standard logic is not something the schema
@@ -114,12 +114,12 @@ class:
   survives as compatibility sugar that auto-applies the maximum TTL.
 - **Settle-then-notify deposits.** `transfer_call` writes balances and
   emits the event *first*, then cross-calls the recipient's
-  `on_token_received`, which must return a protocol acknowledgement —
-  a name-miss falling through to a fallback cannot silently swallow
-  tokens. Plain `transfer` never invokes recipient code.
+  `on_token_received`, which must return a protocol acknowledgement,
+  so a name-miss falling through to a fallback cannot silently
+  swallow tokens. Plain `transfer` never invokes recipient code.
 - **Consent-visible control.** Mint/freeze/pause capabilities are
   declared in the manifest, therefore baked into the deployed
-  artifact's ABI forever — never retroactively enableable, renounced
+  artifact's ABI forever: never retroactively enableable, renounced
   by provable zeroing. A wallet answers "can this issuer freeze me?"
   by reading the artifact, not by trusting documentation.
 - **Parallel-execution-ready layout.** Per-holder balance slots;
@@ -127,24 +127,24 @@ class:
   extensions that are off compile *out* (no inert shared reads). Two
   transfers between disjoint parties touch disjoint slots and commute
   under Block-STM. Generation also emits correct per-function access
-  lists — the prefetch hint humans get wrong.
+  lists, the prefetch hint humans get wrong.
 
 ## Custom logic lives beside the token, not inside it
 
-A PTS token contains exactly the generated surface — nothing else.
+A PTS token contains exactly the generated surface, nothing else.
 This is a hard line, not a missing feature. The moment author code
-shares a module with the token, the reproducibility guarantee — *same
+shares a module with the token, the reproducibility guarantee (*same
 manifest, same bytes: verify any deployed token by rebuilding its
-manifest and comparing hashes* — degrades into "the standard subset is
+manifest and comparing hashes*) degrades into "the standard subset is
 conformant, plus unreviewed extras", and every wallet and scanner
 inherits the job of flagging the extras. A config-only token cannot
 contain a drain function, because it cannot contain any function the
 generator didn't write. The patterns that genuinely require code
-inside a token — fee-on-transfer, rebasing, reflection — are precisely
+inside a token (fee-on-transfer, rebasing, reflection) are precisely
 the pathologies the standard exists to kill.
 
 Custom behaviour is a **companion contract**: a vesting schedule, a
-staking pool, a governance vault — an ordinary `type = "contract"`
+staking pool, a governance vault; each is an ordinary `type = "contract"`
 member that holds and moves tokens through the same standard surface
 every other integrator uses (`transfer_call` deposits in, `transfer`
 out, allowances where standing delegation is genuinely needed).
@@ -153,8 +153,8 @@ project: the companion takes the token's deployed address as a
 constructor reference, and build, test, and deploy run across both
 members with one command.
 
-If a future need genuinely belongs inside the token — the way
-vote-checkpointing hooks balance changes on other chains — it enters
+If a future need genuinely belongs inside the token (the way
+vote-checkpointing hooks balance changes on other chains), it enters
 as a **declared standard extension** in a `pts-f/2`: generated,
 audited, and consent-visible in the artifact like freeze and pause.
 Never as author code.
@@ -178,7 +178,7 @@ no longer written by hand.
 ## Conformance is mechanical
 
 Because the ABI, state schema, and events ship inside the artifact,
-standard-compliance is a static property of deployed bytes — no
+standard-compliance is a static property of deployed bytes, with no
 interface-probing handshake:
 
 ```bash
@@ -192,17 +192,17 @@ its byte-level conformance vectors.
 ## Deliverables, in order
 
 1. **Reference examples first** (no new tooling): the PTS-F/1 and
-   PTS-N/1 interfaces implemented as ordinary contracts —
-   `fungible-token`, `nft-token` — plus updated integrations (AMM,
+   PTS-N/1 interfaces implemented as ordinary contracts
+   (`fungible-token`, `nft-token`), plus updated integrations (AMM,
    marketplace) as the reference receivers.
 2. **The PIP:** frozen surface, byte-level conformance vectors, and a
    malicious-receiver test battery.
 3. **`type = "token"` generation** (both standards) in otigen from
-   one canonical implementation — tokens carry no author code, so the
+   one canonical implementation: tokens carry no author code, so the
    build is language-independent and every deployed token verifies by
    rebuilding its manifest and comparing bytes. Per-language work
    shrinks to the receiver wrapper macros. Includes an independent
-   audit of the generator itself — one audited implementation is only
+   audit of the generator itself: one audited implementation is only
    as good as its generator.
 4. **`otigen verify --standard`** and playground templates that start
    from a manifest, not from copied token code.

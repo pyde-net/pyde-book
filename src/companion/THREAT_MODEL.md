@@ -6,7 +6,7 @@ This is the canonical threat model for Pyde. It catalogs ~50 threats across 7 la
 
 This is a living document. Update on new threats discovered, protocol changes, and quarterly review.
 
-> **Companion to Chapter 16.** [Chapter 16: Security](../chapters/16-security.md) is the narrative defense reference — it walks the same ground in essay form, explains why each defense was chosen, and is intended for readers building intuition. This document is the catalog: every threat carries an ID, severity, detection signal, and mitigation reference. External auditors should treat this document as the entry point; bug reporters should reference threat IDs from this catalog.
+> **Companion to Chapter 16.** [Chapter 16: Security](../chapters/16-security.md) is the narrative defense reference. It walks the same ground in essay form, explains why each defense was chosen, and is intended for readers building intuition. This document is the catalog: every threat carries an ID, severity, detection signal, and mitigation reference. External auditors should treat this document as the entry point; bug reporters should reference threat IDs from this catalog.
 
 ## 1. Scope & Assets
 
@@ -80,7 +80,7 @@ This is a living document. Update on new threats discovered, protocol changes, a
 **Coordinated insiders (≤42 validators, below BFT threshold):**
 - ✅ Can equivocate (each commits slashable offense)
 - ✅ Can collude on transactions (but ordering is deterministic)
-- ❌ Cannot read private-mempool content before reveal (no key to collude on — the property is unconditional)
+- ❌ Cannot read private-mempool content before reveal (no key to collude on; the property is unconditional)
 - ❌ Cannot violate safety (need 85+ for any commit)
 - ❌ Cannot censor (other 86+ can include any transaction)
 
@@ -88,14 +88,14 @@ This is a living document. Update on new threats discovered, protocol changes, a
 - ✅ Can commit to invalid states (others detect and halt)
 - ✅ Can censor
 - ✅ Can fork the chain
-- **This is the "BFT broken" scenario — out of normal protocol scope. Residual risk.**
+- **This is the "BFT broken" scenario, out of normal protocol scope. Residual risk.**
 
 ## 3. Trust Assumptions
 
 ### Cryptographic
 - FALCON-512 is EUF-CMA secure (NIST standard)
-- Blake3 and Poseidon2 are collision- and preimage-resistant (the private mempool's commitment hiding rests on this alone — no committee key is assumed)
-- Kyber-768 is IND-CCA2 secure (NIST FIPS 203) — used only for transport-layer session keys
+- Blake3 and Poseidon2 are collision- and preimage-resistant (the private mempool's commitment hiding rests on this alone; no committee key is assumed)
+- Kyber-768 is IND-CCA2 secure (NIST FIPS 203), used only for transport-layer session keys
 - Random beacon is unpredictable until the last signer contributes
 
 ### Network
@@ -184,9 +184,9 @@ This is a living document. Update on new threats discovered, protocol changes, a
 | T-SW-5 | Cryptographic library bug | High | Audits | Use well-audited libraries (RustCrypto) |
 | T-SW-6 | State corruption (disk errors) | Medium | Snapshot verification | JMT root recomputation, peer cross-verification |
 
-### Authorization Layer (v2 — session keys + programmable accounts)
+### Authorization Layer (v2: session keys + programmable accounts)
 
-Session keys ship at v2. The threats below are catalogued now so the v2 implementation lands against a known surface. Until v2, the `AuthKeys::Programmable` variant is reserved-but-disabled — these threats are inactive at v1.
+Session keys ship at v2. The threats below are catalogued now so the v2 implementation lands against a known surface. Until v2, the `AuthKeys::Programmable` variant is reserved-but-disabled; these threats are inactive at v1.
 
 | ID | Threat | Severity | Detection | Mitigation |
 |---|---|---|---|---|

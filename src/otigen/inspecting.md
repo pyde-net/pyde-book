@@ -32,18 +32,18 @@ otigen inspect 0xe37844e3800a70e82f18828ed603e49e3db5a0d234e307a3419a4c98ad1c420
       0xa8e21f74 increment [entry]
 ```
 
-Two flags are useful here — `--at-wave <N>` reads state at a historical wave (archive-node-only today; v1 forwards the value but falls back to current state otherwise), and `--rpc-url <URL>` lets you inspect without a local `otigen.toml` (e.g. against operator dashboards or a forked devnet).
+Two flags are useful here: `--at-wave <N>` reads state at a historical wave (archive-node-only today; v1 forwards the value but falls back to current state otherwise), and `--rpc-url <URL>` lets you inspect without a local `otigen.toml` (e.g. against operator dashboards or a forked devnet).
 
 What's shown:
 
-- **`Account type`** — `eoa`, `contract`, or `system`. The chain's [`AccountType`](https://github.com/pyde-net/engine/blob/main/crates/types/src/account.rs) discriminant.
-- **`Balance`** — current balance as `<N> PYDE (<M> quanta)` (1 PYDE = 10⁹ quanta).
-- **`Nonce`** — next acceptable nonce. The chain uses a 16-slot sliding window; this number is `nonce_window.base + bitmap.trailing_ones()`.
-- **`Code hash`** — `Poseidon2(runtime_wasm)`. Zero for EOA / system accounts; non-zero for deployed contracts.
-- **`Code size`** — length of the deployed bytecode in bytes.
-- **`State root`** — Blake3 summary of the contract's storage sub-trie. (V1 keeps this all-zero; the chain uses one global JMT.)
+- **`Account type`**: `eoa`, `contract`, or `system`. The chain's [`AccountType`](https://github.com/pyde-net/engine/blob/main/crates/types/src/account.rs) discriminant.
+- **`Balance`**: current balance as `<N> PYDE (<M> quanta)` (1 PYDE = 10⁹ quanta).
+- **`Nonce`**: next acceptable nonce. The chain uses a 16-slot sliding window; this number is `nonce_window.base + bitmap.trailing_ones()`.
+- **`Code hash`**: `Poseidon2(runtime_wasm)`. Zero for EOA / system accounts; non-zero for deployed contracts.
+- **`Code size`**: length of the deployed bytecode in bytes.
+- **`State root`**: Blake3 summary of the contract's storage sub-trie. (V1 keeps this all-zero; the chain uses one global JMT.)
 
-There is no `version` / `total_versions` / `owner` / `status` surface in v1 inspect — the engine doesn't carry those fields on `Account` ([Lifecycle](./lifecycle.md) covers what v1 actually provides and the v2 plan).
+There is no `version` / `total_versions` / `owner` / `status` surface in v1 inspect: the engine doesn't carry those fields on `Account` ([Lifecycle](./lifecycle.md) covers what v1 actually provides and the v2 plan).
 
 ### Read a state field
 
@@ -69,13 +69,13 @@ For legacy pre-substrate contracts (those that called `sload` / `sstore` directl
 otigen inspect <addr> --field counter
 ```
 
-`--field` derives `Poseidon2(name.as_bytes())` — the convention the hand-written examples used before the substrate macros existed. Picking the wrong flag returns the wrong slot; both produce a hash that hits an unset slot rather than failing loudly, so match the flag to how the contract was written.
+`--field` derives `Poseidon2(name.as_bytes())`, the convention the hand-written examples used before the substrate macros existed. Picking the wrong flag returns the wrong slot; both produce a hash that hits an unset slot rather than failing loudly, so match the flag to how the contract was written.
 
 For mapping fields the slot derivation includes the key; the inspect surface for mapping reads is currently best-driven through `otigen call <addr> <view-fn>` (next section), which routes through the contract's typed getter rather than computing the slot externally.
 
 ### Call a view function
 
-`otigen inspect` does **not** invoke contract code — it only reads state directly. To call a view function (read state through the contract's own logic), use `otigen call`:
+`otigen inspect` does **not** invoke contract code; it only reads state directly. To call a view function (read state through the contract's own logic), use `otigen call`:
 
 ```bash
 otigen call <addr> get
@@ -90,7 +90,7 @@ otigen call <addr> get
   Return:   3
 ```
 
-`otigen call` without `--from` runs in view mode against `pyde_call` — no tx, no gas, no nonce, no signing. Pass `--from <wallet>` to switch to a state-mutating signed call. Positional arguments are typed per `[functions.<fn>].inputs` in declaration order:
+`otigen call` without `--from` runs in view mode against `pyde_call`: no tx, no gas, no nonce, no signing. Pass `--from <wallet>` to switch to a state-mutating signed call. Positional arguments are typed per `[functions.<fn>].inputs` in declaration order:
 
 ```bash
 otigen call <addr> balance_of 0x9b8c7d6e5f4a3b2c...
@@ -105,7 +105,7 @@ For the structured-output variant, add `--json`:
 otigen call <addr> get --json
 ```
 
-The emitted `call_included` NDJSON event includes a `return_data` field with the hex-encoded bytes — useful for scripted consumers.
+The emitted `call_included` NDJSON event includes a `return_data` field with the hex-encoded bytes, which is useful for scripted consumers.
 
 ---
 
@@ -127,7 +127,7 @@ otigen verify <addr>
   ✓ Match — bundle is byte-identical to the deployed contract.
 ```
 
-The CLI fetches `pyde_getContractCode(addr)`, re-derives the Blake3 hash of your local `./artifacts/<name>.bundle/contract.wasm`, and compares both byte length and hash. The `--strict-toolchain` flag also compares the toolchain version pin baked into the bundle's `manifest.json` against the running rustc / TinyGo / asc / clang — useful when reproducing audited builds.
+The CLI fetches `pyde_getContractCode(addr)`, re-derives the Blake3 hash of your local `./artifacts/<name>.bundle/contract.wasm`, and compares both byte length and hash. The `--strict-toolchain` flag also compares the toolchain version pin baked into the bundle's `manifest.json` against the running rustc / TinyGo / asc / clang, which is useful when reproducing audited builds.
 
 If they don't match:
 
@@ -167,7 +167,7 @@ For auditors: re-build from source on a clean machine, run `otigen verify`. Mism
 
 ## 3. Off-chain queries via RPC
 
-For programmatic access, the chain exposes a JSON-RPC. The same RPC `otigen inspect` uses under the hood. See [Chapter 17 — Developer Tools](../chapters/17-developer-tools.md) for the full catalog. Relevant methods for contract state:
+For programmatic access, the chain exposes a JSON-RPC. The same RPC `otigen inspect` uses under the hood. See [Chapter 17: Developer Tools](../chapters/17-developer-tools.md) for the full catalog. Relevant methods for contract state:
 
 | Method | What it returns |
 | --- | --- |
@@ -196,7 +196,7 @@ curl -X POST http://127.0.0.1:9933 \
      }'
 ```
 
-The `data` field is the borsh-encoded `pyde_engine_types::CallPayload { function: "get", calldata: vec![] }` envelope — the same wire shape `tx.data` carries for a `TxType::Standard` call.
+The `data` field is the borsh-encoded `pyde_engine_types::CallPayload { function: "get", calldata: vec![] }` envelope, the same wire shape `tx.data` carries for a `TxType::Standard` call.
 
 ```json
 {

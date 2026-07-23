@@ -1,4 +1,4 @@
-# Runbook — explorer indexer behind
+# Runbook: explorer indexer behind
 
 The explorer's indexer process is more than 100 waves behind the chain head. The public site shows stale wave numbers, missing transactions, and "indexer X seconds behind" warnings.
 
@@ -47,7 +47,7 @@ If lag > 100, this runbook applies.
    - Long-running queries → likely a missing index. The `metrics_transactions` table needs indexes on `(wave_id, tx_status)`. See [postgres-corruption](postgres-corruption.md) for a deeper Postgres triage.
 
 5. **Is the indexer single-threaded and CPU-bound?**
-   - `top -p $(pgrep -f pyde-indexer)` — if one core pegged, the indexer is CPU-bound on event decode. Scale horizontally is the long-term fix.
+   - `top -p $(pgrep -f pyde-indexer)`: if one core pegged, the indexer is CPU-bound on event decode. Scale horizontally is the long-term fix.
 
 ## Recovery
 

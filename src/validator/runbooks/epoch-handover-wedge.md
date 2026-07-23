@@ -1,4 +1,4 @@
-# Runbook — epoch handover wedge
+# Runbook: epoch handover wedge
 
 The chain advances inside an epoch but stalls at the boundary. The DKG attestation buffer didn't reach the threshold the new epoch's MEV decryption needs, OR the next-epoch beacon didn't combine.
 

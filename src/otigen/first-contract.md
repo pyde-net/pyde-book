@@ -2,7 +2,7 @@
 
 End-to-end: scaffold → write → test. By the end you'll have a working contract that passes a behaviour suite, with execution traces visible on demand.
 
-This chapter uses Rust. For TinyGo / AssemblyScript / C, the patterns are identical; the per-language `README.md` in each scaffolded project carries the syntactic equivalent. `otigen new --lang <go|as|c>` produces the other-language scaffolds — it falls through to the minimal counter starter when no Rust-only template is requested.
+This chapter uses Rust. For TinyGo / AssemblyScript / C, the patterns are identical; the per-language `README.md` in each scaffolded project carries the syntactic equivalent. `otigen new --lang <go|as|c>` produces the other-language scaffolds; it falls through to the minimal counter starter when no Rust-only template is requested.
 
 ---
 
@@ -44,7 +44,7 @@ my-counter/
     └── contract.test.toml # behaviour tests
 ```
 
-Seven files. The Rust scaffold pulls host fns + the entry macro from the `pyde-host` family of crates on crates.io, referenced from `Cargo.toml` (no `src/host_fns.rs` in the project tree — the macro substrate is the canonical interface). You'll spend your time in:
+Seven files. The Rust scaffold pulls host fns + the entry macro from the `pyde-host` family of crates on crates.io, referenced from `Cargo.toml` (no `src/host_fns.rs` in the project tree; the macro substrate is the canonical interface). You'll spend your time in:
 
 - **`src/lib.rs`**: your contract code.
 - **`otigen.toml`**: declares state fields + function signatures + network endpoints.
@@ -54,7 +54,7 @@ Seven files. The Rust scaffold pulls host fns + the entry macro from the `pyde-h
 
 ## 2. The default contract
 
-`otigen new --from counter` produces a minimal counter — one `uint64` storage slot, two entry points:
+`otigen new --from counter` produces a minimal counter with one `uint64` storage slot and two entry points:
 
 ```rust
 // src/lib.rs (excerpt — the file ships with header docs not reproduced here)
@@ -90,7 +90,7 @@ fn get() -> u64 {
 }
 ```
 
-The `#[pyde::entry]` macro wraps each function in the spec-mandated `() -> ()` WASM shim ([`HOST_FN_ABI_SPEC §3.5.2`](../companion/HOST_FN_ABI_SPEC.md)) — it decodes calldata from `pyde::calldata_*`, calls the inner body, and surfaces the return value via `pyde::return_` (the trailing underscore avoids the Rust keyword). You write idiomatic Rust; the macro handles the chain-side ABI.
+The `#[pyde::entry]` macro wraps each function in the spec-mandated `() -> ()` WASM shim ([`HOST_FN_ABI_SPEC §3.5.2`](../companion/HOST_FN_ABI_SPEC.md)): it decodes calldata from `pyde::calldata_*`, calls the inner body, and surfaces the return value via `pyde::return_` (the trailing underscore avoids the Rust keyword). You write idiomatic Rust; the macro handles the chain-side ABI.
 
 The corresponding `otigen.toml`:
 
@@ -153,7 +153,7 @@ outputs    = ["uint64"]
 
 ## 4. Add tests
 
-Edit `tests/contract.test.toml` — append three new `[[tests]]` entries:
+Edit `tests/contract.test.toml` and append three new `[[tests]]` entries:
 
 ```toml
 # decrement from zero reverts with "counter: at zero".
@@ -232,11 +232,11 @@ otigen test
   test result: ok. 6 passed; 0 failed; 0 skipped (6 ran)
 ```
 
-(Cargo converts the kebab-case project name to snake_case for the wasm filename — that's why `my-counter` produces `my_counter.wasm`.)
+(Cargo converts the kebab-case project name to snake_case for the wasm filename; that's why `my-counter` produces `my_counter.wasm`.)
 
-(If you get a different result, jump to [Debugging](./debugging.md) — the most common cause is forgetting `cargo build --release`, but `otigen test` invokes that for you by default.)
+(If you get a different result, jump to [Debugging](./debugging.md); the most common cause is forgetting `cargo build --release`, but `otigen test` invokes that for you by default.)
 
-The runner executes against `pyde-engine-wasm-exec::WasmExecutor` — the same code path mainnet uses. That's the `(via engine)` marker in the output line. The legacy in-process mock is still available via `--no-engine` for the handful of cases the engine can't yet host (today: parachains).
+The runner executes against `pyde-engine-wasm-exec::WasmExecutor`, the same code path mainnet uses. That's the `(via engine)` marker in the output line. The legacy in-process mock is still available via `--no-engine` for the handful of cases the engine can't yet host (today: parachains).
 
 ---
 
@@ -253,13 +253,13 @@ otigen test -vvvv     # + storage diffs (slot → before / after)
 otigen test --json    # NDJSON event stream for CI / scripted consumers
 ```
 
-To see successful calls' return values + gas, use `otigen test -v` — `-v` adds gas to the pass line; `-vvv` adds per-call traces (fn args + return + gas).
+To see successful calls' return values + gas, use `otigen test -v`: `-v` adds gas to the pass line; `-vvv` adds per-call traces (fn args + return + gas).
 
 ```bash
 otigen test --dry-run
 ```
 
-`--dry-run` parses + resolves every test without executing the WASM — useful for verifying that your `storage.<field>` assertions resolve to the same `Poseidon2`-derived slot the contract writes to.
+`--dry-run` parses + resolves every test without executing the WASM, which is useful for verifying that your `storage.<field>` assertions resolve to the same `Poseidon2`-derived slot the contract writes to.
 
 ---
 
@@ -274,13 +274,13 @@ expect.return_value = "1"
 expect.gas_max      = "250000"  # fail if increment grows past the current budget — pick a number your green run is comfortably under
 ```
 
-`expect.gas_max` is an upper-bound check — your contract can use any value ≤ the budget. Prefer `gas_max` over `expect.gas` (exact match) — exact is brittle to opcode-level codegen changes.
+`expect.gas_max` is an upper-bound check: your contract can use any value ≤ the budget. Prefer `gas_max` over `expect.gas` (exact match); exact is brittle to opcode-level codegen changes.
 
 ---
 
 ## 8. Next: custom types & complex arguments
 
-Real contracts pass more than primitives across the ABI. Two common needs — structs and enums — are declared in a `[types.<Name>]` block in `otigen.toml`, then referenced by bare name in function signatures.
+Real contracts pass more than primitives across the ABI. Two common needs, structs and enums, are declared in a `[types.<Name>]` block in `otigen.toml`, then referenced by bare name in function signatures.
 
 Here's a minimal `Order` struct + `Status` enum threaded through a `create_order` entry point.
 
@@ -308,11 +308,11 @@ inputs     = ["Order"]
 outputs    = ["Status"]
 ```
 
-Custom types are referenced by **bare name** in function `inputs` / `outputs` (`"Order"`, `"Status"`) and via the **`struct(<Name>)` wrapper** in `[state].schema` (e.g. `type = "struct(Order)"`). v1 enums are unit-only — no data-carrying variants. See [OTIGEN_BINARY_SPEC §4.13](../companion/OTIGEN_BINARY_SPEC.md) for the full schema.
+Custom types are referenced by **bare name** in function `inputs` / `outputs` (`"Order"`, `"Status"`) and via the **`struct(<Name>)` wrapper** in `[state].schema` (e.g. `type = "struct(Order)"`). v1 enums are unit-only: no data-carrying variants. See [OTIGEN_BINARY_SPEC §4.13](../companion/OTIGEN_BINARY_SPEC.md) for the full schema.
 
 ### Declare the matching Rust types
 
-Every custom type needs `#[derive(BorshSerialize, BorshDeserialize)]` — the macro substrate calls borsh on these types when decoding `#[pyde::entry]` arguments and round-tripping storage:
+Every custom type needs `#[derive(BorshSerialize, BorshDeserialize)]`; the macro substrate calls borsh on these types when decoding `#[pyde::entry]` arguments and round-tripping storage:
 
 ```rust
 use borsh::{BorshSerialize, BorshDeserialize};
@@ -357,7 +357,7 @@ otigen call <addr> create_order '{id:1,maker:devnet-0,amount:100,paid:false}'
   Return:  Pending
 ```
 
-Field order in the literal doesn't matter — `'{amount:100,maker:devnet-0,id:1,paid:false}'` works equivalently. Address-typed fields accept wallet names from the keystore OR `0x`-prefixed hex. Unquoted `0x` hex literals 16+ chars long don't need surrounding quotes inside the JSON5.
+Field order in the literal doesn't matter: `'{amount:100,maker:devnet-0,id:1,paid:false}'` works equivalently. Address-typed fields accept wallet names from the keystore OR `0x`-prefixed hex. Unquoted `0x` hex literals 16+ chars long don't need surrounding quotes inside the JSON5.
 
 ---
 
@@ -365,6 +365,6 @@ Field order in the literal doesn't matter — `'{amount:100,maker:devnet-0,id:1,
 
 You scaffolded a project, added a function, wrote tests for both the success and failure paths, and saw the contract execute end-to-end through the production WASM executor.
 
-The next chapter — [Shipping](./shipping.md) — covers the build pipeline and the deploy flow. Then [Inspect & Verify](./inspecting.md) shows how to read state from a deployed contract.
+The next chapter, [Shipping](./shipping.md), covers the build pipeline and the deploy flow. Then [Inspect & Verify](./inspecting.md) shows how to read state from a deployed contract.
 
 For the deeper why (host fn ABI, slot derivation, WASM constraints), see [WASM Contract Author Guide](../companion/WASM_AUTHOR_GUIDE.md).

@@ -1,6 +1,6 @@
 # State Sync & Chain Halt
 
-This chapter covers how new nodes join the network (state sync) and what happens when consensus encounters problems (chain halt + recovery). Both are operational concerns that the design must address explicitly — the HotStuff pre-pivot architecture lacked clear procedures for both, contributing to the wedges that motivated the pivot.
+This chapter covers how new nodes join the network (state sync) and what happens when consensus encounters problems (chain halt + recovery). Both are operational concerns that the design must address explicitly: the HotStuff pre-pivot architecture lacked clear procedures for both, contributing to the wedges that motivated the pivot.
 
 ## Part 1: State Sync
 
@@ -151,15 +151,15 @@ The HotStuff pre-pivot architecture suffered persistent wedges with no clear hal
 | **Slashing evidence acceptance** | **Continues** | **Continues** | **Continues** |
 | Gossip | Continues | Continues | Continues |
 
-**Key invariant:** slashing evidence accepted during halt — attackers cannot escape consequences by triggering a halt.
+**Key invariant:** slashing evidence is accepted during halt, so attackers cannot escape consequences by triggering a halt.
 
 ### Recovery Procedures
 
-1. **Wait it out** (soft stalls) — auto-recover
-2. **Software update + replay** (hard halts from bugs) — patch, verify, resume
-3. **Rollback** (max 1 epoch back, governance authorized) — controversial but bounded
-4. **Hard fork** (irreconcilable splits) — coordinated upgrade
-5. **Emergency unhalt** (false positives) — multisig releases
+1. **Wait it out** (soft stalls): auto-recover
+2. **Software update + replay** (hard halts from bugs): patch, verify, resume
+3. **Rollback** (max 1 epoch back, governance authorized): controversial but bounded
+4. **Hard fork** (irreconcilable splits): coordinated upgrade
+5. **Emergency unhalt** (false positives): multisig releases
 
 ### Rollback Policy
 
@@ -168,7 +168,7 @@ The HotStuff pre-pivot architecture suffered persistent wedges with no clear hal
 - Within window: governance multisig can authorize
 - Beyond window: only hard fork (community coordination required)
 
-This is "weak finality with sunset" — operational flexibility for early detection without arbitrary commit reversibility. Industry standard pattern.
+This is "weak finality with sunset": operational flexibility for early detection without arbitrary commit reversibility. Industry standard pattern.
 
 ### Test Plan
 
@@ -183,7 +183,7 @@ Mandatory drills before mainnet:
 
 ### The HotStuff Lesson Applied
 
-HotStuff broke because there was no clear halt procedure — patches accumulated under pressure. Pyde now has:
+HotStuff broke because there was no clear halt procedure. Patches accumulated under pressure. Pyde now has:
 - Automatic detection of safety violations
 - Explicit halt classification
 - Pre-rehearsed recovery procedures

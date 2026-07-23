@@ -7,12 +7,12 @@ parallelize execution.
 
 Pyde stores all state in a **Jellyfish Merkle Tree (JMT)**, persisted in
 RocksDB, with **hybrid hashing**: Blake3 on high-volume native paths,
-Poseidon2 on ZK-bearing paths. The state commitment is dual-rooted —
+Poseidon2 on ZK-bearing paths. The state commitment is dual-rooted:
 Blake3 for fast native verification by committee and validators, Poseidon2
 for future ZK light clients and validity proofs.
 
 The JMT replaces the fixed-depth Sparse Merkle Tree the project initially
-shipped — a swap made because JMT's radix-16 path compression delivers
+shipped, a swap made because JMT's radix-16 path compression delivers
 roughly 40× faster commits. Hybrid hashing was adopted post-pivot once the
 performance cost of running Poseidon2 over every internal JMT node became
 clear; Blake3 is ~50× faster on commodity CPUs without sacrificing the
@@ -32,14 +32,14 @@ Why JMT over a fixed-depth Sparse Merkle Tree?
 
 | Property                | Fixed-depth SMT (256 levels) | JMT (radix-16, compressed) |
 | ----------------------- | ---------------------------- | -------------------------- |
-| Node hashes per update  | 256                          | depth-of-key (typ. 8–14)   |
+| Node hashes per update  | 256                          | depth-of-key (typ. 8 to 14)|
 | Empty subtree storage   | implicit (precomputed)       | implicit (no materialize)  |
 | Update batching         | per-key                      | bulk via `update_all`      |
 | Throughput (commits)    | baseline                     | ~40× faster                |
-| Proof size              | fixed (256 sibling hashes)   | variable (typ. 8–14)       |
+| Proof size              | fixed (256 sibling hashes)   | variable (typ. 8 to 14)    |
 | Non-existence proofs    | empty leaf hash              | path divergence proof      |
 
-The headline number — 40× faster commits — was the deciding factor. JMT
+The headline number, 40× faster commits, was the deciding factor. JMT
 removes the per-key 256-Poseidon2 cost, replacing it with a path that follows
 the actual key density in the tree.
 
@@ -94,7 +94,7 @@ Pyde maintains state in **two RocksDB column families**, each optimized for a di
 
 **Why two tables instead of one:**
 
-The JMT alone can serve every read, but each read is `O(depth)` — typically 6-8 RocksDB gets to walk from root to leaf. For live execution at thousands of TPS, that's too expensive.
+The JMT alone can serve every read, but each read is `O(depth)`: typically 6-8 RocksDB gets to walk from root to leaf. For live execution at thousands of TPS, that's too expensive.
 
 `state_cf` keeps a flat denormalized index of the *current* value for every slot. A single get returns the value. PIP-2's clustered slot_hash layout keeps `state_cf` entries spatially clustered by contract, so range scans and multigets stay cheap.
 
@@ -131,7 +131,7 @@ fn commit_wave(dirty_changes: Vec<(SlotHash, Bytes)>):
 
 The two tables stay in lockstep. They are never out of sync because every write touches both atomically.
 
-**Cost of duplication:** roughly 2× storage for the state itself (the leaves' values appear in both `state_cf` and the JMT's leaf records). This is the trade-off — extra storage in exchange for O(1) live reads while still preserving authenticated proofs.
+**Cost of duplication:** roughly 2× storage for the state itself (the leaves' values appear in both `state_cf` and the JMT's leaf records). This is the trade-off: extra storage in exchange for O(1) live reads while still preserving authenticated proofs.
 
 **Retention split:**
 
@@ -164,8 +164,8 @@ events_by_contract_cf (index)
 **Atomicity:** at every wave commit, the engine writes one RocksDB `WriteBatch` containing updates to `state_cf` + `jmt_cf` + `events_cf` + `events_by_topic_cf` + `events_by_contract_cf` + the wave commit record. Either all five land or none does.
 
 **On-chain commitment:** each wave commit record carries two summaries of the wave's events:
-- `events_root` (Blake3) — binary Merkle tree over canonical-ordered events, suitable for inclusion proofs.
-- `events_bloom` (256-byte, 2048-bit, 3-hash) — probabilistic summary for cheap "any event matching X in this wave?" checks.
+- `events_root` (Blake3): binary Merkle tree over canonical-ordered events, suitable for inclusion proofs.
+- `events_bloom` (256-byte, 2048-bit, 3-hash): probabilistic summary for cheap "any event matching X in this wave?" checks.
 
 Both are threshold-signed as part of the wave's `HardFinalityCert`, so light clients verify event inclusion identically to how they verify state.
 
@@ -180,7 +180,7 @@ Both are threshold-signed as part of the wave's `HardFinalityCert`, so light cli
 
 Pruning is in lockstep across all three event column families.
 
-For query semantics (`pyde_getLogs`), subscriptions (`pyde_subscribe`), and the Borsh-recommended event encoding, see [Host Function ABI Spec §14–§15](../companion/HOST_FN_ABI_SPEC.md).
+For query semantics (`pyde_getLogs`), subscriptions (`pyde_subscribe`), and the Borsh-recommended event encoding, see [Host Function ABI Spec §14 to §15](../companion/HOST_FN_ABI_SPEC.md).
 
 ---
 
@@ -200,7 +200,7 @@ is Poseidon2.
 
 ### Poseidon2 (Goldilocks)
 
-Poseidon2 is the algebraic hash used everywhere in Pyde — the JMT, contract
+Poseidon2 is the algebraic hash used everywhere in Pyde: the JMT, contract
 storage-key derivation, transaction hashing, the threshold MAC, the VRF, and
 the `poseidon2` WASM host function. The parameter set (see Chapter 8 for full
 detail):
@@ -244,7 +244,7 @@ Used in the high-volume paths where ZK-friendliness is irrelevant:
 
 Blake3 is configured in its default tree-hashing mode with 256-bit output.
 Native verification of a JMT inclusion proof against the Blake3 state root
-takes ~5-10 hash operations and completes in microseconds — fast enough
+takes ~5-10 hash operations and completes in microseconds, fast enough
 that the snapshot manifest verification (Chapter 7) doesn't dominate sync
 time.
 
@@ -271,7 +271,7 @@ struct Account {
 Fixed portion: 141 bytes plus the variable `auth_keys` field.
 
 The address is a 32-byte Poseidon2 hash. There are four domain-separated
-derivation families (no CREATE / CREATE2, no deploy nonce — see Chapter 11):
+derivation families (no CREATE / CREATE2, no deploy nonce; see Chapter 11):
 
 ```
 EOA address      = Poseidon2(falcon_public_key_bytes)                       // 897-byte FALCON pk
@@ -317,7 +317,7 @@ Some discriminators currently in use (defined in `crates/state/src/keys.rs`):
 | 0x1E          | `MULTISIG_NONCE`          | Replay-protection counter for multisig actions |
 | 0x1F          | `EMERGENCY_PAUSE_END_WAVE`| End wave_id of an active emergency pause       |
 
-This flat scheme means a single Merkle path can prove any state claim — there
+This flat scheme means a single Merkle path can prove any state claim: there
 is no nested account-trie / storage-trie indirection (the classic
 Patricia-trie pattern). One proof, one `Poseidon2`-walk to the root.
 
@@ -362,14 +362,14 @@ pub struct BlockWitness {
 
 The shape:
 
-- `entries` — every state slot the block touched, with its pre-execution
+- `entries`: every state slot the block touched, with its pre-execution
   value.
-- `proof` — a single batched Merkle proof covering all entries against
+- `proof`: a single batched Merkle proof covering all entries against
   `pre_state_root`. JMT supports batch verification, so the proof is
   asymptotically smaller than `len(entries)` independent paths.
-- `pre_state_root` — the state root *before* this block executes (taken from
+- `pre_state_root`: the state root *before* this block executes (taken from
   the parent block's header).
-- `post_state_root` — the state root *after* execution, set by
+- `post_state_root`: the state root *after* execution, set by
   `set_post_state_root()` or `finalize_witness()` once the block is executed.
 
 Critically, `post_state_root` is **not** auto-populated at witness generation
@@ -403,13 +403,13 @@ The JMT and witness logic both persist through RocksDB
 | `0x12` | Metadata (version counter, latest root)  |
 
 LRU caches sit in front of node and value reads (256k entries each, sized for
-the working set of an active validator). Compression is LZ4 for the L0–L1
+the working set of an active validator). Compression is LZ4 for the L0 to L1
 levels and ZSTD for cold levels; the block cache is 512 MB and the memtable
 pool is 256 MB. These are tuned for the steady-state validator workload, not
 for peak burst sync.
 
 Writes to consensus-critical state use `WriteOptions::set_sync(true)` (see
-Chapter 6) — JMT updates do not, because the canonical truth is the chain
+Chapter 6). JMT updates do not, because the canonical truth is the chain
 itself; on restart, a validator can rebuild any missing state from blocks.
 
 ---
@@ -419,7 +419,7 @@ itself; on restart, a validator can rebuild any missing state from blocks.
 When a wave commits, the state pipeline runs in this order:
 
 1. Open a batch against the current JMT (the wave's `pre_state_root`).
-2. **Prefetch** every `(addr, slot)` pair declared across the wave's tx access lists in one batched `state_cf.multi_get` (PIP-3). Returned values land in the dashmap (PIP-4) marked Clean. Access lists are prefetch hints only — they never partition the wave or affect correctness.
+2. **Prefetch** every `(addr, slot)` pair declared across the wave's tx access lists in one batched `state_cf.multi_get` (PIP-3). Returned values land in the dashmap (PIP-4) marked Clean. Access lists are prefetch hints only; they never partition the wave or affect correctness.
 3. **Execute** every tx in parallel via the [Block-STM scheduler](../companion/BLOCK_STM_EXECUTION.md): optimistic execute through an MVCC layer → validate against canonical tx_index order → cascade-invalidate + re-incarnate on conflict → fixpoint. The final state per slot is the highest-tx_index's last write.
 4. Apply the Block-STM finalize output to the batch as one ordered slot-write set.
 5. Distribute fees: 70% to the burn counter (`TOTAL_BURNED` discriminator),
@@ -434,7 +434,7 @@ The Block-STM correctness contract guarantees that two honest validators given t
 
 ## 4.8 State Sync
 
-A new node joining the network does not replay every block from genesis —
+A new node joining the network does not replay every block from genesis:
 at production TPS, full replay would take longer than the chain has
 existed. Pyde defines three sync modes (full spec: [companion/STATE_SYNC.md](../companion/STATE_SYNC.md),
 operational summary: Chapter 7):
@@ -476,13 +476,13 @@ A few things deliberately do **not** live in the JMT:
   history. Persistent receipt storage (archive-node mode) is tracked as
   post-mainnet hardening.
 
-- **Mempool contents.** Pending transactions — including private-mempool
-  commit and reveal transactions — live in process memory, bounded per sender
+- **Mempool contents.** Pending transactions (including private-mempool
+  commit and reveal transactions) live in process memory, bounded per sender
   by the rate-limiting subsystem (10 tx/s, 100 concurrent per sender).
 
 - **Consensus protocol state.** `pending_votes`, `seen_proposals`,
   `seen_votes`, and pending evidence live in their own RocksDB column under
-  the consensus_store, with `set_sync(true)` writes — see Chapter 6.
+  the consensus_store, with `set_sync(true)` writes (see Chapter 6).
 
 - **Finality checkpoints.** Stored in the consensus_store with their own key
   (`FINALITY_CHECKPOINT_KEY`), not in the JMT itself.
@@ -502,7 +502,7 @@ be globally agreed.
 | Internal-node hash    | Blake3 (high-volume, native)                                  |
 | State root            | Dual: Blake3 (native) + Poseidon2 (ZK-bearing)                |
 | Address-derivation    | Poseidon2 (ZK exposure preserved)                             |
-| Storage layout        | Flat — single tree, discriminator bytes in keys               |
+| Storage layout        | Flat: single tree, discriminator bytes in keys                |
 | Address format        | 32 bytes, Poseidon2 of the FALCON-512 public key              |
 | Account record size   | 141 bytes fixed + variable `auth_keys`                        |
 | Storage keying        | `Poseidon2(addr, slot)` for values; doubled for maps          |
@@ -512,6 +512,6 @@ be globally agreed.
 | Block-app commit cost | ~40× faster commits than the prior fixed-depth SMT design     |
 
 The next chapter covers the developer toolchain (`otigen`) that sits on top
-of this state model — how a contract's `[state]` declaration in `otigen.toml`
+of this state model: how a contract's `[state]` declaration in `otigen.toml`
 becomes the slot identifiers the JMT actually sees, via language-specific
 state binding generators that pre-compute slot prefix constants at build time.

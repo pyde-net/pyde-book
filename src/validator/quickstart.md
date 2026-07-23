@@ -14,7 +14,7 @@ If you just want to confirm Pyde's multi-validator path works on your machine be
 pyde validator-cluster --n 4
 ```
 
-That spins up a 4-validator devnet in one process — generates the FALCON + libp2p keypairs, writes a genesis manifest, full-mesh-dials every pair, applies the BFT producer quorum, and runs real FALCON beacons + the real DKG ceremony. The cluster commits waves within ~45 seconds; Ctrl+C cleanly shuts everything down and prints each validator's final `waves_committed` count.
+That spins up a 4-validator devnet in one process: it generates the FALCON + libp2p keypairs, writes a genesis manifest, full-mesh-dials every pair, applies the BFT producer quorum, and runs real FALCON beacons + the real DKG ceremony. The cluster commits waves within ~45 seconds; Ctrl+C cleanly shuts everything down and prints each validator's final `waves_committed` count.
 
 ```text
 ═══════════════════════════════════════════════════════════════
@@ -50,13 +50,13 @@ Flags worth knowing:
 | `--epoch-length-waves <N>` | 5 | Waves per epoch. Production is 100; clusters use 5 so epoch boundaries arrive in seconds. |
 | `--chain-id <N>` | 31337 | Chain id baked into the generated genesis. |
 
-The rest of this guide walks the production-shape setup — separate processes, real keypair management, on-chain registration — that you'd use for a real soft testnet.
+The rest of this guide walks the production-shape setup (separate processes, real keypair management, on-chain registration) that you'd use for a real soft testnet.
 
 ---
 
 ## 0. Prerequisites
 
-You need ~4 GB free disk and inbound network reachability (a public IP or a forwarded port — Pyde is libp2p-based, peers need to dial you back). Pyde ships as a prebuilt binary; no Rust toolchain required.
+You need ~4 GB free disk and inbound network reachability (a public IP or a forwarded port; Pyde is libp2p-based, so peers need to dial you back). Pyde ships as a prebuilt binary; no Rust toolchain required.
 
 Install the `pyde` binary from the public release mirror:
 
@@ -64,7 +64,7 @@ Install the `pyde` binary from the public release mirror:
 curl -fsSL https://raw.githubusercontent.com/pyde-net/test-releases/main/engine/install.sh | bash
 ```
 
-The installer probes the GitHub API anonymously — no token needed. It downloads the latest `engine-vX.Y.Z` release for your platform, verifies the SHA-256 checksum, places `pyde` at `~/.pyde/bin/pyde`, and adds that directory to your shell rc. Open a new shell (or `source` your rc) and:
+The installer probes the GitHub API anonymously. No token needed. It downloads the latest `engine-vX.Y.Z` release for your platform, verifies the SHA-256 checksum, places `pyde` at `~/.pyde/bin/pyde`, and adds that directory to your shell rc. Open a new shell (or `source` your rc) and:
 
 ```bash
 pyde --version
@@ -94,7 +94,7 @@ pyde keys generate \
   --password-stdin <<< 'change-me-to-a-real-passphrase'
 ```
 
-This writes an Argon2id + AES-256-GCM encrypted FALCON keypair. Treat it the way you'd treat a hardware-wallet seed phrase — it's the single secret that controls your validator's stake.
+This writes an Argon2id + AES-256-GCM encrypted FALCON keypair. Treat it the way you'd treat a hardware-wallet seed phrase: it's the single secret that controls your validator's stake.
 
 To inspect the public material (no password required):
 
@@ -170,7 +170,7 @@ curl -s http://peer.example.com:9933 \
 }
 ```
 
-The lightweight manifest RPC is cheap on both sides — no chunks are transmitted. **Reconcile the `wave_id` and `state_root` against a reference you trust independently** (a public mirror, an audited validator, a committee-signed checkpoint from your own infrastructure). The whole point of the weak-subjectivity flow is that the peer serving the snapshot is untrusted; your reconciliation is what makes it safe.
+The lightweight manifest RPC is cheap on both sides: no chunks are transmitted. **Reconcile the `wave_id` and `state_root` against a reference you trust independently** (a public mirror, an audited validator, a committee-signed checkpoint from your own infrastructure). The whole point of the weak-subjectivity flow is that the peer serving the snapshot is untrusted; your reconciliation is what makes it safe.
 
 Once you've verified the manifest matches your reference, you'll pass the pair to `pyde validator` as `--state-sync-checkpoint <wave_id>:<state_root_hex>` in step **4**. Save the values:
 
@@ -255,7 +255,7 @@ Flags worth knowing:
 | `--listen <MULTIADDR>` | What address `pyde` binds for incoming peer connections. `tcp/0` lets the OS pick a port; pin a specific one if you're behind a NAT and need to forward it. |
 | `--rpc-listen <ADDR>` | JSON-RPC bind. Required if you want to use `pyde stake` against your own node. Skip if you'd rather talk to a separate RPC node. |
 | `--state-sync <FILE_OR_URL>` | Path B only. Local borsh file OR an HTTP(S) URL pointing at a peer's RPC. The validator fetches the snapshot, applies it, then tail-replays missing waves before joining consensus. |
-| `--state-sync-checkpoint <WAVE_ID>:<HEX>` | Pin the snapshot's expected `(wave_id, state_root)`. Refuses to boot on mismatch. Always supply this with `--state-sync` — without it you're trusting the peer URL. |
+| `--state-sync-checkpoint <WAVE_ID>:<HEX>` | Pin the snapshot's expected `(wave_id, state_root)`. Refuses to boot on mismatch. Always supply this with `--state-sync`. Without it you're trusting the peer URL. |
 | `--validator-id <N>` | Your committee slot. For Path A you and the other founders pick distinct ids; for Path B the chain assigns it when you register (set to 0 here, then re-launch with the assigned id after registration). |
 | `--falcon-beacon` | Use the production FALCON-512 beacon scheme (vs. the mock for dev). Always on for testnet+. |
 
@@ -314,7 +314,7 @@ ValidatorRecord
   last_claimed_rps:  0
 ```
 
-Path A note: founding-committee operators are already registered at genesis — skip this step.
+Path A note: founding-committee operators are already registered at genesis, so skip this step.
 
 ---
 
@@ -346,7 +346,7 @@ curl -s http://localhost:9933 \
 "127"
 ```
 
-Zero failures detected, attestations flowing — you're a good citizen.
+Zero failures detected, attestations flowing: you're a good citizen.
 
 ---
 
@@ -356,7 +356,7 @@ Every lifecycle transition is one `pyde stake` subcommand. The full surface:
 
 | Subcommand | Effect |
 |---|---|
-| `pyde stake status` | Read-only — query your on-chain `ValidatorRecord`. No signing. |
+| `pyde stake status` | Read-only: query your on-chain `ValidatorRecord`. No signing. |
 | `pyde stake register` | Submit `StakeDeposit`. Must hold `≥ MIN_VALIDATOR_STAKE + gas` at the operator address. |
 | `pyde stake rotate --new-pubkey …` | Swap your FALCON keypair. Authorised by the OLD key; after success the new key controls the address. Run while `Active`. |
 | `pyde stake unbond` | Begin the unbonding period. Validator transitions to `Unbonding`; stake stays locked through `UNBONDING_PERIOD_WAVES = 5,184,000` waves. |

@@ -1,6 +1,6 @@
 # Pyde Toolchain Threat Model
 
-**Scope:** the `otigen` developer toolchain in `pyde-net/otigen` —
+**Scope:** the `otigen` developer toolchain in `pyde-net/otigen`,
 the binary contract authors run on their dev machines to scaffold,
 build, sign, and submit Pyde transactions.
 
@@ -32,9 +32,9 @@ and this doc just cross-links.
 ### Out of scope (author / operational responsibility)
 
 - The security posture of the developer machine itself (OS-level compromise, file-permission misconfiguration, malicious browser extension).
-- The integrity of the author's compiled `.wasm` — if the source code itself is malicious, `otigen` only validates *shape*, not *intent*. The chain side enforces runtime behavior.
+- The integrity of the author's compiled `.wasm`: if the source code itself is malicious, `otigen` only validates *shape*, not *intent*. The chain side enforces runtime behavior.
 - The chain's view-call-graph + runtime enforcement of attribute guarantees (those are in [`HOST_FN_ABI_SPEC.md`](./HOST_FN_ABI_SPEC.md) §3.7 layer 3, not here).
-- Network-level attacks against the chain (eclipse, sybil, gossip flood) — covered in [`THREAT_MODEL.md`](./THREAT_MODEL.md).
+- Network-level attacks against the chain (eclipse, sybil, gossip flood); covered in [`THREAT_MODEL.md`](./THREAT_MODEL.md).
 - Endpoint compromise of a node operator running `pyde` (covered in the chain-side model).
 
 ### Asset value classification
@@ -104,7 +104,7 @@ Each threat ID prefixed `T-` (toolchain). Numbered for cross-reference. Severity
 **Mitigations:**
 - `otigen-abi::validate_all` runs all 8 spec §3.2 checks (well-formedness, imports allowlist, parachain-only fn detection, exports cross-reference, deterministic feature subset). Bail-on-first-violation with a collected error list.
 - Continuous fuzzing target `fuzz_wasm_validator` runs against arbitrary bytes; ≥24h cumulative run required before α release.
-- **The chain re-runs every check at deploy time** ([`HOST_FN_ABI_SPEC.md`](./HOST_FN_ABI_SPEC.md) §3.7 layers 1–3). Even a toolchain bypass cannot escape on-chain rejection.
+- **The chain re-runs every check at deploy time** ([`HOST_FN_ABI_SPEC.md`](./HOST_FN_ABI_SPEC.md) §3.7 layers 1 to 3). Even a toolchain bypass cannot escape on-chain rejection.
 
 **Residual risk:** A novel WASM attack pattern that bypasses both wasmparser and our own validators. Defense-in-depth (chain side re-check) keeps this from being chain-affecting.
 
@@ -114,7 +114,7 @@ Each threat ID prefixed `T-` (toolchain). Numbered for cross-reference. Severity
 
 **Severity:** H if successful (chain accepts a contract whose claimed ABI doesn't match its actual exports)
 
-**Description:** A bug in `inject` (or its underlying `wasm-encoder` crate) mangles the code section while appending the custom section, producing a `.wasm` that decodes differently than the original — e.g., a different function gets selected for `ping`.
+**Description:** A bug in `inject` (or its underlying `wasm-encoder` crate) mangles the code section while appending the custom section, producing a `.wasm` that decodes differently than the original (e.g., a different function gets selected for `ping`).
 
 **Mitigations:**
 - The implementation walks the input via `wasmparser` and passes every section through as `RawSection` (the encoder writes the original bytes verbatim, not a re-encoding).
@@ -148,7 +148,7 @@ Each threat ID prefixed `T-` (toolchain). Numbered for cross-reference. Severity
 
 **Mitigations:**
 - RPC endpoints use TLS (`https://` URLs); plain `http://` is allowed only for `localhost` devnets.
-- The transaction itself is FALCON-512 signed before transmission, so an attacker cannot modify the payload without breaking the signature — at worst they cause a deploy failure, not unauthorized deploy.
+- The transaction itself is FALCON-512 signed before transmission, so an attacker cannot modify the payload without breaking the signature; at worst they cause a deploy failure, not unauthorized deploy.
 - Nonce uniqueness prevents replay (chain rejects a tx with a nonce already used by the sender).
 
 **Residual risk:** TLS certificate substitution against an author who ignores certificate warnings. Standard endpoint-pinning operational hygiene applies.
@@ -163,11 +163,11 @@ Each threat ID prefixed `T-` (toolchain). Numbered for cross-reference. Severity
 
 **Mitigations (shipped in `otigen-wallet`):**
 - Each keystore entry's secret key is AES-256-GCM encrypted; the key is derived via Argon2id over the user's password with a per-entry random salt + tunable memory / iterations / parallelism parameters (`OTIGEN_BINARY_SPEC.md` §7.1).
-- Argon2id parameters: 64 MiB memory + 3 iterations + parallelism 4 — matches OWASP 2024/2025 guidance. Constants asserted via `kdf::tests::parameters_are_owasp_2024_recommended` so a future PR can't silently weaken them.
-- Per-entry fresh 16-byte salt + fresh 12-byte AES-GCM nonce, both generated via `rand::thread_rng()` (ChaCha12 seeded from `getrandom` — OS CSPRNG). 96 bits of nonce randomness leaves an effective 2^48 safety margin before birthday collision risk; AES-GCM nonce reuse only matters within the same key, which here is per-entry.
-- Decrypted AES-256-GCM session key wrapped in `zeroize::Zeroizing` — scrubbed when the wrapper drops; lives for one encrypt / decrypt call.
-- `FalconSecretKey` (in `pyde-crypto`) derives `Zeroize + ZeroizeOnDrop` — the FALCON-512 secret key bytes are also scrubbed when the in-memory value drops, not just left in freed heap pages where a swap-out or core dump could read them.
-- Decrypt failures collapse into one `Error::DecryptionFailed` variant regardless of cause (wrong key vs tampered ciphertext) — closes the timing-oracle that would otherwise distinguish "wrong password" from "tampered keystore" via per-call latency.
+- Argon2id parameters: 64 MiB memory + 3 iterations + parallelism 4, which matches OWASP 2024/2025 guidance. Constants asserted via `kdf::tests::parameters_are_owasp_2024_recommended` so a future PR can't silently weaken them.
+- Per-entry fresh 16-byte salt + fresh 12-byte AES-GCM nonce, both generated via `rand::thread_rng()` (ChaCha12 seeded from `getrandom`, the OS CSPRNG). 96 bits of nonce randomness leaves an effective 2^48 safety margin before birthday collision risk; AES-GCM nonce reuse only matters within the same key, which here is per-entry.
+- Decrypted AES-256-GCM session key wrapped in `zeroize::Zeroizing`, scrubbed when the wrapper drops; lives for one encrypt / decrypt call.
+- `FalconSecretKey` (in `pyde-crypto`) derives `Zeroize + ZeroizeOnDrop`: the FALCON-512 secret key bytes are also scrubbed when the in-memory value drops, not just left in freed heap pages where a swap-out or core dump could read them.
+- Decrypt failures collapse into one `Error::DecryptionFailed` variant regardless of cause (wrong key vs tampered ciphertext); this closes the timing-oracle that would otherwise distinguish "wrong password" from "tampered keystore" via per-call latency.
 - AES-GCM's authentication tag check uses `aes-gcm` crate's constant-time comparison; the cipher rejects any tampered ciphertext before producing plaintext.
 
 **Coverage:** `crates/otigen-wallet/src/` ships 43 tests covering: KDF determinism + parameter pins, encrypt / decrypt round-trip, wrong-key + tampered-ciphertext rejection, freshness of salt + nonce, end-to-end create / load / rotate-password / delete, FALCON signature round-trip through `falcon_verify`, multi-account isolation.
@@ -184,7 +184,7 @@ Each threat ID prefixed `T-` (toolchain). Numbered for cross-reference. Severity
 
 **Mitigations:**
 - Signed binary releases (`α.qual.release` gate) ship with sigstore signatures + sha256sums; the user can verify the binary before running.
-- Documentation directs users to install via the canonical curl one-liner against the public release mirror at [`pyde-net/test-releases`](https://github.com/pyde-net/test-releases) — anonymous fetch over the GitHub CDN, sha256 verified before extraction — or via `cargo install --git` from the source repo for contributors.
+- Documentation directs users to install via the canonical curl one-liner against the public release mirror at [`pyde-net/test-releases`](https://github.com/pyde-net/test-releases) (anonymous fetch over the GitHub CDN, sha256 verified before extraction), or via `cargo install --git` from the source repo for contributors.
 - No telemetry; no password ever leaves the local process.
 
 **Residual risk:** User installs from an untrusted source. Operational responsibility.
@@ -193,7 +193,7 @@ Each threat ID prefixed `T-` (toolchain). Numbered for cross-reference. Severity
 
 ### T-08: Malicious dependency in the cargo graph
 
-**Severity:** H — a malicious dep can do anything `otigen` can do
+**Severity:** H (a malicious dep can do anything `otigen` can do)
 
 **Description:** A direct or transitive dependency of `otigen` (e.g., `wasmparser`, `serde`, `toml`, `borsh`) is compromised in a future release. The build now contains a backdoor.
 
@@ -247,7 +247,7 @@ Each threat ID prefixed `T-` (toolchain). Numbered for cross-reference. Severity
 
 **Mitigations:**
 - The `--out` flag is explicit and visible; running with a flag is the author's deliberate choice.
-- The output is a directory under `--out`, named after the contract — no symlink-following, no path traversal in the bundle filename.
+- The output is a directory under `--out`, named after the contract: no symlink-following, no path traversal in the bundle filename.
 
 **Residual risk:** Acceptable. This is a normal `--out` flag, not an attack surface.
 
@@ -272,7 +272,7 @@ Each threat ID prefixed `T-` (toolchain). Numbered for cross-reference. Severity
 | T-03 inject corrupts code section | ✅ RawSection pass-through + property test + chain-side re-extract |
 | T-04 substituted .wasm | ⏳ `otigen verify` lands post-MC-2 |
 | T-05 RPC MITM | ⏳ enforce HTTPS-or-localhost when otigen-rpc lands |
-| T-06 keystore tampering | ✅ Argon2id (64 MiB / 3 / 4 — OWASP 2024) + AES-256-GCM with fresh per-entry salt + nonce + zeroize on both AES session key and `FalconSecretKey` + constant-time decrypt + single error variant (no timing oracle). 43 tests in `crates/otigen-wallet/src/`. Per-entry crypto details: §3 above |
+| T-06 keystore tampering | ✅ Argon2id (64 MiB / 3 / 4, per OWASP 2024) + AES-256-GCM with fresh per-entry salt + nonce + zeroize on both AES session key and `FalconSecretKey` + constant-time decrypt + single error variant (no timing oracle). 43 tests in `crates/otigen-wallet/src/`. Per-entry crypto details: §3 above |
 | T-07 phished password | ⏳ signed binary releases (α.qual.release) |
 | T-08 malicious cargo dep | ⏳ cargo-audit + cargo-deny in CI (α.qual.ci) |
 | T-09 dependency confusion | ✅ documentation only |

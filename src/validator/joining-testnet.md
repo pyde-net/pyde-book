@@ -1,6 +1,6 @@
 # Joining a Public Testnet
 
-How to point your validator at a specific Pyde public testnet — fetch the genesis manifest, verify it's the one the network was bootstrapped against, configure your bootnodes, register your stake on-chain.
+How to point your validator at a specific Pyde public testnet: fetch the genesis manifest, verify it's the one the network was bootstrapped against, configure your bootnodes, register your stake on-chain.
 
 This chapter assumes you've already followed the [Quickstart](quickstart.md) through step 1 (you have the `pyde` binary installed and a FALCON keypair generated). It picks up where the quickstart's *Path B: Join an existing network* branch starts.
 
@@ -56,7 +56,7 @@ shasum -a 256 -c genesis.toml.sha256
 genesis.toml: OK
 ```
 
-If it says `FAILED`, **stop immediately** — re-download from the canonical mirror; if it still fails, post on the operator channel before proceeding.
+If it says `FAILED`, **stop immediately**. Re-download from the canonical mirror; if it still fails, post on the operator channel before proceeding.
 
 The checksum alone proves the file matches the published one; it doesn't prove who published it. That's what the sigstore signature is for.
 
@@ -123,13 +123,13 @@ dispute_window:    6 epochs
 
 The `chain_identity` (a Blake3 hash over the canonical-encoded manifest) is what every other validator's `consensus_store` is keyed against. If yours disagrees by even one bit, the chain will refuse to peer with you.
 
-For the published testnet, the `chain_identity` is also printed in the release notes on the mirror. Cross-reference them — they must match.
+For the published testnet, the `chain_identity` is also printed in the release notes on the mirror. Cross-reference them. They must match.
 
 ---
 
 ## 5. Configure your validator's network access
 
-The release also publishes a `bootnodes.txt` file — a plain-text list of stable libp2p multiaddrs run by the testnet bootstrappers. Your validator dials these on first boot; once you've peered, gossipsub finds the rest of the network.
+The release also publishes a `bootnodes.txt` file: a plain-text list of stable libp2p multiaddrs run by the testnet bootstrappers. Your validator dials these on first boot; once you've peered, gossipsub finds the rest of the network.
 
 ```bash
 curl -fsSL -O "${BASE}/bootnodes.txt"
@@ -160,7 +160,7 @@ pyde validator \
   <<< 'your-falcon-passphrase'
 ```
 
-The `--state-sync-checkpoint` is a weak-subjectivity gate: it pins the exact `wave_id:state_root` your state-sync source must produce before you'll trust its snapshot. The release publishes a fresh checkpoint at every cadence; an operator who fetches a stale checkpoint sees their validator refuse to apply the snapshot, which is correct — checkpoints are a trust narrowing, not a convenience.
+The `--state-sync-checkpoint` is a weak-subjectivity gate: it pins the exact `wave_id:state_root` your state-sync source must produce before you'll trust its snapshot. The release publishes a fresh checkpoint at every cadence; an operator who fetches a stale checkpoint sees their validator refuse to apply the snapshot, which is correct: checkpoints are a trust narrowing, not a convenience.
 
 See [Day-2 Operations](operations.md) for the production setup (systemd, log rotation, monitoring) once your validator is healthy.
 
@@ -181,10 +181,10 @@ What the verification flow protects against:
 | Threat | How the flow stops it |
 |---|---|
 | Corrupted download | SHA-256 fails → operator sees the failure, re-downloads |
-| Genesis file swapped on the mirror | SHA-256 still validates against the swapped file — but the sigstore signature was minted against the original; verify-blob fails |
+| Genesis file swapped on the mirror | SHA-256 still validates against the swapped file, but the sigstore signature was minted against the original; verify-blob fails |
 | Mirror compromised, signature swapped too | Sigstore certs are minted against the GitHub Actions OIDC token at workflow-run time, which is logged immutably in Rekor; cosign cross-checks. An attacker would need to compromise GitHub Actions itself + Rekor. |
 | Operator skips verification, runs a swapped genesis | Their `chain_identity` diverges from real-network validators; gossipsub refuses the peering handshake. The chain rejects them. |
 
-The honest gap: an attacker with full control of `pyde-net/test-releases` AND the ability to mint sigstore certs against `pyde-net/engine`'s OIDC could swap the entire release. That's the same trust root as the validator binary itself — if you trust the binary you installed, the genesis bound to it has the same trust level.
+The honest gap: an attacker with full control of `pyde-net/test-releases` AND the ability to mint sigstore certs against `pyde-net/engine`'s OIDC could swap the entire release. That's the same trust root as the validator binary itself: if you trust the binary you installed, the genesis bound to it has the same trust level.
 
 Pre-mainnet that's an acceptable v1 bar. v2 hardening (multiple genesis-publisher attestations, a deterministic publish from a quorum of bootstrappers) is planned.

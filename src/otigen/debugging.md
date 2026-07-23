@@ -2,7 +2,7 @@
 
 Errors you'll hit, in the order you typically hit them. Each entry has the symptom (verbatim error message), the cause, and the fix.
 
-If your error isn't here, raise the global verbosity (`-v` / `-vv`) — every subcommand emits INFO + DEBUG level logs that usually expose the root cause.
+If your error isn't here, raise the global verbosity (`-v` / `-vv`): every subcommand emits INFO + DEBUG level logs that usually expose the root cause.
 
 ---
 
@@ -99,7 +99,7 @@ rustup target add wasm32-unknown-unknown
 
 ## 2. Build errors
 
-`otigen build` and `otigen check` print `otigen [ERROR] BuildRejected: <N> validation issue(s)` followed by bullets — one bullet per violated rule. The variants below match the `Display` of the engine's [`ValidationError`](https://github.com/pyde-net/otigen/blob/main/crates/otigen-abi/src/validate.rs) enum.
+`otigen build` and `otigen check` print `otigen [ERROR] BuildRejected: <N> validation issue(s)` followed by bullets, one bullet per violated rule. The variants below match the `Display` of the engine's [`ValidationError`](https://github.com/pyde-net/otigen/blob/main/crates/otigen-abi/src/validate.rs) enum.
 
 ### `import "<module>"."<name>" is forbidden; the only allowed module is "pyde"`
 
@@ -139,7 +139,7 @@ rustup target add wasm32-unknown-unknown
 
 ### `function "<name>" is declared in otigen.toml but the WASM module does not export it`
 
-**Cause:** the inverse — `otigen.toml` declares a function but the WASM doesn't export it.
+**Cause:** the inverse: `otigen.toml` declares a function but the WASM doesn't export it.
 
 **Fix:** in your source, mark the function with the language's WASM-export attribute. For Rust, `#[pyde::entry] fn <name>(...)` is the canonical shape (the macro adds `#[no_mangle] pub extern "C"` for you).
 
@@ -147,7 +147,7 @@ rustup target add wasm32-unknown-unknown
 
 **Cause:** the WASM uses a feature outside the deterministic subset (threads, SIMD, GC, reference types, multi-memory, memory64, component model).
 
-**Fix:** find the language compiler flag that disables the feature. For AssemblyScript, check `asconfig.json` — `simd: false`, `threads: false`.
+**Fix:** find the language compiler flag that disables the feature. For AssemblyScript, check `asconfig.json`: `simd: false`, `threads: false`.
 
 ---
 
@@ -209,7 +209,7 @@ function abort(
 
 This substitutes the default `env.abort` with an in-contract `abort()` that traps via `unreachable()`. No env import, deterministic crash.
 
-The function must NOT be `export`'d — exporting it makes it a public dispatch surface that Pyde then rejects as `ExportedButNotDeclared`.
+The function must NOT be `export`'d: exporting it makes it a public dispatch surface that Pyde then rejects as `ExportedButNotDeclared`.
 
 ---
 
@@ -242,13 +242,13 @@ The function must NOT be `export`'d — exporting it makes it a public dispatch 
 - `unreachable!()` or `core::arch::wasm32::unreachable()` called
 - Stack overflow in deeply-nested calls
 
-If you can't figure it out, compile with debug info (`--profile dev` or equivalent), re-run — backtraces will then carry function names. Deploy validation rejects debug builds, so don't ship them.
+If you can't figure it out, compile with debug info (`--profile dev` or equivalent) and re-run. Backtraces will then carry function names. Deploy validation rejects debug builds, so don't ship them.
 
 ### `Reverted: <reason>`
 
-**Cause:** the contract explicitly called `pyde::revert("<reason>")`. The runner classifies the halt as a revert (not a trap) — the receipt's `status` is `reverted` and the reason string surfaces in `return_data` / `revert_reason`.
+**Cause:** the contract explicitly called `pyde::revert("<reason>")`. The runner classifies the halt as a revert (not a trap): the receipt's `status` is `reverted` and the reason string surfaces in `return_data` / `revert_reason`.
 
-**Fix:** this is the contract author's intentional path — confirm the revert is the one you meant. In a `.test.toml`, assert it with the substring matcher:
+**Fix:** this is the contract author's intentional path, so confirm the revert is the one you meant. In a `.test.toml`, assert it with the substring matcher:
 
 ```toml
 [[tests.calls]]
@@ -257,7 +257,7 @@ args       = ["1000"]
 expect.revert = "InsufficientBalance"
 ```
 
-If you're hitting a revert you don't expect, the reason string is your first signal — print it via `-v` to see it inline with the failed call.
+If you're hitting a revert you don't expect, the reason string is your first signal: print it via `-v` to see it inline with the failed call.
 
 ---
 
@@ -272,7 +272,7 @@ If you're hitting a revert you don't expect, the reason string is your first sig
 - **Upgrade**: the proxy pattern with `delegate_call` (see the `upgradeable-proxy` template).
 - **Pause / Kill**: author-declared `paused: bool` / `killed: bool` in `[state]` + guard every entrypoint.
 
-To exercise the CLI signing path against a stub engine (CI / development), pass `--i-know-engine-rejects` — the tx WILL revert on chain and burn gas, by design.
+To exercise the CLI signing path against a stub engine (CI / development), pass `--i-know-engine-rejects`. The tx WILL revert on chain and burn gas, by design.
 
 ### `InvalidArgs: --rpc-url for deploy requires --chain-id (signed tx needs a chain id to verify)`
 
@@ -288,7 +288,7 @@ otigen deploy --rpc-url http://127.0.0.1:9933 --chain-id 31337 --from devnet-0 -
 
 **Cause:** the signing wallet's balance is below the deploy fee.
 
-**Fix:** fund the wallet. On devnet, the canonical path is `otigen wallet import --from-devnet` — that imports the 10 prefunded devnet-0..devnet-9 accounts the embedded `otigen devnet` bootstraps at genesis. There is no `POST /faucet` HTTP endpoint on the devnet RPC; the prefund-at-genesis path is the only auto-funding the binary provides.
+**Fix:** fund the wallet. On devnet, the canonical path is `otigen wallet import --from-devnet`, which imports the 10 prefunded devnet-0..devnet-9 accounts the embedded `otigen devnet` bootstraps at genesis. There is no `POST /faucet` HTTP endpoint on the devnet RPC; the prefund-at-genesis path is the only auto-funding the binary provides.
 
 ### `RpcError(submitting <op> tx): nonce <N> not acceptable (sender base=<M>)`
 
@@ -298,9 +298,9 @@ otigen deploy --rpc-url http://127.0.0.1:9933 --chain-id 31337 --from devnet-0 -
 
 ### `InclusionTimeout: tx 0x... not included after 60s (mempool may still hold it — re-query via pyde_getTransactionReceipt later)`
 
-**Cause:** the receipt poll exceeded the 60-second timeout (constant — not CLI-configurable). The tx may still commit later.
+**Cause:** the receipt poll exceeded the 60-second timeout (constant, not CLI-configurable). The tx may still commit later.
 
-**Fix:** re-query via `pyde_getTransactionReceipt` directly (or `otigen call <hash>` if you're checking a call). For chains under stress, this is informational; for an idle devnet it usually means the tx was rejected silently — check the devnet log.
+**Fix:** re-query via `pyde_getTransactionReceipt` directly (or `otigen call <hash>` if you're checking a call). For chains under stress, this is informational; for an idle devnet it usually means the tx was rejected silently, so check the devnet log.
 
 ### `RpcError(...): connection refused` / `connect timeout`
 
@@ -340,9 +340,9 @@ otigen call <addr> get --json
 {"event": "call_included", "tx_hash": "", "status": "success", "return_data": "0x0300000000000000"}
 ```
 
-For view-mode calls, `tx_hash` is the empty string (`""`) — view calls go via `pyde_call` and don't create a tx; the field is kept for JSON-shape symmetry with write-mode events.
+For view-mode calls, `tx_hash` is the empty string (`""`): view calls go via `pyde_call` and don't create a tx; the field is kept for JSON-shape symmetry with write-mode events.
 
-Write-mode calls (with `--from`) omit `return_data` today — the receipt poll-helper doesn't surface success-path return data yet. The human-readable `Return: 0x...` line is view-mode only.
+Write-mode calls (with `--from`) omit `return_data` today: the receipt poll-helper doesn't surface success-path return data yet. The human-readable `Return: 0x...` line is view-mode only.
 
 ---
 
@@ -358,7 +358,7 @@ Write-mode calls (with `--from`) omit `return_data` today — the receipt poll-h
 2. **Build is non-deterministic.** Common cause: `Cargo.lock` differs (you didn't commit one). Run `cargo build --locked` to enforce the lock file.
 3. **Toolchain version differs.** Your `otigen.toml` records the toolchain pin; if your local toolchain doesn't match, the build is reproducible-different. Verify with `rustup show` / `tinygo version` / etc., or add `--strict-toolchain` to fail loudly on mismatch.
 
-If none of those apply, file an issue — reproducibility is a load-bearing property of the toolchain; a real divergence is a real bug.
+If none of those apply, file an issue. Reproducibility is a load-bearing property of the toolchain; a real divergence is a real bug.
 
 ### `StrictToolchainMismatch: bundle was built with <tool> <X>; host has <tool> <Y>. Reproducibility check failed.`
 

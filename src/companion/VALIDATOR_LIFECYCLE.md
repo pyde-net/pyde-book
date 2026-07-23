@@ -46,7 +46,7 @@ Side states (from any active state):
 | `NEW_VALIDATOR_GRACE_EPOCHS` | 1 | 50% reduced slashing in first epoch |
 
 > **Pseudocode convention.** Where this document writes `MIN_STAKE` in
-> pseudocode below, it refers to `MIN_VALIDATOR_STAKE` (10,000 PYDE) —
+> pseudocode below, it refers to `MIN_VALIDATOR_STAKE` (10,000 PYDE),
 > the single-tier minimum.
 
 ## State Details
@@ -226,7 +226,8 @@ Identity binding via `operator_identity` field:
 ### Why Cap?
 
 - Sybil amplification: without a cap, a rich operator could run dozens of validators under different keys and dominate committee selection
-- Cap forces multi-operator diversity — a 43-Byzantine fork requires ≥ 15 distinct KYC'd operator identities
+- Cap forces multi-operator diversity: a 43-Byzantine fork requires
+  ≥ 15 distinct KYC'd operator identities
 - 3 still allows operational diversity (HA pair + standby, or three-region geographic distribution)
 
 ### Optional Stronger Anti-Sybil (Post-Mainnet PIP)

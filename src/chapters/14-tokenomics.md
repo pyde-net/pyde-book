@@ -7,7 +7,7 @@ fee distribution, validator economics, the vesting + airdrop machinery
 that ships at genesis, and the treasury that funds ongoing protocol work.
 
 Numbers are taken from the actual code constants in `crates/tx/src/fee.rs`,
-`crates/slashing/src/lib.rs`, and `crates/consensus/src/validator.rs` — not
+`crates/slashing/src/lib.rs`, and `crates/consensus/src/validator.rs`, not
 from aspirational projections. Where a parameter is set at genesis (as
 opposed to hard-coded), the chapter says so.
 
@@ -54,13 +54,13 @@ other minting path exists.
 The genesis allocation is set in the genesis configuration TOML; the
 on-chain machinery enforces:
 
-- **Per-bucket caps** — the genesis builder rejects allocations that
+- **Per-bucket caps**: the genesis builder rejects allocations that
   exceed the per-category caps to prevent oversupply.
-- **Vesting schedules** — most non-validator allocations are subject to
+- **Vesting schedules**: most non-validator allocations are subject to
   on-chain vesting (see §14.6).
-- **Validator subsidy stream** — a portion of the genesis pool is reserved
+- **Validator subsidy stream**: a portion of the genesis pool is reserved
   for validator subsidy that streams over a fixed window (§14.4).
-- **Airdrop pool** — genesis seeds an airdrop account with the expected
+- **Airdrop pool**: genesis seeds an airdrop account with the expected
   total; claims draw against it; the residual sweeps to the treasury after
   the deadline.
 
@@ -137,7 +137,7 @@ shares specified by the on-chain reward distribution (see §14.4).
 
 - **High initial inflation** bootstraps validator participation before fee
   volume exists.
-- **Decreasing schedule** rewards token holders as the network matures —
+- **Decreasing schedule** rewards token holders as the network matures:
   early validators were taking risk that later operators don't.
 - **Terminal 1%** stays low enough that ordinary fee burn at any
   meaningful usage produces net deflation.
@@ -172,20 +172,20 @@ The remainder-to-treasury pattern means rounding dust never disappears.
 
 ### Where each share goes
 
-- **Burn** — increments the on-chain `TOTAL_BURNED` counter under
+- **Burn**: increments the on-chain `TOTAL_BURNED` counter under
   discriminator `0x13`. Permanently removes PYDE from circulation.
-- **Reward pool** — credited to the epoch reward pool account, distributed
+- **Reward pool**: credited to the epoch reward pool account, distributed
   at epoch end to all staked validators (committee + non-committee)
   proportional to stake × uptime. Under the DAG there is no single
   proposer to credit; the pool model spreads rewards across the entire
   staked validator set.
-- **Treasury** — credited to the treasury account at
+- **Treasury**: credited to the treasury account at
   `Poseidon2("pyde-treasury")`. Spent through `MultisigTx` (Chapter 15).
 
 ### Why 70% burn
 
 - **High burn pressure.** At sustained moderate usage with realistic fee
-  loads, the annual burn exceeds the annual mint within a few years —
+  loads, the annual burn exceeds the annual mint within a few years:
   net deflation.
 - **MEV resistance.** A would-be MEV searcher who used Pyde for
   extraction would burn 70% of the captured value. Combined with the
@@ -223,19 +223,19 @@ pub const MIN_VALIDATOR_STAKE: u128 = 10_000_000_000_000;   // 10,000 PYDE
 
 | Role | Min stake | Committee role | Earns |
 |------|-----------|----------------|-------|
-| **Validator** | 10,000 PYDE | Eligible — uniformly-random selection each epoch picks 128 of the eligible pool | Reward pool share (stake × uptime) + inflation share. When selected to the committee: additional activity-weighted share |
-| RPC node | — | None | Off-chain RPC fees only |
+| **Validator** | 10,000 PYDE | Eligible: uniformly-random selection each epoch picks 128 of the eligible pool | Reward pool share (stake × uptime) + inflation share. When selected to the committee: additional activity-weighted share |
+| RPC node | none | None | Off-chain RPC fees only |
 
 **Single pool, no tiers.** Every validator meeting the 10K PYDE minimum is
 in the same pool. At each epoch boundary, uniform-random selection picks
 128 from the pool to form the active committee for that epoch (see
-Chapter 6 §7). There is no "committee tier" vs. "non-committee tier" —
+Chapter 6 §7). There is no "committee tier" vs. "non-committee tier":
 just one validator role, with committee duty rotating per epoch.
 
 **Equal voting in committee.** All 128 committee members have equal vote
 weight regardless of stake. To get additional selection probability, a
 wealthy staker must register multiple distinct validators with separate
-FALCON keys and operator identities — and each faces independent slashing
+FALCON keys and operator identities, and each faces independent slashing
 exposure plus the per-operator cap (see below).
 
 **Why 10K, not higher.** Pyde's MEV-extraction attack value is structurally
@@ -245,7 +245,7 @@ stake floors). With the attack-incentive removed, stake serves as a
 credible-commitment deposit against slashable misbehavior rather than as the
 load-bearing economic defense. Pyde's Sybil resistance is layered
 (operator-identity cap + slashing + commit-reveal ordering + state-root
-divergence detection) — see Chapter 16 §16.4 for the full security argument.
+divergence detection); see Chapter 16 §16.4 for the full security argument.
 
 The 10K floor matches the spirit of Ethereum's "Lean Consensus" direction
 (reducing 32 ETH → 4 ETH as fast finality reduces reversibility-window
@@ -256,7 +256,7 @@ trivial.
 **Anti-Sybil: operator-identity cap.** Maximum 3 validators per operator
 identity. An attacker pursuing a Byzantine fork needs 43 committee slots,
 which translates to ≥ 15 distinct KYC'd operator identities under the
-cap — meaningfully harder to manufacture than capital alone.
+cap, meaningfully harder to manufacture than capital alone.
 
 ### Income sources
 
@@ -264,7 +264,7 @@ A validator's gross income per year:
 
 1. **Inflation share.** A portion of the per-block inflation reward, paid
    to the epoch reward pool. Distributed across staked validators
-   (committee + non-committee) proportional to stake × uptime —
+   (committee + non-committee) proportional to stake × uptime;
    discriminator `0x15` tracks the active stake-weighted total used as
    the denominator.
 2. **Fee revenue.** 20% of every fee in every committed wave flows to the
@@ -273,7 +273,7 @@ A validator's gross income per year:
 
 ### Lazy reward accrual
 
-Rewards do not get pushed to the validator on every block — that would
+Rewards do not get pushed to the validator on every block; that would
 mean N writes per block. Instead, a global per-stake accumulator
 (`REWARDS_PER_STAKE_UNIT` at discriminator `0x14`) tracks the cumulative
 yield per unit of staked PYDE × uptime:
@@ -330,7 +330,7 @@ During the unbonding window:
 - Stake is locked.
 - Validator no longer signs (removed from active committee).
 - Pending rewards continue to accrue and can be claimed via `ClaimReward`.
-- Slashing for past offenses still applies — the unbonding window exists
+- Slashing for past offenses still applies; the unbonding window exists
   precisely so post-exit evidence can still penalize.
 
 After 30 days, an explicit follow-up sweeps the unbonded stake back to
@@ -365,7 +365,7 @@ profit" incentives).
 ### Indicative APY
 
 APY = `(annual_PYDE_rewards / staked_PYDE) × 100`. Rewards distribute by
-stake × uptime, so per-token yield is uniform across all validators —
+stake × uptime, so per-token yield is uniform across all validators;
 only the absolute PYDE earned scales with stake. Committee participation
 adds an activity-weighted bonus, but the base yield is the same.
 
@@ -393,8 +393,8 @@ inflation sits on the taper:
 | 3    | ~10,000           | 100K      | 1B (incl. inflation) | 2.0% | ~1.2%   |
 | 4+   | ~10,000           | 100K      | 1B+          | 1.0%      | ~0.6%          |
 
-Year 1 yields are high by design — bootstrap incentive while the validator
-set grows from genesis. As more validators come online, the per-token
+Year 1 yields are high by design, a bootstrap incentive while the
+validator set grows from genesis. As more validators come online, the per-token
 yield compresses naturally. The 1% terminal inflation rate plus the 20%
 fee-share keeps the steady-state validator economic viable without
 unbounded dilution.
@@ -453,7 +453,7 @@ Plus genesis validation rejects schedules where `cliff > duration`.
 Every transaction validation reads the sender's vesting schedule and
 subtracts `vesting.locked_at(current_wave_id)` from the account's balance
 before checking that the sender can pay `gas_limit * base_fee + value`. A
-sender cannot transfer locked tokens — the protocol enforces it at
+sender cannot transfer locked tokens; the protocol enforces it at
 ingress.
 
 ---
@@ -500,9 +500,9 @@ ClaimAirdrop handler:
 ```
 
 Gas: 30,000 base + 5,000 per Merkle level. Early gas guard rejects if
-`tx.gas_limit < required_gas` *before* mutating any state — fixed in PR
-#212 to prevent under-paid claims from drifting state. Max proof length is
-255 levels.
+`tx.gas_limit < required_gas` *before* mutating any state (fixed in PR
+#212 to prevent under-paid claims from drifting state). Max proof length
+is 255 levels.
 
 ### Sweep flow (tx type 8)
 
@@ -515,7 +515,7 @@ SweepAirdrop handler (any sender):
 ```
 
 Gas: 40,000 flat. The sweep is permissionless because the funds belong to
-the protocol — anyone can submit it once the window closes. The early-gas
+the protocol; anyone can submit it once the window closes. The early-gas
 guard pattern applies here too.
 
 ---
@@ -525,14 +525,14 @@ guard pattern applies here too.
 The treasury is a system account at `Poseidon2("pyde-treasury")`. It
 accumulates value from three streams:
 
-1. **Genesis allocation** — direct allocation in the genesis config.
-2. **Fee share** — 10% of every transaction fee.
-3. **Inflation share** — a configurable share of per-block mint.
-4. **Airdrop residual** — whatever wasn't claimed by the deadline.
+1. **Genesis allocation**: direct allocation in the genesis config.
+2. **Fee share**: 10% of every transaction fee.
+3. **Inflation share**: a configurable share of per-block mint.
+4. **Airdrop residual**: whatever wasn't claimed by the deadline.
 
 Treasury spending is **always** through the on-chain `MultisigTx` (tx
 type 9). There is no other path that drains the treasury account
-(enforced by the pipeline writeback-clobber protections — see §14.9).
+(enforced by the pipeline writeback-clobber protections; see §14.9).
 
 ### `MultisigTx` payload
 
@@ -634,7 +634,7 @@ running validation or charging gas. This means a paused chain cannot be
 spammed into draining gas budgets.
 
 The pause auto-expires (`current_wave_id >= end_wave`) without an explicit
-sweep — the gate just stops returning true. This means the worst case for
+sweep; the gate just stops returning true. This means the worst case for
 a runaway pause is the 30-day cap, never indefinite.
 
 ### Use cases
@@ -643,7 +643,7 @@ a runaway pause is the 30-day cap, never indefinite.
 - Active exploit being mitigated; pause halts state mutation until a fix
   ships.
 - Coordinated upgrade window (rare; voluntary upgrades are the normal
-  path — see Chapter 18).
+  path, see Chapter 18).
 
 The signer set should be picked specifically for crisis response (likely
 core developers + security team multisig), not the same set that signs
@@ -673,13 +673,13 @@ collision from clobbering the signer-set update.
 ## 14.11 Active-Stake Divisor and Unified Parsing
 
 The pool-share calculation divides by `ACTIVE_STAKE_WEIGHTED_TOTAL`
-(discriminator `0x15`) — the sum of `stake × uptime_share` across every
+(discriminator `0x15`), the sum of `stake × uptime_share` across every
 validator currently in `Active` status. This diverges from
 `VALIDATOR_COUNT` (the total registered count) once validators exit or
 are slashed, and from a flat-per-validator divisor once validators
 differ in stake or uptime (the common case across the two staking tiers).
 
-Without this divisor, exited validators would dilute the pool share —
+Without this divisor, exited validators would dilute the pool share,
 even though they're not contributing security. Adjusted on:
 
 - `StakeWithdraw` (validator transitions to `Unbonding`; their stake
@@ -689,13 +689,13 @@ even though they're not contributing security. Adjusted on:
 - Each block where a validator's `uptime_share` changes (lazy, indexed
   by the same accumulator pattern as `REWARDS_PER_STAKE_UNIT`)
 
-`ValidatorEntry` parsing is unified through `ValidatorEntry::decode()` —
+`ValidatorEntry` parsing is unified through `ValidatorEntry::decode()`:
 the same parser is used by every consensus and tx-handler call site.
 Length: 4 + 897 (FALCON pk) + 16 (stake u128) + 1 (status) + 16
 (last_claimed_at u128) = **934 bytes**.
 
 (This unification fixed a genesis bug where an earlier per-call-site
-parser returned `None` on every genesis validator — surfaced and fixed in
+parser returned `None` on every genesis validator, surfaced and fixed in
 multi-node test #228.)
 
 ---
@@ -706,8 +706,8 @@ The model targets:
 
 | Phase             | Net change                         |
 | ----------------- | ---------------------------------- |
-| Year 1–2          | Net mint > burn → modest inflation |
-| Year 3–5          | Burn ≈ mint → near-zero net change |
+| Year 1 to 2       | Net mint > burn → modest inflation |
+| Year 3 to 5       | Burn ≈ mint → near-zero net change |
 | Year 6+ (terminal)| Burn > mint → mild deflation        |
 
 The 1% terminal inflation rate × `GENESIS_SUPPLY` is around 10M PYDE per
@@ -739,6 +739,6 @@ expected state.
 | Multisig threshold (governance)| 7-of-12 typical (set at launch)              |
 | Emergency pause         | `EmergencyPause` (type 11), max 30 days              |
 
-The next chapter covers governance — how PIPs (Pyde Improvement Proposals)
+The next chapter covers governance: how PIPs (Pyde Improvement Proposals)
 become on-chain `MultisigTx` actions, and what scope governance has versus
 what's hard-coded.

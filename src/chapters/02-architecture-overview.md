@@ -163,11 +163,11 @@ Accounts hold:
 14. Finality declared (≥85 state root sigs)
 ```
 
-## Cross-Chain (Post-Mainnet)
+## Cross-Chain and Off-Chain (Post-Mainnet)
 
-Cross-chain interactions happen through a permissionless **parachain layer** — operators implement a Pyde-published specification, stake PYDE, follow protocol rules, and earn gas fees from contracts that call them via the `cross_call!` macro.
+Everything outside the chain — foreign chains, price feeds, real-world data, arbitrary IO — is reached through one permissionless **parachain layer**: small decentralized networks that each do one declared job, staked in PYDE, running their own consensus, anchored to and re-validated by Pyde. A bridge to another chain is just one kind of parachain (an adapter running that chain's light client); an oracle feed is another. Contracts reach any of them via the `cross_call!` macro and get a verified result back through a callback (Chapter 13).
 
-The protocol-level surface (`cross_call!` macro, `HardFinalityCert` primitive, unified gas model) is settled at v1 genesis. The actual parachain layer ships post-mainnet.
+The protocol-level surface (`cross_call!` macro, `HardFinalityCert` primitive, unified gas model, the `type = "parachain"` manifest schema) is settled at v1 genesis. The actual parachain layer ships post-mainnet.
 
 ## Three-Tier Node Model
 

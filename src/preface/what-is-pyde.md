@@ -68,7 +68,7 @@ The atomic reading is not visual flavour. It is the design.
 
 **Verification is the binding force.** Nothing orbiting the core is trusted. Light clients, bridges, foreign chains, wallets running local previews — they all bind through cryptographic proof. FALCON-signed finality certificates, JMT inclusion proofs, Blake3 commitment openings. The orbits are mathematical, not political.
 
-**Things orbit without merging.** A Pyde finality certificate can travel to Ethereum and prove itself there without phoning home. A parachain has its own sub-orbit inside Pyde's well — its own validators, its own state subtree — and stays sovereign. Sovereignty without isolation.
+**Things orbit without merging.** A Pyde finality certificate can travel to Ethereum and prove itself there without phoning home. A parachain has its own sub-orbit inside Pyde's well — its own validators, its own consensus, its own state — and every block it seals anchors back to the core for re-validation. Sovereignty without isolation.
 
 **Compression is BFT under pressure.** Wave commits run under adversarial conditions. The 85-of-128 quorum, the slashing schedule, the structural MEV resistance — they exist so the core holds when squeezed. Stress-tested.
 

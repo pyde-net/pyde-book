@@ -12,21 +12,25 @@
 > conformance. `pts-n/1` (`nft-token`) has a merged reference; its
 > config-only generation is v1.1.
 
-Pyde does not inherit ERC-20. The research behind that decision is a
-long catalog of structural losses (standing-approval drains, tokens
-stranded in contracts that never knew they arrived, transfer hooks
-that fired mid-update) and one convergent lesson from every ledger
-that came after Ethereum: **the winning token standards moved balances
-out of hand-written per-token code and into one audited
-implementation.** Solana's shared token program, Cosmos's bank module,
-Aptos's Fungible Asset, and Polkadot's assets pallet all did it at the
-platform layer.
+For a decade a token has meant "a small program you write and
+deploy," and that answer built an enormous amount of value. Pyde keeps
+what it got right and changes one thing: a token is mostly a form, so
+you fill out the form and the toolchain writes the code from one
+audited implementation. That single move also quietly closes the rough
+edges the per-token model became known for, learned by the industry at
+real cost (standing-approval drains, tokens stranded in contracts that
+never knew they arrived, transfer hooks that fired mid-update), and it
+echoes one convergent lesson from every ledger that came after
+Ethereum: **the standards that stuck moved balances out of
+hand-written per-token code and into one audited implementation.**
+Solana's shared token program, Cosmos's bank module, Aptos's Fungible
+Asset, and Polkadot's assets pallet all did it at the platform layer.
 
 Pyde gets the same property at the **toolchain** layer, with zero
-engine changes, because it has ingredients no other chain has at
-genesis: the ABI travels inside the artifact (`pyde.abi` custom
-section), storage slots are host-derived from a declared schema, and
-one manifest already drives contract generation in four languages.
+engine changes, because it has ingredients few chains have at genesis:
+the ABI travels inside the artifact (`pyde.abi` custom section),
+storage slots are host-derived from a declared schema, and one
+manifest already drives contract generation in four languages.
 
 ---
 
@@ -108,10 +112,10 @@ companion contract beside the token (below), never inside it, so
 overriding or extending standard logic is not something the schema
 can express.
 
-## What the generated surface fixes
+## What the generated surface takes care of
 
-Every deviation from the ERC-20 shape points at a documented loss
-class:
+Each way the generated surface departs from the ERC-20 shape lines up
+with a lesson the ecosystem has already learned:
 
 - **Revert-only mutations.** No boolean returns to mis-handle;
   failures are canonical machine-readable codes

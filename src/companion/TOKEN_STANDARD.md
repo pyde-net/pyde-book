@@ -12,8 +12,7 @@
 
 PTS is Pyde's native standard for on-chain assets: **PTS-F**
 (`pts-f/1`) for fungible tokens and **PTS-N** (`pts-n/1`) for
-non-fungible tokens. It differs from every inherited-from-Ethereum
-token standard in one structural way:
+non-fungible tokens. It rests on a single structural idea:
 
 > **A PTS token is not code an author writes. It is a manifest the
 > toolchain compiles.**
@@ -27,29 +26,38 @@ unrepresentable.
 
 ---
 
-## 1. Why Pyde does not inherit ERC-20
+## 1. Why a token is a manifest, not a program
 
-The short version (the PIP's Motivation section carries the full
-evidence): the ERC-20 model's failures are structural, not
-incidental. Standing approvals fed a ~$450M drain economy; off-chain
-`permit` signatures became the top phishing vector the year after
-they were introduced; transfers carry no recipient handshake, so
-$100M+ of tokens sit permanently stuck inside contracts that never
-knew they arrived; mandatory transfer hooks (ERC-777) handed control
-flow to attackers mid-update and were deleted from the ecosystem's
-own reference library; and a spec loose enough that major tokens
-return nothing from `transfer` taxed every integrator with wrapper
-libraries for a decade.
+For a decade a token has meant "a small program you write and
+deploy," and that answer built an enormous amount of value. Pyde
+starts from what it got right and changes one thing: a token is mostly
+a form (a name, a symbol, a supply, a set of powers), so on Pyde you
+fill out the form and the toolchain writes the code, from one audited
+implementation, the same way every time.
 
-Every ledger designed after Ethereum converged on the same
-counter-move: **one audited implementation instead of a million
-hand-rolled token contracts**, namely Solana's shared token program,
-Cosmos's bank module, Aptos's Fungible Asset, Polkadot's assets
-pallet. Pyde reaches the same property at the toolchain layer, with
-zero engine changes, because the platform already has what it needs:
-the ABI travels inside the artifact (`pyde.abi` custom section),
-storage slots derive from a declared schema, and one manifest drives
-four language toolchains.
+That single choice is also what lets the standard quietly close the
+rough edges the per-token model became known for. The industry has
+learned those edges at real cost, worth naming gently: standing
+approvals have drained on the order of $494M since 2020; off-chain
+`permit` signatures became a leading phishing vector soon after they
+arrived; transfers with no recipient handshake have left roughly
+$104M in tokens stuck inside contracts that never knew they arrived;
+mandatory transfer hooks (ERC-777) handed control flow to callers
+mid-update and were eventually removed from the ecosystem's own
+reference library; and loose return conventions taxed integrators with
+wrapper libraries for years. None of these are bugs in any one token.
+They are the shape of the inherited model, and one carefully-reviewed
+implementation gets to settle them once, for everyone.
+
+Pyde is not alone in that conclusion. Every ledger designed after
+Ethereum arrived at the same counter-move, **one audited
+implementation instead of a million hand-rolled token contracts**:
+Solana's shared token program, Cosmos's bank module, Aptos's Fungible
+Asset, Polkadot's assets pallet. Pyde reaches the same property at the
+toolchain layer, with zero engine changes, because the platform
+already has what it needs: the ABI travels inside the artifact
+(`pyde.abi` custom section), storage slots derive from a declared
+schema, and one manifest drives four language toolchains.
 
 ## 2. The kind system
 
@@ -234,8 +242,8 @@ Three layers, ordered by preference:
    share one storage slot; `allowance()` lazily reports zero after
    expiry so nobody pays to clean up.
 3. **No off-chain approval signatures.** `permit`-class primitives
-   moved granting into invisible signatures and became the #1 drainer
-   vector. Pyde does not need them: gasless flows use the platform's
+   moved granting into invisible signatures and became a leading
+   phishing vector. Pyde does not need them: gasless flows use the platform's
    `SPONSORED` attribute, private flows use commit-reveal, and
    session keys (v2) will deliver scoped account-layer authority. A
    FALCON-signed **one-shot payment authorization** (exact
@@ -285,8 +293,8 @@ One normative integrator rule remains: a contract that calls
 because the engine guards its own function, not its siblings.
 
 There are **no sender hooks**, and the plain `transfer` path never
-invokes code. Both are deliberate: mandatory hooks are the exact
-mechanism behind the costliest token exploits on record.
+invokes code. Both are deliberate: mandatory hooks have been the
+mechanism behind some of the costliest token exploits on record.
 
 ## 9. Storage, events, and parallel execution
 
@@ -441,7 +449,7 @@ pinned before `pts-f/1` freezes.
 | Absent | Because |
 |---|---|
 | `permit` / off-chain approval signatures | became the top phishing vector where introduced; platform sponsorship + commit-reveal + session keys cover the legitimate needs |
-| sender hooks / mandatory recipient hooks | the costliest exploit mechanism in token history; notification is opt-in and post-settlement |
+| sender hooks / mandatory recipient hooks | among the costliest exploit mechanisms in token history; notification is opt-in and post-settlement |
 | fee-on-transfer, rebasing, reflection | the "weird token" pathologies that break integrator invariants; excluded by the config-only rule |
 | royalties (PTS-N) | interfaces cannot enforce economics; marketplace policy |
 | fused fungible/NFT | violates both parents' invariants; unrepresentable under a scalar `standard` |

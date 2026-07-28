@@ -993,7 +993,7 @@ Gas: 50 base.
 Semantics: deterministic, public randomness, identical across all validators. Use as
 a chain-derived random source. Note that the beacon is *publicly predictable* within a
 wave — adversaries cannot bias it, but they *can* observe it. For adversary-private
-ordering, route the transaction through the private mempool (commit-reveal); a
+ordering, route the transaction through the keyless commit-reveal mempool; a
 one-shot ciphertext lane for adversary-private randomness is v2+ research (Chapter 20).
 ```
 
@@ -1286,7 +1286,7 @@ Rate limit: 64 outgoing messages per wave per parachain by default
 > for an application-level confidentiality primitive (blinded auctions, sealed-bid
 > markets, MEV-protected DEX matching at parachain layer). They depend on a
 > committee threshold-decryption ceremony that is **not** part of the v1 protocol.
-> L1 MEV protection is the keyless commit-reveal private mempool (Chapter 9), which
+> L1 MEV protection is the keyless commit-reveal mempool (Chapter 9), which
 > needs no committee key. A one-shot ciphertext lane (Threshold-LWE) that would back
 > these host functions remains v2+ research, gated on a trustless PQ threshold-keygen
 > breakthrough; see [Chapter 20](../chapters/20-future-direction.md). The signatures

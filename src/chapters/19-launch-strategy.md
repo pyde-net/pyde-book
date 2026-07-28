@@ -45,7 +45,7 @@ Each phase's deliverables and exit criteria are tracked to the smallest actionab
 Pyde mainnet ships with:
 
 - Post-quantum cryptography: FALCON signatures, Poseidon2 + Blake3 hashing.
-- MEV resistance via the keyless commit-reveal private mempool: commit order is fixed by the DAG before content is revealed; no committee decryption key.
+- Fair ordering via the keyless commit-reveal mempool: commit order is fixed by the DAG before content is revealed; no committee decryption key.
 - Mysticeti-style consensus with sub-second median commit and 85-of-128 FALCON quorum certificates.
 - WASM execution via wasmtime + Cranelift AOT, with the host-function ABI v1.0.
 - JMT state with dual-hash (Blake3 + Poseidon2) per node, PIP-2 clustered keys, PIP-3 prefetch, PIP-4 write-back cache.
@@ -63,7 +63,7 @@ Mainnet does **not** ship with:
 - zk-WASM proven execution (research-stage; integrated when the upstream provers reach production quality).
 - Cross-chain bridges to other L1s (post-mainnet, only with proven security models).
 
-This split is intentional. v1 ships the properties that justify Pyde's existence: post-quantum security, MEV resistance, sub-second finality, commodity-hardware decentralization, multi-language WASM contracts. Everything else is sequenced honestly and shipped when ready.
+This split is intentional. v1 ships the properties that justify Pyde's existence: fair ordering, honest sub-second finality, a node anyone can run on commodity hardware, multi-language WASM contracts, and verification that outlives the cryptography it was built with, with post-quantum security as one quiet supporting point among them. Everything else is sequenced honestly and shipped when ready.
 
 ---
 

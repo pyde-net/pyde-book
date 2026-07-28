@@ -120,7 +120,7 @@ WASM bindings exposing post-quantum cryptography to JavaScript. Used internally 
 
 Surface area:
 - FALCON-512 keypair generation, sign, verify
-- Poseidon2 and Blake3 hashing (Blake3 is also what builds a private-mempool commitment client-side)
+- Poseidon2 and Blake3 hashing (Blake3 is also what builds a commit-reveal mempool commitment client-side)
 
 ### Contract-side SDKs (community)
 
@@ -142,7 +142,7 @@ Community SDKs publish under their own org (e.g., `pyde-go/`, `pyde-ts-contracts
 The node exposes a JSON-RPC interface over HTTP and WebSocket. Method surface includes:
 
 - Standard query methods: `pyde_getAccount`, `pyde_getBalance`, `pyde_getTransactionCount`, `pyde_getContractCode`, `pyde_getStorageSlot`, `pyde_resolveName`
-- Transaction submission: `pyde_sendRawTransaction` (also carries private-mempool Commit / Reveal transactions), `pyde_estimateAccess`
+- Transaction submission: `pyde_sendRawTransaction` (also carries commit-reveal mempool Commit / Reveal transactions), `pyde_estimateAccess`
 - View-function calls: `pyde_call(contract, fn, calldata)` is **free**, off-chain execution against current state; no tx, no gas, no consensus. Mirrors EVM's `eth_call`. Bounded by RPC-layer rate limits + per-call instruction cap.
 - Archival reads (full + archive nodes): `pyde_getTx(hash)`, `pyde_getReceipt(hash)`
 - Subscription methods (WebSocket on `/ws`): `pyde_subscribe`:
@@ -221,7 +221,7 @@ The marketing claim Pyde v1 can make:
 
 > *Pyde wallets show you the immediate effects of every transaction before you sign, including exact state changes, events emitted, and gas cost. You see what your authorization does in this moment. Deeper analysis (downstream authorization implications, contract backdoors, signed-message replays) requires reading the contract code or using third-party safety tools.*
 
-Honest, defensible, materially better than EVM wallet UX without overpromising.
+Honest, defensible, and a real step up in wallet UX without overpromising.
 
 ### What Tier 1 cannot detect
 

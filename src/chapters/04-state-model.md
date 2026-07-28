@@ -480,7 +480,7 @@ A few things deliberately do **not** live in the JMT:
   history. Persistent receipt storage (archive-node mode) is tracked as
   post-mainnet hardening.
 
-- **Mempool contents.** Pending transactions (including private-mempool
+- **Mempool contents.** Pending transactions (including commit-reveal mempool
   commit and reveal transactions) live in process memory, bounded per sender
   by the rate-limiting subsystem (10 tx/s, 100 concurrent per sender).
 

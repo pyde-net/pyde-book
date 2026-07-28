@@ -82,7 +82,7 @@ End-to-end commit latency: **~500ms median**.
 
 After consensus commits a wave (canonical ordered transactions), the execution layer:
 
-1. **Commit-reveal resolution**: revealed inner transactions from prior commits are spliced into their DAG-fixed commit order (keyless private mempool; see Chapter 9)
+1. **Commit-reveal resolution**: revealed inner transactions from prior commits are spliced into their DAG-fixed commit order (keyless commit-reveal mempool; see Chapter 9)
 2. **Access-list prefetch**: one batched `state_cf.multi_get` (PIP-3) over the union of every tx's declared `(addr, slot)` pairs lands warm values in the dashmap (PIP-4) before workers start. The lists are hints only; they never partition the wave or affect correctness.
 3. **Block-STM scheduler** runs every tx in parallel on a `rayon` pool: optimistic execute against an MVCC layer + validate against canonical tx_index order + cascade-invalidate + re-incarnate on conflict + fixpoint. Final state per slot is the highest-tx_index's last write. Full algorithm in [companion/BLOCK_STM_EXECUTION.md](../companion/BLOCK_STM_EXECUTION.md).
 4. **wasmtime executes** each tx with Cranelift AOT and fuel-based gas metering. Smart contracts compile from Rust, AssemblyScript, Go, or C/C++ to WASM.
@@ -111,7 +111,7 @@ Three primitives form the cryptographic foundation:
 NIST FIPS 206 standard. Used for: user tx authorization, vertex production, state root attestations, beacon shares. 666-byte signature, ~80μs verification.
 
 ### Keyless Commit-Reveal (MEV Protection)
-Pyde's private mempool needs **no encryption primitive and no committee key**. A commitment is a Blake3 hash of the inner transaction; the reveal carries the plaintext, and the DAG fixes commit order before contents are known. Both primitives are already post-quantum (Blake3 hashing, FALCON signatures), and safety is unconditionally trustless: it never rests on a threshold of honest committee members. See Chapter 9. (A ciphertext-based lane remains v2+ research; see Chapter 20.)
+Pyde's commit-reveal mempool needs **no encryption primitive and no committee key**. A commitment is a Blake3 hash of the inner transaction; the reveal carries the plaintext, and the DAG fixes commit order before contents are known. Safety is unconditionally trustless: it never rests on a threshold of honest committee members. The primitives it leans on (Blake3 hashing, FALCON signatures) are already post-quantum. See Chapter 9. (A ciphertext-based lane remains v2+ research; see Chapter 20.)
 
 ### Poseidon2 + Blake3 (Hashing)
 Hybrid layered: Blake3 for high-volume native paths (JMT internals), Poseidon2 for ZK-bearing paths (state root commitment exposed to future ZK proofs, address derivation, FALCON sig hashing inside ZK circuits).
@@ -138,7 +138,7 @@ Accounts hold:
 - storage_root (32 bytes, JMT subtree for contract storage)
 - key_nonce (4 bytes, FALCON key rotation counter)
 
-**Native multisig** at v1: `AuthKeys::Multisig(M, [pubkey_1, ..., pubkey_N])` with max 16 signers. Better than Gnosis Safe contract-multisig (Ethereum), which reimplements the same logic with subtle bugs across projects.
+**Native multisig** at v1: `AuthKeys::Multisig(M, [pubkey_1, ..., pubkey_N])` with max 16 signers. A protocol primitive rather than a contract each project reimplements (as with the Gnosis Safe pattern on Ethereum), so wallets and contracts rely on one audited implementation.
 
 **Programmable accounts** and **session keys** ship post-mainnet. v1 reserves the `Programmable` enum variant so contracts written today survive the upgrade without rewriting.
 
@@ -155,13 +155,13 @@ Accounts hold:
 2. Wallet → RPC: pyde_estimateAccess(tx) → returns gas_estimate + access_list
 3. Wallet attaches access_list to tx
 4. Wallet FALCON-signs tx hash
-5. (Optional, private mempool) Wallet builds a Blake3 commitment over the signed inner tx and submits a Commit; the plaintext is disclosed later via a Reveal (commit-reveal; see Chapter 9)
-6. Wallet submits: pyde_sendRawTransaction (or a Commit/Reveal tx pair for the private mempool)
+5. (Optional, commit-reveal mempool) Wallet builds a Blake3 commitment over the signed inner tx and submits a Commit; the plaintext is disclosed later via a Reveal (commit-reveal; see Chapter 9)
+6. Wallet submits: pyde_sendRawTransaction (or a Commit/Reveal tx pair for the commit-reveal mempool)
 7. RPC node validates wire format, forwards to nearest worker
 8. Worker verifies sig, batches, gossips
 9. Primary produces vertex, gossips
 10. Commit fires (Mysticeti, sub-second target): anchor selected, subdag walked, canonical order emitted
-11. (Private mempool) revealed inner txs are spliced into their commit order during the resolution pass (Chapter 9)
+11. (Commit-reveal mempool) revealed inner txs are spliced into their commit order during the resolution pass (Chapter 9)
 12. wasmtime executes WASM modules in canonical order
 13. JMT updates (dual-hash per node), state root signed
 14. Finality declared (≥85 state root sigs)
@@ -187,13 +187,13 @@ RPC providers (Infura/Alchemy analog) fit Tier 3: no stake, no slashing risk.
 
 | | Ethereum | Solana | Sui | **Pyde** |
 |---|---|---|---|---|
-| Post-Quantum | Migration 5+ years | No plan | No plan | **Default at genesis** |
-| MEV resistance | Auction (PBS) | Proposer extracts | Some via Mysticeti | **Structurally impossible** |
+| MEV resistance | Auction (PBS) | Proposer extracts | Some via Mysticeti | **Fair ordering, no trusted relayer** |
 | Finality | 12-15s | 400ms | 390ms | **~500ms** |
-| Commodity validator | Possible | No (12+ cores) | No (datacenter) | **Yes (any validator awaiting committee selection)** |
+| Commodity validator | Possible | Datacenter-class | Datacenter-class | **Yes (any validator awaiting committee selection)** |
 | Smart contract language | Solidity | Rust/Anchor | Move | **Any wasm32 target** (Rust, AssemblyScript, Go, C/C++) |
+| Verification lifespan | Migration required | Not addressed | Not addressed | **Post-quantum by default** |
 | Account abstraction | Retrofit (ERC-4337) | None native | Limited | **Native (v2)** |
-| Cross-chain | Bridges ($3B+ hacked) | Bridges | Bridges | **Permissionless parachain (v2)** |
+| Cross-chain | Bridges (trusted) | Bridges | Bridges | **Permissionless parachain (v2)** |
 | ZK readiness | Retrofit ongoing | Limited | Limited | **Architecture ready (v2)** |
 
 ## Next Chapters
@@ -204,4 +204,4 @@ RPC providers (Infura/Alchemy analog) fit Tier 3: no stake, no slashing risk.
 - Chapter 6: Consensus (full Mysticeti DAG specification)
 - Chapter 7: State Sync & Chain Halt (operational protocols)
 - Chapter 8: Cryptography (FALCON, Poseidon2, Blake3, hashing and signature details)
-- Chapter 9: MEV Protection (keyless commit-reveal private mempool)
+- Chapter 9: MEV Protection (keyless commit-reveal mempool)

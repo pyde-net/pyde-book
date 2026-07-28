@@ -6,13 +6,15 @@ authorization happens, and how concurrent transactions interact.
 
 Pyde's account model is built on three ideas:
 
-1. **Post-quantum from genesis.** Addresses are derived from FALCON-512
-   public keys. There is no ECDSA legacy to migrate away from.
-2. **Nonce window, not sequential.** Each account gets a 16-slot nonce
+1. **Nonce window, not sequential.** Each account gets a 16-slot nonce
    bitmap window: multiple in-flight txs without head-of-line blocking.
-3. **Native account abstraction.** Multisig, batch transactions, and
+2. **Native account abstraction.** Multisig, batch transactions, and
    paymaster sponsorship are protocol features, not application-layer
    add-ons.
+3. **Verification that outlives its cryptography.** Addresses are derived
+   from FALCON-512 public keys, so there is no ECDSA legacy to migrate away
+   from, and the account record stays verifiable even as the underlying
+   primitives are replaced.
 
 This chapter covers the account record, address derivation, nonce mechanics,
 multisig configuration, batch transactions, and the transaction wire format.
@@ -270,9 +272,9 @@ enum AuthKeys {
 | `MultiSig`      | v1     | Native multi-signature: set of keys + threshold (max 16) |
 | `Programmable`  | v2 reserved | Contract-defined auth logic (session keys, social recovery, biometric, etc.). The discriminant is reserved at v1 so contracts written today survive the v2 upgrade without rewriting |
 
-**Why native multisig at v1.** Gnosis Safe's contract-based multisig on
-Ethereum has been re-implemented dozens of times across projects with
-subtle bugs in each. Pyde standardizes the simple `t-of-n` case as a
+**Why native multisig at v1.** Contract-based multisig, such as the Gnosis
+Safe pattern on Ethereum, is re-implemented per project, and each
+reimplementation is a place bugs can slip in. Pyde standardizes the simple `t-of-n` case as a
 protocol primitive, so wallets and contracts can rely on a single audited
 implementation. Weighted multisig and exotic schemes still live at the
 contract layer.
@@ -684,8 +686,8 @@ Step 4 — DAG vertex production (round R)
 Step 5 — Commit (round R+3, ~500 ms after submission)
   Deterministic anchor commits the subdag; canonical order emitted.
 
-Step 6 — Private-mempool resolution (only for commit-reveal txs)
-  This Standard tx skips it. A privacy-seeking swap would instead be a
+Step 6 — Commit-reveal mempool resolution (only for commit-reveal txs)
+  This Standard tx skips it. A front-running-resistant swap would instead be a
   Commit (0x11) whose order is fixed here by the DAG, then a Reveal (0x12)
   within COMMIT_REVEAL_WINDOW_WAVES; revealed inner txs execute in commit
   order, so content is never known before order is locked. No committee key

@@ -15,9 +15,9 @@ This is a living document. Update on new threats discovered, protocol changes, a
 - User funds (PYDE balances + staked amounts)
 - State integrity (no fork, no double-spend)
 - Transaction ordering integrity (no proposer-MEV)
-- Private-mempool invariants (commit-before-reveal)
+- Commit-reveal mempool invariants (commit-before-reveal)
 - Validator stake (fair slashing)
-- Pre-reveal confidentiality of private-mempool transaction contents
+- Pre-reveal confidentiality of commit-reveal mempool transaction contents
 - Liveness (chain progress)
 - Cross-chain finality (HardFinalityCert correctness)
 
@@ -41,7 +41,7 @@ This is a living document. Update on new threats discovered, protocol changes, a
 | Validator stake | High | Slashing must be fair |
 | Liveness | High | Chain stops being useful |
 | Privacy | High | Pre-reveal confidentiality promise violated |
-| Cross-chain integrity | High | Bridges hacks have caused $3B+ historical losses |
+| Cross-chain integrity | High | Bridge hacks have historically been a major loss category |
 
 ## 2. Adversary Model
 
@@ -73,14 +73,14 @@ This is a living document. Update on new threats discovered, protocol changes, a
 **Insider validator (single):**
 - ✅ Has one FALCON private key
 - ✅ Has validator software access
-- ❌ Cannot read private-mempool content before reveal (no committee key exists)
+- ❌ Cannot read commit-reveal mempool content before reveal (no committee key exists)
 - ❌ Cannot forge other validators' signatures
 - ❌ Cannot violate determinism alone (constrained by protocol rules)
 
 **Coordinated insiders (≤42 validators, below BFT threshold):**
 - ✅ Can equivocate (each commits slashable offense)
 - ✅ Can collude on transactions (but ordering is deterministic)
-- ❌ Cannot read private-mempool content before reveal (no key to collude on; the property is unconditional)
+- ❌ Cannot read commit-reveal mempool content before reveal (no key to collude on; the property is unconditional)
 - ❌ Cannot violate safety (need 85+ for any commit)
 - ❌ Cannot censor (other 86+ can include any transaction)
 
@@ -94,7 +94,7 @@ This is a living document. Update on new threats discovered, protocol changes, a
 
 ### Cryptographic
 - FALCON-512 is EUF-CMA secure (NIST standard)
-- Blake3 and Poseidon2 are collision- and preimage-resistant (the private mempool's commitment hiding rests on this alone; no committee key is assumed)
+- Blake3 and Poseidon2 are collision- and preimage-resistant (the commit-reveal mempool's commitment hiding rests on this alone; no committee key is assumed)
 - Kyber-768 is IND-CCA2 secure (NIST FIPS 203), used only for transport-layer session keys
 - Random beacon is unpredictable until the last signer contributes
 
@@ -212,7 +212,7 @@ Session keys ship at v2. The threats below are catalogued now so the v2 implemen
 |---|---|
 | BFT 85/128 quorum + Mysticeti-style consensus | See WHITEPAPER §5 |
 | Slashing | See SLASHING.md |
-| Keyless commit-reveal private mempool + commit-before-reveal | See WHITEPAPER §5.2, §9 |
+| Keyless commit-reveal mempool + commit-before-reveal | See WHITEPAPER §5.2, §9 |
 | Anti-Sybil (operator identity binding) | See VALIDATOR_LIFECYCLE.md |
 | State sync verification (chain-of-trust) | See STATE_SYNC.md |
 | Chain halt + recovery procedures | See CHAIN_HALT.md |

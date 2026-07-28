@@ -2,12 +2,12 @@
 
 ## What is Pyde?
 
-Pyde is a Layer 1 blockchain built greenfield to deliver four properties no chain in production combines today:
+Pyde is our attempt at what a base layer could have been from the start: fair ordering, honest finality, a node anyone can run, and verification that outlives the cryptography it was built with. Concretely, that shows up as four properties:
 
-1. **Post-quantum cryptography by default**: FALCON-512 signatures, Poseidon2 + Blake3 hashing
-2. **MEV resistance by structure**: a keyless commit-reveal private mempool with deterministic commit-order execution eliminates proposer extraction
-3. **Sub-second finality**: Mysticeti-style consensus, ~500ms median finality
-4. **Commodity decentralization**: modest hardware for validators not currently on the active committee; equal voting power within the active committee
+1. **Fair ordering by structure**: a keyless commit-reveal mempool with deterministic commit-order execution removes proposer extraction
+2. **Honest finality**: Mysticeti-style consensus, ~500ms median finality
+3. **A node anyone can run**: modest hardware for validators not currently on the active committee; equal voting power within the active committee
+4. **Verification that outlives its cryptography**: FALCON-512 signatures, Poseidon2 + Blake3 hashing, post-quantum from genesis
 
 The execution layer is **WebAssembly via wasmtime**, with Cranelift ahead-of-time compilation and a **uniform Block-STM scheduler**: every tx runs optimistically in parallel through an MVCC layer, conflicts are detected at runtime, losers re-execute until fixpoint. Wallet-attached access lists from `pyde_simulateTransaction` drive PIP-3 multiget prefetch into the dashmap cache before execution starts; the lists are performance hints, not scheduling decisions. Smart contracts can be authored in **Rust, AssemblyScript, Go (TinyGo), or C** (whatever language the team already uses) and bundled by the `otigen` developer toolchain.
 
@@ -24,17 +24,17 @@ This book reflects the post-pivot architecture. The work that preceded each pivo
 
 ## Why a New Layer 1?
 
-### The Quantum Problem
+### Ordering
 
-Every major Layer 1 in production today (Bitcoin, Ethereum, Solana, Cardano, Polkadot) uses classical cryptography (secp256k1, Ed25519, BLS12-381) vulnerable to Shor's algorithm. NIST's 2024 standardization of FALCON, ML-DSA, and ML-KEM unblocked post-quantum primitives, but retrofitting them into a live chain is a multi-year coordinated migration. **Pyde ships PQ at genesis without retrofitting.**
+Value extracted from ordering has hardened into a tax paid by ordinary users to whoever controls block production. Sandwich attacks, front-running, and proposer extraction are not bugs: they are structural consequences of public mempools and single-proposer block production. **Pyde removes the structural conditions** via a keyless commit-reveal mempool (commit order is fixed by the DAG before content is revealed) with no single proposer to exploit.
 
-### The MEV Problem
+### A node anyone can run
 
-Maximum Extractable Value has hardened into a multi-billion-dollar tax paid by retail users to validator-builder coalitions. Sandwich attacks, front-running, and proposer extraction are not bugs: they are structural consequences of public mempools and single-proposer block production. **Pyde eliminates the structural conditions** via a keyless commit-reveal private mempool (commit order is fixed by the DAG before content is revealed) with no single proposer to exploit.
+Chains optimizing for throughput have tended to require datacenter-class validator hardware. Chains optimizing for decentralization have tended toward throughput too low for serious applications. **Pyde scales hardware requirements by role**: commodity for validators awaiting committee selection, modest professional for validators on the active committee at production targets, datacenter only for aspirational TPS levels.
 
-### The Decentralization Problem
+### Verification that outlives its cryptography
 
-Chains optimizing for throughput have ended up requiring datacenter-class validator hardware. Chains optimizing for decentralization have ended up with throughput unusable for serious applications. **Pyde scales hardware requirements by role**: commodity for validators awaiting committee selection, modest professional for validators on the active committee at production targets, datacenter only for aspirational TPS levels.
+Most Layer 1s in production today rest on classical cryptography (secp256k1, Ed25519, BLS12-381) that Shor's algorithm would eventually undo. NIST's 2024 standardization of FALCON, ML-DSA, and ML-KEM unblocked post-quantum primitives, but retrofitting them into a live chain is a multi-year coordinated migration. **Pyde ships PQ at genesis without retrofitting**, so verification does not have an expiry date built into it.
 
 ## What's New (Post-Pivot)
 
@@ -44,7 +44,7 @@ Chains optimizing for throughput have ended up requiring datacenter-class valida
 - **Uniform Block-STM scheduler**: optimistic parallel execution + MVCC validation; access lists from `pyde_simulateTransaction` drive PIP-3 prefetch into the dashmap cache before workers start
 - **JMT state tree** (Jellyfish Merkle Tree, radix-16) replaces fixed-depth SMT, with dual Blake3 + Poseidon2 roots so standard light clients and future ZK light clients verify against the same tree
 - **PIP-2 clustered slot keys + PIP-3 prefetch + PIP-4 write-back cache**: three-layer state performance stack
-- **Private mempool opt-in** per-tx: keyless commit-reveal MEV protection where needed, no overhead where not
+- **Keyless commit-reveal mempool opt-in** per-tx: fair-ordering protection where needed, no overhead where not
 - **`otigen` developer toolchain** with zero-extra-code authoring: write contract logic + `otigen.toml`, the tool handles everything else
 - **Honest performance targets**: the v1 throughput target is validated by a multi-region performance harness before any number is published
 - **Phased mainnet plan**: external audit + incentivized testnet before launch
@@ -75,7 +75,7 @@ Throughput is validated by a multi-region production-realistic harness (mandator
 | Mode | v1 | v2 | Aspirational |
 |---|---|---|---|
 | Plaintext throughput (commodity) | awaiting harness | awaiting harness | awaiting harness |
-| Private-mempool throughput (commodity) | awaiting harness | awaiting harness | awaiting harness |
+| Commit-reveal throughput (commodity) | awaiting harness | awaiting harness | awaiting harness |
 | Median finality | ~500ms | ~400ms | ~300ms |
 
 **The HotStuff Lesson:** the pre-pivot implementation hit ~4K TPS in practice despite a higher claimed design target. Pyde now adopts the discipline of publishing only what the harness measures under sustained, production-realistic conditions, never lab extrapolations or microbenchmark peaks. No external TPS claim without harness evidence.

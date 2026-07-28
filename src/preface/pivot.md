@@ -8,9 +8,9 @@ A note on how this book came to describe what it describes, and what changed alo
 
 Pyde began with a simple question that turned out to be much harder than it looked:
 
-_Can we build a post-quantum L1 that is actually fast?_
+_What would a base layer look like if it were what it could have been from the start?_
 
-Not "fast in the abstract." Not "fast in a research paper." Fast enough that real users would not notice it was post-quantum at all. Fast enough that the security upgrade was free at the point of use.
+That means a few plain things: fair ordering, honest finality, a node anyone can run, and verification that outlives the cryptography it was built with. Post-quantum security is one quiet part of that last property, not the whole story. And all of it has to be fast enough that real users never notice the guarantees are there at all.
 
 That question is what this book is about. Everything else (the consensus choice, the execution model, the state layer, the crypto primitives) is downstream of trying to answer it honestly.
 
@@ -90,7 +90,7 @@ For a while, the bet looked good. Otigen had personality. Its syntax was clean. 
 
 What we did not see clearly at the time was that building a smart-contract language is not a one-shot deliverable. It is a permanent commitment to a category of work that competes against everything else the chain needs. A language has to keep up with the host platform (toolchain updates, Cranelift API churn, security advisories). It has to add features real applications need that we did not predict in version one. It has to maintain backwards compatibility, or pay the cost of breaking it. It has to be fuzzed, audited, and hardened against an open adversary. It has to be documented for new developers, supported in IDEs, debuggers, profilers, linters, formatters. It has to be taught.
 
-The deeper question, the one we eventually had to ask honestly, was whether all that ongoing work was paying for the right things. The language was not Pyde's differentiator. Solana's BPF is not why people use Solana. Polkadot's WASM is not why people use Polkadot. Aptos's Move-language is closer to a differentiator, but even there the chain competes on consensus and security, not on Move itself. Smart-contract languages are tools. They matter for developer experience. They do not move the needle on the question Pyde was created to answer: _can we build a post-quantum L1 that is actually fast?_
+The deeper question, the one we eventually had to ask honestly, was whether all that ongoing work was paying for the right things. The language was not Pyde's differentiator. On most chains, the smart-contract language is not why people show up; they show up for the properties underneath it, and the chain competes on consensus and security, not on the language itself. Smart-contract languages are tools. They matter for developer experience. They do not move the needle on the question Pyde was created to answer: what a base layer could have been from the start.
 
 The work we were spending on the language was work we were not spending on the answer.
 
@@ -156,7 +156,7 @@ What WASM offered was not just a comparable runtime. It was an _already-vetted_ 
 
 There was the moment when we looked at the surface area a credible v1 requires (consensus correctness, threshold cryptography, state sync, slashing, validator lifecycle, network protocol, parachain framework, audit prep) and realized that an in-house language committed us to maintaining a parallel track of work that competed with all of those for attention. Not because the language was harder than the consensus or the crypto. Because the language was _optional in a way the others were not_. Every chain ships consensus and crypto and state. Few chains ship their own language. The ones that do (Move, Vyper, Otigen) carry that as a perpetual obligation, and it is rarely the thing that determines whether the chain ships well.
 
-We decided that Pyde would compete on what is actually unique to Pyde (post-quantum consensus, threshold-decrypted mempool, the cryptography stack) and inherit the rest from established WebAssembly tooling.
+We decided that Pyde would compete on what is actually unique to Pyde (fair ordering through the keyless commit-reveal mempool, honest finality, a node anyone can run, and a cryptography stack that outlives the hardware, with post-quantum security as one supporting property) and inherit the rest from established WebAssembly tooling.
 
 Pyde's execution layer pivoted to WebAssembly via wasmtime. Authors write contracts in Rust, AssemblyScript, Go, or C (whatever they already know). The compilation target is well-defined, the runtime is battle-tested in production at Fastly and Microsoft and Shopify, the sandboxing is verified by years of fuzzing, the gas-metering is built in, and the ZK-readiness path has actual researchers working on it.
 
@@ -188,7 +188,7 @@ Worth naming explicitly, so the trade-offs are visible:
 
 - **A larger ecosystem of tooling.** Block explorers, debuggers, profilers, fuzzers, formal verification tools all exist for WebAssembly. We inherit them. Pyde-specific tooling can layer on top instead of starting from zero.
 
-- **Time savings, measured honestly.** The engineering capacity we would have spent maintaining Otigen (language design, compiler bug fixes, AOT bug fixes, standard library work, security advisories, ecosystem support) flows directly into the work Pyde actually competes on: post-quantum consensus, threshold cryptography, state-layer performance, validator lifecycle, parachain framework.
+- **Time savings, measured honestly.** The engineering capacity we would have spent maintaining Otigen (language design, compiler bug fixes, AOT bug fixes, standard library work, security advisories, ecosystem support) flows directly into the work Pyde actually competes on: fair ordering and honest finality in consensus, the cryptography stack (post-quantum included), state-layer performance, validator lifecycle, parachain framework.
 
 The trade-off we accepted: a small overhead on tight compute loops (which the benchmarks show is negligible for blockchain workloads, where storage IO dominates) and the loss of "Pyde has its own VM" as a marketing line (which was never a real differentiator anyway). For that price we got everything above.
 
@@ -205,7 +205,7 @@ The architecture that this book describes is the architecture after the pivots:
 - **Consensus:** Mysticeti-style DAG, anchor-every-round, tail-latency-aware.
 - **Execution:** WebAssembly via wasmtime, with Cranelift AOT for hot paths.
 - **State:** Jellyfish Merkle Tree with dual hashing (Blake3 + Poseidon2), PIP-2 clustered slot keys for cache locality, dual roots so we can serve both standard light clients and future ZK light clients from the same tree.
-- **Cryptography:** FALCON for signatures (post-quantum), threshold decryption as an opt-in mempool privacy path, Poseidon2 as our ZK-friendly hash, Blake3 for fast general hashing.
+- **Cryptography:** FALCON for signatures (post-quantum), a keyless commit-reveal mempool for fair ordering, Poseidon2 as our ZK-friendly hash, Blake3 for fast general hashing.
 - **Developer experience:** the `otigen` binary owns the entire authoring lifecycle. Authors write only their contract logic and a `otigen.toml`. Everything else (language detection, build invocation, state binding generation, ABI emission, deploy-tx submission) is handled by the tool.
 - **Parachains:** WASM runtime per parachain, equal-power governance, full upgrade history retention, ENS-style name registration.
 
@@ -219,13 +219,13 @@ The first instincts were wrong, mostly. The current architecture is what was lef
 
 It is worth being explicit about what stays the same, because the changes have been substantial and a casual reader could conclude that everything is in flux. It is not.
 
-The core thesis is unchanged: post-quantum from day one, practical performance, decentralized validator set, light-client-verifiable state, opt-in transaction privacy via threshold decryption.
+The core thesis is unchanged: fair ordering through the keyless commit-reveal mempool, honest finality, a validator set anyone can join, light-client-verifiable state, practical performance, and verification that outlives its cryptography (post-quantum from day one as one part of that).
 
 The consensus model is unchanged from the Mysticeti pivot onward: DAG-based, anchor-per-round, equal-power VRF-rotated committee.
 
 The state layer is unchanged from the JMT decision onward: versioned Merkle tree, hash-friendly to both general hashing and ZK provers, PIP-2 clustering for locality.
 
-The cryptography is unchanged: FALCON, Poseidon2, Blake3, threshold decryption via DKG.
+The cryptography is unchanged: FALCON, Poseidon2, Blake3, and the keyless commit-reveal mempool.
 
 The PIPs (Pyde Improvement Proposals) all carry forward unchanged: PIP-2 clustered state keys, PIP-3 scheduler-level prefetch, PIP-4 application-level write-back cache, the dual-hash JMT. They are layer-agnostic. The execution VM does not affect them.
 
@@ -239,7 +239,7 @@ This book is the current architecture of Pyde, as honestly as we can describe it
 
 This book is not a marketing document. It does not promise speeds we have not measured. It does not list partnerships that do not exist. It does not paper over the parts of the design that are still hard. Where something is uncertain, we say so. Where we have changed our minds, we say that too.
 
-If you came here looking for a clean, never-pivoted, always-knew-the-answer story, that is not what Pyde is, and not what this book is. Pyde is what happens when someone decides to build a post-quantum L1, runs into every wall the architecture has to offer, and writes down what remained after the dust settled.
+If you came here looking for a clean, never-pivoted, always-knew-the-answer story, that is not what Pyde is, and not what this book is. Pyde is what happens when someone decides to build what a base layer could have been from the start, runs into every wall the architecture has to offer, and writes down what remained after the dust settled.
 
 For the deep technical material on the earlier iterations (the HotStuff consensus design that preceded Mysticeti, and the Otigen language design that preceded WebAssembly), see the [Pivot folder](../pivot/README.md), which includes the design records and a step-by-step guide to [running the pivot-era benchmarks](../pivot/03-running-benchmarks.md) on your own machine. The narrative is here; the design records are there.
 

@@ -132,7 +132,7 @@ Spec map:
 Crates owned:
 - `consensus`: Mysticeti DAG, vertex/round/anchor/wave logic, BFS subdag walk, slashing evidence collection, equivocation detection, missing-vertex fetch
 - `net`: libp2p + QUIC + Gossipsub, peer discovery (layered, no DHT), sentry-node pattern, vertex-fetch protocol
-- `beacon`: per-member beacon keypairs + aggregated-signature combine (no DKG; the private mempool is keyless)
+- `beacon`: per-member beacon keypairs + aggregated-signature combine (no DKG; the commit-reveal mempool is keyless)
 - `slashing`: validator state machine, the offense catalog, slashing escrow, jail mechanics, reward distribution
 - `node`: the binary, JSON-RPC server, validator role, `consensus_store` with `set_sync(true)`, persistence
 
@@ -374,11 +374,12 @@ implementation streams are running concurrently; you own Stream α
 
 ## What Pyde is
 
-Post-quantum L1 (FALCON-512 sigs, keyless commit-reveal private mempool,
-Poseidon2+Blake3 hashing). Mysticeti-style consensus with 128/85 quorum
-and sub-second commits. WASM execution via wasmtime. MEV-resistant
-by structure. Pre-mainnet, solo-founder-led (zarah). Workspace at the
-`pyde-net/` polyrepo root.
+An L1 built around fair ordering, honest finality, and a node anyone
+can run, with verification that outlives its cryptography. FALCON-512
+sigs, keyless commit-reveal mempool, Poseidon2+Blake3 hashing.
+Mysticeti-style consensus with 128/85 quorum and sub-second commits.
+WASM execution via wasmtime. Fair ordering by structure. Pre-mainnet,
+solo-founder-led (zarah). Workspace at the `pyde-net/` polyrepo root.
 
 ## Your stream
 
@@ -474,11 +475,12 @@ implementation streams are running concurrently; you own Stream β
 
 ## What Pyde is
 
-Post-quantum L1 (FALCON-512 sigs, keyless commit-reveal private mempool,
-Poseidon2+Blake3 hashing). Mysticeti-style consensus with 128/85 quorum
-and sub-second commits. WASM execution via wasmtime. MEV-resistant
-by structure. Pre-mainnet, solo-founder-led (zarah). Workspace at the
-`pyde-net/` polyrepo root.
+An L1 built around fair ordering, honest finality, and a node anyone
+can run, with verification that outlives its cryptography. FALCON-512
+sigs, keyless commit-reveal mempool, Poseidon2+Blake3 hashing.
+Mysticeti-style consensus with 128/85 quorum and sub-second commits.
+WASM execution via wasmtime. Fair ordering by structure. Pre-mainnet,
+solo-founder-led (zarah). Workspace at the `pyde-net/` polyrepo root.
 
 ## Your stream
 
@@ -584,11 +586,12 @@ implementation streams are running concurrently; you own Stream γ
 
 ## What Pyde is
 
-Post-quantum L1 (FALCON-512 sigs, keyless commit-reveal private mempool,
-Poseidon2+Blake3 hashing). Mysticeti-style consensus with 128/85 quorum
-and sub-second commits. WASM execution via wasmtime. MEV-resistant
-by structure. Pre-mainnet, solo-founder-led (zarah). Workspace at the
-`pyde-net/` polyrepo root.
+An L1 built around fair ordering, honest finality, and a node anyone
+can run, with verification that outlives its cryptography. FALCON-512
+sigs, keyless commit-reveal mempool, Poseidon2+Blake3 hashing.
+Mysticeti-style consensus with 128/85 quorum and sub-second commits.
+WASM execution via wasmtime. Fair ordering by structure. Pre-mainnet,
+solo-founder-led (zarah). Workspace at the `pyde-net/` polyrepo root.
 
 ## Your stream
 
@@ -600,7 +603,7 @@ Crates you own:
 - `net` — libp2p + QUIC + Gossipsub, peer discovery (layered, no
   DHT), sentry-node pattern, vertex-fetch protocol
 - `beacon` — per-member beacon keypairs + aggregated-signature combine
-  (no DKG; the private mempool is keyless)
+  (no DKG; the commit-reveal mempool is keyless)
 - `slashing` — validator state machine, offense catalog,
   slashing escrow, jail mechanics, reward distribution
 - `node` — the binary, JSON-RPC server, validator role,

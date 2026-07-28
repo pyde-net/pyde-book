@@ -8,30 +8,18 @@ mainnet. This page is your map.
 
 ## What's different about Pyde
 
-Three things, in plain language:
+Pyde is our attempt at what a base layer could have been from the
+start: fair ordering, honest finality, a node anyone can run, and
+verification that outlives the cryptography it was built with. Three
+things follow from that, in plain language.
 
-### 1. It survives the quantum era
+### 1. Fair ordering, without a trusted relayer
 
-Every signature on Pyde uses **FALCON-512**, a NIST-standardised
-post-quantum signature scheme. Hashing uses **Blake3** and
-**Poseidon2**, and transport-layer session keys use **Kyber-768
-(ML-KEM)**, NIST's post-quantum key-encapsulation scheme. Every
-primitive on a consensus or account path is post-quantum.
+The order of transactions inside a block usually gets to decide who
+profits. Whoever fixes that order can slot their own trade in front
+of yours before you ever see it land.
 
-Translation: when a quantum computer powerful enough to break Bitcoin
-+ Ethereum signatures shows up, Pyde keeps working. There is no
-migration window because there's no ECDSA legacy to migrate away from.
-
-Read more: [Chapter 8: Cryptography](../chapters/08-cryptography.md).
-
-### 2. Front-running is structurally impossible
-
-On most chains, the order of transactions inside a block is decided
-by whoever proposes the block, and that ordering is profitable. MEV
-bots pay validators to insert their trade in front of yours, drain
-your slippage, and move on.
-
-Pyde runs a **keyless private mempool**. You submit a Blake3
+Pyde runs a **keyless commit-reveal mempool**. You submit a Blake3
 commitment to your transaction first; the DAG fixes its order, and
 only **then** do you reveal the content. By the time anyone can
 read what's inside a transaction, the ordering is already final.
@@ -40,6 +28,20 @@ depend on validators declining to collude. There is no profitable
 front-run because there's no information to front-run on.
 
 Read more: [Chapter 9: MEV Protection](../chapters/09-mev-protection.md).
+
+### 2. Verification that outlives the cryptography
+
+Every signature on Pyde uses **FALCON-512**, a NIST-standardised
+post-quantum signature scheme. Hashing uses **Blake3** and
+**Poseidon2**, and transport-layer session keys use **Kyber-768
+(ML-KEM)**, NIST's post-quantum key-encapsulation scheme. Every
+primitive on a consensus or account path is post-quantum.
+
+Translation: the chain is built so its verification stays sound even
+as the cryptography around it ages. There is no migration window
+because there's no legacy scheme to migrate away from.
+
+Read more: [Chapter 8: Cryptography](../chapters/08-cryptography.md).
 
 ### 3. Your account doesn't die when one key leaks
 

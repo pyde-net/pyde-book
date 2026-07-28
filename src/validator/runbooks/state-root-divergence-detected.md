@@ -44,9 +44,9 @@ If the roots disagree across nodes, this is confirmed divergence.
    - `git log --oneline pyde-net/engine --since '7 days ago' -- crates/wasm-exec`
    - Yes → there's a candidate root-cause PR. Tag the author in incident channel.
 
-4. **Are encrypted transactions involved at the divergence wave?**
-   - `curl -s -X POST http://val-1:9933 -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"pyde_getWave\",\"params\":[$HIGHEST]}" | jq '.result.encrypted_txs_count // 0'`
-   - Non-zero → may be a threshold-decryption non-determinism (pyde-crypto research-risk surface). Inspect MEV decryption shares.
+4. **Did the divergence wave resolve any commit-reveal Reveals?**
+   - `curl -s -X POST http://val-1:9933 -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"pyde_getWave\",\"params\":[$HIGHEST]}" | jq '.result.reveal_txs_count // 0'`
+   - Non-zero → suspect reveal-ordering non-determinism in the reveal-resolution pass; there is no committee decryption key or decryption share to inspect, since the commitment is a plain Blake3 hash.
 
 ## Recovery
 

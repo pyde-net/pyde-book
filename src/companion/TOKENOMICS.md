@@ -39,7 +39,7 @@ Inflation accrues to the **reward pool**, distributed per the same rule as the f
 
 Every transaction has:
 - **Base fee:** dynamically adjusted per block (EIP-1559 mechanism, target 50% block utilization)
-- **No priority tip.** The keyless commit-reveal private mempool eliminates the information asymmetry that priority fees price. Priority would re-introduce ordering exploitation.
+- **No priority tip.** The keyless commit-reveal mempool eliminates the information asymmetry that priority fees price. Priority would re-introduce ordering exploitation.
 - **Combined gas:** for `parachain_call!` invocations (post-mainnet), Pyde-side + parachain-side gas billed in one transaction
 
 ### Block Elasticity
@@ -83,7 +83,7 @@ Single-tier staking:
 - **Unbonding period:** 30 days (must exceed the 21-day safety evidence freshness window)
 
 There is no separate "committee tier" with a higher floor. Pyde relies on
-the keyless commit-reveal private mempool + operator-identity cap + slashing
+the keyless commit-reveal mempool + operator-identity cap + slashing
 for Sybil resistance, not on stake-size economics (see Chapter 16 §16.4 for
 the full security argument).
 

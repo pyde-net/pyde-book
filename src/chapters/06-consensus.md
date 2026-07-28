@@ -22,7 +22,7 @@ The DAG approach removes the fragile parts:
 | Throughput limited by leader bandwidth | Scales with committee size |
 | HotStuff bugs cluster in view-change code | DAG doesn't have view-change code |
 
-The same lab/laptop devnet that hit ~4K TPS under pre-pivot HotStuff is the baseline against which DAG performance will be measured. The v1 honest throughput target (to be established by the multi-region performance harness) covers both the plaintext path and the commit-reveal private-mempool path (Chapter 9) under production-realistic conditions.
+The same lab/laptop devnet that hit ~4K TPS under pre-pivot HotStuff is the baseline against which DAG performance will be measured. The v1 honest throughput target (to be established by the multi-region performance harness) covers both the plaintext path and the commit-reveal mempool path (Chapter 9) under production-realistic conditions.
 
 ## 2. Worker / Primary Split (Narwhal Pattern)
 
@@ -229,7 +229,7 @@ When the anchor vertex collects sufficient support from later rounds (Mysticeti 
      - secondary key: member_id
      - tertiary key: list order within vertex
 4. For each vertex in sorted order, dereference batch_refs
-5. Run the commit-reveal resolution pass: revealed inner txs splice into their DAG-fixed commit order (private mempool — Chapter 9)
+5. Run the commit-reveal resolution pass: revealed inner txs splice into their DAG-fixed commit order (commit-reveal mempool, Chapter 9)
 6. wasmtime executes all transactions in canonical order
 7. State root computed (Blake3 + Poseidon2 dual)
 8. ≥85 committee FALCON-sign state root (piggybacked on next-round vertices)
@@ -345,7 +345,7 @@ When `pyde-crypto` ships threshold-FALCON or an equivalent post-quantum threshol
 
 ## 10. Epoch Transition & Committee Handover
 
-Each epoch transition hands consensus from committee N to committee N+1. Because Pyde's private mempool is a **keyless commit-reveal** design (Chapter 9), there is **no threshold decryption key to generate**, so there is no DKG, no Shamir shares, and no per-epoch key ceremony. The handover is purely: publish the beacon, select the next committee, swap in.
+Each epoch transition hands consensus from committee N to committee N+1. Because Pyde's mempool is a **keyless commit-reveal** design (Chapter 9), there is **no threshold decryption key to generate**, so there is no DKG, no Shamir shares, and no per-epoch key ceremony. The handover is purely: publish the beacon, select the next committee, swap in.
 
 ```
 T-30min (last 30 min of epoch N):
@@ -364,9 +364,9 @@ Committee selection needs only the beacon and each validator's own VRF, so the h
 
 > **Historical note.** Earlier drafts ran a Pedersen DKG here to produce a per-epoch threshold *decryption* key for an encrypted mempool. That mechanism has been removed from the protocol: trustless post-quantum threshold key generation is research-blocked (lattice public keys do not combine homomorphically the way BLS does, and there is no trustless DKG for ML-KEM). The keyless commit-reveal design (Chapter 9) needs no such key. A one-shot ciphertext lane remains a v2+ research direction ([Chapter 20](./20-future-direction.md)).
 
-## 11. Private Mempool Resolution (Commit-Reveal)
+## 11. Commit-Reveal Mempool Resolution
 
-Pyde's MEV protection is a **keyless commit-reveal private mempool**: there is no committee decryption key and no per-transaction decryption ceremony. Safety is unconditionally trustless: it never depends on any quorum of committee members declining to collude, because a commit is just a hash. [Chapter 9](./09-mev-protection.md) is the full specification; the consensus-relevant mechanics are:
+Pyde's MEV protection is a **keyless commit-reveal mempool**: there is no committee decryption key and no per-transaction decryption ceremony. Safety is unconditionally trustless: it never depends on any quorum of committee members declining to collude, because a commit is just a hash. [Chapter 9](./09-mev-protection.md) is the full specification; the consensus-relevant mechanics are:
 
 - A **Commit** transaction (TxType `0x11`) carries only a Blake3 `commitment` plus a bond; the DAG fixes its position in the total order at commit time, before anyone knows the contents.
 - A **Reveal** transaction (TxType `0x12`) later supplies the inner transaction. Any account may submit it, and it must land within `COMMIT_REVEAL_WINDOW_WAVES = 120` waves of the commit's inclusion wave, else the commit expires and the bond is forfeit.
@@ -378,7 +378,7 @@ Both primitives are already post-quantum: Blake3 for the commitment, FALCON for 
 
 Because resolution is deterministic bookkeeping (match reveals to open commits, splice into commit order), it adds only a few milliseconds of post-commit work per wave. No shares propagate ahead of the commit and there is no ceremony to pipeline.
 
-> **Future work.** A one-shot ciphertext ("Threshold-LWE") lane, an *optional* private-mempool alternative alongside the keyless commit-reveal default and gated on a trustless PQ threshold-keygen breakthrough, is a v2+ research direction documented in [Chapter 20](./20-future-direction.md). It is not part of the shipping protocol.
+> **Future work.** A one-shot ciphertext ("Threshold-LWE") lane, an *optional* encrypted-mempool alternative alongside the keyless commit-reveal default and gated on a trustless PQ threshold-keygen breakthrough, is a v2+ research direction documented in [Chapter 20](./20-future-direction.md). It is not part of the shipping protocol.
 
 ## 12. State Root Attestation
 

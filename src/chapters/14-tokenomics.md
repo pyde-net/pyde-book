@@ -187,9 +187,9 @@ The remainder-to-treasury pattern means rounding dust never disappears.
 - **High burn pressure.** At sustained moderate usage with realistic fee
   loads, the annual burn exceeds the annual mint within a few years:
   net deflation.
-- **MEV resistance.** A would-be MEV searcher who used Pyde for
+- **MEV resistance.** A would-be searcher who used Pyde for
   extraction would burn 70% of the captured value. Combined with the
-  keyless commit-reveal private-mempool protections (Chapter 9), this
+  keyless commit-reveal mempool protections (Chapter 9), this
   further dis-incentivizes attempts.
 - **Validator share is meaningful but not dominant.** 20% pool share is
   enough to reward staking without making validators primarily fee-driven.
@@ -239,9 +239,9 @@ FALCON keys and operator identities, and each faces independent slashing
 exposure plus the per-operator cap (see below).
 
 **Why 10K, not higher.** Pyde's MEV-extraction attack value is structurally
-near-zero (the keyless commit-reveal private mempool fixes ordering before
-content is revealed, eliminating the profit motive that drives Ethereum-scale
-stake floors). With the attack-incentive removed, stake serves as a
+near-zero (the keyless commit-reveal mempool fixes ordering before
+content is revealed, removing the profit motive that drives large
+stake floors elsewhere). With the attack-incentive removed, stake serves as a
 credible-commitment deposit against slashable misbehavior rather than as the
 load-bearing economic defense. Pyde's Sybil resistance is layered
 (operator-identity cap + slashing + commit-reveal ordering + state-root

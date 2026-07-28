@@ -136,7 +136,7 @@ breaking existing resolution.
 
 Three families of work: tightening existing primitives, adding
 zero-knowledge proofs, and the open research direction that would let
-the private mempool offer one-shot ciphertext UX without giving up its
+the commit-reveal mempool offer one-shot ciphertext UX without giving up its
 trustless, keyless guarantee.
 
 ### 20.2.1 Algebraic Batch FALCON Verification
@@ -173,7 +173,7 @@ cheaply). The state model is already a Merkle structure (JMT). No wire
 change needed when ZK lands; proofs become a new RPC and a new vertex
 field.
 
-### 20.2.3 Threshold-LWE One-Shot Private Mempool
+### 20.2.3 One-Shot Ciphertext Lane
 
 What it is. A lattice-based (LWE / threshold ML-KEM) threshold
 encryption scheme that would let a user submit a **single ciphertext
@@ -191,7 +191,7 @@ dealer, and post-quantum threshold keygen is an open research problem:
 lattice public keys do not combine homomorphically the way BLS keys
 do, so there is no clean DKG that yields a shared threshold ML-KEM/LWE
 key without either a trusted setup or an unproven construction. v1's
-keyless [commit-reveal private mempool](./09-mev-protection.md) exists
+[keyless commit-reveal mempool](./09-mev-protection.md) exists
 precisely because it needs none of this (no committee key, nothing to
 collude over, nothing to reconstruct) and delivers the same ordering
 guarantee today.
@@ -207,7 +207,7 @@ default; the ciphertext lane is convenience for those who want it.
 Status. Research-gated. Blocked on a practical trustless post-quantum
 threshold-keygen primitive (or a deliberate decision to accept a
 one-time trusted-setup ceremony). Not a near-term item; tracked here so
-the door to one-shot private-tx UX stays explicit if and when the
+the door to one-shot ciphertext UX stays explicit if and when the
 primitive matures. Adjacent operational work, namely following the
 NIST FIPS 203 (ML-KEM) reference crate from its release-candidate to
 its stable release, only becomes relevant if this lane is built.

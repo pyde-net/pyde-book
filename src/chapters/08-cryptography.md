@@ -1,9 +1,11 @@
 # Chapter 8: Cryptography
 
-Pyde's cryptographic stack is post-quantum from genesis. There are no elliptic
-curves anywhere in the protocol: no secp256k1, no ed25519, no BLS12-381. Every
-primitive used to authenticate transactions, exchange keys, hash state, or
-prove randomness is built on lattices or hash functions.
+Pyde's cryptographic stack is built so that verification outlives the
+cryptography it was built with; being post-quantum is one supporting property
+of that goal. There are no elliptic curves anywhere in the protocol: no
+secp256k1, no ed25519, no BLS12-381. Every primitive used to authenticate
+transactions, exchange keys, hash state, or prove randomness is built on
+lattices or hash functions.
 
 This chapter specifies every primitive with the parameters Pyde actually
 ships, where they live in the codebase, and how they fit together.
@@ -183,8 +185,8 @@ post-mainnet hardening (`task 057` in the mainnet plan).
    See Chapter 12.
 
 Kyber's role is confined to transport-layer key agreement. It is **not** part
-of the MEV-protection path: Pyde's private mempool is a keyless commit-reveal
-scheme (§8.5) that uses no key encapsulation at all.
+of the MEV-protection path: Pyde's commit-reveal mempool is a keyless scheme
+(§8.5) that uses no key encapsulation at all.
 
 ---
 
@@ -292,7 +294,7 @@ bytes at a time (avoiding values that exceed the Goldilocks modulus).
 
 ## 8.5 Commit-Reveal Commitment Scheme (Mempool MEV Protection)
 
-Pyde's front-running protection is a **keyless commit-reveal** private mempool.
+Pyde's front-running protection is a **keyless commit-reveal** mempool.
 It uses no encryption key, no committee decryption, and no threshold ceremony:
 the only primitives involved are Blake3 hashing and FALCON signatures, both
 post-quantum. Safety never depends on any set of validators declining to
@@ -393,7 +395,7 @@ all**.
 A one-shot ciphertext mempool ("Threshold-LWE") remains a **v2+ research
 direction**: it would run as an *optional* lane alongside the keyless
 commit-reveal default, gated on a trustless PQ threshold-keygen breakthrough.
-See Chapter 20, "Threshold-LWE One-Shot Private Mempool," for that future
+See Chapter 20, "One-Shot Ciphertext Lane," for that future
 work.
 
 ---
@@ -572,7 +574,7 @@ happen if a substantive cryptanalytic break appeared.
 | Kyber-768 / ML-KEM | P2P transport session keys (transport only)      | `crates/crypto/src/kyber.rs`     |
 | Blake3             | High-volume native hashes (JMT, batches, vertices, gossip) + commit-reveal commitments | `crates/crypto/src/blake3.rs` |
 | Poseidon2          | ZK-bearing hashes (state root, addresses, VRF, opcode)| `crates/crypto/src/poseidon2.rs` |
-| Commit-reveal      | Keyless private mempool (Blake3 commitment + bond)| see Chapter 9 (MEV Protection)   |
+| Commit-reveal      | Keyless commit-reveal mempool (Blake3 commitment + bond)| see Chapter 9 (MEV Protection)   |
 | Lattice VRF        | Anchor seeding, randomness, committee score      | `crates/crypto/src/vrf.rs`       |
 | AES-256-GCM        | Symmetric AEAD (P2P transport, wallet keystore)  | (via the `aes-gcm` crate)        |
 

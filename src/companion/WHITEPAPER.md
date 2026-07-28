@@ -1,4 +1,4 @@
-# Pyde: A Post-Quantum, MEV-Resistant Layer 1 with Mysticeti-style Consensus
+# Pyde: A Fair, Fast, Long-Lived Layer 1 with Mysticeti-style Consensus
 
 **Version 0.2, 2026**
 Pyde Network · Apache-2.0
@@ -9,19 +9,19 @@ Pyde Network · Apache-2.0
 
 Pyde is a Layer 1 blockchain built greenfield to ship four properties as defaults from genesis. The four are technical commitments; each translates into concrete outcomes for the businesses building on Pyde, the developers writing for it, and the users transacting on it.
 
-1. **Post-quantum cryptography by default.** FALCON-512 signatures, Poseidon2 + Blake3 hybrid hashing, Kyber-768 / ML-KEM for transport-layer session keys. No pre-quantum primitive on any consensus or account path. For businesses, long-tail agreements (insurance policies, multi-year escrows, intellectual-property registries, legal records) remain cryptographically valid into the quantum era without a coordinated migration to budget for. For users, funds remain secure as quantum computing matures.
+1. **MEV resistance at the protocol layer, not via a trusted relayer.** A keyless commit-reveal mempool: users commit to a transaction as a Blake3 hash, the DAG fixes commit order before any content is revealed, and revealed transactions execute in that committed order. Sandwich attacks, front-running, and proposer extraction are not policed or auctioned; they are structurally impossible. No committee holds a decryption key, so the property is unconditionally trustless. For users, this means trades execute at the price signed; for businesses, no invisible tax on customer transactions and no third-party relayer to opt into and trust.
 
-2. **MEV resistance at the protocol layer, not via a trusted relayer.** A keyless commit-reveal private mempool: users commit to a transaction as a Blake3 hash, the DAG fixes commit order before any content is revealed, and revealed transactions execute in that committed order. Sandwich attacks, front-running, and proposer extraction are not policed or auctioned; they are structurally impossible. No committee holds a decryption key, so the property is unconditionally trustless. For users, this means trades execute at the price signed; for businesses, no invisible tax on customer transactions and no third-party relayer to opt into and trust.
+2. **Sub-second finality.** Mysticeti-style consensus, ~500 ms median commit finality, an 85-of-128 FALCON quorum certificate. For users, transactions confirm immediately rather than after a multi-second spinner; for businesses, settlement completes before checkout abandonment kicks in, and every confirmed transaction carries a portable cryptographic receipt that compliance teams verify offline.
 
-3. **Sub-second finality.** Mysticeti-style consensus, ~500 ms median commit finality, an 85-of-128 FALCON quorum certificate. For users, transactions confirm immediately rather than after a 12-second spinner; for businesses, settlement completes before checkout abandonment kicks in, and every confirmed transaction carries a portable cryptographic receipt that compliance teams verify offline.
+3. **Commodity-hardware decentralization.** Full nodes and validators awaiting committee selection run on 8 cores / 16 GB RAM. Validators on the active committee at production throughput require a 500 Mbps to 1 Gbps NIC; every committee seat carries one vote regardless of stake. Enterprises that want to verify the chain independently can do so at hardware costs measured in thousands per year, rather than the far larger monthly bills that production-grade validators on the highest-throughput chains can require.
 
-4. **Commodity-hardware decentralization.** Full nodes and validators awaiting committee selection run on 8 cores / 16 GB RAM. Validators on the active committee at production throughput require a 500 Mbps to 1 Gbps NIC; every committee seat carries one vote regardless of stake. Enterprises that want to verify the chain independently can do so at hardware costs measured in thousands per year, not the $20K+/month that production-grade validators on the highest-throughput chains run.
+4. **Post-quantum cryptography by default.** FALCON-512 signatures, Poseidon2 + Blake3 hybrid hashing, Kyber-768 / ML-KEM for transport-layer session keys. No pre-quantum primitive on any consensus or account path. For businesses, long-tail agreements (insurance policies, multi-year escrows, intellectual-property registries, legal records) remain cryptographically valid into the quantum era without a coordinated migration to budget for. For users, funds remain secure as quantum computing matures.
 
 The execution layer is **WebAssembly via wasmtime** (with Cranelift AOT) and a **uniform Block-STM scheduler**: every tx runs optimistically in parallel through an MVCC layer, conflicts are caught at validation, losers re-execute until fixpoint. Wallet-attached access lists from `pyde_simulateTransaction` drive PIP-3 multiget prefetch into the dashmap cache before workers start; the lists are performance hints, not scheduling decisions, and never affect correctness. Developers author smart contracts in Rust, AssemblyScript, Go (TinyGo), or C/C++ (any wasm32-target language) with Pyde safety attributes (reentrancy off by default, checked arithmetic, typed storage, no `tx.origin`, compile-time access-list inference) preserved as language-native attributes and enforced at runtime. No proprietary VM or new language to learn; teams use the stack they already know. The `otigen` developer toolchain handles project scaffolding, build, state binding generation, and deployment. Everything outside the chain (foreign chains, oracles, off-chain compute and IO) is served by the **parachain layer** (post-mainnet), proofs gated by `HardFinalityCert`, a FALCON quorum certificate verifiable on any chain. The parachain layer lets developer teams launch their own decentralized networks (foreign-chain adapters, oracle networks, confidential-vote chains, gaming-specific subchains) without slot auctions or central gatekeeping; operators anywhere stake PYDE to run third-party parachains (no committee prerequisite) and earn the parachain's fees, with every attested result posted back to Pyde as an ordinary transaction, and fraud slashable.
 
 This document presents the current design following a **2026 architectural pivot** from an in-house HotStuff variant (whose persistent wedges and stalls at 400 ms slot timing motivated a clean rebuild) to a DAG-based consensus inspired by Narwhal, Bullshark, and Mysticeti. The pivot scoped the chain to its execution and cryptography layers first; the consensus layer is being rebuilt design-first against the new foundation.
 
-The v1 mainnet throughput target (for both the plaintext and private-mempool regimes, on commodity validator hardware) is established by a multi-region performance harness before any number is published. Long-term aspirational headroom (with GPU acceleration and protocol upgrades) is real but carries no concrete number and is not a v1 commitment. The chain commits to publishing only what the harness measures under sustained, production-realistic conditions, never lab extrapolations or microbenchmark peaks, so any number it eventually publishes is one application teams and businesses can plan against rather than aspire to.
+The v1 mainnet throughput target (for both the plaintext and commit-reveal regimes, on commodity validator hardware) is established by a multi-region performance harness before any number is published. Long-term aspirational headroom (with GPU acceleration and protocol upgrades) is real but carries no concrete number and is not a v1 commitment. The chain commits to publishing only what the harness measures under sustained, production-realistic conditions, never lab extrapolations or microbenchmark peaks, so any number it eventually publishes is one application teams and businesses can plan against rather than aspire to.
 
 ---
 
@@ -45,17 +45,17 @@ These four problems are not independent items. They converge in time. NIST's 202
 
 Every design choice in this document follows from four axioms.
 
-**Axiom 1: Post-quantum cryptography is the default.** No application-layer signature or hash in Pyde uses pre-quantum primitives. FALCON-512 signs every consensus vote, every transaction, every validator key registration. Poseidon2 (Goldilocks field) hashes ZK-bearing commitments; Blake3 hashes the high-volume native paths where ZK-friendliness is not in scope, including the private-mempool commitments. Kyber-768 / ML-KEM secures transport-layer session keys. Ed25519 appears only in libp2p's noise transport for peer routing: a quantum attacker who breaks Ed25519 learns the network topology but cannot forge a vertex or compromise an account.
+**Axiom 1: Post-quantum cryptography is the default.** No application-layer signature or hash in Pyde uses pre-quantum primitives. FALCON-512 signs every consensus vote, every transaction, every validator key registration. Poseidon2 (Goldilocks field) hashes ZK-bearing commitments; Blake3 hashes the high-volume native paths where ZK-friendliness is not in scope, including the commit-reveal commitments. Kyber-768 / ML-KEM secures transport-layer session keys. Ed25519 appears only in libp2p's noise transport for peer routing: a quantum attacker who breaks Ed25519 learns the network topology but cannot forge a vertex or compromise an account.
 
 The trade-off is signature size: 666 bytes for FALCON-512 versus 64 bytes for Ed25519. Pyde absorbs that cost in the layers that matter and avoids it everywhere it does not (e.g., gossip-level message authentication uses Blake3 + libp2p noise). For users, this means funds and identities remain secure as quantum hardware matures; for the ecosystem, long-tail agreements signed on Pyde (insurance policies, multi-year escrows, intellectual-property registries, legal records) don't carry an unbudgeted future-migration cost.
 
 **Axiom 2: MEV is a protocol bug.** No committee validator must be able to read, reorder, or selectively include unconfirmed transactions. This is a security property, not a market-design problem. Pyde achieves it with three interlocking mechanisms (Section 9 has the details):
 
-1. MEV-sensitive transactions enter the private mempool as a **Commit**, a Blake3 commitment `Blake3("pyde-commit-reveal-v1" || borsh(inner_tx) || nonce)`, so the content is an opaque hash to everyone, including the committee.
+1. MEV-sensitive transactions enter the commit-reveal mempool as a **Commit**, a Blake3 commitment `Blake3("pyde-commit-reveal-v1" || borsh(inner_tx) || nonce)`, so the content is an opaque hash to everyone, including the committee.
 2. The DAG fixes the commit order deterministically at commit time, before the content is revealed. The matching **Reveal** lands in a later wave, and revealed transactions execute in committed order.
 3. There is no single proposer, and no committee decryption key. Order emerges deterministically from the DAG by every honest validator independently; no committee member can reorder, exclude, or front-run, and the safety of this never depends on validators declining to collude.
 
-The combination removes the surface MEV extraction needs to exist on. Encryption is opt-in per transaction; simple transfers go plaintext for lower fees, MEV-sensitive operations (DEX swaps, NFT mints, liquidations) opt into encryption. For applications building exchange, swap, or trading infrastructure, this removes the choice between accepting a hidden tax on customer trades and opting into a third-party relayer they must trust to behave.
+The combination removes the surface MEV extraction needs to exist on. The commit-reveal lane is opt-in per transaction; simple transfers go plaintext for lower fees, and MEV-sensitive operations (DEX swaps, NFT mints, liquidations) opt into commit-reveal. For applications building exchange, swap, or trading infrastructure, this removes the choice between accepting a hidden tax on customer trades and opting into a third-party relayer they must trust to behave.
 
 **Axiom 3: Throughput requires parallel execution in a single binary.** Consensus and execution share a single process. The execution layer is a WebAssembly execution (wasmtime + Cranelift AOT) with a **uniform Block-STM scheduler**: every tx runs optimistically in parallel through an MVCC layer, conflicts caught at validation, losers re-execute until fixpoint. Wallet-attached access lists from `pyde_simulateTransaction` drive PIP-3 multiget prefetch into the dashmap cache before workers start; the lists are performance hints, not scheduling decisions. The choice is monolithic over modular: every cross-layer boundary is a trust boundary and a latency cost; for an L1 whose target is high-throughput low-latency MEV-resistant execution, coherence is worth more than heterogeneity. Cross-chain interoperability is added back as a separate permissionless parachain layer above the coherent base, not as a structural premise that fragments the chain at genesis. For investors evaluating execution-layer maturity, the monolithic-binary choice means one operational surface (one team's runbook, one set of audits, one performance harness) rather than the coordination cost of a microservices-style L1.
 
@@ -73,7 +73,7 @@ Post-pivot:
 - Consensus, mempool, networking, slashing, and the node binary have been moved to a `archive/` archive for reference.
 - The next consensus layer is being designed against the lessons of HotStuff failure: no view changes, no single-proposer bottleneck, data-driven round advancement, structural censorship resistance.
 
-The decision: **Mysticeti-style DAG consensus**, with FALCON-bound vertex production and a keyless commit-reveal private mempool resolved at the commit boundary. The remainder of this document describes the post-pivot design.
+The decision: **Mysticeti-style DAG consensus**, with FALCON-bound vertex production and a keyless commit-reveal mempool resolved at the commit boundary. The remainder of this document describes the post-pivot design.
 
 ---
 
@@ -128,9 +128,9 @@ Every transaction, vertex, and state-root attestation is signed with FALCON-512 
 - Verification: ~80 µs on commodity x86_64 / ARM64.
 - No post-quantum BLS analog has matured, so consensus quorum certificates are the union of N FALCON signatures over a `voter_bitmap` rather than a single aggregated signature. The mainnet bandwidth budget (500 Mbps to 1 Gbps NIC at the relevant TPS tier) is sized to absorb the QC size.
 
-### 5.2 Keyless Commit-Reveal (Private Mempool)
+### 5.2 Keyless Commit-Reveal Mempool
 
-Pyde's private mempool is a **keyless commit-reveal** scheme. There is no committee decryption key, no threshold ceremony, no Kyber/ML-KEM mempool encryption, no Shamir shares, and no DKG. The only primitives are Blake3 (commitment) and FALCON (authorization), both post-quantum.
+Pyde's commit-reveal mempool is a **keyless commit-reveal** scheme. There is no committee decryption key, no threshold ceremony, no Kyber/ML-KEM mempool encryption, no Shamir shares, and no DKG. The only primitives are Blake3 (commitment) and FALCON (authorization), both post-quantum.
 
 MEV-sensitive transactions enter in two halves:
 
@@ -182,7 +182,7 @@ The pre-pivot HotStuff variant exhibited persistent wedges and view-change casca
 | Proposer can selectively censor | 127 honest members can include any tx; censorship requires near-unanimous collusion |
 | Throughput limited by leader bandwidth | Throughput scales with committee size |
 
-The DAG also integrates cleanly with the private mempool: the commit boundary is the natural place to run the reveal-resolution pass, matching each revealed transaction against the commitment whose order the DAG already fixed.
+The DAG also integrates cleanly with the commit-reveal mempool: the commit boundary is the natural place to run the reveal-resolution pass, matching each revealed transaction against the commitment whose order the DAG already fixed.
 
 ### 6.2 Worker / Primary Split (Narwhal Pattern)
 
@@ -244,7 +244,7 @@ When the anchor vertex collects sufficient Mysticeti 3-stage support from later 
 - **Anti-Sybil:** operator identity binding, max 3 validators per operator.
 - **Equal power:** every committee member has equal voting weight, equal vertex production rate, equal anchor probability. Stake influences only (a) eligibility and (b) the proportion of the flat 30 % stake-pool yield share. Activity rewards are contribution-weighted, not stake-weighted.
 - **Epoch length:** ~ 3 hours wall-clock (round count varies with network conditions).
-- **Handover:** the prior committee publishes the next epoch's beacon and the new committee swaps in. Because the private mempool is keyless (commit-reveal), there is no threshold decryption key to generate: no DKG, no Shamir shares, no key ceremony.
+- **Handover:** the prior committee publishes the next epoch's beacon and the new committee swaps in. Because the commit-reveal mempool is keyless (commit-reveal), there is no threshold decryption key to generate: no DKG, no Shamir shares, no key ceremony.
 
 ### 6.6 BFT Properties
 
@@ -310,7 +310,7 @@ Wallet:
   2. RPC pyde_estimateAccess → returns gas_estimate + access_list
   3. Attach access_list to tx
   4. FALCON-sign tx hash
-  5. (Optional, private mempool) send a Commit first (Blake3 commitment + bond), reveal the signed tx in a later wave
+  5. (Optional, commit-reveal mempool) send a Commit first (Blake3 commitment + bond), reveal the signed tx in a later wave
   6. Submit to RPC
 
 Worker:
@@ -325,13 +325,13 @@ Primary:
 
 Commit (~500 ms median):
   13. Anchor selected; subdag walked; canonical order emitted
-  14. (Private mempool) match reveals to committed commitments; slot inner txs in commit order
+  14. (Commit-reveal mempool) match reveals to committed commitments; slot inner txs in commit order
   15. wasmtime executes in canonical order
   16. State root computed, signed by ≥ 85 committee members
   17. Finality declared on 85 state-root sigs
 ```
 
-End-to-end latency: ~ 500 ms median for a plaintext transaction. A private-mempool transaction settles over two waves (the Commit locks the order, then the Reveal in a later wave executes it), so end-to-end latency depends on how quickly the reveal is submitted (bounded by the 120-wave window).
+End-to-end latency: ~ 500 ms median for a plaintext transaction. A commit-reveal transaction settles over two waves (the Commit locks the order, then the Reveal in a later wave executes it), so end-to-end latency depends on how quickly the reveal is submitted (bounded by the 120-wave window).
 
 ---
 
@@ -362,7 +362,7 @@ Three structural defenses, layered:
 
 The combination eliminates the structural conditions for sandwich attacks, front-running, and proposer extraction. MEV is not policed or auctioned: it is structurally impossible at the protocol layer, and because no committee holds a decryption key the property is unconditionally trustless.
 
-The private mempool is opt-in. Simple transfers go plaintext for lower gas; MEV-sensitive operations use the Commit/Reveal pair. A one-shot ciphertext lane (Threshold-LWE) remains a v2+ research direction; see [Chapter 20](../chapters/20-future-direction.md).
+The commit-reveal mempool is opt-in. Simple transfers go plaintext for lower gas; MEV-sensitive operations use the Commit/Reveal pair. A one-shot ciphertext lane (Threshold-LWE) remains a v2+ research direction; see [Chapter 20](../chapters/20-future-direction.md).
 
 ---
 
@@ -373,7 +373,7 @@ The private mempool is opt-in. Simple transfers go plaintext for lower gas; MEV-
 - **Node identity:** Ed25519 keypair (separate from validator FALCON key, rotatable).
 - **Peer discovery:** layered (hardcoded seeds → DNS → on-chain validator registry → PEX → persistent cache). No DHT.
 - **Gossip:** Gossipsub with per-topic meshes (`vertices`, `batches`, `state_root_sigs`, `mempool`, `state_sync`). Message size limits per type, enforced at parse time.
-- **DoS defense:** four layers: connection (IP / ASN caps), message (rate limits per type), peer scoring (misbehavior accumulates, decays with good behavior), application (commit bonds price private-mempool submissions).
+- **DoS defense:** four layers: connection (IP / ASN caps), message (rate limits per type), peer scoring (misbehavior accumulates, decays with good behavior), application (commit bonds price commit-reveal submissions).
 - **Committee defense:** sentry-node pattern (Cosmos-style) to insulate committee primaries from direct internet exposure.
 
 Committee NIC requirement at v1's honest throughput target (to be established by the multi-region performance harness) is **≥500 Mbps**. Higher-throughput regimes (1 Gbps, 10 Gbps) appear in §12.1 below labeled as Stretch / Aspirational, not v1.
@@ -475,7 +475,7 @@ Anti-Sybil cap: max 3 validators per operator (identity-bound). Bonding: 1 epoch
 
 ### 13.3 Fee Model
 
-EIP-1559 base fee with elastic 4 × blocks; **no priority tips**. Priority would re-introduce the information asymmetry the private mempool eliminates, so it is structurally excluded rather than zeroed by policy. Every transaction pays exactly `gas_used × base_fee`, so wallets quote a single number, not a range.
+EIP-1559 base fee with elastic 4 × blocks; **no priority tips**. Priority would re-introduce the information asymmetry the commit-reveal mempool eliminates, so it is structurally excluded rather than zeroed by policy. Every transaction pays exactly `gas_used × base_fee`, so wallets quote a single number, not a range.
 
 Each transaction's base fee splits deterministically:
 
@@ -533,7 +533,7 @@ Coordinated safety offenses apply a 2 × multiplier. Reporter receives 10 % of s
 | Axis | Pyde | Ethereum (L1) | Solana | Aptos | Sui | Polkadot | Cosmos | Avalanche |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Post-quantum signatures (default) | **Yes** (FALCON-512) | Planned | Planned | Planned | Planned | Planned | Planned | Planned |
-| Private mempool (default) | **Yes** (keyless commit-reveal) | No (PBS auction) | No (Jito auction) | No | No | No | Proposals in IBC track | No |
+| Commit-reveal mempool (default) | **Yes** (keyless commit-reveal) | No (PBS auction) | No (Jito auction) | No | No | No | Proposals in IBC track | No |
 | Sandwich-attack prevention | **Structural** | Partial (PBS) | Partial (Jito) | Partial | Partial | N/A (relay-chain) | Partial | Partial |
 | Hard-finality time | ~ 500 ms (DAG commit) | ~ 12 min | Probabilistic (~ 13 s) | < 1 s | < 1 s | ~ 12 to 60 s | ~ 6 s | ~ 1 s |
 | Validator hardware | 8c / 16 GB / 500 GB / 100 Mbps (awaiting committee) | Modest | 12 + cores / 256 + GB | Modest | Modest | Modest (validator tier) | Modest (per zone) | Modest |
@@ -547,7 +547,7 @@ Each chain in this matrix is competently engineered by serious teams. The differ
 Pyde does not invent every wheel. The chain stands on a foundation the rest of the industry built, and the strategic claim is not that other chains are wrong, but that the time has come to integrate the field's best ideas into a single greenfield design.
 
 - **Bitcoin** invented the field. Public chain, hard rules, minimal trust assumptions: the social model everything in this document presupposes.
-- **Ethereum** invented the programmable blockchain and shaped most of the design vocabulary the field still uses: smart contracts, EVM execution semantics, the EIP process, EIP-1559, account abstraction, the entire MEV literature. Pyde adopts the EIP-1559 base-fee + elastic-block design (with the priority-tip removal the private mempool enables) and the EIP-style off-chain governance workflow.
+- **Ethereum** invented the programmable blockchain and shaped most of the design vocabulary the field still uses: smart contracts, EVM execution semantics, the EIP process, EIP-1559, account abstraction, the entire MEV literature. Pyde adopts the EIP-1559 base-fee + elastic-block design (with the priority-tip removal the commit-reveal mempool enables) and the EIP-style off-chain governance workflow.
 - **Solana** proved at scale that a monolithic-binary L1 with parallel execution can deliver retail throughput, and that consensus and execution sharing one process is operationally viable. Pyde's monolithic architecture, access-list-driven scheduler, and sub-second-finality commitment are the same family of design choices Solana legitimized in production. Solana's stability work (mempool overload mitigations, consensus liveness fixes, gossipsub tuning) is the production reference for what hardening a high-throughput chain looks like.
 - **Aptos** contributed the Jellyfish Merkle Tree that Pyde adopts as its state structure, and **Block-STM as the optimistic parallel execution model Pyde adopts uniformly at v1**. Aptos's measured production numbers under Block-STM (10-30K real-world TPS sustained) are the proof point Pyde's v1 throughput target is anchored against.
 - **Sui** introduced the object-centric model as one of the cleanest expressions of ownership encoded in the transaction structure. Pyde's scheduler operates against declared access lists rather than encoded ownership, but Sui's work established that parallelism is a function of transaction format, not just scheduler implementation. Mysticeti, the consensus Pyde adopts post-pivot, was developed by the Mysten Labs team behind Sui.
@@ -559,7 +559,7 @@ Pyde does not invent every wheel. The chain stands on a foundation the rest of t
 - **Filecoin and the libp2p / IPFS ecosystem** produced the modular networking stack Pyde uses as transport. Pyde's net-layer crate is integration work over a stack the field built.
 - **Cardano, Tezos, Algorand, Mina, Aleo, Diem, the Move language team, the entire ZK-rollup research community, Flashbots, the Rust async-runtime ecosystem, NIST, IETF**: all shaped the design space. The list is not exhaustive.
 
-Where Pyde diverges (post-quantum-from-genesis, private-mempool-by-default, equal voting, commodity hardware, the permissionless parachain layer with unified gas) is where the bet sits. Every chain in the comparison was built for the era it was built for. **Pyde is the only chain in the table that needs no migration to ship all four properties.**
+Where Pyde diverges (post-quantum-from-genesis, commit-reveal-by-default, equal voting, commodity hardware, the permissionless parachain layer with unified gas) is where the bet sits. Every chain in the comparison was built for the era it was built for. **Pyde is the only chain in the table that needs no migration to ship all four properties.**
 
 For investors and adoption partners evaluating which L1 to build on, the practical question is not which chain is fastest in a benchmark but which chain's properties will still match the application's needs in 2030 and 2035. Pyde's bet is that the answer is the chain that started with those properties (quantum-resistant, MEV-resistant at the protocol layer, sub-second-final, commodity-validated, permissionlessly extensible) rather than the chain that has the longest migration to do them.
 
@@ -569,9 +569,9 @@ For investors and adoption partners evaluating which L1 to build on, the practic
 
 The design is complete in the senses that matter; the engineering risk is concentrated in a few specific places that this document calls out explicitly rather than hides.
 
-### 17.1 One-Shot Ciphertext Private Mempool (v2+ research)
+### 17.1 One-Shot Ciphertext Lane (v2+ research)
 
-Pyde's v1 MEV protection is the keyless commit-reveal private mempool, which needs no committee key and carries no threshold-cryptography risk. The natural v2+ extension is a one-shot **ciphertext** lane (Threshold-LWE), where a user submits a single encrypted transaction and the committee decrypts it after ordering, removing the reveal round-trip. This is gated on a trustless post-quantum threshold-keygen breakthrough: lattice public keys (Kyber/ML-KEM) do not combine homomorphically the way BLS does, so there is no trustless DKG for a shared ML-KEM/LWE key today. It is documented as a research direction in [Chapter 20](../chapters/20-future-direction.md), offered as an optional lane alongside the commit-reveal default, not a v1 commitment.
+Pyde's v1 MEV protection is the keyless commit-reveal mempool, which needs no committee key and carries no threshold-cryptography risk. The natural v2+ extension is a one-shot **ciphertext** lane (Threshold-LWE), where a user submits a single encrypted transaction and the committee decrypts it after ordering, removing the reveal round-trip. This is gated on a trustless post-quantum threshold-keygen breakthrough: lattice public keys (Kyber/ML-KEM) do not combine homomorphically the way BLS does, so there is no trustless DKG for a shared ML-KEM/LWE key today. It is documented as a research direction in [Chapter 20](../chapters/20-future-direction.md), offered as an optional lane alongside the commit-reveal default, not a v1 commitment.
 
 ### 17.3 ZK Light Clients
 
@@ -595,7 +595,7 @@ The protocol-level cross-chain primitives (the callback model behind `parachain_
 
 This document is the technical specification of the post-pivot design. The engineering between specification and mainnet is the work ahead, in execution order:
 
-1. **Mysticeti DAG implementation.** Adapt the open-source Mysticeti reference for FALCON-bound signatures and Pyde's commit-reveal private-mempool integration; rebuild the consensus, mempool, and node crates against the new foundation.
+1. **Mysticeti DAG implementation.** Adapt the open-source Mysticeti reference for FALCON-bound signatures and Pyde's commit-reveal commit-reveal integration; rebuild the consensus, mempool, and node crates against the new foundation.
 2. **Performance harness build-out.** Multi-region production-realistic infrastructure; workload generators for the four target tx-mixes; chaos / failure injection; soak-test schedule. Pre-mainnet test slate is mandatory before any external TPS claim.
 3. **External audit programme.** Multi-track, specialist firms across consensus, the WASM execution layer integration (host-function ABI, fuel-to-gas mapping, deploy-time validator), post-quantum cryptography, networking, and the `otigen` developer toolchain. Remediate all critical and high findings; re-audit the remediation. The wasmtime runtime itself is a vetted production dependency from the Bytecode Alliance and is not separately audited.
 4. **Incentivized testnet.** Reference dApps (DEX, lending market, NFT marketplace); fully-funded bug bounty at mainnet-tier scale; a multi-month soak test; remediate community-found issues before launch.

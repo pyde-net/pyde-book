@@ -8,13 +8,13 @@ _What Pyde is, what it removes, and how it operates, so the spec chapters land o
 
 ## Pyde, in one paragraph
 
-Pyde is a Layer 1 blockchain network. Post-quantum from day one, MEV-resistant by construction, and cross-chain by certificate. It removes the two trust problems crypto-native businesses cannot solve today: front-running that taxes users 1 to 5% per trade, and bridges that have lost over $3 billion since 2021. Both are fixed at the protocol level, not by policy. It is the chain you build on when execution has to be fair, finality has to mean final, and verification has to outlive the cryptography it was built with.
+Pyde is a Layer 1 blockchain network, built the way a base layer could have been from the start: fair by construction, cross-chain by certificate, and secure enough to outlive the cryptography it was built with. It removes two trust problems crypto-native businesses cannot solve today: front-running that quietly taxes ordinary users, and bridges that have failed again and again. Both are fixed at the protocol level, not by policy. It is the chain you build on when execution has to be fair, finality has to mean final, and verification has to outlive the cryptography it was built with.
 
 ## What Pyde removes
 
 Two structural taxes vanish at the protocol layer:
 
-**Front-running.** MEV-sensitive transactions enter a **keyless private mempool**: a user submits a commitment (a Blake3 hash of the transaction) first, the network locks its place in line, and only then is the content revealed. No validator, sequencer, or searcher can read a transaction before its place in line is locked. Sandwich attacks, JIT liquidity, and proposer extraction are not auctioned or mitigated; they are structurally impossible. Users keep the price they signed.
+**Front-running.** MEV-sensitive transactions enter a **keyless commit-reveal mempool**: a user submits a commitment (a Blake3 hash of the transaction) first, the network locks its place in line, and only then is the content revealed. No validator, sequencer, or searcher can read a transaction before its place in line is locked. Sandwich attacks, JIT liquidity, and proposer extraction are not auctioned or mitigated; they are structurally impossible. Users keep the price they signed.
 
 **Bridge custody risk.** Any chain (Ethereum, Solana, a parachain, an L1 not built yet) can verify a Pyde transaction directly using its FALCON-signed finality certificate. No multisig, no custodian, no third party to trust. Value crossing chains never sits in a contract someone else controls.
 
@@ -22,11 +22,11 @@ Two structural taxes vanish at the protocol layer:
 
 Three properties ship as defaults at genesis. No production chain combines them today.
 
-**Post-quantum cryptography.** FALCON-512 signatures, Blake3 + Poseidon2 hybrid hashing, Kyber-768 (ML-KEM) for transport-layer session keys. No pre-quantum primitive on any consensus or account path. The network still settles after a working quantum computer breaks what today's chains run on.
-
-**Structural MEV resistance.** A keyless private mempool: commit-reveal ordering, where the commit order is fixed by the DAG before any content is revealed. No committee decryption key, no trust assumption: fairness is a property of the protocol, not a policy or an auction.
+**Structural MEV resistance.** A keyless commit-reveal mempool: the commit order is fixed by the DAG before any content is revealed. No committee decryption key, no trust assumption: fairness is a property of the protocol, not a policy or an auction.
 
 **Portable cross-chain certificate.** A Pyde finality certificate verifies anywhere it lands. Cross-chain interop is cryptography, not a multisig.
+
+**Security that outlives quantum computers.** FALCON-512 signatures, Blake3 + Poseidon2 hybrid hashing, and Kyber-768 (ML-KEM) for transport-layer session keys. No pre-quantum primitive on any consensus or account path. The network still settles after a working quantum computer breaks what today's chains run on.
 
 Other chains can add any one of these. None can add all three without a hard fork that breaks every deployed app. Pyde ships them as one architecture, day one.
 
@@ -99,7 +99,7 @@ The full cycle, end-to-end, from a user's keypress to a receipt landing back in 
 
 A user opens a wallet and asks it to send 100 PYDE to `alice.pyde`. The wallet quietly does five things before showing a "Sign" button: it resolves the recipient name via JSON-RPC, fetches the sender's account state, fetches any relevant contract bytecode, runs the transaction _locally_ inside a wasmtime sandbox embedded in the wallet itself (Tier 1 client-side preview, see [Chapter 17 §17.4b](../chapters/17-developer-tools.md)), and shows the user a preview: _"This tx will send 100 PYDE, cost ~21,000 gas, leave your balance at 900 PYDE."_ Only then does the user sign with their FALCON-512 key, and only then does the tx leave their machine.
 
-If the user opted into the private mempool, the wallet first sends a **Commit**: a FALCON-signed transaction carrying only `Blake3("pyde-commit-reveal-v1" || borsh(inner_tx) || nonce)` and a small bond. The inner transaction's recipient and amount are hidden inside the commitment; no validator can read them. The wallet reveals the real transaction in a later wave, after its place in line is already locked.
+If the user opted into the commit-reveal mempool, the wallet first sends a **Commit**: a FALCON-signed transaction carrying only `Blake3("pyde-commit-reveal-v1" || borsh(inner_tx) || nonce)` and a small bond. The inner transaction's recipient and amount are hidden inside the commitment; no validator can read them. The wallet reveals the real transaction in a later wave, after its place in line is already locked.
 
 ### Stage 1: Loading dock (RPC ingress)
 
@@ -107,7 +107,7 @@ The transaction lands at any RPC node. RPC nodes are **stateless ingress**: they
 
 ### Stage 2: Sorting room (mempool)
 
-Every node, and especially every committee validator, runs a validation pipeline on each incoming tx: signature verify (FALCON-512, batchable), nonce window check (the tx's nonce must be within sixteen of the sender's last committed nonce), balance sufficiency, gas-limit cap, attribute coherence. Passes go into the local mempool DashMap, organised by gas-price descending. Failures are dropped and the gossip score of the peer that sent it is docked. Private-mempool **Commit** transactions land here too: the commitment and bond are validated, but the hidden inner transaction is not seen until its matching **Reveal** arrives in a later wave.
+Every node, and especially every committee validator, runs a validation pipeline on each incoming tx: signature verify (FALCON-512, batchable), nonce window check (the tx's nonce must be within sixteen of the sender's last committed nonce), balance sufficiency, gas-limit cap, attribute coherence. Passes go into the local mempool DashMap, organised by gas-price descending. Failures are dropped and the gossip score of the peer that sent it is docked. Commit-reveal **Commit** transactions land here too: the commitment and bond are validated, but the hidden inner transaction is not seen until its matching **Reveal** arrives in a later wave.
 
 ### Stage 3: Assembly-line dispatch (batches and vertices)
 
@@ -139,7 +139,7 @@ That sequence is _what gets executed_. Before the slam the DAG is ambiguous; aft
 
 ### Stage 6: Unsealing the commitments (reveal resolution)
 
-Private-mempool transactions arrive in two halves that land in different waves. The **Commit** was ordered earlier: its position in line is a fixed point in the DAG, locked before anyone could read the content. The **Reveal** carries the actual inner transaction; when it commits (within `COMMIT_REVEAL_WINDOW_WAVES = 120` of its commit), the resolution pass opens the commitment.
+Commit-reveal transactions arrive in two halves that land in different waves. The **Commit** was ordered earlier: its position in line is a fixed point in the DAG, locked before anyone could read the content. The **Reveal** carries the actual inner transaction; when it commits (within `COMMIT_REVEAL_WINDOW_WAVES = 120` of its commit), the resolution pass opens the commitment.
 
 For each revealed transaction: the engine recomputes `Blake3("pyde-commit-reveal-v1" || borsh(inner_tx) || nonce)` and checks it matches the commitment recorded at commit time. On a match, the inner transaction is re-validated (nonce, balance) and slotted for execution **in commit order**: the DAG-sequenced order of the commits, *not* the order the reveals happened to arrive. The commit's bond is refunded. A commit whose reveal never lands inside the window expires and its bond is burned. Committing-before-revealing is what gives Pyde its MEV protection: validators fix the order while the content is still an opaque hash, so they cannot front-run, sandwich, or censor based on what a transaction does.
 

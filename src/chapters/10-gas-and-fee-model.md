@@ -180,7 +180,7 @@ target┤----+                 +---+----  target line
 - **Validator memory.** A 4× block has up to 4× more transactions to buffer
   and execute. The per-validator memory ceiling caps how high this
   can safely go on commodity hardware.
-- **Reveal-resolution + voting timing.** A 4× wave's private-mempool
+- **Reveal-resolution + voting timing.** A 4× wave's commit-reveal mempool
   reveal-resolution pass (re-executing revealed inner transactions in
   deterministic commit order) takes longer; the commit timing budget
   assumes the worst case fits.
@@ -551,7 +551,7 @@ access list.
 | Treasury share           | None                        | 10% of total fee                  |
 | Native account abstraction| No (ERC-4337 add-on)       | Yes (gas tanks + paymaster)       |
 | Storage rent             | None                        | None (gas pays for the SSTORE)    |
-| MEV bribery resistance   | None (tip-based ordering)   | Structural (no tip; commit-reveal private mempool)|
+| MEV bribery resistance   | None (tip-based ordering)   | Structural (no tip; keyless commit-reveal mempool)|
 
 ---
 

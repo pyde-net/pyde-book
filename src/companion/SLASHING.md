@@ -227,7 +227,7 @@ Max correlated attack across epoch (42 offenders × 5 events × 2× correlation,
 
 These dollar numbers are intentionally not the load-bearing deterrent.
 Pyde's security argument (Chapter 16 §16.4) is that the keyless
-commit-reveal private mempool removes the *attack-profit motive*
+commit-reveal mempool removes the *attack-profit motive*
 entirely: there is no MEV-extraction revenue to recoup. Stake serves as a credible-commitment deposit
 against slashable misbehavior plus the input the slashing mechanism
 has to slash. The operator-identity cap, KYC binding, and slashing-with-

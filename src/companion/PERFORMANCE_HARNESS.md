@@ -185,7 +185,7 @@ All must pass with publishable evidence before any TPS claim:
 | State sync under load | New node joins under sustained load, syncs in <1 hour |
 | Slashing under load | Equivocation slashed within 1 epoch |
 | 7-day soak test | Sustained load for 7 days, no memory leak, no drift |
-| Private-mempool tx mix | 30% commit-reveal at the v1 throughput target, reveal-resolution latency <500ms |
+| Commit-reveal tx mix | 30% commit-reveal at the v1 throughput target, reveal-resolution latency <500ms |
 | Modest hardware | Single committee validator on 1 Gbps, 8c/16GB |
 
 ## Honest Reporting Discipline

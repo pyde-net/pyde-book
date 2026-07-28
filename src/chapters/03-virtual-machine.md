@@ -136,7 +136,7 @@ This section gives the conceptual surface; the spec gives the binary signatures.
 
 **Post-quantum cryptography:**
 - `falcon_verify(pubkey, message, signature) -> bool`: verify a FALCON-512 signature.
-- `threshold_encrypt` / `threshold_decrypt`: **reserved, not in v1.** These names are held for a possible optional one-shot ciphertext lane, which remains a v2+ research direction gated on a trustless PQ threshold-keygen breakthrough (see [Chapter 20: Threshold-LWE One-Shot Private Mempool](./20-future-direction.md)). v1's MEV protection is the keyless commit-reveal private mempool, which uses no committee decryption key.
+- `threshold_encrypt` / `threshold_decrypt`: **reserved, not in v1.** These names are held for a possible optional one-shot ciphertext lane, which remains a v2+ research direction gated on a trustless PQ threshold-keygen breakthrough (see [Chapter 20: One-Shot Ciphertext Lane](./20-future-direction.md)). v1's MEV protection is the keyless commit-reveal mempool, which uses no committee decryption key.
 
 **Cross-contract calls:**
 - `cross_call(target, fn_name, calldata, value, gas_limit, ...)`: synchronous call into another contract. Sub-call runs in a nested overlay; merges on success, discards on trap.
@@ -398,7 +398,7 @@ The honest numbers, measured against PVM-era proxies (WASM-era numbers will repl
 - Paid once per contract per node startup, then cached forever.
 
 **End-to-end TPS:**
-The v1 honest throughput target on commodity validator hardware (for both the plaintext and private-mempool commit-reveal regimes) is to be established by the multi-region performance harness; it comes from the full-chain harness (consensus + execution + state + network), not from VM microbenchmarks alone. The VM is approximately the fifth-most-important contributor to that number, behind signature verification, network bandwidth, consensus latency, and disk I/O.
+The v1 honest throughput target on commodity validator hardware (for both the plaintext and keyless commit-reveal regimes) is to be established by the multi-region performance harness; it comes from the full-chain harness (consensus + execution + state + network), not from VM microbenchmarks alone. The VM is approximately the fifth-most-important contributor to that number, behind signature verification, network bandwidth, consensus latency, and disk I/O.
 
 The publishing discipline applies: published TPS numbers are derived conservatively from sustained measurement under realistic conditions, never from microbenchmark peaks or lab extrapolations.
 

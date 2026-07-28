@@ -13,7 +13,7 @@ This is the comprehensive technical design document for Pyde. For high-level pit
 5. [State Layer](#state-layer)
 6. [Account Model](#account-model)
 7. [Transaction Lifecycle](#transaction-lifecycle)
-8. [Private Mempool & MEV Resistance](#private-mempool--mev-resistance)
+8. [Commit-Reveal Mempool & MEV Resistance](#commit-reveal-mempool--mev-resistance)
 9. [Network Protocol](#network-protocol-summary)
 10. [Performance Targets](#performance-targets)
 11. [Implementation Status](#implementation-status)
@@ -58,7 +58,7 @@ Pyde uses Mysticeti-style DAG consensus (Mysten Labs' production protocol on Sui
 - No view changes: eliminates the bug class that caused Pyde's pre-pivot wedges
 - Censorship resistance: 127 honest members can include any transaction; censorship requires near-unanimous collusion
 - Throughput scales with committee size, not constrained by one proposer's bandwidth
-- The commit-reveal private mempool resolves naturally at the order-commit boundary
+- The commit-reveal mempool resolves naturally at the order-commit boundary
 
 ### Worker / Primary Split (Narwhal Pattern)
 
@@ -112,7 +112,7 @@ A commit fires when the anchor vertex has sufficient support (Mysticeti 3-stage 
 9. Finality declared
 ```
 
-End-to-end latency: ~500ms median for a plaintext transaction. A private-mempool transaction spans two waves (Commit locks order, Reveal executes), so its latency depends on reveal timing, bounded by the 120-wave window.
+End-to-end latency: ~500ms median for a plaintext transaction. A commit-reveal transaction spans two waves (Commit locks order, Reveal executes), so its latency depends on reveal timing, bounded by the 120-wave window.
 
 ### Committee
 
@@ -122,7 +122,7 @@ End-to-end latency: ~500ms median for a plaintext transaction. A private-mempool
 - **Equal power:** all 128 have equal voting weight, vertex production rate, anchor probability
 - **Stake influence:** only on eligibility + flat 30% pool yield share. Activity rewards within committee are contribution-weighted, not stake-weighted.
 - **Epoch length:** ~3 hours (measured in wall-clock, not in round count, so it's stable across consensus-cadence changes)
-- **Handover:** the prior committee publishes the next epoch's beacon; the new committee swaps in. No key ceremony: the private mempool is keyless (commit-reveal), so there is no threshold decryption key, no DKG
+- **Handover:** the prior committee publishes the next epoch's beacon; the new committee swaps in. No key ceremony: the mempool is a keyless commit-reveal mempool, so there is no threshold decryption key, no DKG
 
 ### Safety & Liveness
 
@@ -147,7 +147,7 @@ Properties:
 - Verification: ~80μs commodity CPU
 - Post-quantum secure (lattice-based)
 
-### Private Mempool: Keyless Commit-Reveal
+### Keyless Commit-Reveal Mempool
 
 Pyde's MEV protection is a keyless commit-reveal scheme built only on Blake3 (commitment) and FALCON (authorization). No committee holds a decryption key; there is no threshold ceremony, no Kyber/ML-KEM mempool encryption, no Shamir shares, and no DKG.
 
@@ -181,7 +181,7 @@ Each epoch's beacon is produced by the previous epoch's committee:
 
 Properties: deterministic given the member signatures, unpredictable until the last signer contributes, bias-resistant. The beacon is an aggregated FALCON signature over a fixed message, **not** a VRF and **not** a threshold-key output; each member holds an independent `BeaconKeypair` with no DKG.
 
-> **No threshold-key ceremony.** Earlier drafts ran a Pedersen DKG here to produce a per-epoch threshold *decryption* key for an encrypted mempool, with Lagrange-combined partial decryptions. That mechanism was removed with the encrypted lane; the keyless commit-reveal private mempool needs no such key. A one-shot ciphertext lane (Threshold-LWE) remains v2+ research; see [Chapter 20](../chapters/20-future-direction.md).
+> **No threshold-key ceremony.** Earlier drafts ran a Pedersen DKG here to produce a per-epoch threshold *decryption* key for an encrypted mempool, with Lagrange-combined partial decryptions. That mechanism was removed with the encrypted lane; the keyless commit-reveal mempool needs no such key. A one-shot ciphertext lane (Threshold-LWE) remains v2+ research; see [Chapter 20](../chapters/20-future-direction.md).
 
 ## Execution Layer
 
@@ -302,7 +302,7 @@ Allows up to **16 concurrent in-flight transactions per account, out-of-order wi
 
 `AuthKeys::Multisig(M, [pubkey_1, ..., pubkey_N])` requires M valid FALCON signatures over the tx hash. Max 16 signers. Used for treasuries, DAOs, exchange custody.
 
-Significantly safer than contract-based multisig (Gnosis Safe model on Ethereum), which reimplements the same logic across projects with subtle bugs.
+A protocol primitive rather than a contract each project reimplements (as with the Gnosis Safe model on Ethereum), so wallets and contracts rely on one audited implementation instead of many.
 
 ### Programmable Accounts (v2)
 
@@ -415,14 +415,14 @@ Commit (per round, ~390ms median):
        - Nonce window check (state may have changed)
        - Balance check
        - Access list verification (vs runtime)
-       - Hybrid scheduler partitions txs into parallel groups
+       - Uniform Block-STM scheduler runs txs optimistically in parallel
        - Execute, apply state diffs
   17. JMT updated, state root computed (Blake3 + Poseidon2)
   18. Committee FALCON-signs state root, ≥85 collected
   19. Finality declared
 ```
 
-### Private-Mempool Transaction (Commit-Reveal)
+### Commit-Reveal Transaction
 
 A two-transaction flow:
 - **Commit:** the wallet sends a `TxType 0x11` carrying `Blake3("pyde-commit-reveal-v1" || borsh(inner_tx) || nonce)` and a bond. Workers validate the commitment and bond only; the inner transaction is not present.
@@ -430,7 +430,7 @@ A two-transaction flow:
 - **Reveal:** within 120 waves, any account submits a `TxType 0x12` carrying the nonce and `inner_tx`.
 - **Commit step:** the reveal-resolution pass recomputes the commitment, matches it, refunds the bond, and slots the inner transaction for execution in commit order. wasmtime then verifies the inner FALCON signature and executes.
 
-## Private Mempool & MEV Resistance
+## Commit-Reveal Mempool & MEV Resistance
 
 Three structural defenses, layered:
 
@@ -448,15 +448,15 @@ Pyde's DAG consensus has no single party empowered to choose which transactions 
 
 **Combined effect:** sandwich attacks, front-running, proposer extraction are structurally impossible: not policed, not auctioned, not made more efficient. The ordering primitive itself doesn't admit them.
 
-### The Private Mempool is Optional
+### The Commit-Reveal Mempool is Optional
 
 Per-tx choice:
 - `pyde_sendRawTransaction`: plaintext, fast path, no MEV protection
-- Commit/Reveal pair (`TxType 0x11` / `0x12`): private mempool, MEV-resistant, costs the bond + two transactions
+- Commit/Reveal pair (`TxType 0x11` / `0x12`): commit-reveal mempool, MEV-resistant, costs the bond + two transactions
 
 Wallets default to "auto": route time-sensitive transactions through commit-reveal, skip it for simple transfers.
 
-Overhead is only paid on the private-mempool path: ~70% of traffic stays single-tx plaintext if 80% of txs are simple transfers (typical mix).
+Overhead is only paid on the commit-reveal path: ~70% of traffic stays single-tx plaintext if 80% of txs are simple transfers (typical mix).
 
 ## Network Protocol Summary
 
@@ -514,7 +514,7 @@ This documentation reflects **designed architecture**, not shipped implementatio
 | WASM execution layer (wasmtime + Cranelift AOT) | 🟡 Foundation in place; integration in progress; programmable-accounts hooks + Block-STM scheduler + access-list prefetch integration pending |
 | State layer (JMT) | 🟡 In place, needs hybrid hashing |
 | Consensus (Mysticeti-style) | 🔴 Not yet; rebuild post-pivot |
-| Private mempool (keyless commit-reveal) | 🟢 Commit/Reveal tx types + commit-order reveal resolution; only Blake3 + FALCON, no threshold crypto |
+| Keyless commit-reveal mempool | 🟢 Commit/Reveal tx types + commit-order reveal resolution; only Blake3 + FALCON, no threshold crypto |
 | Network protocol (libp2p) | 🟡 Existing in archive, needs migration |
 | Performance harness | 🔴 Not yet built |
 | Slashing + lifecycle | 🟡 Partial in archive |
@@ -523,7 +523,7 @@ This documentation reflects **designed architecture**, not shipped implementatio
 
 **Mainnet ships when the work above is complete and the external audit passes.** No public schedule.
 
-**Note:** the v1 MEV mechanism carries no threshold-cryptography risk: it is the keyless commit-reveal private mempool (Blake3 + FALCON only). A one-shot ciphertext lane (Threshold-LWE) is deferred to v2+ research, gated on a trustless PQ threshold-keygen breakthrough; see [Chapter 20](../chapters/20-future-direction.md).
+**Note:** the v1 MEV mechanism carries no threshold-cryptography risk: it is the keyless commit-reveal mempool (Blake3 + FALCON only). A one-shot ciphertext lane (Threshold-LWE) is deferred to v2+ research, gated on a trustless PQ threshold-keygen breakthrough; see [Chapter 20](../chapters/20-future-direction.md).
 
 ## Cross-References
 

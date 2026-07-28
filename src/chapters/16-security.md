@@ -28,7 +28,7 @@ the post-mainnet hardening list rather than live, the chapter says so.
 | Sybil attack                | High      | Layered: structural MEV-resistance removes attack incentive + operator-identity cap (max 3/operator) + slashing + minimum stake floor |
 | Eclipse attack              | High      | Layered discovery (no DHT) + FALCON peer auth + sentry pattern |
 | DDoS (network-level)        | Medium    | Rate limiting, peer scoring, per-channel size caps, sentry  |
-| Front-running / MEV         | High      | Keyless commit-reveal private mempool + DAG-fixed ordering (Ch 9)|
+| Front-running / MEV         | High      | Keyless commit-reveal mempool + DAG-fixed ordering (Ch 9)|
 | State manipulation          | Critical  | JMT batched Merkle proofs, deterministic replay, 2 state roots (Blake3+Poseidon2) |
 | Quantum attacks              | Critical  | Entire stack is post-quantum from genesis (Ch 8)            |
 | Smart contract exploit       | High      | Default safety attributes (no reentrancy, checked arithmetic) enforced at runtime via the WASM execution layer |
@@ -173,15 +173,15 @@ a Byzantine 1/3 cannot:
   already fixed its order (Chapter 9);
 - Reorder transactions after the DAG anchor commits the canonical order
   (Chapter 9);
-- Profitably front-run any transaction routed through the private mempool.
+- Profitably front-run any transaction routed through the commit-reveal mempool.
 
 Crucially, this safety is **unconditional**: it does not depend on any
 threshold of committee members staying honest. There is no decryption key
 for a colluding quorum to combine: the mechanism is keyless commit-reveal,
 and a commit is just a hash.
 
-This collapses the attack-profit equation that drives Ethereum-scale
-stake floors (32 ETH → ~$80K to $120K). Pyde does not need to price stake
+This collapses the attack-profit equation that drives high stake
+floors elsewhere. Pyde does not need to price stake
 against MEV profits because there are no MEV profits to be made.
 
 **2. Operator-identity cap (max 3 validators per operator).**
@@ -217,11 +217,11 @@ KYC'd entities. Modest in dollar terms; meaningful in coordination terms.
 ### The honest framing
 
 The single-number "you'd lose $N million in stake to attack" argument
-that other chains lead with does not apply here. Pyde's claim is
-different and stronger: **the protocol is designed such that there is no
+does not apply here. Pyde's claim is
+different: **the protocol is designed such that there is no
 profitable attack to fund.** Stake economics back this up at the
 margin. Operator identity binding does the heavy lifting on Sybil
-specifically. The keyless commit-reveal private mempool does the work of
+specifically. The keyless commit-reveal mempool does the work of
 removing the attack value entirely.
 
 This shifts the trust assumption from "stake is large enough to deter
@@ -229,7 +229,7 @@ attack" to "operator-identity binding + slashing + structural
 MEV-resistance jointly make attack unprofitable and detectable." The
 second is a substantively different argument and worth being explicit
 about. And, unlike a threshold-encryption scheme, the commit-reveal
-private mempool adds no honest-quorum trust assumption of its own.
+mempool adds no honest-quorum trust assumption of its own.
 
 ### Genesis Sybil resistance
 
@@ -351,7 +351,7 @@ quota blocks further submissions until the window slides.
 
 Covered in detail in Chapter 9. The short version:
 
-- **Keyless commit-reveal private mempool.** A commit publishes only a
+- **Keyless commit-reveal mempool.** A commit publishes only a
   Blake3 hash of the transaction; the plaintext is disclosed only after
   ordering is fixed. There is no committee decryption key and no
   decryption shares, so safety is unconditional: it never depends on a

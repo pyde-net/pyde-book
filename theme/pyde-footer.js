@@ -1,4 +1,4 @@
-// Pyde footer injection — appended to every page below the chapter content.
+// Pyde footer injection, appended to every page below the chapter content.
 (function () {
   'use strict';
 
@@ -11,8 +11,9 @@
       '<div class="pyde-footer-inner">',
       '  <div class="pyde-footer-tagline">',
       '    <span class="pyde-footer-mark" aria-hidden="true"></span>',
-      '    <span>Pyde — a fairer, future-proof Layer 1, designed for the next decade of crypto.</span>',
+      '    <span>Pyde: the base layer built the way it should have been.</span>',
       '  </div>',
+      '  <div class="pyde-footer-version" style="font-size:0.8em;opacity:0.6;margin-top:2px;">Last updated July 2026 · describes Pyde v0.2 (pre-mainnet)</div>',
       '  <nav class="pyde-footer-links" aria-label="Pyde social links">',
       '    <a href="https://pyde.network" target="_blank" rel="noopener" title="pyde.network">',
       '      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">',

@@ -1,6 +1,6 @@
 # Pyde: A Fair, Fast, Long-Lived Layer 1 with Mysticeti-style Consensus
 
-**Version 0.2, 2026**
+**Version 0.2 · Revised July 2026**
 Pyde Network · Apache-2.0
 
 ---
@@ -607,14 +607,20 @@ There is no public schedule. Mainnet ships when the audit programme passes and t
 
 ## 19. Conclusion
 
-Pyde represents a chain built around the architectural requirements of the next decade: post-quantum security, MEV resistance, sub-second finality, and commodity-hardware decentralization for users and infrastructure. The pivot from in-house HotStuff to Mysticeti-style DAG consensus reflects an explicit commitment to designing from a clean foundation rather than patching accumulated technical debt.
+Pyde represents a chain built around the architectural requirements of the next decade: MEV resistance, sub-second finality, commodity-hardware decentralization, and post-quantum security for users and infrastructure. The pivot from in-house HotStuff to Mysticeti-style DAG consensus reflects an explicit commitment to designing from a clean foundation rather than patching accumulated technical debt.
 
-The design is complete; the implementation is the work ahead. This is not a chain that ships in six months. It is a chain that aims to occupy a category (post-quantum, MEV-resistant, commodity-validated) that no production chain occupies cleanly today. The strategic window for that occupancy is open and time-bound.
+The design is complete; the implementation is the work ahead. This is not a chain that ships in six months. It is a chain that aims to occupy a category (MEV-resistant, commodity-validated, post-quantum) that no production chain occupies cleanly today. The strategic window for that occupancy is open and time-bound.
 
-For businesses, that category means settlement infrastructure that holds through the next cryptographic generation, without a hidden tax on customer transactions and without a coordinated migration to budget for. For developer teams, it means a permissionless surface to launch their own execution environments and bootstrap dev communities around them, on top of a runtime they already know how to write. For users, it means trades that execute at the price signed and funds that remain valid through whatever the next decade brings cryptographically. The architecture is the bet; the implementation work is what turns the bet into a chain people can actually use.
+For businesses, that category means settlement infrastructure that holds through the next cryptographic generation, without a hidden tax on customer transactions and without a coordinated migration to budget for. For developer teams, it means a permissionless surface to launch their own execution environments and bootstrap dev communities around them, on top of a runtime they already know how to write. For users, it means trades that execute at the price signed and funds that stay cryptographically valid through whatever the next decade brings. The architecture is the bet; the implementation work is what turns the bet into a chain people can actually use.
 
 ---
 
-**Document version:** 0.2
+**Document version:** 0.2 · Revised July 2026
 **Status:** Living document
 **License:** Apache-2.0; see `LICENSE` at the repository root
+
+## Revision history
+
+- **0.2 · Revised July 2026.** Editorial and positioning pass: repositioned around fair ordering, honest finality, and long-lived security rather than leading with post-quantum; corrected the retired threshold-encryption mempool language to the shipped keyless commit-reveal design; softened comparative tone. No protocol design changes.
+- **0.2 · 2026.** The 2026 architectural pivot: in-house HotStuff to Mysticeti-style DAG consensus, a keyless commit-reveal mempool, hybrid Poseidon2 and Blake3 hashing, and the permissionless parachain framework.
+- **0.1 · 2026.** Initial design, pre-pivot, in-house HotStuff consensus.

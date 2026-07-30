@@ -57,14 +57,14 @@ For exhaustive flag + arg reference, see [Commands](./commands.md).
 
 ## Supported languages
 
-All four are first-class. Pick the one your team is most productive in; the size / gas deltas matter less than people-hours saved.
+All four are first-class. Rust, Go, and C give you a fully generated typed surface — typed storage accessors, struct-literal events, and the `() -> ()` entry dispatch, all emitted from `otigen.toml` so you write only contract logic. AssemblyScript generates the entry dispatch today; its storage and events are still hand-written against the host fns. Pick the language your team is most productive in; the size / gas deltas matter less than people-hours saved.
 
 | Language | WASM size (counter) | Notes |
 | --- | --- | --- |
-| **C** | ~1.0 KB | Smallest + fastest. Bare-metal feel, no runtime; you manage memory yourself. Pick when binary size or per-call gas is critical. |
-| **Rust** | ~5.0 KB (with macro substrate) | Most ergonomic. `#![no_std]` + `#[pyde::entry]` macro + `pyde::declare_storage!()` for typed schema access. Default recommendation for production contracts. |
-| **AssemblyScript** | ~3.0 KB | TypeScript-shaped syntax. Higher per-call gas because of runtime array-bounds checks. Pick when TS familiarity outweighs the cost. |
-| **TinyGo** | ~60 KB | Go ecosystem. Heavier binary due to runtime overhead. Pick when sharing code with off-chain Go services. |
+| **C** | ~1.0 KB | Smallest + fastest. Bare-metal feel, no runtime; you manage memory yourself. `otigen build` still generates the typed storage / events / dispatch surface into `pyde_gen.h`, so contract code stays high-level. Pick when binary size or per-call gas is critical. |
+| **Rust** | ~5.0 KB (with macro substrate) | `#![no_std]` + the `#[pyde::entry]` / `pyde::declare_storage!()` / `pyde::declare_events!()` macros generate the typed surface at compile time. Default recommendation for production contracts. |
+| **AssemblyScript** | ~3.0 KB | TypeScript-shaped syntax. otigen generates the entry dispatch; typed storage / events are hand-written against the host fns for now. Higher per-call gas because of runtime array-bounds checks. Pick when TS familiarity outweighs the cost. |
+| **TinyGo** | ~60 KB | Go ecosystem. `otigen build` generates the same typed surface into `pyde_gen.go` as Rust and C. Heavier binary due to runtime overhead. Pick when sharing code with off-chain Go services. |
 
 The counter contract ships in each language under [`otigen/examples/`](https://github.com/pyde-net/otigen/tree/main/examples). The `counter-rust`, `counter-go`, `counter-as`, and `counter-c` directories each carry a working build: clone any of them, run `make build && make test`, see it work.
 

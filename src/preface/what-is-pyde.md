@@ -24,7 +24,7 @@ Three properties ship as defaults at genesis. No production chain combines them 
 
 **Structural MEV resistance.** A keyless commit-reveal mempool: the commit order is fixed by the DAG before any content is revealed. No committee decryption key, no trust assumption: fairness is a property of the protocol, not a policy or an auction.
 
-**Portable cross-chain certificate.** A Pyde finality certificate verifies anywhere it lands. Cross-chain interop is cryptography, not a multisig.
+**One network, not another island.** Rather than adding to the fragmentation, Pyde is built to reach the rest of the world through its own security. A Pyde finality certificate verifies anywhere it lands, so cross-chain trust is cryptography, not a multisig. The parachain layer that turns this into full reach across other chains and real-world data is post-mainnet work.
 
 **Security that outlives quantum computers.** FALCON-512 signatures, Blake3 + Poseidon2 hybrid hashing, and Kyber-768 (ML-KEM) for transport-layer session keys. No pre-quantum primitive on any consensus or account path. The network still settles after a working quantum computer breaks what today's chains run on.
 

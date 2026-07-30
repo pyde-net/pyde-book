@@ -29,8 +29,8 @@ otigen new --list           # show the template catalog
 | Argument / flag | Type | Default | What it does |
 | --- | --- | --- | --- |
 | `[NAME]` | string | prompt on TTY | Project name (ENS-style: lowercase + hyphens, 1 to 32 chars). |
-| `--lang <LANG>` | enum | prompt on TTY | Target language (`rust`, `as`, `go`, `c`). Only Rust has canonical example templates; `--lang go` / `as` / `c` scaffold the language's minimal counter starter. |
-| `--from <TEMPLATE>` | name / git URL | prompt (Rust) · counter (other langs) | Canonical example to clone, or a `git` URL to clone a community template. `otigen new --list` shows the built-ins (currently 8: counter, fungible-token, nft-token, simple-multisig, upgradeable-proxy, merkle-claim-airdrop, vesting, dao-governance). Omitted: Rust prompts for a template on a TTY; other languages default to the minimal counter (their only starter). |
+| `--lang <LANG>` | enum | prompt on TTY | Target language (`rust`, `go`, `c`, `as`). Rust, Go, and C ship the full example catalog; AssemblyScript ships the counter starter plus the config-only `token` / `nft` standards. |
+| `--from <TEMPLATE>` | name / git URL | prompt on TTY | Canonical example to clone, or a `git` URL to clone a community template. `otigen new --list` shows the built-ins: the counter starter, eight source examples (fungible-token, nft-token, simple-multisig, upgradeable-proxy, merkle-claim-airdrop, vesting, dao-governance, factory), and the config-only `token` / `nft` standards. Rust, Go, and C ship all of them; AssemblyScript ships counter plus the config-only standards. On a TTY, `otigen new` prompts for the template first, then the language (only among the languages that template ships for), then the name. |
 | `--list` | n/a | n/a | Print the template catalog and exit. Mutually exclusive with `<NAME>` / `--lang` / `--from` / `--dir`. |
 | `--dir <DIR>` | path | `./<name>` | Target directory. Created if missing; refuses to overwrite an existing path. |
 

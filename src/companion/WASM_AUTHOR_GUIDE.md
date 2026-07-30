@@ -30,9 +30,13 @@ For Rust contracts, the `pyde-host` crate ships every host fn declared in this g
 
 Rust contracts on the macro substrate (the default since the substrate batch: see [`examples/fungible-token/`](https://github.com/pyde-net/otigen/tree/main/examples/fungible-token) for a canonical reference) skip §5 (host-fn declarations), §6 (staging buffers), and most of §7 (slot derivation): the macros generate all of it. The patterns in §8 / §9 / §10 still apply because cross-contract calls / FALCON-verify / `delegate_call` proxies have author-side logic that no macro can ship.
 
+### Go and C authors: the generated surface
+
+Go and C reach the same generated surface without macros. `otigen build` reads `otigen.toml` and emits `pyde_gen.go` / `pyde_gen.h` — typed storage accessors, struct-literal events, and the `() -> ()` entry dispatch — which the author imports / `#include`s and then fills in with only the typed function bodies (a C compiler / `go vet` catches any signature drift). So Go and C authors also skip §5, §6, and most of §7, exactly like Rust; they reach for the raw pattern below only for the §8 / §9 / §10 author-side logic. AssemblyScript is the one language where otigen generates the entry dispatch but not yet the storage / event sugar, so AssemblyScript authors still hand-write those from the raw pattern.
+
 **This guide describes the raw WASM-ABI pattern.** The raw pattern stays fully supported and is the right shape for:
 
-- Non-Rust contract authors (TinyGo, AssemblyScript, C), since the macros are Rust-only.
+- AssemblyScript authors, for typed storage + events. otigen generates AssemblyScript's entry dispatch, but not yet its storage/event sugar — so those sections still apply. (Rust, Go, and C authors get the full typed surface generated for them; see the two notes above.)
 - Community SDK porters targeting other languages: see [`SDK_AUTHOR_GUIDE.md`](./SDK_AUTHOR_GUIDE.md) for the bar a community SDK needs to clear.
 - Rust authors who need full control over slot derivation (e.g. matching another chain's layout) or who want to understand what the macros emit before depending on them.
 

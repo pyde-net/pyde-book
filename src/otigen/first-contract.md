@@ -2,7 +2,7 @@
 
 End-to-end: scaffold → write → test. By the end you'll have a working contract that passes a behaviour suite, with execution traces visible on demand.
 
-This chapter uses Rust. For TinyGo / AssemblyScript / C, the patterns are identical; the per-language `README.md` in each scaffolded project carries the syntactic equivalent. `otigen new --lang <go|as|c>` produces the other-language scaffolds; it falls through to the minimal counter starter when no Rust-only template is requested.
+This chapter uses Rust. For Go and C the authoring patterns are the same — `otigen build` generates the typed storage / events / dispatch surface (`pyde_gen.go` / `pyde_gen.h`), so you write only the typed bodies, just as the Rust macros do. AssemblyScript generates the entry dispatch, with storage / events written against the host fns. The per-language `README.md` in each scaffolded project carries the syntactic equivalent. `otigen new --lang <go|c|as>` produces the other-language scaffolds: Go and C ship the full example catalog, AssemblyScript the counter starter plus the config-only `token` / `nft` standards.
 
 ---
 

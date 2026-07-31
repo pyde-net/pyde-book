@@ -91,7 +91,7 @@ Side effects:
 
 1. Creates `<dir>/`.
 2. Writes `<dir>/otigen.toml` from the language template (see §4 for schema).
-3. Writes `<dir>/` (the language's project layout) containing a hello-world contract. The Rust scaffold uses the macro substrate (`#[pyde::entry]` + `pyde::declare_storage!()`) so authors get typed accessors + a `() -> ()` ABI shim with zero hand-written `extern "C"` boilerplate. The Go and C scaffolds get the same generated surface from `pyde_gen.go` / `pyde_gen.h`, which `otigen build` regenerates from `otigen.toml`. The AssemblyScript scaffold ships generated entry dispatch over the raw host-fn pattern (its typed-storage / event sugar is not yet generated); community SDK authors targeting other languages reference `examples/counter-{as,go,c}/` and the `SDK_AUTHOR_GUIDE`.
+3. Writes `<dir>/` (the language's project layout) containing a hello-world contract. The Rust scaffold uses the macro substrate (`#[pyde::entry]` + `pyde::declare_storage!()`) so authors get typed accessors + a `() -> ()` ABI shim with zero hand-written `extern "C"` boilerplate. The Go and C scaffolds get the same generated surface from `pyde_gen.go` / `pyde_gen.h`, which `otigen build` regenerates from `otigen.toml`. The AssemblyScript scaffold ships generated entry dispatch and typed storage accessors over the raw host-fn pattern (its event sugar is not yet generated); community SDK authors targeting other languages reference `examples/counter-{as,go,c}/` and the `SDK_AUTHOR_GUIDE`.
 4. Writes language-specific config (e.g., `Cargo.toml` for Rust, `package.json` for AS, `go.mod` for Go).
 5. Writes `.gitignore` excluding `target/`, `node_modules/`, `build/`.
 
@@ -810,7 +810,7 @@ Rules (validated at `otigen build`):
 
 ### 4.6 `[state]` table
 
-Declares the contract's storage schema. Embedded in the bundle and used for type-safe inspection (`otigen inspect --field`), explorer UI rendering, the `state_schema_hash` value in the deployed ABI, AND, at build time, to generate typed accessors — Rust via `pyde::declare_storage!()`, Go and C via the `pyde_gen.go` / `pyde_gen.h` that `otigen build` emits. AssemblyScript and hand-written contracts call the chain's typed-storage host fns (`sstore_scalar` / `sload_scalar` / `sstore_map1`…`map3`) directly; the chain derives the slot internally as `Blake3(self_address || field_name || keys...)`.
+Declares the contract's storage schema. Embedded in the bundle and used for type-safe inspection (`otigen inspect --field`), explorer UI rendering, the `state_schema_hash` value in the deployed ABI, AND, at build time, to generate typed accessors — Rust via `pyde::declare_storage!()`; Go, C, and AssemblyScript via the generated code `otigen build` emits (`pyde_gen.go` / `pyde_gen.h` / `pyde.storage.generated.ts`). Hand-written contracts call the chain's typed-storage host fns (`sstore_scalar` / `sload_scalar` / `sstore_map1`…`map3`) directly; the chain derives the slot internally as `Blake3(self_address || field_name || keys...)`.
 
 `schema` is an ordered array of `{ name, type, ... }` entries.
 

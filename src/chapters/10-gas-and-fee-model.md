@@ -1,16 +1,16 @@
 # Chapter 10: Gas and Fee Model
 
-![Where a fee goes: wasmtime fuel metering, the per-wave floating base fee, and the deterministic 70/20/10 split across burn, validator rewards, and treasury.](../assets/diagrams/ch10-fee-path.svg)
+![Where a fee goes: wasmtime fuel metering, the per-wave floating base fee, and the deterministic 30/50/20 split across burn, validator rewards, and treasury.](../assets/diagrams/ch10-fee-path.svg)
 
-*A fee's full path: wasmtime fuel meters execution, the per-wave base fee prices it, and every fee splits 70/20/10 across burn, rewards, and treasury.*
+*A fee's full path: wasmtime fuel meters execution, the per-wave base fee prices it, and every fee splits 30/50/20 across burn, rewards, and treasury.*
 
 Pyde meters every operation in **gas**. The economic model on top of gas is
-EIP-1559 with 4× elastic blocks, deterministic 70/20/10 fee distribution,
+EIP-1559 with 4× elastic blocks, deterministic 30/50/20 fee distribution,
 and no priority fees. There is no tip field, no builder/proposer separation,
 no bidding war for inclusion order.
 
 This chapter covers the full model: gas costs per opcode, the EIP-1559 base
-fee math, elastic block sizing, the 70/20/10 split, sponsored transactions
+fee math, elastic block sizing, the 30/50/20 split, sponsored transactions
 through gas tanks, and the calldata/tx size limits.
 
 ---
@@ -46,10 +46,10 @@ Step 3 — Execution (at wave commit):
     charge     = gas_used × base_fee
     sender.balance -= charge + (value_attached if execution succeeded)
     
-Step 4 — Fee distribution (always 70/20/10):
-    burn        += charge × 0.70
-    reward_pool += charge × 0.20
-    treasury    += charge × 0.10
+Step 4 — Fee distribution (always 30/50/20):
+    burn        += charge × 0.30
+    reward_pool += charge × 0.50
+    treasury    += charge × 0.20
 ```
 
 ### No gas refunds in v1
@@ -259,61 +259,57 @@ Neither route bribes anyone for ordering.
 
 ---
 
-## 10.5 Fee Distribution: 70 / 20 / 10
+## 10.5 Fee Distribution: 30 / 50 / 20
 
 Every fee splits deterministically:
 
 | Recipient          | Share | Where it goes                                      |
 | ------------------ | ----- | -------------------------------------------------- |
-| **Burn**           | 70%   | Increments the on-chain `TOTAL_BURNED` counter      |
-| **Reward pool**    | 20%   | Pooled across all staked validators (active committee + validators awaiting selection), distributed each epoch by stake × uptime via lazy accrual |
-| **Treasury**       | 10%   | Credited to the treasury account                    |
+| **Burn**           | 30%   | Advances the on-chain `TOTAL_BURNED` counter        |
+| **Reward pool**    | 50%   | Credited to the `pyde-reward-pool` system account; drained once per epoch as the validator wage (Chapter 14 §14.5) |
+| **Treasury**       | 20%   | Credited to the treasury account (remainder, catches rounding dust) |
 
-Note: in the pre-pivot HotStuff design the 20% went directly to the slot
-proposer. Under the DAG there is no single proposer, so the validator
-share goes to an epoch reward pool indexed by stake and uptime. See
-Chapter 14 for the per-validator yield math.
+Note: in the pre-pivot HotStuff design the validator share went directly
+to the slot proposer. Under the DAG there is no single proposer, so the
+share accrues to a pool and pays the committee per epoch. See Chapter 14
+for the wage math.
 
-Implemented as `distribute_fee` in `crates/tx/src/execution.rs`:
+Implemented in `crates/tx/src/fee.rs`:
 
 ```rust
-pub fn distribute_fee(effective_gas: u64, base_fee: u128) -> FeeDistribution {
-    let total_fee  = effective_gas as u128 * base_fee;
-    let burned     = total_fee * 70 / 100;
-    let reward_pool = total_fee * 20 / 100;
-    let treasury   = total_fee - burned - reward_pool;   // remainder catches rounding
-    FeeDistribution { burned, reward_pool, treasury }
-}
+pub const BURN_BPS: u128        = 3_000;   // 30%
+pub const REWARD_POOL_BPS: u128 = 5_000;   // 50%
+// treasury = fee − burned − reward (remainder catches rounding)
 ```
 
-The remainder-to-treasury pattern catches rounding dust so no quanta are
-lost.
+The split is computed per transaction from the receipt's `fee_paid` and
+applied once per wave by `apply_wave_fee_credits` in the shared serial
+commit path, so every node (committer, replayer, state-sync, recovery)
+derives identical credited state roots. The remainder-to-treasury pattern
+catches rounding dust so no quanta are lost: burned + reward + treasury
+equals fees paid, exactly.
 
 ### Why not 100% burn?
 
-A 100% burn (Ethereum's EIP-1559 model for the base fee) means validators
-get nothing from fees and depend entirely on inflation rewards. This works
-when inflation is generous, but it makes the security budget brittle: as
-inflation decreases, validator economics become fully dependent on tip
-volume, which Pyde doesn't have.
+A 100% burn (Ethereum's EIP-1559 model for the base fee) would decouple
+validator revenue from usage entirely and push the whole security budget
+onto the emission tap. Pyde wants the opposite coupling: the 50%
+reward-pool share means real usage funds the validator wage first, and
+the shortfall mint (Chapter 14 §14.3) only tops up the gap. As fee volume
+grows, fees retire the mint.
 
-The 20% reward-pool share compensates the full staked validator set
-(both active-committee and validators awaiting selection, per
-stake × uptime) and ties their compensation to network usage in addition
-to inflation. Under the DAG there is no single
-proposer to credit, so the share is pooled and distributed at epoch end.
-The 10% treasury share funds protocol work via PIP-driven multisig spends
-(Chapter 15).
+The 30% burn is the counterweight to that mint: it offsets issuance so
+net supply hovers near genesis. It is a tunable garnish, retunable by
+coordinated release, with a scale-down-with-volume policy so a large burn
+never drains supply at high throughput. The 20% treasury share funds
+protocol work via PIP-driven multisig spends (Chapter 15).
 
 ### Why no prover share?
 
-Earlier drafts of this book had a 70 / 20 / 10 split where the 10% went to
-provers. Without provers at mainnet, that 10% goes to the treasury. The
-on-chain math is the same; only the recipient changed.
-
-If ZK proving lands in a future hardfork, the split can be adjusted by
-governance (a PIP + on-chain multisig action). Until then the treasury
-gets the 10%.
+Earlier drafts of this book carved a share out for provers. Without
+provers at mainnet, that share folded into the treasury. If ZK proving
+lands in a future hardfork, the split can be adjusted by coordinated
+release; until then the treasury takes 20%.
 
 ---
 
@@ -546,9 +542,9 @@ access list.
 | Max base-fee change/block| ±12.5%                      | ±12.5%                            |
 | Priority fee / tip       | Yes                         | No                                |
 | Block elasticity         | 2× (15M target / 30M max)   | 4× (400M target / 1.6B max)       |
-| Fee burn                 | 100% of base fee            | 70% of total fee                  |
-| Validator share          | Tips only                   | 20% of total fee (no tip)         |
-| Treasury share           | None                        | 10% of total fee                  |
+| Fee burn                 | 100% of base fee            | 30% of total fee                  |
+| Validator share          | Tips only                   | 50% of total fee (no tip)         |
+| Treasury share           | None                        | 20% of total fee                  |
 | Native account abstraction| No (ERC-4337 add-on)       | Yes (gas tanks + paymaster)       |
 | Storage rent             | None                        | None (gas pays for the SSTORE)    |
 | MEV bribery resistance   | None (tip-based ordering)   | Structural (no tip; keyless commit-reveal mempool)|
@@ -605,7 +601,7 @@ The base fee for block `N+1` is computed from block `N`'s header by
 | Gas target                | 400,000,000 (50% of ceiling)                    |
 | Gas ceiling               | 1,600,000,000 (4× target; elastic max)          |
 | Priority fee / tip        | None                                             |
-| Fee distribution          | 70% burn / 20% reward pool / 10% treasury       |
+| Fee distribution          | 30% burn / 50% reward pool / 20% treasury       |
 | Sponsored transactions    | Native (`gas_tank` field + paymaster pattern)   |
 | Validation gas cap (paymaster)| 100,000                                      |
 | Max tx size               | 128 KB (`MAX_TX_SIZE`)                           |

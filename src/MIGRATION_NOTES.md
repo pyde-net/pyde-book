@@ -77,8 +77,9 @@ protocol that Sui has been running in production since 2024.
 - **Kyber-768** KEM. Retained for transport-layer session keys. (The
   post-pivot interim threshold-encrypted mempool that also used Kyber has
   since been removed; MEV protection is now the keyless commit-reveal lane.)
-- **70/20/10 fee split**. Recipient of 20% changed (proposer → reward
-  pool) but the percentages held.
+- **Fee split**. Recipient of the validator share changed (proposer →
+  reward pool). The percentages were later retuned to 30/50/20
+  burn/reward/treasury under the capped-emission model (Chapter 14).
 - **16-slot nonce window** per account. Untouched.
 - **Gas tank + paymaster** sponsored-tx model. Untouched.
 - **Treasury multisig + emergency pause** governance model. Untouched

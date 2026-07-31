@@ -2,14 +2,14 @@
 
 PYDE is the network's native token. It pays for gas, secures consensus
 through validator staking, and funds protocol work via the treasury. This
-chapter covers the on-chain mechanics: supply, the inflation schedule, the
-fee distribution, validator economics, the vesting + airdrop machinery
-that ships at genesis, and the treasury that funds ongoing protocol work.
+chapter covers the on-chain mechanics: supply and the capped emission tap,
+the fee split, validator pay, the vesting + airdrop machinery that ships
+at genesis, and the treasury that funds ongoing protocol work.
 
-Numbers are taken from the actual code constants in `crates/tx/src/fee.rs`,
-`crates/slashing/src/lib.rs`, and `crates/consensus/src/validator.rs`, not
-from aspirational projections. Where a parameter is set at genesis (as
-opposed to hard-coded), the chapter says so.
+Numbers are taken from the actual code constants in `crates/tx/src/fee.rs`
+and `crates/tx/src/distributor.rs`, not from aspirational projections.
+Where a parameter is set at genesis (as opposed to hard-coded), the
+chapter says so.
 
 ---
 
@@ -37,179 +37,174 @@ expose the correct conversion automatically.)
 
 ## 14.2 Genesis Supply
 
-Genesis total supply: **1,000,000,000 PYDE** (1 billion).
+Genesis supply: **1,000,000,000 PYDE** (1 billion).
 
 ```rust
-pub const GENESIS_SUPPLY: u128 = 1_000_000_000 * 1_000_000_000;  // = 10^18 quanta
+pub const GENESIS_SUPPLY_QUANTA: u128 = 1_000_000_000_000_000_000;  // 10^18 quanta
 ```
 
-(`crates/tx/src/fee.rs:84`)
+(`crates/tx/src/distributor.rs`; mirrored as
+`Genesis::TOTAL_SUPPLY_QUANTA` in `crates/types/src/genesis.rs` with a
+compile-time drift guard pinning the two equal.)
 
-This is the entire on-chain PYDE in existence at block 0. From block 1
-onward, new PYDE enters circulation only via the inflation schedule; no
-other minting path exists.
+This is the entire on-chain PYDE in existence at wave 0. From then on,
+new PYDE enters circulation only through the capped shortfall mint
+(§14.3); there is no other issuance path.
 
 ### Distribution
 
-The genesis allocation is set in the genesis configuration TOML; the
-on-chain machinery enforces:
+The genesis allocation is set in the genesis manifest TOML; the on-chain
+machinery enforces:
 
-- **Per-bucket caps**: the genesis builder rejects allocations that
-  exceed the per-category caps to prevent oversupply.
+- **Supply conservation**: `Genesis::validate_supply_conserved` requires
+  committee stakes + prefund balances + treasury + any airdrop pool to
+  sum to exactly 10^18 quanta. A manifest that does not sum to the whole
+  refuses to boot.
 - **Vesting schedules**: most non-validator allocations are subject to
   on-chain vesting (see §14.6).
-- **Validator subsidy stream**: a portion of the genesis pool is reserved
-  for validator subsidy that streams over a fixed window (§14.4).
-- **Airdrop pool**: genesis seeds an airdrop account with the expected
+- **Airdrop pool**: genesis may seed an airdrop account with the expected
   total; claims draw against it; the residual sweeps to the treasury after
   the deadline.
 
 The exact percentages between buckets (treasury, team vesting, ecosystem,
-validator subsidy, airdrop) are governance-set parameters in the genesis
-file rather than protocol constants. The launch genesis is finalized by
-the Foundation in coordination with the validator set during the mainnet
-genesis ceremony (Phase 10 of the launch plan).
+airdrop) are genesis-manifest parameters rather than protocol constants.
+The launch genesis is finalized during the genesis key ceremony. There is
+no reward endowment bucket: validator pay is funded by fees plus the
+capped mint (§14.3), so nothing must be pre-funded for it.
 
-### No supply cap
+### Supply is not fixed; issuance is capped
 
-PYDE has no hard cap. The supply grows by a decreasing inflation rate and
-shrinks via the 70% fee burn. At target throughput the burn exceeds
-inflation and the network is net deflationary; at low throughput inflation
-dominates. The equilibrium depends on usage.
+The genesis amount is exact, but the ongoing supply is not frozen at it.
+Two forces act on it:
+
+- the **30% fee burn** (§14.4) permanently removes PYDE from circulation
+  with every transaction, and
+- the **shortfall mint** (§14.3) adds PYDE back, but only up to the
+  validator wage bill and never more than the hard emission cap of about
+  1% of genesis supply per year.
+
+The two roughly cancel: supply hovers near 1B, drifting mildly down when
+fees are strong (mint 0, burn > 0) and mildly up (bounded by the cap)
+only in a genuine fee drought. The live figure is queryable at any time:
+`pyde_getSupply` returns `net_supply = genesis + TOTAL_MINTED −
+TOTAL_BURNED`.
 
 ---
 
-## 14.3 Inflation Schedule
+## 14.3 Supply and Emission: the Capped Tap
 
-The inflation rate decreases on a year-by-year schedule:
+There is no inflation schedule. Issuance is a **shortfall-only mint**
+that runs once per epoch inside the reward distributor
+(`crates/tx/src/distributor.rs`), in strict priority order:
+
+1. **Fees pay first.** The reward pool accrues 50% of every wave's fees
+   (§14.4), plus any surplus escrowed from past fee-boom epochs. All of
+   it is spent toward the validator wage bill before a single quanta is
+   minted.
+2. **The tap mints only the gap.** When the pool cannot cover the wage
+   bill, the protocol mints exactly
+   `max(0, wage_target − pool_balance)` into the pool. Real usage closes
+   the gap and the tap stays shut.
+3. **A hard, one-way-down cap** bounds the mint per epoch:
 
 ```rust
-pub const INFLATION_BPS: [u16; 4] = [
-    500,   // year 1: 5.0%
-    300,   // year 2: 3.0%
-    200,   // year 3: 2.0%
-    100,   // year 4+: 1.0% (terminal)
-];
+pub const EMISSION_CAP_BPS: u128 = 100;                    // ~1%/yr of genesis supply
+pub const EMISSION_CAP_PER_EPOCH_QUANTA: u128 = 3_424_657_534_246;
 ```
 
-(`crates/tx/src/fee.rs:92-98`, expressed in basis points.)
+The cap may only be lowered by coordinated release, never raised, so
+holders have a permanent ceiling on issuance. At the current wage the
+full 128-seat bill is about 0.51% of genesis supply per year, comfortably
+under the 1% cap; the cap is a fee-drought backstop, not a target.
 
-```
-Year   Annual rate
-----   -----------
-1      5.0%
-2      3.0%
-3      2.0%
-4+     1.0%   (terminal — never decreases further)
-```
+### The wage bill
 
-The 1% terminal floor exists so validators always have a baseline reward
-stream regardless of fee volume. At target throughput, fee burn easily
-exceeds 1% inflation; at lean throughput, inflation keeps validator
-economics viable.
-
-### Per-wave inflation reward
-
-```
-waves_per_year = 63_113_904         (2 commits/sec * 86400 s/day * 365.25 days)
-
-reward_per_wave = GENESIS_SUPPLY * inflation_rate_bps / (10_000 * waves_per_year)
+```rust
+pub const WAGE_CAP_PER_SEAT_EPOCH: u128 = 13_698_630_136;  // ≈13.70 PYDE/seat/epoch
 ```
 
-At year 1 (5%):
+At the production epoch length (21,600 waves of 500 ms, ~3 hours; 2,920
+epochs per year) this is **40,000 PYDE per seat per year**. A per-seat
+wage cap also bounds the payout in a fee boom: the excess stays escrowed
+in the pool, spent before the tap ever reopens, rather than overpaying
+seats. A compile-time invariant fails the build if a retune ever lets the
+full wage bill reach the emission cap.
 
-```
-reward_per_wave = 10^18 quanta * 500 / (10_000 * 63_113_904)
-               ≈ 792,202,572 quanta
-               ≈ 0.792 PYDE per wave
-```
+### Accounting
 
-At year 4+ (1%):
+Every minted quanta advances the `TOTAL_MINTED` counter (system slot
+`0x1C`), the mint-side mirror of `TOTAL_BURNED` (slot `0x16`). The
+`pyde_getSupply` RPC exposes `genesis`, `minted`, `burned`, and
+`net_supply` so anyone can audit issuance against the cap at any time.
 
-```
-reward_per_wave ≈ 158,440,514 quanta ≈ 0.158 PYDE per wave
-```
+### Why this shape
 
-This per-wave reward credits the reward pool and the treasury at the
-shares specified by the on-chain reward distribution (see §14.4).
-
-### Why a decreasing schedule
-
-- **High initial inflation** bootstraps validator participation before fee
-  volume exists.
-- **Decreasing schedule** rewards token holders as the network matures:
-  early validators were taking risk that later operators don't.
-- **Terminal 1%** stays low enough that ordinary fee burn at any
-  meaningful usage produces net deflation.
+- **Guaranteed validator pay even at zero fees.** The mint covers the
+  wage floor, so security is funded from day one without a draining
+  genesis endowment or a distant funding cliff.
+- **Usage retires the mint.** As fee volume grows, fees fund the wage and
+  the mint tends toward zero. The burn then dominates and net issuance
+  goes negative.
+- **A purely frozen supply was rejected deliberately.** A token that can
+  only shrink rewards holding over using, which is the wrong incentive
+  for a high-throughput utility chain, and a finite reward endowment
+  would have created a fork-or-die funding cliff roughly a decade out.
+  This model was adopted 2026-07-17; the design record is
+  `pyde-economics-model-spec.md` in the engine repository.
 
 ---
 
-## 14.4 Fee Distribution: 70 / 20 / 10
+## 14.4 Fee Distribution: 30 / 50 / 20
 
 Every transaction fee splits deterministically (Chapter 10):
 
 ```rust
-pub const FEE_BURN_PCT: u64           = 70;    // burned (deflationary)
-pub const FEE_REWARD_POOL_PCT: u64    = 20;    // distributed to stakers
-pub const FEE_TREASURY_PCT: u64       = 10;    // treasury account
+pub const BURN_BPS: u128        = 3_000;   // 30% burned
+pub const REWARD_POOL_BPS: u128 = 5_000;   // 50% to the validator reward pool
+// treasury takes the remainder (20%), catching rounding dust
 ```
 
-(`crates/tx/src/execution.rs:17-20`)
+(`crates/tx/src/fee.rs`)
 
-The `distribute_fee` function:
-
-```rust
-pub fn distribute_fee(effective_gas: u64, base_fee: u128) -> FeeDistribution {
-    let total_fee   = effective_gas as u128 * base_fee;
-    let burned      = total_fee * 70 / 100;
-    let reward_pool = total_fee * 20 / 100;
-    let treasury    = total_fee - burned - reward_pool;   // remainder catches dust
-    FeeDistribution { burned, reward_pool, treasury }
-}
-```
-
-The remainder-to-treasury pattern means rounding dust never disappears.
+The split is computed per transaction from `receipt.fee_paid` and applied
+once per wave by `apply_wave_fee_credits`, inside the shared serial
+commit path, so the committer, the wave replayer, state-sync catch-up,
+and recovery all derive identical credited state roots. Summing per
+transaction (never re-splitting a wave total) plus remainder-to-treasury
+means rounding dust never disappears: burned + reward + treasury equals
+fees paid, exactly.
 
 ### Where each share goes
 
-- **Burn**: increments the on-chain `TOTAL_BURNED` counter under
-  discriminator `0x13`. Permanently removes PYDE from circulation.
-- **Reward pool**: credited to the epoch reward pool account, distributed
-  at epoch end to all staked validators (committee + non-committee)
-  proportional to stake × uptime. Under the DAG there is no single
-  proposer to credit; the pool model spreads rewards across the entire
-  staked validator set.
-- **Treasury**: credited to the treasury account at
-  `Poseidon2("pyde-treasury")`. Spent through `MultisigTx` (Chapter 15).
+- **Burn (30%)**: advances the on-chain `TOTAL_BURNED` counter (system
+  slot `0x16`). Permanently removes PYDE from circulation.
+- **Reward pool (50%)**: credited to the `pyde-reward-pool` system
+  account (no transaction spend path). This is validator pay, drained
+  once per epoch by the distributor (§14.5).
+- **Treasury (20%)**: credited to the treasury account. Spent through
+  `MultisigTx` (Chapter 15).
 
-### Why 70% burn
+### Why this split
 
-- **High burn pressure.** At sustained moderate usage with realistic fee
-  loads, the annual burn exceeds the annual mint within a few years:
-  net deflation.
-- **MEV resistance.** A would-be searcher who used Pyde for
-  extraction would burn 70% of the captured value. Combined with the
-  keyless commit-reveal mempool protections (Chapter 9), this
-  further dis-incentivizes attempts.
-- **Validator share is meaningful but not dominant.** 20% pool share is
-  enough to reward staking without making validators primarily fee-driven.
+- **Validators get the majority of fees.** The 50% pool share ties
+  validator revenue to real usage, which is what retires the mint.
+- **The burn is a tunable garnish, not the point.** 30% is the launch
+  value; the burn's job is to offset the mint so net issuance stays near
+  zero. At high volume a large burn would drain supply, so the policy is
+  to scale it down with volume by coordinated release, the same
+  capture-avoidance stance as the emission cap.
+- **MEV resistance layering.** A would-be extractor burns 30% of captured
+  value on top of the keyless commit-reveal ordering protections
+  (Chapter 9).
 
-### Net inflation analysis
+### Net issuance
 
-Net inflation = (mint per year) − (burn per year). Illustrative figures
-at a representative base-fee assumption:
-
-| Avg TPS | Annual fee burn | Year-1 mint (5%) | Net change                    |
-| ------- | --------------- | ---------------- | ----------------------------- |
-| 500     | ~5.6M PYDE      | 50M              | +44.4M (inflationary)         |
-| 5,000   | ~28M PYDE       | 50M              | +22M (inflationary)           |
-| 10,000  | ~45M PYDE       | 50M              | +5M (near-neutral)            |
-| 20,000  | ~70M PYDE       | 50M              | -20M (deflationary)           |
-| 30,000  | ~105M PYDE      | 50M              | -55M (strong deflation)       |
-
-At sustained moderate usage, the network is near-neutral
-to deflationary in year 1. At the 1% terminal inflation rate (year 4+),
-even very low TPS produces net deflation.
+Net issuance per year = mint − burn. The mint is bounded above by the
+emission cap (~1% of genesis supply) and tends to zero as fees grow; the
+burn grows with usage without bound. The crossover where burn exceeds
+mint arrives at modest sustained fee volume, and past it the network is
+net negative on issuance. No fixed schedule forces either side: the
+`pyde_getSupply` RPC reports the realized balance at any time.
 
 ---
 
@@ -223,7 +218,7 @@ pub const MIN_VALIDATOR_STAKE: u128 = 10_000_000_000_000;   // 10,000 PYDE
 
 | Role | Min stake | Committee role | Earns |
 |------|-----------|----------------|-------|
-| **Validator** | 10,000 PYDE | Eligible: uniformly-random selection each epoch picks 128 of the eligible pool | Reward pool share (stake × uptime) + inflation share. When selected to the committee: additional activity-weighted share |
+| **Validator** | 10,000 PYDE | Eligible for committee selection each epoch (up to 128 seats) | Per-seat wage while on the committee, paid per epoch from the reward pool: 50% split flat-equal across active seats, 50% weighted by consensus work actually done (§14.5 income). Stake above the minimum earns nothing extra |
 | RPC node | none | None | Off-chain RPC fees only |
 
 **Single pool, no tiers.** Every validator meeting the 10K PYDE minimum is
@@ -258,39 +253,40 @@ identity. An attacker pursuing a Byzantine fork needs 43 committee slots,
 which translates to ≥ 15 distinct KYC'd operator identities under the
 cap, meaningfully harder to manufacture than capital alone.
 
-### Income sources
+### Income: the per-epoch wage
 
-A validator's gross income per year:
+Validator pay is a **wage for work done**, not a yield on capital. All
+seats have equal power and do the same job, so paying more for more stake
+would pay for nothing and re-centralize the chain. Stake stays out of the
+payout entirely.
 
-1. **Inflation share.** A portion of the per-block inflation reward, paid
-   to the epoch reward pool. Distributed across staked validators
-   (committee + non-committee) proportional to stake × uptime;
-   discriminator `0x15` tracks the active stake-weighted total used as
-   the denominator.
-2. **Fee revenue.** 20% of every fee in every committed wave flows to the
-   same epoch reward pool, distributed by the same stake × uptime rule
-   (there is no single proposer in the DAG to credit).
+Once per epoch (~3 hours), the distributor drains the reward pool budget
+to each `Active` seat's operator account:
 
-### Lazy reward accrual
+- **50% flat-equal** across the active seats (`REWARD_FLAT_BPS = 5_000`),
+- **50% weighted by committed anchor leadership**: each seat's share of
+  the waves it actually led within the epoch. The signal is
+  `WaveCommitRecord.anchor_member_id`, a FALCON-signed field every
+  committer, replayer, and recovery path already agrees on, so the payout
+  is deterministic on every node.
 
-Rewards do not get pushed to the validator on every block; that would
-mean N writes per block. Instead, a global per-stake accumulator
-(`REWARDS_PER_STAKE_UNIT` at discriminator `0x14`) tracks the cumulative
-yield per unit of staked PYDE × uptime:
+The budget is funded fees-first from the pool, topped up by the shortfall
+mint (§14.3), and bounded per seat by the wage cap. A participation
+floor, under which a seat that barely showed up earns zero for the epoch,
+is designed and lands with the open-committee phase.
 
-```
-On each block:
-  rewards_per_stake_unit += per_block_reward / total_active_stake_weighted_by_uptime
+This is the shape proven by Polkadot's era-points model (equal power,
+work-measured pay, live since 2020), with Aptos's work-fraction formula
+and a Cosmos-style floor.
 
-On ClaimReward (tx type 6):
-  owed = (current_accumulator - validator.last_claimed_at) * validator.stake * validator.uptime_share
-  pay owed
-  validator.last_claimed_at = current_accumulator
-```
+### Payment mechanics
 
-`ClaimReward` is only valid for `Active` (status `0x00`) and `Unbonding`
-(status `0x01`) validators; `Exited` (status `0x02`) validators are
-explicitly rejected to prevent post-exit accrual leakage.
+Rewards are pushed automatically: the distributor credits each operator
+account at the epoch boundary inside the shared commit path. There is
+nothing to claim for rewards; the historical claim-based accrual lane
+(`ClaimReward`, a per-stake accumulator) is not how validator pay works.
+The unbonding flow (§14.5 lifecycle) remains the path that returns the
+stake itself after exit.
 
 ### Validator status lifecycle
 
@@ -362,46 +358,24 @@ misbehavior is incentivized to submit it, and slashed PYDE is removed from
 circulation rather than redistributed (preventing perverse "slashing
 profit" incentives).
 
-### Indicative APY
+### Indicative operator pay
 
-APY = `(annual_PYDE_rewards / staked_PYDE) × 100`. Rewards distribute by
-stake × uptime, so per-token yield is uniform across all validators;
-only the absolute PYDE earned scales with stake. Committee participation
-adds an activity-weighted bonus, but the base yield is the same.
+There is no advertised APY. Pyde deliberately does not promise a yield on
+staked capital: the 10K PYDE bond is a security deposit, and pay is a
+wage for consensus work, so the honest unit is PYDE per seat per year.
 
-At year 1, assume 5,000 active validators averaging 100K PYDE staked each
-(~500M total staked, modest middle ground while supply distributes), 128
-selected to the active committee, modest fee volume, 60% of mint flowing
-to the reward pool:
+- **Wage cap:** 40,000 PYDE per seat per year (~13.70 PYDE per epoch),
+  the most a fully participating seat can earn.
+- **Floor:** even at zero fee volume the shortfall mint funds the wage,
+  so a working seat is paid from day one.
+- **Within an epoch**, a seat's actual pay scales with the 50/50
+  flat/leadership blend: a seat that led more committed waves earns more
+  of the weighted half.
 
-```
-Inflation share to reward pool (assume 60% of mint):
-  ~30M PYDE / 500M total staked  ≈ 6% APY on staked balance
-Committee bonus (activity-weighted, 128 of 5000):
-  marginal additional ~0.5-1% APY during the ~3 hr epoch a validator
-  is on the committee (and 0 the rest of the time)
-Average over a year: small uplift for active operators
-```
-
-Yields vary with how much total stake competes for the pool and where
-inflation sits on the taper:
-
-| Year | Active validators | Avg stake | Total staked | Inflation | Indicative APY |
-| ---- | ----------------- | --------- | ------------ | --------- | -------------- |
-| 1    | ~1,000            | 100K      | 100M         | 5.0%      | ~30%           |
-| 2    | ~5,000            | 100K      | 500M         | 3.0%      | ~3.6%          |
-| 3    | ~10,000           | 100K      | 1B (incl. inflation) | 2.0% | ~1.2%   |
-| 4+   | ~10,000           | 100K      | 1B+          | 1.0%      | ~0.6%          |
-
-Year 1 yields are high by design, a bootstrap incentive while the
-validator set grows from genesis. As more validators come online, the per-token
-yield compresses naturally. The 1% terminal inflation rate plus the 20%
-fee-share keeps the steady-state validator economic viable without
-unbounded dilution.
-
-The exact split between reward pool and treasury inside the inflation
-mint, and the trajectory of total validator count, are governance
-parameters; the numbers above are rough sketches, not commitments.
+The wage cap is a protocol constant retunable only by coordinated
+release. It is a ceiling, not a promise: real pay depends on
+participation, and the figure is denominated in PYDE, whose price the
+protocol does not control.
 
 ---
 
@@ -670,24 +644,25 @@ collision from clobbering the signer-set update.
 
 ---
 
-## 14.11 Active-Stake Divisor and Unified Parsing
+## 14.11 Distributor Inputs and Unified Parsing
 
-The pool-share calculation divides by `ACTIVE_STAKE_WEIGHTED_TOTAL`
-(discriminator `0x15`), the sum of `stake × uptime_share` across every
-validator currently in `Active` status. This diverges from
-`VALIDATOR_COUNT` (the total registered count) once validators exit or
-are slashed, and from a flat-per-validator divisor once validators
-differ in stake or uptime (the common case across the two staking tiers).
+The payout is deterministic because every input the distributor reads is
+on-chain JMT state, identical on the committer, the wave replayer,
+state-sync catch-up, and recovery:
 
-Without this divisor, exited validators would dilute the pool share,
-even though they're not contributing security. Adjusted on:
+- **`COMMITTEE_REGISTRY`** (slot `0x28`): the settled epoch's
+  `member_id → operator` map, so consensus work resolves to the right
+  operator account.
+- **Per-seat anchor-leadership tally** (slot `0x1D`): incremented every
+  committed wave in the shared path from
+  `WaveCommitRecord.anchor_member_id`, the FALCON-signed effort signal.
+- **The `Active` filter**: only seats in `Active` status are paid.
+  `Unbonding` and `Exited` validators earn nothing, so exits never dilute
+  or collect from the pool.
 
-- `StakeWithdraw` (validator transitions to `Unbonding`; their stake
-  weight is removed from the total)
-- `Slash` of an `Active` validator (stake weight decreases, or removed
-  entirely on jail/exit)
-- Each block where a validator's `uptime_share` changes (lazy, indexed
-  by the same accumulator pattern as `REWARDS_PER_STAKE_UNIT`)
+Deliberately not inputs, because each would fork replay: the
+consensus-store committee snapshot, live gossip support sets, and
+anything derived from the node-local beacon state.
 
 `ValidatorEntry` parsing is unified through `ValidatorEntry::decode()`:
 the same parser is used by every consensus and tx-handler call site.
@@ -702,18 +677,20 @@ multi-node test #228.)
 
 ## 14.12 Long-Run Equilibrium
 
-The model targets:
+The model targets a supply that hovers near the 1B genesis amount:
 
-| Phase             | Net change                         |
-| ----------------- | ---------------------------------- |
-| Year 1 to 2       | Net mint > burn → modest inflation |
-| Year 3 to 5       | Burn ≈ mint → near-zero net change |
-| Year 6+ (terminal)| Burn > mint → mild deflation        |
+| Regime            | Mint                         | Burn          | Net       |
+| ----------------- | ---------------------------- | ------------- | --------- |
+| Fee drought       | Wage shortfall (≤ cap ~1%/yr) | Small         | Mild positive, bounded |
+| Growing usage     | Shrinking toward zero        | Growing       | Near zero |
+| Strong usage      | Zero (fees cover the wage)   | Full 30% flow | Negative  |
 
-The 1% terminal inflation rate × `GENESIS_SUPPLY` is around 10M PYDE per
-year. Even modest sustained throughput (a few thousand TPS at typical
-fee levels) burns more than that. Net deflation is the long-run
-expected state.
+The mint exists to fund security, not to pay holders; the burn exists to
+offset the mint, not to promise deflation. Neither side is on a schedule,
+so the honest statement is the invariant, not a forecast: issuance can
+never exceed about 1% of genesis supply per year, tends to zero as usage
+grows, and the realized balance is auditable on-chain via
+`pyde_getSupply` at any moment.
 
 ---
 
@@ -723,11 +700,12 @@ expected state.
 | ----------------------- | -------------------------------------------------- |
 | Native token            | PYDE                                                |
 | Decimals                | 9 (1 PYDE = 10^9 quanta)                           |
-| Genesis supply          | 1,000,000,000 PYDE                                  |
-| Supply cap              | None (decreasing inflation, fee burn)               |
-| Inflation schedule      | 5% → 3% → 2% → 1% (terminal)                        |
-| Commits per year        | ~63,113,904 (2/sec median)                          |
-| Fee distribution        | 70% burn / 20% reward pool / 10% treasury           |
+| Genesis supply          | 1,000,000,000 PYDE (hovers near this; not frozen)   |
+| Issuance                | Shortfall-only mint, hard-capped ~1%/yr, one-way-down |
+| Validator wage cap      | 40,000 PYDE per seat per year (≈13.70 PYDE/epoch)   |
+| Payout blend            | 50% flat-equal / 50% weighted by committed anchor leadership |
+| Fee distribution        | 30% burn / 50% reward pool / 20% treasury           |
+| Supply audit            | `pyde_getSupply` (genesis, minted, burned, net)     |
 | Validator stake (min)   | 10,000 PYDE (single tier, uniform-random committee selection) |
 | Operator-identity cap   | 3 validators per operator                            |
 | Unbonding period        | 30 days (must exceed 21-day safety evidence freshness) |

@@ -4,16 +4,19 @@ The PYDE token is the native asset of the Pyde blockchain. It is used for: gas p
 
 ## Total Supply & Genesis
 
-- **Total genesis supply:** 1,000,000,000 PYDE
+- **Genesis supply:** 1,000,000,000 PYDE (supply hovers near this
+  amount under the capped net-neutral model; it is not frozen)
 - **Decimal places:** 9 (1 PYDE = 10^9 quanta; see Chapter 14 for the
   full denomination ladder)
 - **Smallest unit:** 1 quanta = 10^-9 PYDE
+- **Supply audit:** `pyde_getSupply` returns genesis, minted, burned,
+  and net supply at any time
 
 ## Initial Distribution (v1)
 
 | Allocation | Amount | % | Vesting |
 |---|---|---|---|
-| Validator rewards pool | 200,000,000 | 20% | Released proportionally over 4 years via inflation |
+| Treasury reserve for validator onboarding | (part of treasury) | — | Validator pay needs no genesis bucket: it is funded by fees plus the capped shortfall mint |
 | Treasury (multisig-controlled) | 150,000,000 | 15% | Released via governance proposals |
 | Ecosystem grants | 100,000,000 | 10% | 4-year cliff for grantees |
 | Public sale | 200,000,000 | 20% | Released at genesis to public buyers |
@@ -22,18 +25,26 @@ The PYDE token is the native asset of the Pyde blockchain. It is used for: gas p
 
 *Numbers above are illustrative starting points; final distribution requires legal review and stakeholder negotiation.*
 
-## Inflation Schedule
+## Emission: the Capped Shortfall Mint
 
-| Year | Inflation rate | New PYDE minted |
-|---|---|---|
-| 1 | 5% | 50M |
-| 2 | 3% | ~30M (compounding) |
-| 3 | 2% | ~21M |
-| 4+ | 1% (fixed) | ~10M/year thereafter |
+There is no inflation schedule. Once per epoch the protocol mints only
+the gap between the validator wage bill and what fees already put in the
+reward pool:
 
-Rationale: front-loaded inflation rewards early validators; fixed 1% tail provides long-term security budget without unbounded dilution.
+```
+mint = min( max(0, wage_target − pool_balance),
+            EMISSION_CAP_PER_EPOCH )        # cap ≈ 1%/yr of genesis supply
+```
 
-Inflation accrues to the **reward pool**, distributed per the same rule as the fee share (see below).
+- **Fees pay first.** When usage covers the wage, the mint is zero.
+- **Hard cap, one-way-down.** Issuance can never exceed ~1% of genesis
+  supply per year, and the cap may only be lowered by coordinated
+  release, never raised.
+- **At the current wage** the full 128-seat bill is ~5.12M PYDE/year
+  (~0.51% of genesis supply), comfortably under the cap.
+
+Rationale: the mint guarantees the security budget from day one without
+a genesis endowment or a funding cliff, and real usage retires it.
 
 ## Fee Model (EIP-1559 Style)
 
@@ -55,19 +66,17 @@ For every transaction's base fee:
 
 ```
 100% of base_fee
-├── 70% burned (deflationary pressure)
-├── 10% to treasury (multisig-controlled)
-└── 20% to the reward pool
-    ├── 70% activity-weighted across active committee  (= 14% of total)
-    │     • Vertices certified by ≥85 peers
-    │     • Batches included in committed waves (× tx count)
-    │     • Beacon shares submitted on time
-    │     • Anchor selections (uptime-correlated)
-    └── 30% flat across full stake pool                (= 6% of total)
-          (every staked validator earns the base; activity bonus is layered on for those currently on the committee)
+├── 30% burned (offsets the mint; TOTAL_BURNED counter on-chain)
+├── 20% to treasury (multisig-controlled; remainder catches dust)
+└── 50% to the reward pool, paid out once per epoch to active seats:
+    ├── 50% of the budget flat-equal across active committee seats
+    └── 50% weighted by each seat's share of committed anchor
+        leadership (the FALCON-signed consensus-work signal)
 ```
 
-Plus inflation issuance (also flowing into the reward pool) distributed by the same rule.
+Plus the shortfall mint (topping up the same pool when fees fall short,
+bounded by the emission cap) paid out by the same rule. Stake plays no
+role in the payout.
 
 ## Validator Staking
 
@@ -87,38 +96,33 @@ the keyless commit-reveal mempool + operator-identity cap + slashing
 for Sybil resistance, not on stake-size economics (see Chapter 16 §16.4 for
 the full security argument).
 
-### Staking Yield Estimate
+### Operator Pay
 
-Assume:
-- 50% of supply staked → 500M PYDE
-- Year 1 inflation: 50M PYDE → distributed to validators
-- Activity rewards from fees: scales with chain usage
+There is no advertised APY. The bond is a security deposit, not a yield
+instrument, and pay is a wage for consensus work:
 
-```
-Estimated yield year 1:
-  Inflation share: 50M / 500M = 10%
-  Fee share: depends on chain activity
-  
-At low utilization: ~10-12% APY
-At moderate utilization (target): ~12-15% APY
-At high utilization: ~15-20% APY
-```
+- **Wage cap:** 40,000 PYDE per seat per year (~13.70 PYDE per epoch),
+  the most a fully participating seat can earn.
+- **Funding:** fees first; the capped mint covers any shortfall, so a
+  working seat is paid even at zero fee volume.
+- **Within an epoch:** actual pay scales with the 50/50 flat/leadership
+  blend; a seat that led more committed waves earns more.
 
-Specific yields depend on actual network activity. Numbers above are illustrative; actual yields will be observable post-launch.
+The wage cap is a protocol constant retunable only by coordinated
+release. It is a ceiling, not a promise.
 
 ### Active-Committee vs Awaiting-Selection Earnings
 
-Every staked validator earns from the same pool; the difference is in
-the activity-weighted bonus while serving on the active committee.
+Only seats doing consensus work are paid. Equal-power seats do identical
+work, so pay is per seat and per work done, never per stake.
 
 | Status | Earnings Source |
 |---|---|
-| Validator on active committee | Base stake × uptime share of reward pool + activity-weighted committee bonus (vertices certified, batches included, anchor selections) + inflation share |
-| Validator awaiting selection | Base stake × uptime share of reward pool + inflation share (no committee bonus until selected) |
+| Validator on active committee | Per-epoch wage from the reward pool: 50% flat-equal + 50% weighted by committed anchor leadership |
+| Validator awaiting selection | Nothing while off the committee (the bond confers eligibility, not income) |
 
-Committee participation is per-epoch; over time, every validator
-qualifying for the pool will rotate onto the active committee
-proportionally and accrue activity bonuses then.
+Committee membership rotates per epoch; over time, validators in the
+eligible pool take committee turns and earn during them.
 
 ## Slashing Economics
 
@@ -141,7 +145,7 @@ Slashing penalties (see [SLASHING.md](./SLASHING.md) for full catalog):
 ## Treasury
 
 The treasury accrues from:
-- 10% of all transaction base fees
+- 20% of all transaction base fees
 - Treasury portion of slashing (30% from safety offenses)
 - Inflation allocation (if any portion designated)
 
@@ -168,18 +172,25 @@ Parachain operators face their own slashing for misbehavior (incorrect responses
 
 PYDE is intended to be used for transactions, staking, and bond, not held purely as speculative store-of-value. Mechanisms to encourage utility:
 
-1. **Gas burn (70%):** every transaction reduces supply, creating deflationary pressure when network usage is high
+1. **Gas burn (30%):** every transaction reduces supply, offsetting the capped mint so net supply hovers near genesis
 2. **Validator bond locking:** 10K PYDE per validator slot, locked during operation
 3. **Treasury spending:** continually deploys PYDE into the ecosystem
 4. **No priority tips:** removes the speculative auction layer that creates token-velocity drag
 
 ## Long-Term Sustainability
 
-Post year-4, supply economics are:
-- Inflation: ~1% per year (~10M PYDE)
-- Burn rate: depends on usage; at sustained moderate usage with a mixed workload, estimated ~30-100M PYDE/year burned
+Supply economics have no year-by-year schedule; the invariant does the
+work:
 
-**At sustained moderate usage, the chain is net deflationary** (burn > inflation). At low usage, slight inflation maintains validator security budget. At very high usage, deflationary pressure may eventually require fee structure adjustments (governance decision).
+- Mint: shortfall-only, bounded by the ~1%/yr cap, tends to zero as fee
+  volume grows
+- Burn: 30% of every fee, growing with usage without bound
+
+In a fee drought issuance is mildly positive and bounded. As usage grows,
+fees fund the wage, the mint shuts, and the burn dominates. The burn
+share is a retunable constant with a scale-down-with-volume policy, so
+sustained high usage never drains supply. Net supply hovers near the 1B
+genesis amount by construction and is auditable on-chain at any time.
 
 ## Open Questions
 
@@ -197,4 +208,4 @@ Post year-4, supply economics are:
 
 ---
 
-**Version 0.1**
+**Version 0.2**

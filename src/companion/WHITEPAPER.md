@@ -1,6 +1,6 @@
 # Pyde: A Fair, Fast, Long-Lived Layer 1 with Mysticeti-style Consensus
 
-**Version 0.2 · Revised July 2026**
+**Version 0.3 · Revised July 2026**
 Pyde Network · Apache-2.0
 
 ---
@@ -113,7 +113,7 @@ Three operational tiers run the same binary; role differentiation is configurati
 
 | Tier | Stake | Committee role | Earns |
 | --- | --- | --- | --- |
-| Validator | 10K PYDE min (single tier) | Eligible for uniform-random committee selection each epoch | Reward-pool share (stake × uptime) + inflation share + activity-weighted bonus while on active committee |
+| Validator | 10K PYDE min (single tier) | Eligible for committee selection each epoch | Per-seat wage while on the committee, paid per epoch from the reward pool: 50% flat-equal, 50% weighted by consensus work done. Stake above the minimum earns nothing extra |
 | RPC node / full node | None | None | Off-chain RPC fees (market-set) |
 
 ---
@@ -461,9 +461,9 @@ The v1 throughput target at ~500 ms median finality on commodity hardware is siz
 
 ### 13.1 Token
 
-- **Total genesis supply:** 1,000,000,000 PYDE
+- **Genesis supply:** 1,000,000,000 PYDE (supply hovers near this amount; it is not frozen)
 - **Decimals:** 9 (1 PYDE = 10⁹ quanta)
-- **Inflation schedule:** 5 % year 1, decreasing to 3 % / 2 % / 1 %, fixed at 1 % thereafter
+- **Issuance:** shortfall-only mint that covers the validator wage when fees fall short, hard-capped at ~1% of genesis supply per year, cap lowerable only. No inflation schedule; net supply = genesis + minted − burned, auditable on-chain via `pyde_getSupply`
 
 ### 13.2 Validator Bonds
 
@@ -479,23 +479,24 @@ EIP-1559 base fee with elastic 4 × blocks; **no priority tips**. Priority would
 
 Each transaction's base fee splits deterministically:
 
-- **70 % burned** (deflationary pressure)
-- **10 % to treasury** (multisig-controlled, PIP-reviewed)
-- **20 % to the reward pool**, distributed at epoch end:
-  - 70 % of the pool, activity-weighted across the active committee (vertices certified, batches included, beacon shares submitted, anchor selections)
-  - 30 % of the pool, flat across all staked validators (active-committee + awaiting-selection), distributed by stake × uptime
+- **30 % burned** (offsets the mint; the counter is on-chain)
+- **20 % to treasury** (multisig-controlled, PIP-reviewed)
+- **50 % to the reward pool**, paid out once per epoch to the active committee:
+  - 50 % of the budget flat-equal across active seats
+  - 50 % weighted by each seat's share of the consensus work actually committed (anchor leadership, a FALCON-signed field of the wave record)
+  - stake plays no role in the payout; the bond is a security deposit, not a yield instrument
 
-### 13.4 Indicative APY
+### 13.4 Validator Pay
 
-Per-token yield is uniform across all validators (single tier; rewards distribute by stake × uptime). The activity-weighted committee bonus is layered on top during the ~3-hr epoch a validator is on the active committee. Year-1 yields are high while the validator pool is small and inflation is at the 5 % rate; the rate compresses as the pool grows and inflation tapers to the 1 % terminal floor.
+There is no advertised APY. Validator pay is a wage for consensus work, denominated in PYDE per seat: up to 40,000 PYDE per seat per year at the current wage cap, funded fees-first with the capped mint covering any shortfall. The wage is guaranteed by the mint floor even at zero fee volume, bounded by the per-seat cap in a fee boom, and scaled within an epoch by the work a seat actually did.
 
-### 13.5 Net Inflation
+### 13.5 Net Issuance
 
-Net inflation = mint − burn. At sustained moderate usage (with realistic fee loads), the annual burn exceeds annual mint within a few years; the chain becomes net deflationary. At low usage, slight inflation maintains the validator security budget. At very high usage, deflationary pressure may eventually require parameter adjustment via governance.
+Net issuance = mint − burn. The mint exists only to fund the validator wage and can never exceed ~1% of genesis supply per year; the burn grows with usage. In a fee drought issuance is mildly positive and bounded by the cap; as usage grows the mint tends to zero and the burn dominates. Supply hovers near the 1B genesis amount by construction, and the realized balance is queryable on-chain at any time. The burn share is a retunable constant with a scale-down-with-volume policy, so sustained high usage never drains supply.
 
 ### 13.6 Token Demand Drivers
 
-PYDE has multiple protocol-internal demand drivers, not solely secondary-market speculation: validators stake PYDE to be eligible for committee selection (the active 128 are uniform-randomly selected from the eligible pool each epoch); parachain operators stake PYDE to run third-party parachains and earn the parachain's fees; every on-chain transaction (transfer, contract call, deploy, governance) pays base fees in PYDE; the treasury operates in PYDE. The fee structure (70% burned, 30% accrued to the validator reward pool + treasury) couples token value to chain usage rather than to trading volume: every base-fee unit either reduces supply or accrues to participants who secure or govern the network. For investors, the design intent is that long-term token utility tracks the chain's usefulness as infrastructure, not its position in a market cycle.
+PYDE has multiple protocol-internal demand drivers, not solely secondary-market speculation: validators stake PYDE to be eligible for committee selection (the active 128 are uniform-randomly selected from the eligible pool each epoch); parachain operators stake PYDE to run third-party parachains and earn the parachain's fees; every on-chain transaction (transfer, contract call, deploy, governance) pays base fees in PYDE; the treasury operates in PYDE. The fee structure (30% burned, 70% accrued to the validator reward pool + treasury) couples token value to chain usage rather than to trading volume: every base-fee unit either reduces supply or accrues to participants who secure or govern the network. For investors, the design intent is that long-term token utility tracks the chain's usefulness as infrastructure, not its position in a market cycle.
 
 ---
 

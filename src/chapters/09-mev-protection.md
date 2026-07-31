@@ -477,7 +477,7 @@ Step 6 - EXECUTION (Block-STM)
     companion/BLOCK_STM_EXECUTION.md.
   - Final state derived from the fixpoint: highest-tx_index's last
     write per slot. Execute against pre_state_root → new post_state_root.
-  - Distribute fees: 70% burn, 20% to current epoch's reward pool, 10% treasury.
+  - Distribute fees: 30% burn, 50% to the reward pool, 20% treasury.
     (Layer 4: no tip is paid because no tip field exists in the wire format.)
 
 Step 7 - STATE ROOT ATTESTATION

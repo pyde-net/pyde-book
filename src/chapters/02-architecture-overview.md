@@ -177,8 +177,8 @@ The protocol-level surface (the `cross_call` callback model that `parachain_call
 
 | Tier | Stake | Committee Role | Earns |
 |---|---|---|---|
-| Committee validator | ≥10K PYDE (single-tier min) | Active (1 of 128) | Activity rewards + pool yield + inflation |
-| Non-committee validator | ≥10K PYDE (single-tier min, same floor) | Stake-only, waiting selection | Pool yield + inflation |
+| Committee validator | ≥10K PYDE (single-tier min) | Active (1 of 128) | Per-seat wage from the reward pool: 50% flat, 50% weighted by consensus work (Ch 14) |
+| Non-committee validator | ≥10K PYDE (single-tier min, same floor) | Stake-only, waiting selection | Nothing while off the committee (pay is a wage for work, not a yield on stake) |
 | RPC node | None | None | Off-chain RPC fees (market-set) |
 
 RPC providers (Infura/Alchemy analog) fit Tier 3: no stake, no slashing risk.

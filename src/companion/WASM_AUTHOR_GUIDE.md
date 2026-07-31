@@ -32,11 +32,11 @@ Rust contracts on the macro substrate (the default since the substrate batch: se
 
 ### Go and C authors: the generated surface
 
-Go and C reach the same generated surface without macros. `otigen build` reads `otigen.toml` and emits `pyde_gen.go` / `pyde_gen.h` — typed storage accessors, struct-literal events, and the `() -> ()` entry dispatch — which the author imports / `#include`s and then fills in with only the typed function bodies (a C compiler / `go vet` catches any signature drift). So Go and C authors also skip §5, §6, and most of §7, exactly like Rust; they reach for the raw pattern below only for the §8 / §9 / §10 author-side logic. AssemblyScript is the one language where otigen generates the entry dispatch but not yet the storage / event sugar, so AssemblyScript authors still hand-write those from the raw pattern.
+Go and C reach the same generated surface without macros. `otigen build` reads `otigen.toml` and emits `pyde_gen.go` / `pyde_gen.h` — typed storage accessors, struct-literal events, and the `() -> ()` entry dispatch — which the author imports / `#include`s and then fills in with only the typed function bodies (a C compiler / `go vet` catches any signature drift). So Go and C authors also skip §5, §6, and most of §7, exactly like Rust; they reach for the raw pattern below only for the §8 / §9 / §10 author-side logic. AssemblyScript now generates the entry dispatch and typed storage too (`otigen build` emits `pyde.storage.generated.ts`), so AssemblyScript authors also skip §5–§7; its **event** emitters are the one piece not yet generated, so AssemblyScript authors still hand-write events from the raw pattern.
 
 **This guide describes the raw WASM-ABI pattern.** The raw pattern stays fully supported and is the right shape for:
 
-- AssemblyScript authors, for typed storage + events. otigen generates AssemblyScript's entry dispatch, but not yet its storage/event sugar — so those sections still apply. (Rust, Go, and C authors get the full typed surface generated for them; see the two notes above.)
+- AssemblyScript authors, for events. otigen generates AssemblyScript's entry dispatch and typed storage, but not yet its event emitters — so the event portions of §7 still apply. (Rust, Go, and C authors get the full typed surface generated for them; see the two notes above.)
 - Community SDK porters targeting other languages: see [`SDK_AUTHOR_GUIDE.md`](./SDK_AUTHOR_GUIDE.md) for the bar a community SDK needs to clear.
 - Rust authors who need full control over slot derivation (e.g. matching another chain's layout) or who want to understand what the macros emit before depending on them.
 

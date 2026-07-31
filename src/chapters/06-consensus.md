@@ -270,11 +270,9 @@ for slot in 0..128:
 
 ### Equal Power Within Committee
 
-All 128 members have equal voting weight, equal vertex production rate, equal anchor probability (uniform over members). Stake influences only:
-- (a) eligibility (must meet `MIN_VALIDATOR_STAKE` = 10,000 PYDE)
-- (b) proportion of the stake-weighted reward pool (yield distributes by `stake × uptime`)
+All 128 members have equal voting weight, equal vertex production rate, equal anchor probability (uniform over members). Stake influences only eligibility (must meet `MIN_VALIDATOR_STAKE` = 10,000 PYDE); it plays no role in pay.
 
-Activity rewards within the committee are **contribution-weighted, not stake-weighted**.
+Rewards are **contribution-weighted, not stake-weighted**: the per-epoch wage splits 50% flat-equal across active seats and 50% by each seat's share of committed anchor leadership (Chapter 14).
 
 ### Why No Stake-Weighted Voting
 

@@ -286,7 +286,7 @@ In every case the tx commits its successful attempt with the same final state. B
 
 - **Gas**: charged once, on the successful final attempt. Aborted attempt gas is discarded.
 - **Receipts**: written in canonical `tx_index` order. Each receipt carries the final attempt's `gas_used`, `events`, `return_data`, and `status`.
-- **Fee distribution**: per `HOST_FN_ABI_SPEC` §10.5, the 70/20/10 burn/reward/treasury split is computed from `successful_attempts.sum(fee_paid)`. Aborted-attempt fees do not exist.
+- **Fee distribution**: per `HOST_FN_ABI_SPEC` §10.5, the 30/50/20 burn/reward/treasury split is computed from `successful_attempts.sum(fee_paid)`. Aborted-attempt fees do not exist.
 
 The "no refunds in v1" rule still holds. If a tx hits a tx-level revert (not an MVCC abort: those are silent retries), gas == `tx.gas_limit` and value transfer is rolled back. Only MVCC re-incarnations are free.
 

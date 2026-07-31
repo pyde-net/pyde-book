@@ -88,7 +88,7 @@ genuine signal.
 | ----------------------------------------------- | -------------- |
 | Consensus rule change (block format, finality)  | Yes            |
 | Gas cost changes                                | Yes            |
-| Fee distribution changes (e.g., 70/20/10 split)  | Yes            |
+| Fee distribution changes (e.g., the 30/50/20 split) | Yes           |
 | Cryptographic primitive change                  | Yes            |
 | New transaction type                            | Yes            |
 | New WASM host function                          | Yes            |
@@ -230,8 +230,8 @@ Critics of multisig-based governance often raise the centralization
 concern: "a few signers can do anything." The mitigating factors:
 
 1. **Bounded scope.** The multisig can spend the treasury and rotate
-   itself. It cannot change the inflation schedule, the consensus rules,
-   the gas distribution, or any other protocol parameter. Those are
+   itself. It cannot change the emission cap, the consensus rules,
+   the fee split, or any other protocol parameter. Those are
    hard-coded in the validator binary.
 2. **Public, on-chain audit trail.** Every spend has a `data_digest`
    linkable to a PIP. Off-chain spending the treasury is not possible.
@@ -284,8 +284,8 @@ validator upgrade:
 | Validator min stake (10,000 PYDE) | `crates/tx/src/pipeline.rs` (will move to shared crate post-consensus-rebuild) |
 | Operator-identity cap (3 / operator) | `crates/tx/src/pipeline.rs`     |
 | Unbonding period (30 days)     | `crates/consensus/src/validator.rs`   |
-| Inflation schedule             | `crates/tx/src/fee.rs`                |
-| Fee split (70/20/10)           | `crates/tx/src/execution.rs`          |
+| Emission cap (~1%/yr)          | `crates/tx/src/distributor.rs`        |
+| Fee split (30/50/20)           | `crates/tx/src/fee.rs`                |
 | Gas target / ceiling           | `crates/tx/src/fee.rs`                |
 | `MAX_TX_SIZE` (128 KB)         | `crates/tx/src/validation.rs`         |
 | `MAX_CALLDATA` (64 KB)         | `crates/tx/src/validation.rs`         |

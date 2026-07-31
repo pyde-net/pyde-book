@@ -91,15 +91,15 @@ and the post-mainnet plan.
 | `GENESIS_BASE_FEE`      | 50,000,000,000 quanta        | `tx/fee.rs`        |
 | `MIN_BASE_FEE`          | 1                            | `tx/fee.rs`        |
 | `ADJUSTMENT_DIVISOR`    | 8 (1/8 = 12.5% per block)    | `tx/fee.rs`        |
-| `FEE_BURN_PCT`          | 70                           | `tx/execution.rs`  |
-| `FEE_REWARD_POOL_PCT`   | 20                           | `tx/execution.rs`  |
-| `FEE_TREASURY_PCT`      | 10                           | `tx/execution.rs`  |
+| `BURN_BPS`              | 3,000 (30%)                  | `tx/fee.rs`        |
+| `REWARD_POOL_BPS`       | 5,000 (50%)                  | `tx/fee.rs`        |
+| (treasury)              | remainder (20%, catches dust) | `tx/fee.rs`        |
 | `MIN_GAS_LIMIT`         | 21,000                       | `tx/validation.rs` |
 | `MAX_TX_SIZE`           | 128 KB                       | `tx/validation.rs` |
 | `MAX_CALLDATA`          | 64 KB                        | `tx/validation.rs` |
-| `WAVES_PER_YEAR`        | 63,113,904 (2/sec)           | `tx/fee.rs`        |
-| `INFLATION_BPS`         | [500, 300, 200, 100]         | `tx/fee.rs`        |
-| `GENESIS_SUPPLY`        | 10^18 quanta (1B PYDE)       | `tx/fee.rs`        |
+| `EMISSION_CAP_BPS`      | 100 (~1%/yr, one-way-down)   | `tx/distributor.rs`|
+| `WAGE_CAP_PER_SEAT_EPOCH` | 13,698,630,136 quanta (40K PYDE/seat/yr) | `tx/distributor.rs`|
+| `GENESIS_SUPPLY_QUANTA` | 10^18 quanta (1B PYDE)       | `tx/distributor.rs`|
 
 ## D. Mempool Constants
 
@@ -154,20 +154,22 @@ Defined in `crates/state/src/keys.rs`.
 
 | Discriminator | Name                      | Holds                                   |
 | ------------- | ------------------------- | --------------------------------------- |
-| 0x12          | `SUPPLY`                  | Total PYDE supply counter                |
-| 0x13          | `TOTAL_BURNED`            | Cumulative fee burn counter              |
-| 0x14          | `REWARDS_PER_STAKE_UNIT`  | Lazy-accrual per-stake-unit reward accumulator |
-| 0x15          | `ACTIVE_STAKE_WEIGHTED_TOTAL` | Pool divisor (sum of stake × uptime; excludes exited / slashed) |
-| 0x16          | `VESTING`                 | Per-account vesting schedule (40 bytes)  |
-| 0x17          | `VALIDATOR_SUBSIDY`       | (total_amount, end_wave) streaming subsidy|
-| 0x18          | `AIRDROP_ROOT`            | Genesis airdrop Merkle root              |
-| 0x19          | `AIRDROP_DEADLINE`        | wave_id after which sweep is allowed     |
-| 0x1A          | `AIRDROP_CLAIMED`         | Per-leaf-index claim bitmap              |
-| 0x1B          | `AIRDROP_EXPECTED_SUM`    | Genesis pool size invariant              |
-| 0x1C          | `MULTISIG_SIGNERS`        | Treasury multisig signer set (FALCON pks)|
-| 0x1D          | `MULTISIG_THRESHOLD`      | Required signature count                  |
-| 0x1E          | `MULTISIG_NONCE`          | Replay-protection counter for multisig   |
-| 0x1F          | `EMERGENCY_PAUSE_END_WAVE`| End wave_id of an active emergency pause    |
+| 0x14          | `REWARDS_PER_STAKE_UNIT`  | Legacy accrual accumulator (inert in v1; pay is the per-epoch wage) |
+| 0x15          | `TOTAL_ACTIVE_STAKE_WEIGHTED` | Legacy pool denominator (inert in v1)      |
+| 0x16          | `TOTAL_BURNED`            | Cumulative fee burn counter                    |
+| 0x17          | `EPOCH_FEE_INFLOW`        | Reward-pool fee inflow since the last distribution |
+| 0x18          | `AIRDROP_ROOT`            | Genesis airdrop Merkle root                    |
+| 0x19          | `AIRDROP_DEADLINE`        | wave_id after which sweep is allowed           |
+| 0x1A          | `AIRDROP_CLAIMED`         | Per-leaf-index claim bitmap                    |
+| 0x1B          | `AIRDROP_EXPECTED_SUM`    | Genesis pool size invariant                    |
+| 0x1C          | `TOTAL_MINTED`            | Cumulative emission mint (mirror of `TOTAL_BURNED`) |
+| 0x1D          | `EPOCH_SEAT_ANCHORS`      | Per-seat committed anchor-leadership tally (payout weight) |
+| 0x26          | `NEXT_DISTRIBUTION_EPOCH` | Distributor idempotence guard                  |
+| 0x28          | `COMMITTEE_REGISTRY`      | member_id to operator map for the settled epoch |
+| 0xF0          | `MULTISIG_SIGNERS`        | Treasury multisig signer set (FALCON pks)      |
+| 0xF1          | `MULTISIG_THRESHOLD`      | Required signature count                       |
+| 0xF2          | `MULTISIG_NONCE`          | Replay-protection counter for multisig actions |
+| 0xF3          | `IS_PAUSED`               | Emergency-pause gate                           |
 
 ---
 
@@ -371,8 +373,8 @@ The key headline figures, with their sources:
 | ~500 ms median commit          | `COMMIT_TARGET_MS` in `consensus/commit.rs`|
 | v1 plaintext throughput target      | Awaiting multi-region performance harness measurement; publish only what the harness measures under sustained, production-realistic conditions ([companion/PERFORMANCE_HARNESS.md](../companion/PERFORMANCE_HARNESS.md)) |
 | v1 commit-reveal mempool throughput  | Same harness; Commit + Reveal are two ordinary txs (no decryption stage) |
-| 70 / 20 / 10 fee split              | `FEE_BURN_PCT` etc in `tx/execution.rs`        |
-| 5% → 1% inflation schedule          | `INFLATION_BPS` in `tx/fee.rs`                 |
+| 30 / 50 / 20 fee split              | `BURN_BPS` / `REWARD_POOL_BPS` in `tx/fee.rs`  |
+| Capped shortfall emission (~1%/yr)  | `EMISSION_CAP_BPS` in `tx/distributor.rs`      |
 | 10,000 PYDE validator min stake     | `MIN_VALIDATOR_STAKE` in `tx/pipeline.rs` (single tier)|
 | 3 max validators per operator       | `MAX_VALIDATORS_PER_OPERATOR` in `tx/pipeline.rs` (anti-Sybil) |
 | 30-day unbonding                    | `UNBONDING_PERIOD` in `consensus/validator.rs` |

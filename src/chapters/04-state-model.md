@@ -306,20 +306,22 @@ Some discriminators currently in use (defined in `crates/state/src/keys.rs`):
 
 | Discriminator | Name                      | What it keys                                   |
 | ------------- | ------------------------- | ---------------------------------------------- |
-| 0x12          | `SUPPLY`                  | Total PYDE supply counter                      |
-| 0x13          | `TOTAL_BURNED`            | Cumulative fee burn counter                    |
-| 0x14          | `REWARDS_PER_STAKE_UNIT`  | Lazy-accrual per-stake-unit reward accumulator |
-| 0x15          | `ACTIVE_STAKE_WEIGHTED_TOTAL` | Pool divisor (sum of stake × uptime; excludes exited/slashed) |
-| 0x16          | `VESTING`                 | Per-account vesting schedule                   |
-| 0x17          | `VALIDATOR_SUBSIDY`       | `(total_amount, end_wave)` for streaming subsidy|
+| 0x14          | `REWARDS_PER_STAKE_UNIT`  | Legacy accrual accumulator (inert in v1; pay is the per-epoch wage) |
+| 0x15          | `TOTAL_ACTIVE_STAKE_WEIGHTED` | Legacy pool denominator (inert in v1)      |
+| 0x16          | `TOTAL_BURNED`            | Cumulative fee burn counter                    |
+| 0x17          | `EPOCH_FEE_INFLOW`        | Reward-pool fee inflow since the last distribution |
 | 0x18          | `AIRDROP_ROOT`            | Genesis airdrop Merkle root                    |
-| 0x19          | `AIRDROP_DEADLINE`        | Slot height after which sweep is allowed       |
+| 0x19          | `AIRDROP_DEADLINE`        | wave_id after which sweep is allowed           |
 | 0x1A          | `AIRDROP_CLAIMED`         | Per-leaf-index claim bitmap                    |
 | 0x1B          | `AIRDROP_EXPECTED_SUM`    | Genesis pool size invariant                    |
-| 0x1C          | `MULTISIG_SIGNERS`        | Treasury multisig signer set (FALCON pks)      |
-| 0x1D          | `MULTISIG_THRESHOLD`      | Required signature count                       |
-| 0x1E          | `MULTISIG_NONCE`          | Replay-protection counter for multisig actions |
-| 0x1F          | `EMERGENCY_PAUSE_END_WAVE`| End wave_id of an active emergency pause       |
+| 0x1C          | `TOTAL_MINTED`            | Cumulative emission mint (mirror of `TOTAL_BURNED`) |
+| 0x1D          | `EPOCH_SEAT_ANCHORS`      | Per-seat committed anchor-leadership tally (payout weight) |
+| 0x26          | `NEXT_DISTRIBUTION_EPOCH` | Distributor idempotence guard                  |
+| 0x28          | `COMMITTEE_REGISTRY`      | member_id to operator map for the settled epoch |
+| 0xF0          | `MULTISIG_SIGNERS`        | Treasury multisig signer set (FALCON pks)      |
+| 0xF1          | `MULTISIG_THRESHOLD`      | Required signature count                       |
+| 0xF2          | `MULTISIG_NONCE`          | Replay-protection counter for multisig actions |
+| 0xF3          | `IS_PAUSED`               | Emergency-pause gate                           |
 
 This flat scheme means a single Merkle path can prove any state claim: there
 is no nested account-trie / storage-trie indirection (the classic
@@ -426,9 +428,9 @@ When a wave commits, the state pipeline runs in this order:
 2. **Prefetch** every `(addr, slot)` pair declared across the wave's tx access lists in one batched `state_cf.multi_get` (PIP-3). Returned values land in the dashmap (PIP-4) marked Clean. Access lists are prefetch hints only; they never partition the wave or affect correctness.
 3. **Execute** every tx in parallel via the [Block-STM scheduler](../companion/BLOCK_STM_EXECUTION.md): optimistic execute through an MVCC layer → validate against canonical tx_index order → cascade-invalidate + re-incarnate on conflict → fixpoint. The final state per slot is the highest-tx_index's last write.
 4. Apply the Block-STM finalize output to the batch as one ordered slot-write set.
-5. Distribute fees: 70% to the burn counter (`TOTAL_BURNED` discriminator),
-   20% to the epoch reward pool (distributed at epoch end by stake × uptime),
-   10% to the treasury account.
+5. Distribute fees: 30% to the burn counter (`TOTAL_BURNED` discriminator),
+   50% to the epoch reward pool (paid out per epoch as the validator wage,
+   Chapter 14), 20% to the treasury account.
 6. Commit the batch with `update_all`. The new root is `post_state_root`.
 7. Set the WaveCommitRecord's `state_root` and emit the per-wave `WaveCommitInputs` for the wave-committer.
 

@@ -138,8 +138,8 @@ Per Chapter 15:
 | Validator min stake (10,000 PYDE) | `crates/tx/src/pipeline.rs` (will move to shared crate post-consensus-rebuild) |
 | Operator-identity cap (3 / operator) | `crates/tx/src/pipeline.rs`     |
 | Unbonding period (30 days)     | `crates/consensus/src/validator.rs`   |
-| Inflation schedule             | `crates/tx/src/fee.rs`                |
-| Fee split (70/20/10)           | `crates/tx/src/execution.rs`          |
+| Emission cap (~1%/yr)          | `crates/tx/src/distributor.rs`        |
+| Fee split (30/50/20)           | `crates/tx/src/fee.rs`                |
 | Gas target / ceiling           | `crates/tx/src/fee.rs`                |
 | Tx / calldata size limits      | `crates/tx/src/validation.rs`         |
 | Max batch size (4 MB)          | `crates/mempool/src/batch.rs`         |

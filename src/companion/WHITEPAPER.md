@@ -594,10 +594,9 @@ The protocol-level cross-chain primitives (the callback model behind `parachain_
 
 ## 18. Path to Mainnet
 
-This document is the technical specification of the post-pivot design. The engineering between specification and mainnet is the work ahead, in execution order:
+This document is the technical specification of the post-pivot design. The engine implementing it is built: a Rust workspace of roughly 167,000 lines across twelve crates, carrying about 2,700 unit tests, compiling clean. Consensus, the keyless commit-reveal mempool, WASM execution, Block-STM parallel execution, the JMT state layer, networking, slashing and state sync are all implemented. What remains between here and mainnet, in execution order:
 
-1. **Mysticeti DAG implementation.** Adapt the open-source Mysticeti reference for FALCON-bound signatures and Pyde's commit-reveal commit-reveal integration; rebuild the consensus, mempool, and node crates against the new foundation.
-2. **Performance harness build-out.** Multi-region production-realistic infrastructure; workload generators for the four target tx-mixes; chaos / failure injection; soak-test schedule. Pre-mainnet test slate is mandatory before any external TPS claim.
+1. **Performance harness build-out.** Multi-region production-realistic infrastructure; workload generators for the four target tx-mixes; chaos / failure injection; soak-test schedule. Pre-mainnet test slate is mandatory before any external TPS claim.
 3. **External audit programme.** Multi-track, specialist firms across consensus, the WASM execution layer integration (host-function ABI, fuel-to-gas mapping, deploy-time validator), post-quantum cryptography, networking, and the `otigen` developer toolchain. Remediate all critical and high findings; re-audit the remediation. The wasmtime runtime itself is a vetted production dependency from the Bytecode Alliance and is not separately audited.
 4. **Incentivized testnet.** Reference dApps (DEX, lending market, NFT marketplace); fully-funded bug bounty at mainnet-tier scale; a multi-month soak test; remediate community-found issues before launch.
 5. **128-validator genesis.** Recruit operators with documented hardware benchmarks and incentivized-testnet participation. Geo-distribute across 3 + regions. Sign the genesis block. Publish the chain hash.
@@ -610,18 +609,46 @@ There is no public schedule. Mainnet ships when the audit programme passes and t
 
 Pyde represents a chain built around the architectural requirements of the next decade: MEV resistance, sub-second finality, commodity-hardware decentralization, and post-quantum security for users and infrastructure. The pivot from in-house HotStuff to Mysticeti-style DAG consensus reflects an explicit commitment to designing from a clean foundation rather than patching accumulated technical debt.
 
-The design is complete; the implementation is the work ahead. This is not a chain that ships in six months. It is a chain that aims to occupy a category (MEV-resistant, commodity-validated, post-quantum) that no production chain occupies cleanly today. The strategic window for that occupancy is open and time-bound.
+The design is complete and the engine that implements it is built. What is ahead is proving it: sustained adversarial testing on production-realistic infrastructure, an external audit programme, and a public testnet with real builders on it. This is not a chain that ships in six months. It aims to occupy a category (MEV-resistant, commodity-validated, post-quantum) that no production chain occupies cleanly today, and the honest gap between here and there is validation rather than construction.
 
 For businesses, that category means settlement infrastructure that holds through the next cryptographic generation, without a hidden tax on customer transactions and without a coordinated migration to budget for. For developer teams, it means a permissionless surface to launch their own execution environments and bootstrap dev communities around them, on top of a runtime they already know how to write. For users, it means trades that execute at the price signed and funds that stay cryptographically valid through whatever the next decade brings. The architecture is the bet; the implementation work is what turns the bet into a chain people can actually use.
 
 ---
 
-**Document version:** 0.2 · Revised July 2026
+## References
+
+**Consensus and execution**
+
+1. Babel, K., Chursin, A., Danezis, G., Kokoris-Kogias, L., Sonnino, A. *Mysticeti: Reaching the Limits of Latency with Uncertified DAGs.* arXiv:2310.14821. <https://arxiv.org/abs/2310.14821>
+2. Danezis, G., Kokoris-Kogias, L., Sonnino, A., Spiegelman, A. *Narwhal and Tusk: A DAG-based Mempool and Efficient BFT Consensus.* arXiv:2105.11827. <https://arxiv.org/abs/2105.11827>
+3. Spiegelman, A., Giridharan, N., Sonnino, A., Kokoris-Kogias, L. *Bullshark: DAG BFT Protocols Made Practical.* arXiv:2201.05677. <https://arxiv.org/abs/2201.05677>
+4. Gelashvili, R., et al. *Block-STM: Scaling Blockchain Execution by Turning Ordering Curse to a Performance Blessing.* arXiv:2203.06871. <https://arxiv.org/abs/2203.06871>
+
+**Cryptography**
+
+5. Grassi, L., Khovratovich, D., Schofnegger, M. *Poseidon2: A Faster Version of the Poseidon Hash Function.* IACR ePrint 2023/323. <https://eprint.iacr.org/2023/323>
+6. Prest, T., Fouque, P.-A., Hoffstein, J., Kirchner, P., Lyubashevsky, V., Pornin, T., Ricosset, T., Seiler, G., Whyte, W., Zhang, Z. *FALCON: Fast-Fourier Lattice-based Compact Signatures over NTRU.* NIST Post-Quantum Cryptography project; selected for standardization as FN-DSA. <https://falcon-sign.info/>
+7. O'Connor, J., Aumasson, J.-P., Neves, S., Wilcox-O'Hearn, Z. *BLAKE3: One Function, Fast Everywhere.* <https://github.com/BLAKE3-team/BLAKE3-specs>
+8. National Institute of Standards and Technology. *FIPS 203: Module-Lattice-Based Key-Encapsulation Mechanism Standard* (ML-KEM), 2024.
+9. National Institute of Standards and Technology. *FIPS 204: Module-Lattice-Based Digital Signature Standard* (ML-DSA), 2024.
+10. Shor, P. W. *Polynomial-Time Algorithms for Prime Factorization and Discrete Logarithms on a Quantum Computer.* SIAM J. Comput. 26(5), 1997.
+11. Grover, L. K. *A Fast Quantum Mechanical Algorithm for Database Search.* STOC 1996.
+
+**Protocol design**
+
+12. Buterin, V., et al. *EIP-1559: Fee Market Change for ETH 1.0 Chain.* Ethereum Improvement Proposals.
+13. Daian, P., et al. *Flash Boys 2.0: Frontrunning, Transaction Reordering, and Consensus Instability in Decentralized Exchanges.* arXiv:1904.05234.
+14. Gao, Z., et al. *Jellyfish Merkle Tree.* Diem technical report.
+
+---
+
+**Document version:** 0.3 · Revised August 2026
 **Status:** Living document
 **License:** Apache-2.0; see `LICENSE` at the repository root
 
 ## Revision history
 
+- **0.3 · Revised August 2026.** Status pass: corrected "the implementation is the work ahead" to reflect the built engine, and rewrote the path to mainnet around validation rather than construction. Added a references section. No protocol design changes.
 - **0.2 · Revised July 2026.** Editorial and positioning pass: repositioned around fair ordering, honest finality, and long-lived security rather than leading with post-quantum; corrected the retired threshold-encryption mempool language to the shipped keyless commit-reveal design; softened comparative tone. No protocol design changes.
 - **0.2 · 2026.** The 2026 architectural pivot: in-house HotStuff to Mysticeti-style DAG consensus, a keyless commit-reveal mempool, hybrid Poseidon2 and Blake3 hashing, and the permissionless parachain framework.
 - **0.1 · 2026.** Initial design, pre-pivot, in-house HotStuff consensus.

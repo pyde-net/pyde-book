@@ -506,20 +506,23 @@ Modest hardware applies to any validator awaiting committee selection at all lev
 
 ## Implementation Status
 
-This documentation reflects **designed architecture**, not shipped implementation:
+Status as of August 2026. The engine is a Rust workspace of roughly 167,000 lines across twelve crates, carrying about 2,700 unit tests. The whole workspace compiles clean.
 
 | Component | Status |
 |---|---|
 | Architecture design | ✅ Complete |
-| WASM execution layer (wasmtime + Cranelift AOT) | 🟡 Foundation in place; integration in progress; programmable-accounts hooks + Block-STM scheduler + access-list prefetch integration pending |
-| State layer (JMT) | 🟡 In place, needs hybrid hashing |
-| Consensus (Mysticeti-style) | 🔴 Not yet; rebuild post-pivot |
+| Consensus (Mysticeti-style DAG) | 🟢 Built from scratch; `crates/consensus`, 286 tests; adversarial hardening in progress |
 | Keyless commit-reveal mempool | 🟢 Commit/Reveal tx types + commit-order reveal resolution; only Blake3 + FALCON, no threshold crypto |
-| Network protocol (libp2p) | 🟡 Existing in archive, needs migration |
-| Performance harness | 🔴 Not yet built |
-| Slashing + lifecycle | 🟡 Partial in archive |
-| State sync | 🟡 Partial design |
-| Documentation | 🟡 This is the current state |
+| WASM execution layer (wasmtime + Cranelift AOT) | 🟢 Built; `crates/wasm-exec`, 370 tests |
+| Parallel execution (Block-STM + MVCC) | 🟢 Built and wired into the node runtime; `crates/parallel-exec` scheduler, MVCC, access lists |
+| State layer (JMT) | 🟢 Built; `crates/state` with hybrid hashing, snapshots, recovery, prefetch |
+| Transaction layer + handlers | 🟢 Built; `crates/tx`, 347 tests |
+| Network protocol (libp2p) | 🟢 Migrated out of archive; `crates/net`, 87 tests |
+| Slashing + validator lifecycle | 🟢 Built; `crates/slashing`, 178 tests |
+| State sync | 🟢 Built; snapshot, chunked sync and tail carry in `crates/node` |
+| Performance harness | 🟡 Local soak driver, multi-validator cluster runner, and vertex-drop fault injection in place; multi-region rig and the broader chaos suite not yet built |
+| Public testnet | 🔴 Not yet; this is the current focus and what the pre-seed funds |
+| External audit | 🔴 Not yet scheduled |
 
 **Mainnet ships when the work above is complete and the external audit passes.** No public schedule.
 

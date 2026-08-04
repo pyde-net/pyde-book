@@ -132,7 +132,7 @@ performance numbers are still gated on the multi-region harness.
 | Mysticeti DAG consensus | 🟡 Vertex / anchor / beacon / committee / wave commit live; multi-validator genesis DKG + state-sync replay shipped; soak-test hardening and resharing edge cases in flight |
 | MEV protection (keyless commit-reveal mempool) | 🟢 Commit/Reveal tx types, bond escrow, and commit-order reveal resolution live; no committee key, no DKG (the earlier threshold-encryption lane was removed) |
 | Network protocol (libp2p + QUIC + Gossipsub) | 🟢 Migrated; layered discovery, peer scoring, sentry-friendly topology |
-| Performance harness | 🟡 Local soak-test driver + multi-validator cluster CLI live; multi-region rig + chaos scenarios not yet built |
+| Performance harness | 🟡 Local soak-test driver, multi-validator cluster CLI, and vertex-drop fault injection live; multi-region rig and the broader chaos suite not yet built |
 | SDKs (TypeScript + Rust) | 🟡 `pyde-ts-sdk` 0.1.0 staged; Rust SDK in progress |
 
 The multi-region performance harness is still the bottleneck on credible

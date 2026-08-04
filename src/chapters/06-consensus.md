@@ -440,13 +440,13 @@ The chain self-heals from any subset failure that maintains ≥85 functional val
 
 ## 17. Implementation Status
 
-🔴 **Mysticeti DAG implementation: not yet built.** Pre-pivot HotStuff archived in `archive/`.
+🟢 **Built, and under adversarial hardening.** The Mysticeti-style DAG is implemented from scratch in `crates/consensus` (~8,900 lines, 286 unit tests), with wave commitment and the resolution passes in `crates/node`. The pre-pivot HotStuff implementation is retained in `archive/` for reference and is not on any live path.
 
-Implementation strategies:
-- **Option A: Fork Sui's Mysticeti** (open source) and adapt to FALCON sigs. Saves substantial consensus engineering; Mysten Labs has spent years getting the algorithm correct.
-- **Option B: Write from scratch** for full control. Larger surface to audit, more bugs to find.
+Implemented in `crates/consensus`: DAG construction and vertex validation, anchor selection and sequencing, the randomness beacon, committee management and registry, round advancement and wave commitment, finality tracking, and the FALCON signing and verification paths.
 
-Recommendation: Option A for v1. The work is audit + adaptation for FALCON sigs; correctness of the core algorithm leverages Mysten Labs' existing engineering.
+Adversarial machinery lives alongside it in `crates/node`: equivocation detection and its consumers, downtime detection, Byzantine behaviour helpers, vertex-drop fault injection, a multi-validator cluster runner, a local soak driver, and a cross-validation CLI that compares whole wave records across nodes to catch divergence.
+
+Open before mainnet: a multi-region performance rig and a broader chaos suite (the local soak driver, cluster runner and vertex-drop injector exist; the distributed rig does not), and the external audit. See [Chapter 16](./16-security.md).
 
 ## References & Cross-References
 

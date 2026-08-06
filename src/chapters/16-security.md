@@ -291,10 +291,15 @@ holds under the 1/3 rule, liveness can be hurt).
 
 ### The defense
 
-1. **Peer diversity.** The peer manager
-   (`crates/net/src/peer.rs`) caps connections per `/24` subnet. An
-   adversary would need to control IP addresses across many subnets, not
-   just spin up lots of VMs on one provider.
+1. **Reserved outbound capacity.** `crates/net/src/behaviour.rs` splits the
+   connection budget so inbound and outbound have independent caps
+   (`MAX_ESTABLISHED_INCOMING` = 128, `MAX_ESTABLISHED_OUTGOING` = 64) and
+   the aggregate is exactly their sum. An inbound flood that maxes the
+   incoming cap therefore still leaves the node's full outbound budget free
+   for its own committee dials — it cannot be crowded out of reaching
+   honest peers. A compile-time assertion pins the relationship.
+   Subnet-aware limits are **not** implemented; an adversary holding many
+   addresses in a single `/24` is bounded only by the aggregate caps.
 2. **Layered discovery (no DHT).** Pyde explicitly chose not to use a
    Kademlia DHT (Chapter 12). Discovery is layered: hardcoded seeds, DNS,
    on-chain validator registry, PEX, local cache. This eliminates the
@@ -329,49 +334,55 @@ behavior that operators could see in their metrics.
 
 ### Connection-level
 
+Compile-time caps in `crates/net/src/behaviour.rs`, enforced by libp2p's
+`connection_limits::Behaviour`:
+
 ```rust
-DEFAULT_RATE_LIMIT_PER_IP = 5 conns/sec
-DEFAULT_MAX_PEERS         = 50
-DEFAULT_MAX_INBOUND       = 30
-DEFAULT_MAX_OUTBOUND      = 20
+MAX_ESTABLISHED_INCOMING  = 128
+MAX_ESTABLISHED_OUTGOING  = 64
+MAX_ESTABLISHED_TOTAL     = 192   // exactly incoming + outgoing
+MAX_ESTABLISHED_PER_PEER  = 4
+MAX_PENDING_INCOMING      = 32    // in-flight handshakes
+MAX_PENDING_OUTGOING      = 16
 ```
 
-Per-IP rate limiter throttles new connections; per-subnet limit prevents
-one network from hogging peer slots. An attacker flooding an RPC endpoint
-bumps against `conn_rate_limit_per_ip` and saturates at 5 new connections
-per second per source address.
+The pending caps bound half-open connection-storm memory before a
+connection is even established. There is no per-IP connect-rate limiter and
+no per-subnet cap; both are on the hardening list (Chapter 12 §12.6).
 
-### Evidence-ingest rate limiting (task 014d)
+### Request-flood rate limiting
 
-A non-validator peer can submit evidence messages to validators that then
-verify them. Naive validators would FALCON-verify every evidence message
-at ~60 µs each, enough for a flood of invalid evidence to saturate CPU.
+Every inbound vertex, batch, or state-sync chunk fetch is served
+synchronously on the single swarm event-loop task. Without a cap, any set
+of connected peers can pin that loop's CPU and upload bandwidth — a
+request-flood DoS that connection limits do not touch, since they bound how
+many peers connect, not the request rate from the ones already connected.
 
-The fix: token-bucket rate limit on evidence messages, applied per-peer.
-Repeat offenders are dropped after the first failed verification instead
-of verifying indefinitely. Lives in `crates/net/src/ddos.rs`.
+The limit is a token bucket in `crates/net/src/inbound_limit.rs`, and it is
+deliberately **global** rather than per-peer: Ed25519 PeerId rotation is
+cheap, so a rotating attacker escapes any per-peer accounting. Consensus
+fetch gets 2,048 capacity refilling at 1,024/s; chunk serve 512 at 256/s;
+durable vertex serve 64 at 32/s.
 
-### Per-channel message size limits
+Signature-verification floods are bounded separately and by construction —
+a FALCON-512 verify costs roughly **1 ms**, so the useful defence is
+refusing to reach the verify at all for traffic that has not already
+cleared the size and structural gates.
 
-Each gossipsub channel has its own max message size:
+### Message size limit
 
-| Channel        | Max size |
-| -------------- | -------- |
-| Vertices       | 256 KB   |
-| Transactions   | 128 KB   |
-| Batches        | 4 MB     |
-| Sync           | 16 MB    |
-| Evidence       | 64 KB    |
+One cap, applied uniformly: `max_transmit_size` = 4 MiB on the gossipsub
+config (`crates/net/src/behaviour.rs`). There is no per-topic size table.
+Oversized messages never reach the application layer.
 
-Oversized messages are rejected and the sender takes a reputation hit.
+### Ingress validation
 
-### RPC ingress validation (task P7a-3)
-
-Invalid transactions never enter the mempool. The ingress validator
-(`crates/node/src/rpc.rs::ingress_validate`) checks chain_id, FALCON sig,
-nonce window, balance, gas bounds, deadline, access-list duplicates, tx
-size, calldata size, all before returning Ok or gossipping. Pollution is
-isolated to the single ingress node.
+Invalid transactions never enter the mempool. Admission runs in
+`Mempool::admit` (`crates/mempool/src/mempool.rs`), whose structural gate is
+`validate_tx_structure` in `crates/tx/src/validation.rs` — encoded tx size,
+calldata size, gas bounds, signature presence, and the per-type payload
+shape — before anything is queued or gossipped. Pollution is isolated to
+the single ingress node.
 
 ### Mempool per-sender caps
 
@@ -533,7 +544,7 @@ wasmtime is configured to reject any module that uses non-deterministic features
 - `wasm_multi_memory(false)`, `wasm_memory64(false)`: explicit memory layout
 - No WASI imports
 
-A deploy-time validator (`crates/wasm-exec/src/validate.rs`) re-checks the module's import section against the allowlist and rejects anything that would slip past wasmtime's instantiation check.
+A deploy-time validator (`crates/wasm-exec/src/deploy.rs`, which raises `DeployError::ForbiddenImport`) re-checks the module's import section against the allowlist and rejects anything that would slip past wasmtime's instantiation check.
 
 ### Trust-minimization of the runtime
 

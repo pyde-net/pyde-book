@@ -238,7 +238,7 @@ Doesn't download full state. For mobile wallets, browser dApps, embedded clients
 - JMT proofs for accounts user cares about
 
 ### Operations
-- Verify new wave headers via FALCON sigs (~86 verifies, ~6.9ms)
+- Verify new wave headers via FALCON sigs (86 verifies × ~1 ms = ~86 ms)
 - Query specific accounts: ask full node for `{balance, JMT inclusion proof}`
 - Verify proof against latest signed state root
 - Submit transactions: same as regular RPC
@@ -290,12 +290,23 @@ Tunable per-node. Archive nodes earn slightly higher RPC fees for serving histor
 
 ```
 Bootstrap from genesis (small):       ~5 seconds
-Manifest verification (86 FALCON):    ~7 ms
+Manifest verification (86 × ~1 ms):   ~86 ms
 Snapshot download (3 GB at 100 Mbps): ~4 minutes
 JMT reconstruction:                   ~5 minutes
 Recent tail sync (8 epochs of txs):   ~30 minutes
 Total:                                ~40 minutes
 ```
+
+The per-signature rate above is the single number every FALCON cost in this
+document is derived from: **~1 ms per FALCON-512 verify**, the rate the engine
+budgets against in `crates/mempool/benches/admit.rs` and `crates/mempool/src/mempool.rs`,
+sourced there to `pyde-crypto` measurements. Quote that rate whenever a verification
+cost appears, so the derived totals here and in [WHITEPAPER.md](./WHITEPAPER.md) §5.1
+cannot drift apart silently.
+
+Manifest verification is still tens of milliseconds against a wall-clock budget
+measured in minutes, so it does not move the ~40 minute total. It does matter for
+anyone sizing a per-request verification path rather than a one-off bootstrap.
 
 For comparison: Ethereum snap sync 4-24 hours, Cosmos statesync 1-3 hours.
 

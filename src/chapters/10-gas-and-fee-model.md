@@ -95,7 +95,7 @@ based on whether the previous wave exceeded or fell below the gas target.
 | --------------------- | ------------------------------ | ---------------------------------- |
 | `GAS_TARGET`          | 400,000,000                    | 50% of the elastic ceiling         |
 | `GAS_CEILING`         | 1,600,000,000                  | 4× target; hard wave ceiling       |
-| `GENESIS_BASE_FEE`    | 50,000,000,000 quanta          | Initial value at genesis           |
+| `base_fee_start`      | 100 quanta/gas (default)       | Initial value at genesis — a **genesis-manifest field** in `crates/types/src/genesis.rs`, not a code constant. The old `GENESIS_BASE_FEE = 50_000_000_000` constant was a stale orphan and has been deleted. |
 | `MIN_BASE_FEE`        | 1                              | Floor; cannot drop to zero         |
 | `ADJUSTMENT_DIVISOR`  | 8                              | 1/8 = 12.5% max change per wave    |
 
@@ -317,30 +317,34 @@ release; until then the treasury takes 20%.
 ### Simple transfer (21,000 gas)
 
 ```
-At GENESIS_BASE_FEE = 50,000,000,000 quanta:
-  fee = 21,000 * 50,000,000,000
-      = 1,050,000,000,000,000 quanta
-      = 1,050,000 micro-PYDE
-      = 1.05 milli-PYDE
-      = 0.00105 PYDE
+At the default base_fee_start = 100 quanta/gas:
+  fee = 21,000 * 100
+      = 2,100,000 quanta
+      = 0.0021 PYDE
 
-Distribution:
-  Burn:      735,000,000,000,000 quanta  (~0.000735 PYDE)
-  Validator: 210,000,000,000,000 quanta  (~0.000210 PYDE)
-  Treasury:  105,000,000,000,000 quanta  (~0.000105 PYDE)
+Distribution (30 / 50 / 20):
+  Burn (30%):        630,000 quanta  (0.00063  PYDE)
+  Reward pool (50%): 1,050,000 quanta  (0.00105  PYDE)
+  Treasury (20%):    420,000 quanta  (0.00042  PYDE)
 ```
+
+The unit is worth pausing on, because it is the easiest place to be off by
+a factor of a billion. A quanta is already the smallest denomination —
+`1 PYDE = 10^9 quanta` — so the Ethereum "50 gwei" mental model translates
+to **~50 quanta/gas**, not 50,000,000,000. At the latter, a plain 21K-gas
+transfer would cost 1.05 million PYDE.
 
 ### High-congestion scenario
 
 If sustained demand has driven the base fee 3.5× higher:
 
 ```
-base_fee = 175,000,000,000 quanta
-fee = 21,000 * 175,000,000,000 = 3,675,000,000,000,000 quanta = 0.003675 PYDE
+base_fee = 350 quanta/gas
+fee = 21,000 * 350 = 7,350,000 quanta = 0.00735 PYDE
 
-Burn:      2,572,500 micro-PYDE
-Validator:   735,000 micro-PYDE
-Treasury:    367,500 micro-PYDE
+Burn (30%):        2,205,000 quanta
+Reward pool (50%): 3,675,000 quanta
+Treasury (20%):    1,470,000 quanta
 ```
 
 ### Low-demand scenario
@@ -348,8 +352,8 @@ Treasury:    367,500 micro-PYDE
 If sustained empty waves have driven the base fee to half normal:
 
 ```
-base_fee = 25,000,000,000 quanta
-fee = 21,000 * 25,000,000,000 = 525,000,000,000,000 quanta = 0.000525 PYDE
+base_fee = 50 quanta/gas
+fee = 21,000 * 50 = 1,050,000 quanta = 0.00105 PYDE
 ```
 
 The base fee keeps adjusting until the market clears: congestion makes it
@@ -595,7 +599,7 @@ The base fee for wave `N+1` is computed from wave `N`'s header by
 | ------------------------- | ----------------------------------------------- |
 | Gas dimensions            | 1 (single counter)                              |
 | Base fee mechanism        | EIP-1559, ±12.5% per wave adjustment            |
-| Genesis base fee          | 50,000,000,000 quanta                            |
+| Genesis base fee          | 100 quanta/gas (genesis-manifest default)        |
 | Gas target                | 400,000,000 (50% of ceiling)                    |
 | Gas ceiling               | 1,600,000,000 (4× target; elastic max)          |
 | Priority fee / tip        | None                                             |

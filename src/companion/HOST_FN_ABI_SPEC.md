@@ -382,7 +382,7 @@ Critical failures (`MemoryOutOfBounds`, `StackOverflow`, `OutOfFuel`, `IntegerDi
 
 Every host function call consumes a fixed base gas cost plus, for variable-length inputs, a per-byte cost. Gas is charged **before** the host function's work begins. If charging would exceed the contract's remaining gas, the host function traps with `OutOfFuel` and does not execute.
 
-Gas costs are listed inline with each function and are summarized in the **Gas Table** at §10. Values in this spec are **canonical**; the engine's `crates/wasm-exec/src/gas_table.rs` is the implementation of this table.
+Gas costs are listed inline with each function and are summarized in the **Gas Table** at §10. Values in this spec are **canonical**. The engine implements them as `GAS_*` constants alongside each host-fn group under `crates/wasm-exec/src/host_fns/` (`storage.rs`, `balances.rs`, `context.rs`, `hashing.rs`, `crypto.rs`, `events.rs`, `cross_call.rs`, …), all re-exported from `crates/wasm-exec/src/host_fns/mod.rs`. There is no single `gas_table.rs`: the cost lives next to the function it prices.
 
 The fuel-to-gas mapping is documented in [Chapter 10 §10.1](../chapters/10-gas-and-fee-model.md). For purposes of this spec, **gas = fuel** (1:1 at the wasmtime boundary).
 

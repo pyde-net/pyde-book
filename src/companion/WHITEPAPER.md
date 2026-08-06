@@ -125,7 +125,7 @@ Three operational tiers run the same binary; role differentiation is configurati
 Every transaction, vertex, and state-root attestation is signed with FALCON-512 (NIST FIPS 206). Properties:
 
 - Signature size: ~666 bytes (variable, hard cap 1,280 bytes). Public key: 897 bytes.
-- Verification: ~80 µs on commodity x86_64 / ARM64.
+- Verification: ~1 ms on commodity x86_64 / ARM64, per `pyde-crypto` measurements.
 - No post-quantum BLS analog has matured, so consensus quorum certificates are the union of N FALCON signatures over a `voter_bitmap` rather than a single aggregated signature. The mainnet bandwidth budget (500 Mbps to 1 Gbps NIC at the relevant TPS tier) is sized to absorb the QC size.
 
 ### 5.2 Keyless Commit-Reveal Mempool
@@ -401,7 +401,7 @@ The macro is asynchronous by construction. The originating transaction marks the
 
 ### 11.2 HardFinalityCert
 
-A FALCON quorum certificate over `(wave_id, blake3_state_root, poseidon2_state_root)`, signed by ≥ 86 of the active committee. Verification on any counterparty chain: 86 FALCON-512 verifies (~ 86 ms) plus a Merkle path, feasible on any chain with a reasonable VM. The cert's stability across the chain's lifetime is what makes parachains feasible without further protocol changes after mainnet.
+A FALCON quorum certificate over `(wave_id, blake3_state_root, poseidon2_state_root)`, signed by ≥ 86 of the active committee. Verification on any counterparty chain: 86 FALCON-512 verifies (~ 86 ms at the ~ 1 ms per-verify rate of §5.1) plus a Merkle path, feasible on any chain with a reasonable VM. The cert's stability across the chain's lifetime is what makes parachains feasible without further protocol changes after mainnet.
 
 ### 11.3 Architecture vs Implementation
 

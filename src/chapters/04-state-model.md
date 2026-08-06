@@ -256,7 +256,7 @@ time.
 
 ## 4.3 Account Storage Layout
 
-Every account in `crates/account/src/types.rs` has a fixed layout:
+Every account in `crates/account/src/account.rs` has a fixed layout:
 
 ```rust
 struct Account {
@@ -302,7 +302,9 @@ The key derivation pattern is:
 key = Poseidon2(account_address || discriminator || sub_key)
 ```
 
-Some discriminators currently in use (defined in `crates/state/src/keys.rs`):
+Some discriminators currently in use (defined in
+`crates/tx/src/system_slots.rs`; the key derivation itself is
+`crates/state/src/slot_key.rs`):
 
 | Discriminator | Name                      | What it keys                                   |
 | ------------- | ------------------------- | ---------------------------------------------- |
@@ -354,8 +356,16 @@ the compiled bytecode.
 ## 4.5 The Wave Witness
 
 Pyde's wave witness is the data needed to verify and re-execute a wave from
-scratch given only the previous state root. It lives in
-`crates/state/src/witness.rs`:
+scratch given only the previous state root.
+
+**Status: designed, not built.** There is no witness module in the engine —
+`WaveWitness`, `MAX_WITNESS_SIZE` and `verify_witnesses()` do not exist in
+any crate today. Full nodes re-execute every wave locally against their own
+state (Chapter 7), so nothing in v1 depends on a witness; the shape below is
+the target for light clients and is described here so the design is on the
+record, not because you can read it out of `crates/state`.
+
+The intended shape:
 
 ```rust
 pub struct WaveWitness {
@@ -399,14 +409,23 @@ work of proof verification. The wave as a whole is rejected.
 
 ## 4.6 RocksDB Layout
 
-The JMT and witness logic both persist through RocksDB
-(`JmtRocksStore` in `crates/state/src/jmt_store.rs`). The key prefixes are:
+The JMT persists through RocksDB (`PersistentJmt`, with the
+`JmtCfReader` / `JmtCfWriter` pair, in `crates/state/src/jmt_store.rs`).
+Separation is by **column family**, not by key prefix; the registry of
+on-disk CF names is `crates/state/src/cf.rs`:
 
-| Prefix | Meaning                                  |
-| ------ | ---------------------------------------- |
-| `0x10` | JMT internal nodes                       |
-| `0x11` | Leaf values                              |
-| `0x12` | Metadata (version counter, latest root)  |
+| Column family      | Holds                                            |
+| ------------------ | ------------------------------------------------ |
+| `state_cf`         | Live flat state mirror, keyed by PIP-2 slot key  |
+| `jmt_cf`           | Versioned, proof-bearing JMT nodes               |
+| `code_cf`          | Deployed contract bytecode                       |
+| `wave_commits_cf`  | Committed wave records                           |
+| `receipts_cf`      | Transaction receipts, keyed by tx hash           |
+| `txs_cf`           | Transaction bodies                               |
+| `events_cf` + `events_by_topic_cf` + `events_by_contract_cf` | Emitted events and their lookup indexes |
+
+The CF-name strings are part of the on-disk schema: renaming one is a
+migration, not a refactor.
 
 LRU caches sit in front of node and value reads (256k entries each, sized for
 the working set of an active validator). Compression is LZ4 for the L0 to L1
@@ -476,11 +495,13 @@ a finality checkpoint is impossible without a hard fork.
 
 A few things deliberately do **not** live in the JMT:
 
-- **Receipts.** Stored in an in-memory ring buffer
-  (`crates/node/src/receipt_store.rs`, `MAX_RECEIPT_SLOTS = 10_000`). At
-  ~500 ms per commit, this is roughly 80 minutes of recent receipt
-  history. Persistent receipt storage (archive-node mode) is tracked as
-  post-mainnet hardening.
+- **Receipts.** Outside the JMT but still durable: they land in their own
+  RocksDB column family, `receipts_cf`, keyed by tx hash
+  (`crates/state/src/cf.rs`, written through `crates/state/src/store.rs`).
+  Append-only on a validator. Devnet is the exception — it prunes on a
+  rolling window (`RECEIPT_RETENTION_WAVES = 4096`, about 34 minutes at
+  ~500 ms per commit, in `crates/node/src/devnet/state.rs`) so a long-lived
+  dev chain does not grow without bound.
 
 - **Mempool contents.** Pending transactions (including commit-reveal mempool
   commit and reveal transactions) live in process memory, bounded per sender

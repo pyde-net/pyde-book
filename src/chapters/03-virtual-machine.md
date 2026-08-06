@@ -495,17 +495,20 @@ Upgrade path mirrors deploy but routes through governance for parachain contract
 
 ## 3.11 Where the Code Lives
 
-The WASM execution layer is implemented post-pivot in a fresh `engine` workspace that does not exist yet. The pre-pivot `pvm` and `aot` crates are preserved in [`pyde-net/archive`](https://github.com/pyde-net/archive) for historical reference and bench comparison. The table below names the components and their planned crate layout once the fresh engine repo is cut.
+The WASM execution layer ships in the `engine` workspace, in the
+`pyde-engine-wasm-exec` crate. The pre-pivot `pvm` and `aot` crates are preserved in [`pyde-net/archive`](https://github.com/pyde-net/archive) for historical reference and bench comparison.
 
-| Component | Planned crate / file (post-pivot) |
-|-----------|-----------------------------------|
-| WasmExecutor entry point | `wasm-exec/src/lib.rs` |
-| Host function implementations | `wasm-exec/src/host_fns.rs` |
-| Module cache | `wasm-exec/src/module_cache.rs` |
-| Fuel-to-gas mapping | `wasm-exec/src/gas_meter.rs` |
-| Validation gate | `wasm-exec/src/validate.rs` |
-| Deploy-tx processing | `tx/src/deploy.rs` |
-| State binding code generators (per language) | `otigen` repo (`otigen/crates/codegen-*`) |
+| Component | Crate / file |
+|-----------|--------------|
+| Executor entry point | `crates/wasm-exec/src/lib.rs`, `executor.rs`, `executor_impl.rs` |
+| Host function implementations | `crates/wasm-exec/src/host_fns/` (one module per group, re-exported from `mod.rs`) |
+| Wasmtime engine + pooling allocator config | `crates/wasm-exec/src/engine.rs` |
+| Module cache | `crates/wasm-exec/src/cache.rs` |
+| Fuel-to-gas mapping | `crates/wasm-exec/src/fuel.rs` |
+| Import allowlist + deploy validation | `crates/wasm-exec/src/deploy.rs` |
+| Parallel execution over MVCC | `crates/wasm-exec/src/block_stm_executor.rs`, `block_stm_wave.rs`; scheduler in `crates/parallel-exec/` |
+| Deploy-tx handling | `crates/types/src/deploy.rs` (payload), `crates/wasm-exec/src/deploy.rs` (validation) |
+| State binding code generators (per language) | `otigen` repo (`crates/otigen-cli/src/commands/codegen/`) |
 | Host Function ABI specification | [`companion/HOST_FN_ABI_SPEC.md`](../companion/HOST_FN_ABI_SPEC.md) |
 
 ---

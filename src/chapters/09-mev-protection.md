@@ -324,10 +324,10 @@ DAG order.
 ### Implementation
 
 The canonical subdag traversal and ordering emission live in
-`crates/consensus/src/subdag.rs`. The commit-reveal resolution pass (hash
+`crates/consensus/src/wave_commit.rs`. The commit-reveal resolution pass (hash
 verification, window/expiry checks, bond settlement, and in-commit-order
-scheduling) lives in `crates/mempool/src/commit_reveal.rs` and
-`crates/consensus/src/wave.rs`.
+scheduling) lives in `crates/tx/src/commit_reveal.rs` and
+`crates/tx/src/handlers/commit_reveal.rs`.
 
 ---
 
@@ -362,13 +362,17 @@ visible attack with multiple independent forks of evidence.
 
 ### Mempool-level mandatory inclusion (residual)
 
-For tighter guarantees on a per-vertex basis, a validator can still skip
-or down-weight a vertex that omits txs visible in its local mempool view
-for >= grace_slots. This is **defensive**, not necessary for safety;
-the DAG already guarantees inclusion at the wave level. The check
-catches single-validator censorship attempts before they require coalition.
+For tighter guarantees on a per-vertex basis, a validator could skip or
+down-weight a vertex that omits txs visible in its local mempool view for
+longer than a grace window. This is **defensive**, not necessary for
+safety; the DAG already guarantees inclusion at the wave level. The check
+would catch single-validator censorship attempts before they require a
+coalition.
 
-The audit logic lives in `crates/mempool/src/inclusion.rs`.
+**Not implemented.** There is no inclusion-audit module in the engine, in
+the mempool crate or anywhere else. The DAG-level guarantee above is what
+ships; this paragraph describes an optional local heuristic a validator may
+add later, and nothing in v1's safety argument rests on it.
 
 ### Cryptographic mempool commitments (post-mainnet)
 
@@ -600,10 +604,10 @@ lane.
 
 | Step                        | Cost                    | Where it lives                            |
 | --------------------------- | ----------------------- | ----------------------------------------- |
-| Commit inclusion (DAG)      | ~500 ms median          | `crates/consensus/src/wave.rs`            |
-| Commitment hash (Blake3)    | negligible (µs)         | `crates/mempool/src/commit_reveal.rs`     |
-| Reveal inclusion (DAG)      | ~500 ms median          | `crates/consensus/src/wave.rs`            |
-| Reveal hash-match + resolve | negligible per tx       | `crates/mempool/src/commit_reveal.rs`     |
+| Commit inclusion (DAG)      | ~500 ms median          | `crates/consensus/src/wave_commit.rs`     |
+| Commitment hash (Blake3)    | negligible (µs)         | `crates/tx/src/commit_reveal.rs`          |
+| Reveal inclusion (DAG)      | ~500 ms median          | `crates/consensus/src/wave_commit.rs`     |
+| Reveal hash-match + resolve | negligible per tx       | `crates/tx/src/handlers/commit_reveal.rs` |
 
 A protected transaction reaches execution after its reveal wave commits:
 roughly **two** DAG commits (commit wave + reveal wave) rather than one, so
@@ -690,8 +694,8 @@ interaction of four mechanisms:
 
 | Layer                            | Closes                                          | Lives in                                |
 | -------------------------------- | ----------------------------------------------- | --------------------------------------- |
-| Keyless commit-reveal mempool    | Reading tx contents pre-inclusion (opt-in)      | `crates/mempool/src/commit_reveal.rs`   |
-| DAG commit-before-reveal order   | Reordering after reveal (order locked at commit)| `crates/consensus/src/wave.rs`          |
+| Keyless commit-reveal mempool    | Reading tx contents pre-inclusion (opt-in)      | `crates/tx/src/commit_reveal.rs`        |
+| DAG commit-before-reveal order   | Reordering after reveal (order locked at commit)| `crates/consensus/src/wave_commit.rs`   |
 | Structural inclusion (DAG)       | Single-actor censorship                         | `crates/consensus/src/dag.rs`           |
 | No tips / priority fees          | Bribery for ordering                            | `crates/tx/src/fee.rs`                  |
 

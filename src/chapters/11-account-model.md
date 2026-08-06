@@ -23,7 +23,7 @@ multisig configuration, batch transactions, and the transaction wire format.
 
 ## 11.1 Account Structure
 
-Every account in `crates/account/src/types.rs`:
+Every account in `crates/account/src/account.rs`:
 
 ```rust
 struct Account {
@@ -403,7 +403,7 @@ without breaking any account-touching contract written for v1.
 
 ## 11.6 Transaction Wire Format
 
-A transaction in `crates/tx/src/types.rs`:
+A transaction in `crates/types/src/tx.rs`:
 
 ```rust
 struct Transaction {
@@ -418,7 +418,7 @@ struct Transaction {
     access_list: Vec<AccessEntry>,
     deadline:    Option<u64>,    // 0 or 8 B
     chain_id:    u64,            // 8 B
-    tx_type:     TransactionType,// 1 B (see §11.8)
+    tx_type:     TxType,         // 1 B (see §11.8)
 }
 ```
 
@@ -524,7 +524,7 @@ cannot be replayed.
 
 ## 11.8 Transaction Types
 
-The `TransactionType` enum (in `crates/tx/src/types.rs`) currently has 13
+The `TxType` enum (in `crates/types/src/tx.rs`) currently has 18
 variants. Tag `2` is intentionally vacant: `Batch` was prototyped
 pre-mainnet but removed before launch (the dispatch arm was a 21k-gas
 no-op and never wired to real semantics; keeping the gap means a forged
@@ -546,8 +546,13 @@ type).
 | 11  | `EmergencyPause`  | Halt wave production (multisig-signed)                      |
 | 12  | `EmergencyResume` | Resume normal processing (multisig-signed, clears pause)    |
 | 13  | `RegisterPubkey`  | First-time pubkey registration for a funded-but-unregistered account. No signature, no gas, no value: proof of pubkey ownership is the address-derivation check (only the keypair holder can produce a pubkey that hashes to a given address). Allowed only when `balance > 0` and `auth_keys == AuthKeys::None`. After execution, `auth_keys = AuthKeys::Single(tx.data)` and the account can sign normal txs. |
+| 14  | `Unjail`          | Release a validator from `Status::Jailed` back to `Status::Active`, once `wave_id >= jail_until_wave` and the unjail fee is paid. `from` must be the validator's own address. |
+| 15  | `RotateValidatorKeys` | Rotate the FALCON-512 signing key on a registered validator. Signed by the OLD key; on success both `ValidatorRecord.pubkey` and `Account.auth_keys` swap to the new one. `Active` validators only. |
+| 16  | `DisputeSlash`    | Governance dispute over a still-`Pending` slash escrow (data = borsh `DisputeSlashPayload` — `{escrow_id, action, multisig_sigs}`; `action` is `Void` or `Reduce { new_bps }`). Gated by the treasury multisig. |
+| 17  | `Commit`          | Commit-reveal mempool, phase 1: reserve an ordered slot for a hidden transaction (data = borsh `CommitPayload`). `value` is the refundable reveal bond. See Chapter 9. |
+| 18  | `Reveal`          | Commit-reveal mempool, phase 2: open a committed slot (data = borsh `RevealPayload`). Any account may submit it — the preimage is the authorisation. |
 
-Each handler in `crates/tx/src/pipeline.rs` validates the type-specific
+Each handler under `crates/tx/src/handlers/` validates the type-specific
 payload, applies the state effect, and runs through the same fee
 distribution + post-execution writeback. Unknown discriminators are
 rejected at validation.
@@ -582,7 +587,7 @@ Transaction {
     data:    borsh(DeployData),              // name + wasm + type + init_calldata
     gas_limit: ...,
     nonce:   ...,
-    tx_type: TransactionType::Deploy,
+    tx_type: TxType::Deploy,
     ...
 }
 ```

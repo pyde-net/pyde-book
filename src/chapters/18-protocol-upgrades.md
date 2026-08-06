@@ -126,25 +126,25 @@ without any activation wave. Operators upgrade at their own pace.
 
 ### Hard-coded (require code release + PIP)
 
-Per Chapter 15:
+Per Chapter 15 §15.6:
 
-| Constant                       | Where                                |
-| ------------------------------ | ------------------------------------ |
-| DAG round period (~150 ms)     | `crates/consensus/src/round.rs`       |
-| Commit target (~500 ms)   | `crates/consensus/src/wave.rs`        |
-| Committee size (128)           | `crates/consensus/src/committee.rs`   |
-| Quorum / threshold (86)        | `crates/consensus/src/quorum.rs`      |
-| Equivocation threshold (44)    | `crates/consensus/src/quorum.rs`      |
-| Validator min stake (10,000 PYDE) | `crates/tx/src/pipeline.rs` (will move to shared crate post-consensus-rebuild) |
-| Operator-identity cap (3 / operator) | `crates/tx/src/pipeline.rs`     |
-| Unbonding period (30 days)     | `crates/consensus/src/validator.rs`   |
-| Emission cap (~1%/yr)          | `crates/tx/src/distributor.rs`        |
-| Fee split (30/50/20)           | `crates/tx/src/fee.rs`                |
-| Gas target / ceiling           | `crates/tx/src/fee.rs`                |
-| Tx / calldata size limits      | `crates/tx/src/validation.rs`         |
-| Max batch size (4 MB)          | `crates/mempool/src/batch.rs`         |
-| Cryptographic primitives       | `pyde-crypto` polyrepo (FALCON, Blake3, Poseidon2) |
-| WASM host function ABI         | `crates/wasm-exec/src/host_fns.rs` + Host Function ABI spec doc |
+| Constant                                  | Where                                                              |
+| ----------------------------------------- | ------------------------------------------------------------------ |
+| DAG round period (~150 ms, observed)      | No constant — rounds advance on ≥ quorum distinct members, never on a clock (`crates/consensus/src/round.rs`); the ~150 ms figure is documented on `Round` in `crates/types/src/consensus.rs` |
+| Commit target (~500 ms)                   | `crates/types/src/consensus.rs` — `TARGET_WAVE_MS = 500`            |
+| Committee size (128)                      | `crates/types/src/consensus.rs` — `COMMITTEE_SIZE`                  |
+| Quorum / threshold (86)                   | `crates/types/src/consensus.rs` — `QUORUM`                          |
+| Equivocation threshold (44)               | No constant — derived as `2 × QUORUM − COMMITTEE_SIZE` from `crates/types/src/consensus.rs`; the matching `f = 42` is `MAX_BYZANTINE` in `crates/slashing/src/amount.rs` |
+| Validator min stake (10,000 PYDE = 10¹³ quanta) | `crates/tx/src/handlers/staking.rs` — `MIN_VALIDATOR_STAKE`; mirrored for genesis validation as `MIN_VALIDATOR_STAKE_QUANTA` in `crates/types/src/genesis.rs` |
+| Operator-identity cap (3 / operator)      | `crates/tx/src/handlers/staking.rs` — `OPERATOR_CAP`                |
+| Unbonding period (30 days = 5,184,000 waves) | `crates/tx/src/handlers/staking.rs` — `UNBONDING_PERIOD_WAVES`   |
+| Emission cap (1%/yr ceiling)              | `crates/tx/src/distributor.rs` — `EMISSION_CAP_BPS = 100`           |
+| Fee split (30/50/20)                      | `crates/tx/src/fee.rs` — `BURN_BPS`, `REWARD_POOL_BPS`; treasury is the remainder |
+| Gas target / ceiling                      | `crates/tx/src/fee.rs` — `GAS_TARGET`, `GAS_CEILING`                |
+| Tx / calldata size limits                 | `crates/tx/src/validation.rs` — `MAX_TX_SIZE`, `MAX_CALLDATA`       |
+| Max batch size (4 MB)                     | `crates/node/src/vertex_producer.rs` — `BATCH_MAX_BYTES`            |
+| Cryptographic primitives                  | `pyde-crypto` polyrepo (FALCON, Blake3, Poseidon2)                  |
+| WASM host function ABI                    | `crates/wasm-exec/src/host_fns/` + Host Function ABI spec doc       |
 
 Changing any of these requires a release + voluntary upgrade.
 

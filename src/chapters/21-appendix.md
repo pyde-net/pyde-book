@@ -63,94 +63,104 @@ and the post-mainnet plan.
 
 | Constant                           | Value                          | Where                              |
 | ---------------------------------- | ------------------------------ | ---------------------------------- |
-| `ROUND_PERIOD_MS`                  | 150 (DAG round cadence)         | `consensus/round.rs`                |
-| `COMMIT_TARGET_MS`                 | 500 (median commit)        | `consensus/commit.rs`               |
-| `EPOCH_LENGTH`                     | ~3 hours of waves               | `consensus/epoch.rs`                |
-| `COMMITTEE_SIZE` (mainnet)         | 128                             | `consensus/committee.rs`            |
-| `THRESHOLD` (⌊(n+f)/2⌋+1)          | 86                              | `consensus/quorum.rs`               |
-| `EQUIVOCATION_THRESHOLD` (n-2f)    | 44                              | `consensus/quorum.rs`               |
-| `RANDOMNESS_THRESHOLD`             | 86 (beacon sigs sorted before combine) | `consensus/epoch_randomness.rs`  |
-| `COMMIT_REVEAL_WINDOW_WAVES`       | 120                             | `tx/commit_reveal.rs`               |
-| `MIN_COMMIT_BOND`                  | 1e9 quanta (1 PYDE)             | `tx/commit_reveal.rs`               |
-| `MIN_VALIDATOR_STAKE`              | 10,000 PYDE                     | `tx/pipeline.rs` (single tier)      |
-| `MAX_VALIDATORS_PER_OPERATOR`      | 3                               | `tx/pipeline.rs` (anti-Sybil cap)   |
-| `UNBONDING_PERIOD`                 | 30 days                          | `consensus/validator.rs`            |
-| `FINDER_FEE_PERCENT`               | 10                              | `slashing/lib.rs`                   |
-| `EVIDENCE_VERSION`                 | 1                               | `slashing/lib.rs`                   |
-| `MULTISIG_VERSION`                 | 0x01                            | `tx/multisig.rs`                    |
-| `MAX_MULTISIG_SIGNERS`             | 16                              | `tx/multisig.rs`                    |
-| `MAX_PAUSE_DURATION_WAVES`         | ~30 days of waves               | `tx/pipeline.rs`                    |
-| `MAX_BATCH_SIZE`                   | 4 MB                            | `mempool/batch.rs`                  |
+| — (no constant)                    | ~150 ms DAG round, observed     | Rounds advance on ≥ quorum distinct members, never on a clock (`consensus/src/round.rs`); the ~150 ms figure is documented on `Round` in `types/src/consensus.rs` |
+| `TARGET_WAVE_MS`                   | 500 (median commit)             | `types/src/consensus.rs`            |
+| `EPOCH_LENGTH_WAVES`               | 21,600 (3 h at 500 ms)          | `types/src/consensus.rs`            |
+| `COMMITTEE_SIZE` (mainnet)         | 128                             | `types/src/consensus.rs`            |
+| `QUORUM` (⌊(n+f)/2⌋+1)             | 86                              | `types/src/consensus.rs`            |
+| — (no constant)                    | 44 equivocation threshold (n−2f) | Derived as `2 × QUORUM − COMMITTEE_SIZE`; the matching `f = 42` is `MAX_BYZANTINE` in `slashing/src/amount.rs` |
+| — (no constant)                    | 86 beacon-combine threshold     | `derive_beacon_combine_thresholds` in `node/src/validator.rs` clamps the node's configured `support_quorum` (86 in production) and passes it to `FalconBeaconScheme::with_threshold`. The `BEACON_THRESHOLD = 85` in `consensus/src/beacon.rs` is only the default of each scheme's `new()`; the validator path never uses it |
+| `COMMIT_REVEAL_WINDOW_WAVES`       | 120                             | `tx/src/commit_reveal.rs`           |
+| `MIN_COMMIT_BOND`                  | 1e9 quanta (1 PYDE)             | `tx/src/commit_reveal.rs`           |
+| `MIN_VALIDATOR_STAKE`              | 10¹³ quanta (10,000 PYDE)       | `tx/src/handlers/staking.rs` (single tier) |
+| `OPERATOR_CAP`                     | 3                               | `tx/src/handlers/staking.rs` (anti-Sybil cap) |
+| `UNBONDING_PERIOD_WAVES`           | 5,184,000 (30 days)             | `tx/src/handlers/staking.rs`        |
+| `MAX_MULTISIG_SIGNERS`             | 16                              | `types/src/account.rs`              |
+| `NONCE_WINDOW_SIZE`                | 16                              | `types/src/account.rs`              |
+| `BATCH_MAX_BYTES`                  | 4 MB                            | `node/src/vertex_producer.rs`       |
+
+Finder's fee, evidence version, multisig version and a maximum pause
+duration were listed here in earlier drafts as named constants. No
+constant by any of those names exists in the engine today, so they have
+been removed rather than pointed at a plausible-looking file; re-add
+them only alongside a real definition site.
 
 ## C. Gas / Fee Constants
 
 | Constant                | Value                       | Where             |
 | ----------------------- | --------------------------- | ----------------- |
-| `GAS_TARGET`            | 400,000,000                  | `tx/fee.rs`        |
-| `GAS_CEILING`           | 1,600,000,000 (4× target)    | `tx/fee.rs`        |
-| `GENESIS_BASE_FEE`      | 50,000,000,000 quanta        | `tx/fee.rs`        |
-| `MIN_BASE_FEE`          | 1                            | `tx/fee.rs`        |
-| `ADJUSTMENT_DIVISOR`    | 8 (1/8 = 12.5% per wave)     | `tx/fee.rs`        |
-| `BURN_BPS`              | 3,000 (30%)                  | `tx/fee.rs`        |
-| `REWARD_POOL_BPS`       | 5,000 (50%)                  | `tx/fee.rs`        |
-| (treasury)              | remainder (20%, catches dust) | `tx/fee.rs`        |
-| `MIN_GAS_LIMIT`         | 21,000                       | `tx/validation.rs` |
-| `MAX_TX_SIZE`           | 128 KB                       | `tx/validation.rs` |
-| `MAX_CALLDATA`          | 64 KB                        | `tx/validation.rs` |
-| `EMISSION_CAP_BPS`      | 100 (~1%/yr, one-way-down)   | `tx/distributor.rs`|
-| `WAGE_CAP_PER_SEAT_EPOCH` | 13,698,630,136 quanta (40K PYDE/seat/yr) | `tx/distributor.rs`|
-| `GENESIS_SUPPLY_QUANTA` | 10^18 quanta (1B PYDE)       | `tx/distributor.rs`|
+| `GAS_TARGET`            | 400,000,000                  | `tx/src/fee.rs`        |
+| `GAS_CEILING`           | 1,600,000,000 (4× target)    | `tx/src/fee.rs`        |
+| `base_fee_start`        | 100 quanta/gas (genesis manifest field, not a code constant) | `types/src/genesis.rs` |
+| `MIN_BASE_FEE`          | 1                            | `tx/src/fee.rs`        |
+| `ADJUSTMENT_DIVISOR`    | 8 (1/8 = 12.5% per wave)     | `tx/src/fee.rs`        |
+| `BURN_BPS`              | 3,000 (30%)                  | `tx/src/fee.rs`        |
+| `REWARD_POOL_BPS`       | 5,000 (50%)                  | `tx/src/fee.rs`        |
+| (treasury)              | remainder (20%, catches dust) | `tx/src/fee.rs`        |
+| `MIN_GAS_LIMIT`         | 21,000                       | `types/src/tx.rs`  |
+| `MAX_TX_SIZE`           | 128 KB                       | `tx/src/validation.rs` |
+| `MAX_CALLDATA`          | 64 KB                        | `tx/src/validation.rs` |
+| `EMISSION_CAP_BPS`      | 100 (~1%/yr, one-way-down)   | `tx/src/distributor.rs`|
+| `WAGE_CAP_PER_SEAT_EPOCH` | 13,698,630,136 quanta (40K PYDE/seat/yr) | `tx/src/distributor.rs`|
+| `GENESIS_SUPPLY_QUANTA` | 10^18 quanta (1B PYDE)       | `tx/src/distributor.rs`|
 
 ## D. Mempool Constants
 
 | Constant                                  | Value      | Where             |
 | ----------------------------------------- | ---------- | ----------------- |
-| `DEFAULT_MAX_TX_PER_WINDOW_PER_SENDER`    | 10         | `mempool/pool.rs`  |
-| `DEFAULT_MAX_CONCURRENT_PER_SENDER`       | 100        | `mempool/pool.rs`  |
-| `RATE_WINDOW_MS`                          | 1000       | `mempool/pool.rs`  |
-| `WINDOW_SIZE` (nonce bitmap)              | 16         | `account/nonce.rs` |
-| `MAX_RECEIPT_SLOTS`                       | 10,000     | `node/receipt_store.rs` |
-| `MIN_COMMIT_BOND`                         | 10^9 quanta (1 PYDE) | `mempool/commit_reveal.rs` |
-| `COMMIT_REVEAL_WINDOW_WAVES`              | 120        | `mempool/commit_reveal.rs` |
-| `required_bond(value_ceiling)`            | max(`MIN_COMMIT_BOND`, 1% × value_ceiling) | `mempool/commit_reveal.rs` |
+| `DEFAULT_MAX_SIZE` (pool capacity)        | 50,000     | `mempool/src/mempool.rs` |
+| `DEFAULT_MAX_PER_SENDER`                  | 64         | `mempool/src/mempool.rs` |
+| `DEFAULT_RATE_PER_SEC` (per sender)       | 10         | `mempool/src/mempool.rs` |
+| `DEFAULT_RATE_BURST` (per sender)         | 20         | `mempool/src/mempool.rs` |
+| `DEFAULT_GLOBAL_RATE_PER_SEC`             | 1,000      | `mempool/src/mempool.rs` |
+| `DEFAULT_GLOBAL_BURST`                    | 2,000      | `mempool/src/mempool.rs` |
+| `NONCE_WINDOW_SIZE` (nonce bitmap)        | 16         | `types/src/account.rs` (re-exported from `types/src/tx.rs`) |
+| `MIN_COMMIT_BOND`                         | 10^9 quanta (1 PYDE) | `tx/src/commit_reveal.rs` |
+| `COMMIT_REVEAL_WINDOW_WAVES`              | 120        | `tx/src/commit_reveal.rs` |
 
 ## E. WASM Execution Constants
 
-| Constant                    | Value          | Meaning                                            |
+| Constant                    | Value          | Where / meaning                                    |
 | --------------------------- | -------------- | -------------------------------------------------- |
-| Initial linear memory       | 1 MB           | Default WASM linear memory per instantiation       |
-| Max linear memory           | 64 MB          | Capped by the engine to bound resource use         |
-| Stack depth limit           | Configurable   | wasmtime-enforced; rejects modules exceeding cap   |
-| `PAGE_ALLOC_GAS`            | 200 fuel/64KB  | Fuel per WASM `memory.grow` page                   |
-| Default fuel per gas unit   | (calibrated)   | Established at node startup from the gas table     |
-| `MODULE_CACHE_MAX_BYTES`    | 1 GB (default) | LRU + size-cap + TTL on compiled Module + parsed ABI; per-node tunable. See [HOST_FN_ABI_SPEC §3.6](../companion/HOST_FN_ABI_SPEC.md) |
-| `MODULE_CACHE_TTL_WAVES`    | 8 epochs (~1 day) | Cache entries unused longer than this are evicted |
-| `VIEW_FUEL_CAP`             | 10,000,000     | Per-call wasmtime fuel cap for `cross_call_static` views (≈ 3 ms commodity). View calls are free; this bounds wall-clock. |
+| `POOL_MAX_MEMORY_SIZE`      | 4 MB           | `wasm-exec/src/engine.rs` — per-instance linear-memory ceiling in the wasmtime pooling allocator |
+| `POOL_TOTAL_MEMORIES`       | 1,024          | `wasm-exec/src/engine.rs` — pooled memory slots; the VMA reservation is this × `POOL_MAX_MEMORY_SIZE` |
+| `POOL_TOTAL_INSTANCES`      | 1,024          | `wasm-exec/src/engine.rs`                          |
+| `POOL_LINEAR_MEMORY_KEEP_RESIDENT` | 64 KB   | `wasm-exec/src/engine.rs` — kept mapped between calls; the rest is decommitted |
+| `DEFAULT_MAX_MODULES`       | 1,024 entries  | `wasm-exec/src/cache.rs` — AOT module cache is bounded by entry COUNT, not bytes. TTL eviction exists but defaults to `None` (disabled) |
+| `VIEW_FUEL_CAP`             | 10,000,000     | `wasm-exec/src/host_fns/cross_call_static.rs` — per-call fuel cap for `cross_call_static` views (≈ 3 ms commodity). View calls are free; this bounds wall-clock. |
+| Stack depth limit           | wasmtime-enforced | Rejects modules exceeding the configured cap    |
 
 Note: PVM-era constants (4 MB address space, 16+8 register file, 62 opcodes) are retired. WASM's instruction set is the WebAssembly Core Specification; the host-function ABI is defined in [companion/HOST_FN_ABI_SPEC.md](../companion/HOST_FN_ABI_SPEC.md).
 
 ## F. Network / Discovery Constants
 
-| Constant                       | Default       | Where             |
+| Constant                       | Value         | Where             |
 | ------------------------------ | ------------- | ----------------- |
-| `DEFAULT_PORT`                 | 30303         | `net/config.rs`    |
-| `DEFAULT_MAX_PEERS`            | 50            | `net/config.rs`    |
-| `DEFAULT_MAX_INBOUND`          | 30            | `net/config.rs`    |
-| `DEFAULT_MAX_OUTBOUND`         | 20            | `net/config.rs`    |
-| `DEFAULT_RATE_LIMIT_PER_IP`    | 5 / sec       | `net/config.rs`    |
-| `DEFAULT_IDLE_TIMEOUT`         | 60 s          | `net/config.rs`    |
-| Gossipsub mesh_n               | 8             | `net/node.rs`      |
-| Gossipsub heartbeat            | 150 ms (DAG round) | `net/node.rs` |
-| `MAINNET_SEEDS`                | (set at launch)| `net/discovery.rs`|
-| `TESTNET_SEEDS`                | (set at launch)| `net/discovery.rs`|
-| `MAINNET_DNS_SEED`             | `seed.pyde.network` | `net/discovery.rs` |
+| `MAX_ESTABLISHED_INCOMING`     | 128           | `net/src/behaviour.rs` |
+| `MAX_ESTABLISHED_OUTGOING`     | 64            | `net/src/behaviour.rs` |
+| `MAX_ESTABLISHED_TOTAL`        | 192 (= in + out) | `net/src/behaviour.rs` |
+| `MAX_ESTABLISHED_PER_PEER`     | 4             | `net/src/behaviour.rs` |
+| `MAX_PENDING_INCOMING`         | 32            | `net/src/behaviour.rs` |
+| `MAX_PENDING_OUTGOING`         | 16            | `net/src/behaviour.rs` |
+| `GOSSIPSUB_HEARTBEAT`          | 1 s           | `net/src/behaviour.rs` |
+| `SMALL_CLUSTER_HEARTBEAT`      | 200 ms (devnet clusters < 6) | `net/src/behaviour.rs` |
+| `GOSSIPSUB_MAX_TRANSMIT_SIZE`  | 4 MiB         | `net/src/behaviour.rs` |
+| `CONSENSUS_FETCH_CAPACITY` / refill | 2,048 / 1,024 per s | `net/src/inbound_limit.rs` |
+| `CHUNK_SERVE_CAPACITY` / refill| 512 / 256 per s | `net/src/inbound_limit.rs` |
+| `DURABLE_VERTEX_SERVE_CAPACITY` / refill | 64 / 32 per s | `net/src/inbound_limit.rs` |
+| Bootnodes                      | operator-supplied file, no compiled-in seed list | `net/src/discovery.rs` (`read_bootnodes` / `parse_bootnodes`) |
+
+There are no `MAINNET_SEEDS` / `TESTNET_SEEDS` / `MAINNET_DNS_SEED`
+constants in the tree, and no per-IP connect-rate or idle-timeout setting:
+peer sources are operator-configured or chain-derived (Chapter 12 §12.5).
 
 ---
 
 ## G. State Discriminators
 
 Used in `Poseidon2(addr || discriminator || sub_key)` for storage keys.
-Defined in `crates/state/src/keys.rs`.
+The discriminant constants are defined in `crates/tx/src/system_slots.rs`;
+the key derivation that consumes them is `crates/state/src/slot_key.rs`.
 
 | Discriminator | Name                      | Holds                                   |
 | ------------- | ------------------------- | --------------------------------------- |
@@ -175,7 +185,7 @@ Defined in `crates/state/src/keys.rs`.
 
 ## H. Transaction Type Registry
 
-Defined in `crates/tx/src/types.rs`.
+Defined as `TxType` in `crates/types/src/tx.rs`.
 
 Tag `2` is intentionally vacant: `Batch` was prototyped pre-mainnet and
 removed before launch (see Chapter 11 §11.9). A forged `tx_type = 2`
@@ -330,33 +340,31 @@ Each item moves on PIP merit, audit capacity, and ecosystem demand.
 
 ## M. Key References in the Codebase
 
-For readers diving into the source. The pre-pivot crates listed below
-(crypto, state, account, slashing, tx, consensus, networking, mempool,
-node) live in the [`pyde-net/archive`](https://github.com/pyde-net/archive)
-repository, preserved with full git history. The post-pivot WASM
-execution layer crate (`wasm-exec`) is to be implemented in a
-freshly-cut workspace when the WASM-era engine repo is bootstrapped;
-the row below is forward-looking. Paths are relative to whichever
-workspace the file ends up in (archive workspace for pre-pivot rows,
-the future post-pivot workspace for `wasm-exec`).
+For readers diving into the source. Every `crates/…` path below is
+relative to the `engine` workspace and resolves in the current tree;
+rows naming a separate repository (`pyde-crypto`, `pyde-rust-sdk`,
+`pyde-crypto-wasm`, `otigen`) are polyrepos alongside it. The
+pre-pivot PVM-era crates are preserved with full git history in
+[`pyde-net/archive`](https://github.com/pyde-net/archive), but nothing
+in this table points there.
 
 | Subsystem            | Key files                                                    |
 | -------------------- | ------------------------------------------------------------ |
-| Crypto stack         | `crates/crypto/src/{falcon,kyber,poseidon2,blake3,beacon}.rs` |
-| State commitment     | `crates/state/src/jmt_store.rs`, `witness.rs`, `keys.rs`      |
-| Account record       | `crates/account/src/{types,address,nonce}.rs`                 |
-| Slashing constants   | `crates/slashing/src/lib.rs`                                  |
-| TX types + pipeline  | `crates/tx/src/{types,validation,pipeline,fee,execution}.rs`  |
-| Multisig / governance| `crates/tx/src/multisig.rs`, `crates/tx/src/vesting.rs`        |
-| Airdrop              | `crates/tx/src/airdrop.rs`                                    |
-| Consensus            | `crates/consensus/src/{dag,vertex,wave,anchor,subdag,validator,finality,slashing,epoch_randomness,committee,quorum,round}.rs` |
-| Networking           | `crates/net/src/{node,channels,auth,peer,ddos,discovery,config}.rs` |
+| Crypto stack         | `pyde-crypto` polyrepo (FALCON, Blake3, Poseidon2) — not in the engine tree |
+| State commitment     | `crates/state/src/{jmt_store,slot_key,snapshot,snapshot_verify}.rs` |
+| Account record       | `crates/account/src/{account,address,names,store}.rs`          |
+| Slashing             | `crates/slashing/src/{amount,offense,evidence,slasher,downtime,rewards}.rs` |
+| TX validation + fees | `crates/tx/src/{validation,fee,signature,hashing}.rs`, handlers in `crates/tx/src/handlers/` |
+| Multisig / governance| `crates/tx/src/multisig.rs`, `crates/tx/src/handlers/multisig_tx.rs` |
+| Airdrop              | `crates/tx/src/handlers/airdrop.rs`                            |
+| Consensus            | `crates/consensus/src/{dag,anchor,wave_commit,validator,finality,beacon,committee,round}.rs` |
+| Networking           | `crates/net/src/{network,behaviour,peer,transport,discovery,topics,inbound_limit}.rs` |
 | Mempool              | `crates/mempool/src/{lib,mempool,mempool_view}.rs`            |
-| Node binary + RPC    | `crates/node/src/{main,cli,rpc,validator,consensus_store,receipt_store}.rs` |
-| WASM execution layer (to be implemented) | `wasm-exec/src/{lib,host_fns,module_cache,gas_meter,validate}.rs` (post-pivot) |
+| Node binary + RPC    | `crates/node/src/{main,cli,rpc,validator,consensus_store,full_node,runtime}.rs` |
+| WASM execution layer  | `crates/wasm-exec/src/{lib,executor,executor_impl,engine,cache,fuel,deploy,block_stm_executor}.rs` + the `host_fns/` directory |
 | `otigen` developer toolchain | `pyde-net/otigen` (separate repo): subcommand framework, otigen.toml schema, language detection, state binding generators (Rust/AS/Go/C), deploy flow, wallet |
-| Rust SDK             | `crates/pyde-rust-sdk/src/{lib,client,wallet,contract,signer,abi,types,ws}.rs` |
-| WASM crypto          | `crates/pyde-crypto-wasm/src/lib.rs`                          |
+| Rust SDK             | `pyde-rust-sdk` polyrepo: `src/{lib,constants,factory,multisig}.rs` + the `provider/`, `signer/`, `wallet/`, `contract/`, `tx/`, `abi/`, `types/`, `ws/` modules |
+| WASM crypto          | `pyde-crypto-wasm` polyrepo (`src/lib.rs`)                    |
 
 Launch plan, hardening status, and the phased route to mainnet:
 chapter 19 (Launch Strategy).
@@ -369,24 +377,23 @@ The key headline figures, with their sources:
 
 | Claim                              | Source                                       |
 | ---------------------------------- | -------------------------------------------- |
-| ~150 ms DAG round period            | `ROUND_PERIOD_MS` in `consensus/round.rs`     |
-| ~500 ms median commit          | `COMMIT_TARGET_MS` in `consensus/commit.rs`|
+| ~150 ms DAG round period            | No constant — rounds advance on ≥ quorum distinct members (`consensus/src/round.rs`); the figure is documented on `Round` in `types/src/consensus.rs` |
+| ~500 ms median commit          | `TARGET_WAVE_MS` in `types/src/consensus.rs`|
 | v1 plaintext throughput target      | Awaiting multi-region performance harness measurement; publish only what the harness measures under sustained, production-realistic conditions ([companion/PERFORMANCE_HARNESS.md](../companion/PERFORMANCE_HARNESS.md)) |
 | v1 commit-reveal mempool throughput  | Same harness; Commit + Reveal are two ordinary txs (no decryption stage) |
-| 30 / 50 / 20 fee split              | `BURN_BPS` / `REWARD_POOL_BPS` in `tx/fee.rs`  |
-| Capped shortfall emission (~1%/yr)  | `EMISSION_CAP_BPS` in `tx/distributor.rs`      |
-| 10,000 PYDE validator min stake     | `MIN_VALIDATOR_STAKE` in `tx/pipeline.rs` (single tier)|
-| 3 max validators per operator       | `MAX_VALIDATORS_PER_OPERATOR` in `tx/pipeline.rs` (anti-Sybil) |
-| 30-day unbonding                    | `UNBONDING_PERIOD` in `consensus/validator.rs` |
-| 16-slot nonce window                | `WINDOW_SIZE` in `account/nonce.rs`            |
-| 128 KB tx / 64 KB calldata caps     | `MAX_TX_SIZE`, `MAX_CALLDATA` in `tx/validation.rs`|
-| 4 MB batch hard cap                 | `MAX_BATCH_SIZE` in `mempool/batch.rs`          |
-| 1 MB witness cap                    | `MAX_WITNESS_SIZE` in `state/witness.rs`       |
-| WASM host function ABI v1.0         | `wasm-exec/src/host_fns.rs` (post-pivot) + [companion/HOST_FN_ABI_SPEC.md](../companion/HOST_FN_ABI_SPEC.md) |
+| 30 / 50 / 20 fee split              | `BURN_BPS` / `REWARD_POOL_BPS` in `tx/src/fee.rs`; treasury is the remainder |
+| Capped shortfall emission (1%/yr ceiling) | `EMISSION_CAP_BPS` in `tx/src/distributor.rs` |
+| 10,000 PYDE validator min stake     | `MIN_VALIDATOR_STAKE` in `tx/src/handlers/staking.rs` (single tier)|
+| 3 max validators per operator       | `OPERATOR_CAP` in `tx/src/handlers/staking.rs` (anti-Sybil) |
+| 30-day unbonding                    | `UNBONDING_PERIOD_WAVES` in `tx/src/handlers/staking.rs` |
+| 16-slot nonce window                | `NONCE_WINDOW_SIZE` in `types/src/account.rs`  |
+| 128 KB tx / 64 KB calldata caps     | `MAX_TX_SIZE`, `MAX_CALLDATA` in `tx/src/validation.rs`|
+| 4 MB batch hard cap                 | `BATCH_MAX_BYTES` in `node/src/vertex_producer.rs` |
+| WASM host function ABI v1.0         | `wasm-exec/src/host_fns/` + [companion/HOST_FN_ABI_SPEC.md](../companion/HOST_FN_ABI_SPEC.md) |
 | wasmtime + Cranelift AOT            | Pinned wasmtime version in `Cargo.toml`         |
-| Module cache size                   | `MODULE_CACHE_SIZE` in `wasm-exec/src/module_cache.rs` (post-pivot) |
-| Committee 128, threshold 86          | `COMMITTEE_SIZE`, `THRESHOLD` in `consensus/quorum.rs`|
-| 86-of-128 beacon quorum             | `RANDOMNESS_THRESHOLD` in `consensus/epoch_randomness.rs` |
+| Module cache capacity (1024 modules) | `DEFAULT_MAX_MODULES` in `wasm-exec/src/cache.rs` |
+| Committee 128, threshold 86          | `COMMITTEE_SIZE`, `QUORUM` in `types/src/consensus.rs`|
+| 86-of-128 beacon quorum             | `derive_beacon_combine_thresholds` in `node/src/validator.rs`, feeding `FalconBeaconScheme::with_threshold` in `consensus/src/beacon.rs` |
 
 ---
 

@@ -53,7 +53,11 @@ Pyde crypto stack:
   Symmetric:    AES-256-GCM (hardware-accelerated)
 ```
 
-The whole stack lives under `crates/crypto`.
+The signature and ZK-hash primitives live in **`pyde-crypto`**, a standalone
+`no_std` crate in its own repository (published to crates.io), not in an engine
+crate: `falcon.rs`, `poseidon2.rs`, `hash.rs`, and the known-answer suite
+`kat.rs`. Blake3 comes from the upstream `blake3` crate and is called directly
+at each engine call site rather than through a Pyde wrapper module.
 
 ---
 
@@ -90,13 +94,15 @@ bandwidth budget reasonable.
 
 ### API
 
-`crates/crypto/src/falcon.rs` exposes:
+`pyde_crypto::falcon` (`src/falcon.rs` in the `pyde-crypto` repository) exposes:
 
 ```rust
-pub fn falcon_keygen() -> (FalconPublicKey, FalconSecretKey);
-pub fn falcon_sign(sk: &FalconSecretKey, msg: &[u8]) -> FalconSignature;
+pub fn falcon_keygen() -> Result<(FalconPublicKey, FalconSecretKey), &'static str>;
+pub fn falcon_keygen_deterministic(seed: &[u8; 32])
+    -> Result<(FalconPublicKey, FalconSecretKey), &'static str>;
+pub fn falcon_sign(sk: &FalconSecretKey, msg: &[u8]) -> Result<FalconSignature, &'static str>;
 pub fn falcon_verify(pk: &FalconPublicKey, msg: &[u8], sig: &FalconSignature) -> bool;
-pub fn falcon_batch_verify(items: &[(&FalconPublicKey, &[u8], &FalconSignature)]) -> bool;
+pub fn falcon_verify_all(items: &[(&FalconPublicKey, &[u8], &FalconSignature)]) -> bool;
 ```
 
 ### Determinism
@@ -121,13 +127,18 @@ context to prevent cross-protocol signature reuse.
 4. **Beacon contributions:** each committee member signs its per-member
    beacon share with a `BeaconKeypair`; ≥ quorum aggregated FALCON sigs
    form the epoch beacon (see Chapter 6).
-5. **P2P peer authentication:** the FALCON handshake (`crates/net/src/auth.rs`).
+5. **Gossip-message authentication:** every consensus message carries its
+   FALCON signature inside the payload; the libp2p signature on the envelope
+   is only the cheap first filter, and the chain-level identity binding is the
+   inner FALCON sig (see `crates/net/src/behaviour.rs` for the split, and the
+   node-side consumers for the verification). There is no separate FALCON
+   connection handshake in the net crate today.
 6. **VRF proofs:** every VRF output is paired with a FALCON proof.
 7. **Slashing evidence:** submitters sign their evidence transactions.
 
 ### Batch verification
 
-`falcon_batch_verify` checks an array of `(pk, msg, sig)` triples
+`falcon_verify_all` checks an array of `(pk, msg, sig)` triples
 sequentially. The current implementation is **not** algebraically batched:
 it returns true only if every individual verification succeeds. Algebraic
 batch verification (sharing FFT operations across signatures) is on the
@@ -163,9 +174,16 @@ the AES-256-GCM key for the actual payload encryption.
 | Shared secret          | 32 bytes                               |
 | Security level         | NIST Level 3 (192-bit post-quantum)    |
 
-### API
+### Status
 
-`crates/crypto/src/kyber.rs`:
+Kyber is a **design-level commitment, not shipped code**. There is no Kyber
+module in the engine and no ML-KEM dependency in any `Cargo.toml`: validator
+transport today is libp2p QUIC, whose handshake is TLS 1.3 with classical
+key exchange (`crates/net/src/transport.rs`). Swapping that for a
+Kyber-hybrid handshake needs the change to land in libp2p's QUIC layer, so
+the shape above describes the intended API rather than a file you can read.
+
+The intended surface:
 
 ```rust
 pub fn kyber_keygen() -> (KyberPublicKey, KyberSecretKey);
@@ -173,9 +191,10 @@ pub fn kyber_encapsulate(pk: &KyberPublicKey) -> (KyberCiphertext, SharedSecret)
 pub fn kyber_decapsulate(sk: &KyberSecretKey, ct: &KyberCiphertext) -> SharedSecret;
 ```
 
-The dependency is `ml_kem = "0.3.0-rc.0"`, a release-candidate of the NIST
-final standard. Upgrading to the stable release once published is tracked as
-post-mainnet hardening (`task 057` in the mainnet plan).
+Nothing consensus-critical rests on this: the transport carries no
+authority. Every message that matters is FALCON-signed inside its payload
+and re-verified by the receiver, so a broken transport key exchange costs
+confidentiality of gossip in flight, not safety.
 
 ### Where Kyber is used
 
@@ -258,7 +277,8 @@ Poseidon2 is a sponge construction over a prime field. Pyde uses the
 | Output size          | 4 field elements (256 bits)        |
 | Security level       | 128-bit collision resistance       |
 
-(Verified in `crates/crypto/src/poseidon2.rs` test suite.)
+(Verified by `pyde_crypto::poseidon2` and the known-answer suite in
+`src/kat.rs`, both in the `pyde-crypto` repository.)
 
 ### API
 
@@ -451,7 +471,8 @@ All symmetric encryption uses **AES-256-GCM**:
 
 1. **P2P channel encryption** (after the libp2p QUIC handshake; see
    Chapter 12).
-2. **Wallet keystore encryption** (`crates/pyde-rust-sdk/src/wallet.rs`),
+2. **Wallet keystore encryption** (`src/wallet/mod.rs` in the `pyde-rust-sdk`
+   repository, and `crates/otigen-wallet/src/cipher.rs` in `otigen`),
    protecting a FALCON secret key at rest on disk.
 
 ### Properties
@@ -548,11 +569,11 @@ key at all: it is pure Blake3 + FALCON.
 
 ## 8.10 Cryptographic Agility
 
-Each primitive is accessed through a small, well-defined module
-(`crates/crypto/src/falcon.rs`, `kyber.rs`, `poseidon2.rs`, `blake3.rs`,
-`vrf.rs`). If a serious break is discovered in any one of them, the
-affected module can be replaced through a protocol upgrade without
-restructuring the rest of the system.
+Each primitive is accessed through a small, well-defined module —
+`pyde_crypto::falcon` and `pyde_crypto::poseidon2` in the `pyde-crypto`
+crate, the upstream `blake3` crate for native hashing. If a serious break is
+discovered in any one of them, the affected module can be replaced through a
+protocol upgrade without restructuring the rest of the system.
 
 Because the address format is bound to a hash of the public key (not the
 key itself), a future migration to a different post-quantum signature scheme
@@ -570,12 +591,12 @@ happen if a substantive cryptanalytic break appeared.
 
 | Primitive          | Use                                              | Where                            |
 | ------------------ | ------------------------------------------------ | -------------------------------- |
-| FALCON-512         | All signatures (txs, vertices, state roots, attestations, beacon)| `crates/crypto/src/falcon.rs` |
-| Kyber-768 / ML-KEM | P2P transport session keys (transport only)      | `crates/crypto/src/kyber.rs`     |
-| Blake3             | High-volume native hashes (JMT, batches, vertices, gossip) + commit-reveal commitments | `crates/crypto/src/blake3.rs` |
-| Poseidon2          | ZK-bearing hashes (state root, addresses, VRF, opcode)| `crates/crypto/src/poseidon2.rs` |
+| FALCON-512         | All signatures (txs, vertices, state roots, attestations, beacon)| `pyde_crypto::falcon` |
+| Kyber-768 / ML-KEM | P2P transport session keys (transport only)      | design only — not in code (§8.3) |
+| Blake3             | High-volume native hashes (JMT, batches, vertices, gossip) + commit-reveal commitments | upstream `blake3` crate, called at each site |
+| Poseidon2          | ZK-bearing hashes (state root, addresses, slot keys)| `pyde_crypto::poseidon2` |
 | Commit-reveal      | Keyless commit-reveal mempool (Blake3 commitment + bond)| see Chapter 9 (MEV Protection)   |
-| Lattice VRF        | Anchor seeding, randomness, committee score      | `crates/crypto/src/vrf.rs`       |
+| Epoch beacon       | Anchor seeding, randomness, committee score      | `crates/consensus/src/beacon.rs`, `anchor.rs` |
 | AES-256-GCM        | Symmetric AEAD (P2P transport, wallet keystore)  | (via the `aes-gcm` crate)        |
 
 The next chapter walks through MEV protection end-to-end: how these

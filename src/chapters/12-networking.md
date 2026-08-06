@@ -48,8 +48,8 @@ Per-stream independence matters most when wave propagation (large) and
 consensus votes (latency-critical) share the same QUIC connection. A single
 lost packet on the wave stream does not stall the vote stream.
 
-The libp2p config is set up in `crates/net/src/node.rs` via
-`SwarmBuilder::with_quic()`.
+The libp2p config is set up in `crates/net/src/transport.rs` via
+`SwarmBuilder::with_existing_identity(..).with_quic()`.
 
 ### Identity at the libp2p layer
 
@@ -93,84 +93,109 @@ type. Pyde splits traffic into four channels, each tuned for its workload.
 +---------------------------------------------------------------+
 ```
 
-| Topic                    | Participants            | Size limit | What it carries                          |
-| ------------------------ | ----------------------- | ---------- | ---------------------------------------- |
-| `pyde/vertices/1`        | Committee primaries     | 256 KB     | DAG vertices (batch refs + parent refs + state-root sigs + beacon commits + FALCON sig) |
-| `pyde/transactions/1`    | All nodes               | 128 KB     | User transactions (plaintext, or commit-reveal mempool commit / reveal) |
-| `pyde/batches/1`         | Workers + primaries     | 4 MB       | Worker batches (hard cap; preserves modest-hardware claim) |
-| `pyde/sync/1`            | All nodes (req/resp)    | 16 MB      | Snapshot chunks (4 MB typical), historical vertices |
-| `pyde/evidence/1`        | Validators              | 64 KB      | Slashing evidence (double-sign, equivocation, etc.) |
+The wire strings are frozen: adding a topic is fine (older nodes just
+don't subscribe), renaming one is a forking event. The full set is
+`crates/net/src/topics.rs`:
 
-### Validator-only vertex channel
+| Topic                     | Participants            | What it carries                          |
+| ------------------------- | ----------------------- | ---------------------------------------- |
+| `pyde/vertices/1`         | Committee primaries     | DAG vertices (batch refs + parent refs + state-root sigs + beacon commits + FALCON sig) |
+| `pyde/batches/1`          | Workers + primaries     | Transaction batches; vertices reference them by hash |
+| `pyde/mempool/1`          | All nodes               | Pending-transaction propagation between RPC ingress and mempool workers |
+| `pyde/beacon-shares/1`    | Committee members       | Per-epoch beacon shares, combined at the epoch boundary |
+| `pyde/state-root-sigs/1`  | Committee members       | Rolling state-root attestations; feeds finality |
+| `pyde/wave-commits/1`     | Validators → all nodes  | Committed `WaveCommitRecord` announcements; full nodes use them as the tx list to execute locally |
+| `pyde/state-sync/1`       | All nodes               | Snapshot manifest + chunk announcements  |
+| `pyde/checkpoints/1`      | Committee members       | Signed weak-subjectivity checkpoints     |
+| `pyde/evidence/1`         | Validators              | Slashing evidence (double-sign, equivocation) |
+| `pyde/governance/1`       | All nodes               | Governance proposals + votes             |
 
-Non-validator peers are dropped from the `pyde/vertices/1` and
-`pyde/evidence/1` topics. The check
-(`ChannelAccess::validator_only()` in `crates/net/src/channels.rs`) refuses
-to forward messages from peers whose FALCON-attested pubkey is not in the
-current committee set. A non-validator that subscribes to the topic gets
-`ValidationResult::Reject` on every publish.
+### Per-message size limit
 
-This matters: the vertex channel carries committee FALCON sigs,
-piggybacked beacon commits, and state-root attestations. A malicious
-non-validator that could flood the channel could DoS the commit
-pipeline. The validator-only filter prevents this by construction.
+There is **one** cap, not a per-topic table: `max_transmit_size` = 4 MiB,
+set once on the gossipsub config in `crates/net/src/behaviour.rs` and
+applied uniformly to every topic. Oversized messages never reach the
+application layer.
 
-### Per-channel size limits
+### Validator-only traffic
 
-The validator (`crates/net/src/channels.rs`) checks the message size
-against the per-channel cap before forwarding. Oversized messages are
-rejected and the originating peer takes a reputation penalty.
+The vertex and evidence topics carry committee FALCON sigs, piggybacked
+beacon commits, and state-root attestations, so a non-validator flooding
+them would be attacking the commit pipeline directly. The filter that
+enforces this is **not** a transport-layer ACL: gossipsub's own signature
+is only the cheap first pass, and the authority check is the inner FALCON
+signature against the committee set, applied by the node-side consumer
+before the message is acted on (`crates/net/src/gossip_verdict.rs` carries
+the verdict back to the mesh, so an unauthorised publisher's message is
+reported `Reject` and counted against the sender).
 
 ---
 
 ## 12.3 Gossipsub Configuration
 
-`crates/net/src/node.rs` configures gossipsub:
+`build_gossipsub()` in `crates/net/src/behaviour.rs` configures gossipsub.
+Only the parameters Pyde sets are listed; everything else is the libp2p
+default:
 
 | Parameter                | Value                | Why                                |
 | ------------------------ | -------------------- | ---------------------------------- |
-| `validation_mode`        | `Permissive`         | Auto-forward; see throughput note  |
-| `heartbeat_interval`     | 150 ms               | Matches DAG round cadence; amortizes mesh maintenance without blocking round progress |
-| `mesh_n`                 | 8                    | Mesh size per node                 |
-| `mesh_n_low`             | 4                    | Trigger mesh expansion             |
-| `mesh_n_high`            | 12                   | Trigger mesh pruning               |
-| `gossip_lazy`            | 8                    | Number of IHAVE peers              |
-| `history_length`         | 6                    | Recent message-id buffer (heartbeats)|
-| `history_gossip`         | 3                    | Size of the IHAVE batch            |
-| `duplicate_cache_time`   | 60 s                 | Dedup window; handles small-net jitter|
-| `flood_publish`          | true                 | Initial publish reaches all mesh peers|
-| `max_transmit_size`      | 1 MB                 | Per-message cap (channels override)|
+| `protocol_id_prefix`     | fork-scoped          | Two chains with different `fork_id` advertise different meshsub protocol strings, so a foreign-fork peer's gossip never enters the process |
+| `validation_mode`        | `Strict`             | Envelope must carry a valid libp2p signature before anything else looks at it |
+| `heartbeat_interval`     | 1 s (`GOSSIPSUB_HEARTBEAT`) | libp2p's default, kept for v1; retuned once the perf harness lands |
+| `max_transmit_size`      | 4 MiB (`GOSSIPSUB_MAX_TRANSMIT_SIZE`) | Large enough for a full vertex with batch refs; still modest-hardware friendly |
+| `message_authenticity`   | `Signed(keypair)`    | Every published message is signed with the host's libp2p key |
 
-### The Permissive + flood_publish change
+Mesh sizing (`mesh_n`, `mesh_n_low`, `mesh_n_high`, `mesh_outbound_min`) is
+left at libp2p's production defaults **except** in small-cluster mode,
+where the node overrides them to `1 / 2 / 4 / 0` and drops the heartbeat to
+200 ms (`SMALL_CLUSTER_HEARTBEAT`). That override exists for in-process
+devnet clusters of fewer than six validators: the production defaults
+cannot fill `mesh_n_low` against a three-peer cluster, so the mesh sits in
+heartbeat-driven recovery and cross-vertex gossip never converges.
 
-Strict gossipsub validation requires the application layer to call
-`report_message_validation_result` for every message before it gets
-forwarded. Earlier Pyde code didn't do this on every path. The result was
-that, on a small (4-validator) testnet, transactions only reached the
-direct peer of the submitting node. They never propagated through the
-mesh.
+### Why Strict, and how the verdict gets reported
 
-The fix (commit 2018b17) was twofold:
+Strict validation means gossipsub stops forwarding a message on receipt and
+waits for the application to report a verdict. That is the right shape — a
+node should not amplify junk to its whole mesh before looking at the bytes
+— but it converts a bandwidth bug into a liveness one: a message the
+application never reports on is *never forwarded*, silently, with no error.
+A topic whose verdict is missed stops propagating fleet-wide.
 
-1. Switch to `ValidationMode::Permissive`, which auto-forwards a message
-   once the basic structural check passes.
-2. Set `flood_publish = true` so the initial publish from a node reaches
-   all of its mesh peers immediately, not just a random subset.
-
-The combination raised sustained TPS from ~1K to ~4K on the same testnet
-hardware. There is also a paired change in the wave executor that skips
-redundant per-tx FALCON verification when the wave-level batched verify
-already passed, for roughly a 70% reduction in wave-execution CPU.
+`crates/net/src/gossip_verdict.rs` closes that hole with two deliberate
+choices. The verdict is produced by a guard that reports on `Drop`, so
+early returns, `?` and panics all still produce one. And the drop default
+is `Accept`, never `Ignore`. That looks backwards until you compare failure
+modes: defaulting to `Ignore` degrades to *the mesh stops carrying that
+topic*; defaulting to `Accept` degrades to *we relayed a size-bounded
+message without judging it*. One has a no-regression failure mode, the
+other halts the chain. The missed verdict is still logged at `error` and
+counted — loud, but not fatal.
 
 ---
 
 ## 12.4 FALCON P2P Handshake
 
-After a libp2p connection is established, the two peers run a FALCON
-attestation exchange to bind the libp2p PeerId to a post-quantum identity.
+**Status: designed, not built.** There is no `auth` module in the net
+crate and no connection-level FALCON exchange today. What ships instead:
+libp2p's own Ed25519 identity binds the PeerId at the transport layer, and
+every consensus message carries its FALCON signature *inside the payload*,
+verified by the node-side consumer against the committee set before the
+message is acted on. `crates/net/src/behaviour.rs` states the split
+directly — the gossipsub signature is the cheap first filter, FALCON is the
+chain-level identity binding.
+
+That ordering is deliberate about where authority lives: nothing grants a
+peer standing because of how it connected. An unauthenticated connection
+can waste bandwidth, which the connection and request-rate limits below
+bound, but it cannot get a message counted as a committee member's.
+
+The design below binds the PeerId to a post-quantum identity at connection
+time, which would let a node reject junk earlier — before the payload
+parse rather than after. It is described here so the intended shape is on
+the record, not because you can read it out of `crates/net`.
 
 ```rust
-// crates/net/src/auth.rs
 struct PydeAuthReq  { nonce: [u8; 32] }
 struct PydeAuthResp {
     falcon_pubkey: Vec<u8>,    // ~897 bytes
@@ -215,13 +240,13 @@ A `RebindRejected` is suspicious: once a PeerId is bound to a FALCON
 pubkey, attempts to re-bind it are denied (a PeerId switching pubkeys mid
 session is either a bug or an attack).
 
-### Validator-channel filtering uses this binding
+### What the binding would buy
 
-Every gossipsub message on `pyde/consensus/1` is checked against the
-attested pubkey of the publishing peer. Non-validators (no committee
-membership) get their messages dropped before any heavyweight verification
-runs. This is the cheap front-line filter that keeps consensus traffic
-clean.
+With the binding in place, a message on `pyde/vertices/1` could be checked
+against the attested pubkey of the *publishing peer* and dropped before any
+heavyweight verification runs. Today the equivalent check happens one layer
+later, against the FALCON signature inside the message, so the saving is
+CPU on junk rather than any change to what the chain accepts.
 
 ---
 
@@ -233,46 +258,52 @@ attacker a controllable lookup surface (Sybil flooding of routing tables,
 eclipse via DHT poisoning) without offering value the committee couldn't
 get from simpler mechanisms.
 
-Discovery proceeds in five layers, each falling back to the next:
+Discovery is layered, with every source either operator-configured or
+derived from the chain's own state — never from a public routing table.
+`crates/net/src/discovery.rs` is explicit about which layers ship today:
 
 ```
-1. Hardcoded bootstrap seeds       (chain spec ships ~10 well-known IPs)
-2. DNS seed lookup                  (TXT records at seed.pyde.network)
-3. On-chain validator registry      (each validator's PeerId+addr on-chain)
-4. Peer exchange (PEX)              (peers gossip their connected-peer list)
-5. Local cache                      (recently-seen-good peers persisted)
+1. Operator bootnodes file          SHIPPED  (plain-text multiaddr list)
+2. DNS resolution of /dns/ addrs    SHIPPED  (libp2p's dns transport)
+3. On-chain validator registry      FUTURE   (needs the registry gossiped + queryable)
+4. Peer exchange (PEX) cache        FUTURE   (persisted across restarts)
 ```
 
 ### Bootstrap
 
-The chain spec ships hardcoded bootstrap seeds + the DNS seed name. At
-startup the node dials seeds in parallel, performs FALCON handshakes,
-and queries each seed's connected-peer list (PEX) to expand the candidate
-set.
+The operator supplies a `bootnodes` file: plain text, one multiaddr per
+line, `#` comments, blank lines ignored. The validator dials every entry at
+startup alongside any `--dial` CLI arguments. There is no compiled-in seed
+list and no DNS TXT-record seed lookup — a `/dns/` multiaddr in the file is
+resolved by libp2p's own DNS transport, which `crates/net/src/transport.rs`
+opts the swarm builder into.
 
-```toml
-# in pyde.toml
-[network]
-bootstrap_seeds = [
-    "/dns4/seed1.pyde.network/udp/30303/quic-v1/p2p/12D3Koo...",
-    "/dns4/seed2.pyde.network/udp/30303/quic-v1/p2p/12D3Koo...",
-]
-dns_seed = "seed.pyde.network"
+```text
+# Pyde testnet bootnodes — auto-generated; do not hand-edit.
+/dns/seed1.pyde.network/udp/4001/quic-v1/p2p/12D3Koo…
+/dns/seed2.pyde.network/udp/4001/quic-v1/p2p/12D3Koo…
+/ip4/198.51.100.7/udp/4001/quic-v1/p2p/12D3Koo…
 ```
 
-### On-chain validator registry
+TOML and JSON were deliberately avoided: plain text is grep-friendly, easy
+to template from operator tooling, and pulls in no parser dependency.
 
-Each committee validator's `(falcon_pubkey, peer_id, multiaddr)` is on
-chain in the validator-registry account, updated when a validator joins
-the committee. A new node fetching the genesis manifest (or any later state
-snapshot) has the complete committee directory: no DHT lookup required.
+### On-chain validator registry (future)
 
-### Peer exchange (PEX)
+Each committee validator's `(falcon_pubkey, peer_id, multiaddr)` is meant
+to live on chain in the validator-registry account, updated when a
+validator joins the committee, so a new node fetching the genesis manifest
+or any later state snapshot has the complete committee directory with no
+DHT lookup. The registry exists on chain; the discovery layer that reads it
+for dialling does not yet.
 
-Once connected, peers periodically gossip a short list of other peers
-they're currently connected to. PEX uses a small dedicated request/response
-protocol (`/pyde/pex/1`), not the gossipsub channels, to avoid mixing
-discovery traffic with consensus.
+### Peer exchange (future)
+
+Once connected, peers would periodically exchange a short list of the peers
+they are connected to, over a dedicated request/response protocol rather
+than the gossipsub topics, to avoid mixing discovery traffic with
+consensus. Not implemented; there is no PEX protocol in the net crate
+today.
 
 ### Why this is enough
 
@@ -280,68 +311,82 @@ discovery traffic with consensus.
   the entire ground truth. No DHT-style scalability is needed.
 - **Sentry node pattern** (next section) hides committee identities from
   public peers anyway; the committee discovery layer is private.
-- **Layered fallback** means no single point of failure: seeds, DNS,
-  on-chain, PEX, cache.
+- **No public routing table** means no Sybil-floodable lookup surface: the
+  worst an attacker can do to discovery is decline to answer, which the
+  operator's own bootnode list routes around.
 
-### What's stored in the layered cache
+### Trust model per layer
 
-| Layer              | Persistence  | Trust model                    |
-| ------------------ | ------------ | ------------------------------ |
-| Hardcoded seeds    | binary       | Chain-spec trusted              |
-| DNS records        | DNS TTL      | DNS operator trusted             |
-| On-chain registry  | JMT          | Consensus-finalized              |
-| PEX cache          | LRU 1024     | Peer-attested only               |
-| Local good-peer cache| disk LRU 100| Empirically known good          |
+| Layer                     | Status  | Trust model                    |
+| ------------------------- | ------- | ------------------------------ |
+| Operator bootnodes file   | shipped | Operator-trusted                |
+| DNS resolution of `/dns/` | shipped | DNS operator trusted            |
+| On-chain registry         | future  | Consensus-finalized             |
+| PEX cache                 | future  | Peer-attested only              |
 
 ---
 
 ## 12.6 Connection Limits and Rate Limiting
 
-`crates/net/src/config.rs` defaults:
+Connection caps are compile-time constants in
+`crates/net/src/behaviour.rs`, applied through libp2p's
+`connection_limits::Behaviour` — not an operator-tunable config file:
 
-| Constant                       | Default     | Meaning                                  |
+| Constant                       | Value       | Meaning                                  |
 | ------------------------------ | ----------- | ---------------------------------------- |
-| `DEFAULT_PORT`                 | 30303       | Default UDP listen port                  |
-| `DEFAULT_MAX_PEERS`            | 50          | Total connected peers                    |
-| `DEFAULT_MAX_INBOUND`          | 30          | Max inbound connections                  |
-| `DEFAULT_MAX_OUTBOUND`         | 20          | Max outbound connections                 |
-| `DEFAULT_RATE_LIMIT_PER_IP`    | 5 / sec     | Inbound connect rate per IP              |
-| `DEFAULT_IDLE_TIMEOUT`         | 60 s        | Drop idle connections after              |
+| `MAX_ESTABLISHED_INCOMING`     | 128         | Established inbound connections           |
+| `MAX_ESTABLISHED_OUTGOING`     | 64          | Established outbound (peers we dialed)    |
+| `MAX_ESTABLISHED_TOTAL`        | 192         | Aggregate ceiling — the hard FD cap       |
+| `MAX_ESTABLISHED_PER_PEER`     | 4           | Connections to any one peer               |
+| `MAX_PENDING_INCOMING`         | 32          | In-flight inbound handshakes              |
+| `MAX_PENDING_OUTGOING`         | 16          | In-flight outbound dials                  |
 
-The peer manager (`crates/net/src/peer.rs`) tracks these per-IP
-counters; `can_accept()` enforces them.
+The split is an **eclipse-safety invariant**, not arbitrary sizing: the
+total is exactly incoming + outgoing, so an inbound flood that maxes the
+incoming cap still leaves the full outbound budget free for the node's own
+committee dials. The directional caps always bind before the total. A
+compile-time assertion enforces the relationship, so editing the numbers so
+it breaks is a build error rather than a silent eclipse regression.
 
-### Token-bucket rate limits
+### Global request-rate limits
 
-The DDoS subsystem (`crates/net/src/ddos.rs`) implements per-peer
-token-bucket rate limiting:
+Inbound *serve* requests — vertex fetch, batch fetch, state-sync chunk
+fetch — are rate-limited by token bucket in
+`crates/net/src/inbound_limit.rs`. Connection limits bound how many peers
+can connect; they do not bound the request rate from the peers that are
+already connected, and cheap Ed25519 PeerId rotation defeats any purely
+per-peer limit. So the bucket is **global** — aggregate across all peers —
+which a rotating attacker cannot escape:
 
-```rust
-RateLimiter {
-    max_tokens:   f64,
-    refill_rate:  f64,    // tokens / sec
-    current:      f64,
-    last_refill:  Instant,
-}
-```
+| Bucket                | Capacity | Refill / sec |
+| --------------------- | -------- | ------------ |
+| Consensus fetch       | 2,048    | 1,024        |
+| State-sync chunk serve| 512      | 256          |
+| Durable vertex serve  | 64       | 32           |
 
-Evidence ingest, in particular, is rate-limited (per the post-Phase-1
-audit hardening: `task 014d`). Without the limit, a non-validator peer
-could spam garbage-sig evidence at ~60 µs of FALCON verify each, enough
-to consume validator CPU at scale. With the limit, repeat offenders are
-dropped after the first failure.
+The pressure this relieves is real: every inbound fetch is served
+synchronously on the single swarm event-loop task, so without a cap any set
+of connected peers can pin that loop's CPU and upload bandwidth.
 
 ### Per-subnet limits
 
-`SubnetLimiter` (also in `crates/net/src/ddos.rs`) tracks /24 subnets and
-caps connections per subnet, preventing a single network operator from
-monopolizing peer slots.
+**Not implemented.** There is no subnet limiter in the net crate. A single
+network operator holding many addresses in one `/24` is bounded only by the
+aggregate connection caps above, not by anything subnet-aware. Closing that
+is on the hardening list.
 
 ---
 
 ## 12.7 Peer Reputation
 
-Each `PeerInfo` (`crates/net/src/peer.rs`) tracks:
+**Status: designed, not built.** `crates/net/src/peer.rs` is a thin
+newtype wrapping libp2p's `PeerId` at the crate boundary — it carries no
+per-peer counters and no score. What the node has today is libp2p's own
+per-peer bookkeeping plus the global rate limits above; a message reported
+`Reject` through `crates/net/src/gossip_verdict.rs` is counted against its
+sender by gossipsub itself.
+
+The intended record:
 
 ```rust
 struct PeerInfo {
@@ -360,11 +405,11 @@ A simple reputation score:
 reputation = messages_received - (invalid_messages * 10)
 ```
 
-Peers with strongly negative reputation are dropped and rate-limited. The
-scoring is deliberately simple: Pyde does not currently ship a
-sophisticated gossip score (no `peer_score_thresholds`), trusting the
-combination of validator-channel filtering, FALCON binding, and
-token-bucket rate limits to handle the major attack vectors.
+Peers with strongly negative reputation would be dropped and rate-limited.
+The scoring is deliberately simple, and Pyde ships no gossip score at all
+today (no `peer_score_thresholds`), trusting the combination of
+payload-level FALCON verification and the global request-rate limits to
+handle the major attack vectors.
 
 A more sophisticated scoring mechanism (decay weights, per-topic scores,
 gray-listing) is on the post-mainnet hardening list.

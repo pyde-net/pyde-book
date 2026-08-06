@@ -98,12 +98,18 @@ Key files:
 
 | Concern | File | What it shows |
 |---|---|---|
-| Entry shim | `crates/pyde-entry-macros/src/lib.rs` | How `#[pyde::entry]` rewrites a `fn deposit(amount: u128)` into a `() -> ()` export with calldata decode + return encode |
-| Storage codegen | `crates/pyde-storage-macros/src/lib.rs` | How `declare_storage!()` reads `otigen.toml` at compile time + emits typed accessors |
-| Host-fn extern decls | `crates/pyde-host/src/lib.rs` | All 40+ host-fn signatures Rust-side, matching HOST_FN_ABI_SPEC §7 |
-| Bundle assembly | `crates/otigen-abi/src/build.rs` | How `ContractAbi` is built from `otigen.toml` |
-| Custom section insertion | `crates/otigen-abi/src/section.rs` | How the `pyde.abi` section is appended to the `.wasm` (`inject` / `extract` / `extract_required`) |
-| Reference contract | `examples/storage-stress/` | Exercises every storage type, every map arity, complex multi-slot logic, delete ops |
+The macro and host-binding crates live in the separate
+[pyde-net/pyde-host](https://github.com/pyde-net/pyde-host) repository,
+under `rust/`; the ABI and example rows are in `otigen`.
+
+| Concern | Repo | File | What it shows |
+|---|---|---|---|
+| Entry shim | `pyde-host` | `rust/pyde-entry-macros/src/lib.rs` | How `#[pyde::entry]` rewrites a `fn deposit(amount: u128)` into a `() -> ()` export with calldata decode + return encode |
+| Storage codegen | `pyde-host` | `rust/pyde-storage-macros/src/lib.rs` | How `declare_storage!()` reads `otigen.toml` at compile time + emits typed accessors |
+| Host-fn extern decls | `pyde-host` | `rust/pyde-host/src/lib.rs` | All 40+ host-fn signatures Rust-side, matching HOST_FN_ABI_SPEC §7 |
+| Bundle assembly | `otigen` | `crates/otigen-abi/src/build.rs` | How `ContractAbi` is built from `otigen.toml` |
+| Custom section insertion | `otigen` | `crates/otigen-abi/src/section.rs` | How the `pyde.abi` section is appended to the `.wasm` (`inject` / `extract` / `extract_required`) |
+| Reference contract | `otigen` | `examples/storage-stress/` | Exercises every storage type, every map arity, complex multi-slot logic, delete ops |
 
 A reasonable porting strategy:
 

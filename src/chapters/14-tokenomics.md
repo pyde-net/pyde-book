@@ -310,10 +310,13 @@ slashed (forced) -> Exited (stake reduced or zero)
 ### Unbonding period
 
 ```rust
-pub const UNBONDING_PERIOD_DAYS: u64 = 30;   // wall-clock, independent of consensus cadence
+pub const UNBONDING_PERIOD_WAVES: u64 = 5_184_000;  // 30 days at the 500 ms target cadence
 ```
 
-(`crates/consensus/src/validator.rs`)
+(`crates/tx/src/handlers/staking.rs`)
+
+The in-protocol proxy is a wave count, not wall-clock: 5,184,000 waves ×
+`TARGET_WAVE_MS` (500 ms) is 30 days if the chain holds its target cadence.
 
 A validator who initiates `StakeWithdraw` (tx type 4) cannot reclaim their
 stake until 30 days have passed. The period must exceed the
@@ -381,7 +384,17 @@ protocol does not control.
 
 ## 14.6 Vesting
 
-Genesis allocations (team, ecosystem) are subject to on-chain vesting.
+Genesis allocations (team, ecosystem) are intended to be subject to
+on-chain vesting.
+
+**Status: not shipped in v1.** There is no vesting module in the engine.
+The standard-transfer handler says so explicitly — spendable balance is
+meant to be "what's available after deducting vesting locks", and the
+comment in `crates/tx/src/handlers/standard.rs` records that the lock
+lookup needs a vesting subsystem v1 does not ship. Until it lands, genesis
+allocations vest by off-chain custody arrangement, not by protocol
+enforcement, and the schedule below is the design target rather than a
+type you can read out of the tree.
 
 ```rust
 struct VestingSchedule {
@@ -392,8 +405,8 @@ struct VestingSchedule {
 }
 ```
 
-(`crates/tx/src/vesting.rs:29-34`, wire format 40 bytes:
-`start:8 || cliff:8 || duration:8 || total:16` LE)
+(Intended wire format 40 bytes: `start:8 || cliff:8 || duration:8 ||
+total:16` LE.)
 
 ### Unlock curve
 
@@ -527,22 +540,41 @@ spend, and trace the on-chain action back to a published proposal.
 
 | Discriminator | Name                | Holds                                |
 | ------------- | ------------------- | ------------------------------------ |
-| `0x1C`        | `MULTISIG_SIGNERS`  | Length-prefixed array of FALCON pks   |
-| `0x1D`        | `MULTISIG_THRESHOLD`| Required signature count (`u8`)       |
-| `0x1E`        | `MULTISIG_NONCE`    | Replay-protection counter             |
+| `0xF0`        | `MULTISIG_SIGNERS`  | Ordered set of FALCON pks             |
+| `0xF1`        | `MULTISIG_THRESHOLD`| Required signature count (`u8`)       |
+| `0xF2`        | `MULTISIG_NONCE`    | Replay-protection counter             |
 
-Max signers: 16 (`MAX_MULTISIG_SIGNERS`). Each spend bumps
-`MULTISIG_NONCE` so the same signed bytes cannot be replayed.
+(`crates/tx/src/system_slots.rs`.)
 
-Wire format (`MultisigPayload` in `crates/tx/src/multisig.rs`):
+Max signers: 16 — `MAX_MULTISIG_SIGNERS` in `crates/types/src/account.rs`.
+Each spend bumps `MULTISIG_NONCE` so the same signed bytes cannot be
+replayed.
 
+Wire format (`crates/tx/src/multisig.rs`) — all three fields live together
+in `MultisigState`, and the signature bundle is borsh, not a hand-rolled
+byte layout:
+
+```rust
+pub struct MultisigState {
+    pub signers:   Vec<FalconPubkey>,   // index = BundleEntry::signer_index
+    pub threshold: u8,
+    pub nonce:     u64,
+}
+
+pub struct BundleEntry {
+    pub signer_index: u32,
+    pub signature:    FalconSignature,   // over canonical_msg()
+}
+
+pub type SigBundle = Vec<BundleEntry>;   // borsh-encoded in tx.data
 ```
-[op_version: 1] [op_body: variable] [sig_count: 1]
-[sig_entry_0] ... [sig_entry_N-1]
 
-sig_entry = [signer_index: 1] [sig_len: 2 LE] [falcon_sig: sig_len]
-op_version = 0x01 (MULTISIG_VERSION)
-```
+Each signature covers `canonical_msg(tx_type, nonce, payload)` =
+`Poseidon2(domain_byte || nonce_le || Poseidon2(payload))`. The domain byte
+is the tx type's own discriminant (`0x09` `MultisigTx`, `0x0A`
+`RotateMultisig`, `0x0B` / `0x0C` emergency pause and resume, `0x10`
+`DisputeSlash`), so a bundle authorising one action cannot be replayed as
+another.
 
 Gas: 50,000 base + 50,000 per signature.
 

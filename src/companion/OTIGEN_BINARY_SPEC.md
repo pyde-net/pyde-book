@@ -1228,7 +1228,7 @@ Chain handling on `DeployContractTx`:
 
 ### 8.2 Upgrade transaction: **v2-deferred; v1 uses the proxy pattern**
 
-v1 does NOT ship a chain-side `UpgradeContractTx` tx type or an `Account::Contract.owner` field. The frozen `TxType` enum has 14 variants (`crates/types/src/tx.rs`); none of them are contract upgrade.
+v1 does NOT ship a chain-side `UpgradeContractTx` tx type or an `Account::Contract.owner` field. The frozen `TxType` enum has 18 variants — `0x00`, `0x01`, and `0x03`–`0x12`, with `0x02` reserved-as-vacant (`crates/types/src/tx.rs`); none of them are contract upgrade.
 
 The v1 upgrade story is the proxy / `delegate_call` pattern, demonstrated by the `upgradeable-proxy` acceptance contract:
 

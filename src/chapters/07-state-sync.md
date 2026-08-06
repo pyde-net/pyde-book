@@ -94,19 +94,24 @@ For nodes that prefer speed over trustless verification: **weak subjectivity che
 For mobile wallets, browser dApps:
 
 - Storage: wave headers only + cared-about accounts
-- Operations: verify FALCON sigs on headers (~7ms), query accounts via JMT inclusion proofs
+- Operations: verify FALCON sigs on headers (86 verifies × ~1 ms = ~86 ms), query accounts via JMT inclusion proofs
 - Bandwidth: ~600 KB/year typical wallet usage
 
 ### Time Estimates (Commodity, 100 Mbps)
 
 ```
 Bootstrap from genesis (small):       ~5 seconds
-Manifest verification (86 FALCON):    ~7 ms
+Manifest verification (86 × ~1 ms):   ~86 ms
 Snapshot download (3 GB):             ~4 minutes
 JMT reconstruction:                   ~5 minutes
 Recent tail sync (8 epochs):          ~30 minutes
 Total:                                ~40 minutes
 ```
+
+Every FALCON cost above derives from one rate, **~1 ms per FALCON-512 verify** —
+the figure the engine budgets against in `crates/mempool/benches/admit.rs`. At that
+rate manifest verification is tens of milliseconds against a budget measured in
+minutes, so it does not move the bootstrap total.
 
 See [STATE_SYNC.md](../companion/STATE_SYNC.md) for complete protocol details.
 

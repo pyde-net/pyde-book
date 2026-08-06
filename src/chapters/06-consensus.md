@@ -56,7 +56,7 @@ struct Vertex {
     round: u64,
     member_id: u32,                          // committee position
     batch_refs: Vec<BatchHash>,              // batches I have, by hash
-    parent_vertex_refs: Vec<VertexHash>,     // ≥85 round-(N-1) hashes
+    parent_vertex_refs: Vec<VertexHash>,     // ≥86 round-(N-1) hashes
     state_root_sigs: Vec<StateRootSig>,      // attestations on recent commits
     prev_anchor_attestation: VertexHash,     // attests prior anchor
     falcon_sig: FalconSig,                   // sig over the vertex
@@ -81,13 +81,13 @@ Compact-encoded (parent refs as bitmap, hash truncation):
 
 A round is a layer in the DAG. The round counter is **data-driven**, not clock-driven:
 
-A member ticks from round N to N+1 the moment they collect ≥85 valid round-N parent vertices in their local DAG view. Slow members lag behind in their counter; the slowest 43 of 128 don't block anyone (128 − 85 = 43 can lag without holding up the rest).
+A member ticks from round N to N+1 the moment they collect ≥86 valid round-N parent vertices in their local DAG view. Slow members lag behind in their counter; the slowest 42 of 128 don't block anyone (128 − 86 = 42 can lag without holding up the rest — exactly the Byzantine budget f).
 
 ```
 Round 5: [128 vertices, one per member]
-            ↑↑↑↑↑ each refs ≥85 of layer 4 ↑↑↑↑↑
+            ↑↑↑↑↑ each refs ≥86 of layer 4 ↑↑↑↑↑
 Round 4: [128 vertices]
-            ↑↑↑↑↑ each refs ≥85 of layer 3 ↑↑↑↑↑
+            ↑↑↑↑↑ each refs ≥86 of layer 3 ↑↑↑↑↑
 Round 3: [128 vertices]
 ... etc
 ```
@@ -186,10 +186,10 @@ Outcome:  WAVE 6  skip    skip    skip    skip    skip    WAVE 7
 
 At round 16's commit (wave 7):
   Subdag walk from v_r16_anchor:
-    - v_r16_anchor's parents = 85+ round-15 vertices
-    - each round-15 vertex's parents = 85+ round-14 vertices
+    - v_r16_anchor's parents = 86+ round-15 vertices
+    - each round-15 vertex's parents = 86+ round-14 vertices
     - ...continue back through rounds 14, 13, 12, 11
-    - round-11 vertices' parents = 85+ round-10 vertices ← STOP
+    - round-11 vertices' parents = 86+ round-10 vertices ← STOP
                                     (these were committed in wave 6)
   
   Subdag = vertices from rounds 11, 12, 13, 14, 15, 16
@@ -217,7 +217,7 @@ Properties:
 
 ![The commit rule: rounds of DAG vertices, a deterministically selected anchor, a subdag walk into canonical order, execution, and quorum certification into wave finality.](../assets/diagrams/ch06-commit-rule.svg)
 
-*A wave is a successful commit: the round's deterministically selected anchor pins a subdag, execution runs in canonical order, and at least 85 of 128 committee members certify the same state root.*
+*A wave is a successful commit: the round's deterministically selected anchor pins a subdag, execution runs in canonical order, and at least 86 of 128 committee members certify the same state root.*
 
 When the anchor vertex collects sufficient support from later rounds (Mysticeti 3-stage support), a commit fires:
 
@@ -232,8 +232,8 @@ When the anchor vertex collects sufficient support from later rounds (Mysticeti 
 5. Run the commit-reveal resolution pass: revealed inner txs splice into their DAG-fixed commit order (commit-reveal mempool, Chapter 9)
 6. wasmtime executes all transactions in canonical order
 7. State root computed (Blake3 + Poseidon2 dual)
-8. ≥85 committee FALCON-sign state root (piggybacked on next-round vertices)
-9. ≥85 state-root sigs collected → finality declared
+8. ≥86 committee FALCON-sign state root (piggybacked on next-round vertices)
+9. ≥86 state-root sigs collected → finality declared
 ```
 
 ### Commit Rate
@@ -285,15 +285,18 @@ Rewards are **contribution-weighted, not stake-weighted**: the per-epoch wage sp
 
 For n=128 validators:
 - `f = ⌊(n-1)/3⌋ = 42` (maximum Byzantine)
-- `threshold = 2f+1 = 85` (quorum for commit / vertex cert / state-root finality)
+- `quorum = ⌊(n+f)/2⌋ + 1 = 86` (commit / vertex cert / state-root finality)
 
-The number 85 appears throughout the protocol:
+`⌊(n+f)/2⌋ + 1` is the smallest quorum that is strictly safe (`q > (n+f)/2`, so any two quorums overlap in at least one honest member) while still reachable when `f` members are faulty (`q ≤ n − f`). It is the rule at every committee size. The more familiar `2f+1` is only the same number when `n = 3f+1`; here `n = 128 = 3f+2`, and `2f+1 = 85` would leave an intersection of `2·85 − 128 = 42 = f` — an overlap the Byzantine members could fill entirely, i.e. zero safety margin. At 86 the overlap is 44, forcing 2 honest members into both quorums. Chapter 16 §16.2 carries the full argument.
+
+The quorum is **adaptive**: a committee smaller than 128 uses the same formula rather than the constant (n=4 → 3, n=7 → 5 for the launch committee, n=128 → 86).
+
+The number 86 appears throughout the consensus path:
 - Vertex certification (parent refs in next round)
 - Commit support
 - State root signatures
-- Beacon-share combine quorum
 
-**Consistent across the protocol:** avoids attack edges from boundary mismatches.
+**Consistent across the protocol:** avoids attack edges from boundary mismatches. The randomness beacon has its own share-combine threshold (§9); it is not a BFT safety quorum — there is no conflicting-beacon certification for two quorums to intersect over — so it is not bound by the argument above.
 
 ### Safety
 
@@ -312,14 +315,14 @@ Each epoch's beacon is produced by the **previous** epoch's committee. The beaco
 ```
 1. All 128 committee N members sign known message "epoch_N+1_beacon" with
    threshold-share keys (DKG'd at the start of epoch N)
-2. ≥85 shares Lagrange-combine into ONE deterministic aggregated signature
+2. ≥86 shares Lagrange-combine into ONE deterministic aggregated signature
 3. beacon_N+1 = Hash(aggregated_signature) → 32 bytes
 4. Finalized at T-30min (last 30 min of epoch N) — see §10 for why
 ```
 
 Properties of the target design:
-- **Deterministic** given any 85 of 128 shares (Lagrange invariance: same aggregated sig regardless of which 85 contribute)
-- **Unpredictable** until ≥85 shares combine (no single party knows it)
+- **Deterministic** given any 86 of 128 shares (Lagrange invariance: same aggregated sig regardless of which 86 contribute)
+- **Unpredictable** until ≥86 shares combine (no single party knows it)
 - **Bias-resistant:** shares determined by DKG-derived keys, no individual member can grind by choosing whether to participate; the aggregated output doesn't depend on subset selection
 
 ### v1 implementation (FALCON-aggregate approximation)
@@ -330,14 +333,14 @@ Properties of the target design:
 1. Each member i signs the epoch message with their own individual FALCON
    beacon keypair (persisted on disk, separate from consensus FALCON keypair)
 2. Shares gossip via pyde/beacon-shares/1
-3. Combine: lowest-member-id 85 shares are sorted, concatenated, and
+3. Combine: lowest-member-id 86 shares are sorted, concatenated, and
    blake3-hashed → beacon_N+1
 ```
 
 The v1 approximation deviates from the target design in two ways:
 
-- **Subset disagreement is structurally possible** because the hash depends on *which* 85 shares are included, not just *that* 85 contributed. v1 fixes this by hardcoding a canonical-subset rule (`combine` MUST use exactly the lowest-`member_id` 85 shares) so every validator deterministically agrees on the same 85.
-- **Last-signer grinding bias** (~1 bit per epoch): a member who signs late sees prior shares and could compute `beacon_if_I_sign` vs `beacon_if_I_withhold`. Bounded by the `prev_beacon` hash-chain (compounds against the adversary across epochs) and by the ≥85 honest sigs always inside the hash. Full elimination waits for true threshold sigs.
+- **Subset disagreement is structurally possible** because the hash depends on *which* 86 shares are included, not just *that* 86 contributed. v1 fixes this by hardcoding a canonical-subset rule (`combine` MUST use exactly the lowest-`member_id` 86 shares) so every validator deterministically agrees on the same 86.
+- **Last-signer grinding bias** (~1 bit per epoch): a member who signs late sees prior shares and could compute `beacon_if_I_sign` vs `beacon_if_I_withhold`. Bounded by the `prev_beacon` hash-chain (compounds against the adversary across epochs) and by the ≥86 honest sigs always inside the hash. Full elimination waits for true threshold sigs.
 
 When `pyde-crypto` ships threshold-FALCON or an equivalent post-quantum threshold-sig primitive, the `BeaconScheme` trait swaps cleanly to the target design without consensus-side changes.
 
@@ -392,7 +395,7 @@ struct StateRootSig {
 ```
 
 Sigs piggyback on next-round vertices. Finality requires:
-- ≥85 sigs
+- ≥86 sigs
 - All attesting the same root hash
 - All FALCON sigs verify
 
@@ -419,11 +422,12 @@ Correlated slashing applies a 2× multiplier when many validators offend simulta
 ## 15. Recovery Properties
 
 - **Single validator offline:** other 127 continue normally. Validator catches up via gossip; loses activity rewards.
-- **43+ validators offline (at the BFT quorum boundary, 85 active = 2f+1 with no margin):** soft stall; downtime slashing PAUSES (partition-aware); resumes when active count returns to 86+ (one above the quorum minimum).
+- **42 validators offline (86 active — exactly the quorum, no spare):** the chain still commits, but one further failure stalls it.
+- **43+ validators offline (85 or fewer active, below the 86-member quorum):** soft stall; downtime slashing PAUSES (partition-aware); resumes when the active count returns to 86+.
 - **Network partition:** majority-side continues if quorum maintained; minority stalls.
 - **State root divergence:** hard halt; investigation; rollback within 1 epoch; slashing for wrong-root signers.
 
-The chain self-heals from any subset failure that maintains ≥85 functional validators.
+The chain self-heals from any subset failure that maintains ≥86 functional validators.
 
 ## 16. Comparison
 

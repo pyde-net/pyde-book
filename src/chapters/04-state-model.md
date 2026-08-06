@@ -351,14 +351,14 @@ the compiled bytecode.
 
 ---
 
-## 4.5 The Block Witness
+## 4.5 The Wave Witness
 
-Pyde's block witness is the data needed to verify and re-execute a block from
+Pyde's wave witness is the data needed to verify and re-execute a wave from
 scratch given only the previous state root. It lives in
 `crates/state/src/witness.rs`:
 
 ```rust
-pub struct BlockWitness {
+pub struct WaveWitness {
     pub entries:         Vec<WitnessEntry>,
     pub proof:           SparseMerkleProof,   // single batched proof
     pub pre_state_root:  H256,
@@ -368,15 +368,15 @@ pub struct BlockWitness {
 
 The shape:
 
-- `entries`: every state slot the block touched, with its pre-execution
+- `entries`: every state slot the wave touched, with its pre-execution
   value.
 - `proof`: a single batched Merkle proof covering all entries against
   `pre_state_root`. JMT supports batch verification, so the proof is
   asymptotically smaller than `len(entries)` independent paths.
-- `pre_state_root`: the state root *before* this block executes (taken from
-  the parent block's header).
+- `pre_state_root`: the state root *before* this wave executes (taken from
+  the previous wave's header).
 - `post_state_root`: the state root *after* execution, set by
-  `set_post_state_root()` or `finalize_witness()` once the block is executed.
+  `set_post_state_root()` or `finalize_witness()` once the wave is executed.
 
 Critically, `post_state_root` is **not** auto-populated at witness generation
 time. The witness is built before execution; the post-root is filled in
@@ -393,7 +393,7 @@ pub const MAX_WITNESS_SIZE: usize = 1024 * 1024;  // 1 MB
 ```
 
 `verify_witnesses()` rejects any witness exceeding this cap before doing the
-work of proof verification. The block as a whole is rejected.
+work of proof verification. The wave as a whole is rejected.
 
 ---
 
@@ -416,7 +416,7 @@ for peak burst sync.
 
 Writes to consensus-critical state use `WriteOptions::set_sync(true)` (see
 Chapter 6). JMT updates do not, because the canonical truth is the chain
-itself; on restart, a validator can rebuild any missing state from blocks.
+itself; on restart, a validator can rebuild any missing state from waves.
 
 ---
 
@@ -440,24 +440,24 @@ The Block-STM correctness contract guarantees that two honest validators given t
 
 ## 4.8 State Sync
 
-A new node joining the network does not replay every block from genesis:
+A new node joining the network does not replay every wave from genesis:
 at production TPS, full replay would take longer than the chain has
 existed. Pyde defines three sync modes (full spec: [companion/STATE_SYNC.md](../companion/STATE_SYNC.md),
 operational summary: Chapter 7):
 
 1. **Snapshot sync (default for new full nodes).** Download a committee-signed
    `SnapshotManifest` (~5 KB) carrying both Blake3 and Poseidon2 state roots
-   plus chunk references. Verify ≥85 FALCON signatures. Download chunks
+   plus chunk references. Verify ≥86 FALCON signatures. Download chunks
    (~4 MB each) in parallel from peers, verify each against the manifest,
    reconstruct the JMT, recompute the Blake3 root, compare. Then replay
-   the tail blocks (≤ 8 epochs ≈ 24 hours of tx) to reach the current head.
+   the tail waves (≤ 8 epochs ≈ 24 hours of tx) to reach the current head.
    Total time on commodity (100 Mbps): ~40 minutes.
 
 2. **Light client sync.** Headers only + cared-about accounts via JMT
    inclusion proofs. ~600 KB/year for a typical wallet. Verifies FALCON
    signatures on the headers it receives.
 
-3. **Full sync (archive nodes).** Replay every block from genesis. Slowest
+3. **Full sync (archive nodes).** Replay every wave from genesis. Slowest
    option; provides full historical state lookup for explorers / indexers.
 
 **Chain-of-trust bootstrap.** A new node verifies the chain of snapshot
@@ -515,7 +515,7 @@ be globally agreed.
 | Witness format        | Single batched JMT proof + entries + pre/post roots           |
 | Witness size cap      | 1 MB (rejected at verification time)                          |
 | Persistence           | RocksDB with LRU node and value caches                        |
-| Block-app commit cost | ~40× faster commits than the prior fixed-depth SMT design     |
+| Per-wave commit cost  | ~40× faster commits than the prior fixed-depth SMT design     |
 
 The next chapter covers the developer toolchain (`otigen`) that sits on top
 of this state model: how a contract's `[state]` declaration in `otigen.toml`

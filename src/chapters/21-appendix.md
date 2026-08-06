@@ -34,7 +34,7 @@ and the post-mainnet plan.
 | **Wave**             | The Mysticeti commit unit. Anchor at round R+3 commits the subdag rooted at round R. |
 | **Anchor**           | Deterministically-selected committee member whose round-R vertex commits the wave. `Hash(beacon, round, prev_state_root) mod 128`. |
 | **Worker / Primary** | Narwhal pattern: workers gossip tx batches, primary produces vertices and runs consensus. |
-| **HardFinalityCert** | ≥ 85 FALCON sigs over `(wave_id, blake3_state_root, poseidon2_state_root)`. |
+| **HardFinalityCert** | ≥ 86 FALCON sigs over `(wave_id, blake3_state_root, poseidon2_state_root)`. |
 | **Committee**        | The 128 active validators per epoch. Equal vote weight; uniform random selection. |
 | **Epoch**            | ~3 hours of waves. Committee rotation + next-epoch beacon fire at the boundary. |
 | **Validator**        | Node staking ≥ `MIN_VALIDATOR_STAKE` (10,000 PYDE). Single tier; uniform-random committee selection picks 128 from the eligible pool each epoch. |
@@ -67,9 +67,9 @@ and the post-mainnet plan.
 | `COMMIT_TARGET_MS`                 | 500 (median commit)        | `consensus/commit.rs`               |
 | `EPOCH_LENGTH`                     | ~3 hours of waves               | `consensus/epoch.rs`                |
 | `COMMITTEE_SIZE` (mainnet)         | 128                             | `consensus/committee.rs`            |
-| `THRESHOLD` (2f+1)                 | 85                              | `consensus/quorum.rs`               |
+| `THRESHOLD` (⌊(n+f)/2⌋+1)          | 86                              | `consensus/quorum.rs`               |
 | `EQUIVOCATION_THRESHOLD` (n-2f)    | 44                              | `consensus/quorum.rs`               |
-| `RANDOMNESS_THRESHOLD`             | 85 (beacon sigs sorted before combine) | `consensus/epoch_randomness.rs`  |
+| `RANDOMNESS_THRESHOLD`             | 86 (beacon sigs sorted before combine) | `consensus/epoch_randomness.rs`  |
 | `COMMIT_REVEAL_WINDOW_WAVES`       | 120                             | `tx/commit_reveal.rs`               |
 | `MIN_COMMIT_BOND`                  | 1e9 quanta (1 PYDE)             | `tx/commit_reveal.rs`               |
 | `MIN_VALIDATOR_STAKE`              | 10,000 PYDE                     | `tx/pipeline.rs` (single tier)      |
@@ -90,7 +90,7 @@ and the post-mainnet plan.
 | `GAS_CEILING`           | 1,600,000,000 (4× target)    | `tx/fee.rs`        |
 | `GENESIS_BASE_FEE`      | 50,000,000,000 quanta        | `tx/fee.rs`        |
 | `MIN_BASE_FEE`          | 1                            | `tx/fee.rs`        |
-| `ADJUSTMENT_DIVISOR`    | 8 (1/8 = 12.5% per block)    | `tx/fee.rs`        |
+| `ADJUSTMENT_DIVISOR`    | 8 (1/8 = 12.5% per wave)     | `tx/fee.rs`        |
 | `BURN_BPS`              | 3,000 (30%)                  | `tx/fee.rs`        |
 | `REWARD_POOL_BPS`       | 5,000 (50%)                  | `tx/fee.rs`        |
 | (treasury)              | remainder (20%, catches dust) | `tx/fee.rs`        |
@@ -193,7 +193,7 @@ fails decode.
 | 8   | `SweepAirdrop`    | Move unclaimed airdrop residue to treasury (post-deadline)|
 | 9   | `MultisigTx`      | Treasury spend with multisig signatures                  |
 | 10  | `RotateMultisig`  | Rotate multisig signer set + threshold                   |
-| 11  | `EmergencyPause`  | Halt block production (multisig-signed)                  |
+| 11  | `EmergencyPause`  | Halt wave production (multisig-signed)                   |
 | 12  | `EmergencyResume` | Resume normal processing                                  |
 | 13  | `RegisterPubkey`  | First-time pubkey binding for a funded-but-unregistered account (no sig, no gas; proof is address-derivation) |
 | 17 (`0x11`) | `Commit`  | Commit-reveal mempool commit: `to` = zero, `value` = required_bond, `data` = borsh(`CommitPayload { commitment, value_ceiling }`). Bond escrowed on inclusion; refunded on accepted reveal, burned on expiry. |
@@ -252,13 +252,13 @@ Full reference in Chapter 17. The methods, prefixed `pyde_`:
 | `pyde_getCode`                  | hex bytecode                           |
 | `pyde_getStorageAt`             | hex value                              |
 | `pyde_chainId`                  | hex chain_id                           |
-| `pyde_blockNumber`              | hex head wave_id                       |
+| `pyde_waveId`                   | hex head wave_id                       |
 | `pyde_gasPrice`                 | base fee (quanta)                      |
 | `pyde_stateRoot`                | current state root                     |
 | `pyde_syncing`                  | sync status object                     |
 | `pyde_getValidators`            | validators with status + stake          |
-| `pyde_getBlockByNumber`         | BlockHeader                            |
-| `pyde_getBlockByHash`           | BlockHeader                            |
+| `pyde_getWave`                  | wave commit record (no arg = latest)   |
+| `pyde_getWaveClosure`           | committed sub-DAG closure for a wave   |
 | `pyde_getTransactionReceipt`    | receipt with logs + fee breakdown       |
 | `pyde_getLogs`                  | matching logs                          |
 | `pyde_mempoolSize`              | pending tx count                        |
@@ -305,7 +305,7 @@ priority each is tracked at:
 | --------------------------------------------------------- | -------- | ------------------------------------------ |
 | Persistent receipt store (archive-node mode)              | High     | Task 058. Needed for production explorers. |
 | ML-KEM upgrade from 0.3.0-rc to stable                    | High     | Task 057. Once NIST stable releases.       |
-| Algebraic batch FALCON verification                       | High     | Per-block verification cost reduction.      |
+| Algebraic batch FALCON verification                       | High     | Per-wave verification cost reduction.       |
 | Signed-mempool commitments + censorship slashing          | High     | Replaces local-view mandatory inclusion.    |
 | Threshold-LWE one-shot ciphertext mempool                 | Research | Optional lane beside the keyless commit-reveal default; gated on a trustless PQ threshold-keygen breakthrough. See [Chapter 20](20-future-direction.md). |
 | Graceful drain-and-shutdown on persist failure            | Medium   | Task 014e. Operational polish.              |
@@ -351,7 +351,7 @@ the future post-pivot workspace for `wasm-exec`).
 | Airdrop              | `crates/tx/src/airdrop.rs`                                    |
 | Consensus            | `crates/consensus/src/{dag,vertex,wave,anchor,subdag,validator,finality,slashing,epoch_randomness,committee,quorum,round}.rs` |
 | Networking           | `crates/net/src/{node,channels,auth,peer,ddos,discovery,config}.rs` |
-| Mempool              | `crates/mempool/src/{pool,block_builder,inclusion,commit_reveal}.rs` |
+| Mempool              | `crates/mempool/src/{lib,mempool,mempool_view}.rs`            |
 | Node binary + RPC    | `crates/node/src/{main,cli,rpc,validator,consensus_store,receipt_store}.rs` |
 | WASM execution layer (to be implemented) | `wasm-exec/src/{lib,host_fns,module_cache,gas_meter,validate}.rs` (post-pivot) |
 | `otigen` developer toolchain | `pyde-net/otigen` (separate repo): subcommand framework, otigen.toml schema, language detection, state binding generators (Rust/AS/Go/C), deploy flow, wallet |
@@ -385,8 +385,8 @@ The key headline figures, with their sources:
 | WASM host function ABI v1.0         | `wasm-exec/src/host_fns.rs` (post-pivot) + [companion/HOST_FN_ABI_SPEC.md](../companion/HOST_FN_ABI_SPEC.md) |
 | wasmtime + Cranelift AOT            | Pinned wasmtime version in `Cargo.toml`         |
 | Module cache size                   | `MODULE_CACHE_SIZE` in `wasm-exec/src/module_cache.rs` (post-pivot) |
-| Committee 128, threshold 85          | `COMMITTEE_SIZE`, `THRESHOLD` in `consensus/quorum.rs`|
-| 85-of-128 beacon quorum             | `RANDOMNESS_THRESHOLD` in `consensus/epoch_randomness.rs` |
+| Committee 128, threshold 86          | `COMMITTEE_SIZE`, `THRESHOLD` in `consensus/quorum.rs`|
+| 86-of-128 beacon quorum             | `RANDOMNESS_THRESHOLD` in `consensus/epoch_randomness.rs` |
 
 ---
 

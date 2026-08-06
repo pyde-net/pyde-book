@@ -114,7 +114,6 @@
 - [SDK Author Guide](companion/SDK_AUTHOR_GUIDE.md)
 - [Otigen Binary Spec v1.0](companion/OTIGEN_BINARY_SPEC.md)
 - [Otigen Test Spec v1.0](companion/OTIGEN_TEST_SPEC.md)
-- [Implementation Plan](companion/IMPLEMENTATION_PLAN.md)
 - [Tokenomics Detail](companion/TOKENOMICS.md)
 - [Brand Reference](companion/BRAND.md)
 

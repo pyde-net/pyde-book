@@ -34,7 +34,7 @@ If both calls return the same value, the chain is halted on at least this node. 
    - No (counters flat) → producer loop wedged → check journald for panics, then [validator-OOM](validator-OOM.md) if memory pressure, otherwise restart this validator (`sudo systemctl restart pyde-validator`).
 
 3. **Is the committee quorum reachable?**
-   - Quorum = ⌈2·committee_size / 3⌉. For testnet committee_size = 4, quorum = 3. For mainnet committee_size = 128, quorum = 85.
+   - Quorum is what the engine computes in `bft_quorum_for(n)`, with `n` = committee_size: `f = ⌊(n − 1) / 3⌋`, then `quorum = ⌊(n + f) / 2⌋ + 1` (equivalently `⌈2n / 3⌉`, which gives the same number at every n). For testnet committee_size = 4, quorum = 3. For mainnet committee_size = 128, f = 42 and quorum = **86** — not 85: `2f + 1` is only the right threshold when n = 3f + 1, and at n = 128 two conflicting 85-quorums would overlap in exactly the 42 faulty members, leaving zero safety margin.
    - Count online committee members: `curl -s -X POST http://127.0.0.1:9933 -d '{"jsonrpc":"2.0","id":1,"method":"pyde_getCommittee","params":[]}' | jq '.result.members | length'`
    - Then ping each member's libp2p listen address.
    - Quorum lost (offline members > committee_size − quorum) → coordinate restarts of the offline validators (private Discord channel). Do NOT remove from committee; v1 has no on-chain rotation.

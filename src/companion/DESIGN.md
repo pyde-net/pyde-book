@@ -75,7 +75,7 @@ struct Vertex {
     round: u64,
     member_id: u32,                          // validator address as u32 internally
     batch_refs: Vec<BatchHash>,              // hashes of batches I have
-    parent_vertex_refs: Vec<VertexHash>,     // ≥85 round-(N-1) vertex hashes
+    parent_vertex_refs: Vec<VertexHash>,     // ≥86 round-(N-1) vertex hashes
     state_root_sigs: Vec<StateRootSig>,      // attestations on recent commits
     prev_anchor_attestation: VertexHash,     // attests prior round's anchor
     beacon_share: BeaconShare,               // per-member beacon contribution
@@ -87,7 +87,7 @@ Each vertex is dual-role: **header** (declaring what data I have) AND **attestat
 
 ### Rounds & Anchors
 
-A round is a layer in the DAG, advancing when a member collects ≥85 parent vertices.
+A round is a layer in the DAG, advancing when a member collects ≥86 parent vertices.
 
 Each round has a deterministically-selected anchor:
 ```
@@ -108,7 +108,7 @@ A commit fires when the anchor vertex has sufficient support (Mysticeti 3-stage 
 5. Reveal-resolution pass: each Reveal's `Blake3(...)` is recomputed and matched to its committed commitment; the bond is refunded and the inner tx slotted in commit order (unrevealed commits past the 120-wave window expire, bond burned)
 6. wasmtime executes in canonical order (revealed inner txs in commit order)
 7. State root computed (Blake3 + Poseidon2 dual)
-8. ≥85 committee FALCON-sign state root (piggybacked on next vertices)
+8. ≥86 committee FALCON-sign state root (piggybacked on next vertices)
 9. Finality declared
 ```
 
@@ -175,7 +175,7 @@ Pyde's MEV protection is a keyless commit-reveal scheme built only on Blake3 (co
 
 Each epoch's beacon is produced by the previous epoch's committee:
 1. Each member signs a known message `"epoch_N_beacon"` with its per-member `BeaconKeypair` (FALCON)
-2. ≥85 per-member signatures combine into a deterministic aggregated signature
+2. ≥86 per-member signatures combine into a deterministic aggregated signature
 3. `beacon_N = Hash(aggregated_signature)` → 32 bytes randomness
 4. Published in last wave of epoch N
 
@@ -418,7 +418,7 @@ Commit (per round, ~390ms median):
        - Uniform Block-STM scheduler runs txs optimistically in parallel
        - Execute, apply state diffs
   17. JMT updated, state root computed (Blake3 + Poseidon2)
-  18. Committee FALCON-signs state root, ≥85 collected
+  18. Committee FALCON-signs state root, ≥86 collected
   19. Finality declared
 ```
 

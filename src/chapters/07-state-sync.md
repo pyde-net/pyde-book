@@ -6,7 +6,7 @@ This chapter covers how new nodes join the network (state sync) and what happens
 
 ### The Problem
 
-At the chain's sustained throughput, replaying every block from genesis is infeasible (the transaction count runs into the trillions per year). A new node joining the network needs a way to reach current state without full replay.
+At the chain's sustained throughput, replaying every wave from genesis is infeasible (the transaction count runs into the trillions per year). A new node joining the network needs a way to reach current state without full replay.
 
 ### Three Sync Modes
 
@@ -29,7 +29,7 @@ struct SnapshotManifest {
     snapshot_state_root_poseidon2: Hash,
     chunk_manifest: Vec<ChunkRef>,
     current_committee_pubkeys: Vec<FalconPubkey>,  // chain-of-trust
-    signatures: Vec<FalconSig>,                     // ≥85 from prior committee
+    signatures: Vec<FalconSig>,                     // ≥86 from prior committee
 }
 ```
 
@@ -52,7 +52,7 @@ Phase 1: Discover & Verify Manifest
   1. Bootstrap from seed peers
   2. Discover manifest URLs/hashes from peers
   3. Download signed manifest (~5 KB)
-  4. Verify ≥85 FALCON sigs against trusted committee pubkeys
+  4. Verify ≥86 FALCON sigs against trusted committee pubkeys
 
 Phase 2: Download Chunks
   5. Discover peers serving snapshot
@@ -67,7 +67,7 @@ Phase 3: Reconstruct State
   12. Accept if match
 
 Phase 4: Recent Sync (Tail)
-  13. Download blocks from snapshot point to current
+  13. Download waves from snapshot point to current
   14. Replay txs against snapshot state
   15. Reach current state
 
@@ -80,7 +80,7 @@ Phase 5: Active Operation
 A new node verifies the chain of snapshot manifests from genesis:
 
 ```
-Genesis block: contains committee_0.pubkeys (hardcoded)
+Genesis manifest: contains committee_0.pubkeys (hardcoded)
   ↓
 Snapshot at epoch 8: signed by committee 0, contains committee_8.pubkeys
   ↓
@@ -93,7 +93,7 @@ For nodes that prefer speed over trustless verification: **weak subjectivity che
 
 For mobile wallets, browser dApps:
 
-- Storage: block headers only + cared-about accounts
+- Storage: wave headers only + cared-about accounts
 - Operations: verify FALCON sigs on headers (~7ms), query accounts via JMT inclusion proofs
 - Bandwidth: ~600 KB/year typical wallet usage
 
@@ -101,7 +101,7 @@ For mobile wallets, browser dApps:
 
 ```
 Bootstrap from genesis (small):       ~5 seconds
-Manifest verification (85 FALCON):    ~7 ms
+Manifest verification (86 FALCON):    ~7 ms
 Snapshot download (3 GB):             ~4 minutes
 JMT reconstruction:                   ~5 minutes
 Recent tail sync (8 epochs):          ~30 minutes
@@ -129,7 +129,7 @@ The HotStuff pre-pivot architecture suffered persistent wedges with no clear hal
 
 **Soft stall (automatic):**
 - No commit > 5 rounds (~5 sec)
-- <85 vertices certified
+- <86 vertices certified
 - Active committee count < 86
 
 **Hard halt (automatic):**

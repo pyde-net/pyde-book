@@ -227,13 +227,13 @@ trusting the image.
 
 ### Why the IO split is the whole trick
 
-![The parachain contract stays deterministic and declares the IO; the relay backend performs it against the external world; the validators agree on the returned result and seal it into the block.](../assets/diagrams/parachain-io-split.svg)
+![The parachain contract stays deterministic and declares the IO; the relay backend performs it against the external world; the validators agree on the returned result and seal it into the wave.](../assets/diagrams/parachain-io-split.svg)
 
 *Determinism inside, reality outside, agreement at the boundary.*
 
 If the contract made the network call itself, every validator would get
 a slightly different answer (timing, peers, API jitter) and the
-parachain could never agree on a block. So the deterministic core
+parachain could never agree on a wave. So the deterministic core
 declares the IO as data (target, method, payload schema, timeout) and
 the relay backend performs it outside the agreement path. What comes
 back is the result, and the validators' one job is to agree on that
@@ -302,11 +302,11 @@ struct HardFinalityCert {
     blake3_state_root:    Hash,
     poseidon2_state_root: Hash,
     voter_bitmap:         u128,                     // 128-bit bitmap
-    signatures:           Vec<FalconSignature>,     // ≥ 85
+    signatures:           Vec<FalconSignature>,     // ≥ 86
 }
 ```
 
-This certificate, signed by ≥ 2f+1 = 85 of the active committee, is the
+This certificate, signed by ≥ ⌊(n+f)/2⌋ + 1 = 86 of the active committee, is the
 outbound half of any adapter's proof story:
 
 - A counterparty-side verifier holds the active committee's FALCON
@@ -315,7 +315,7 @@ outbound half of any adapter's proof story:
   commit that included the event, plus a Merkle proof from the wave's
   `blake3_state_root` (native) or `poseidon2_state_root`
   (ZK-circuit-friendly) to the event's storage slot.
-- Verification is `(85 × FALCON_verify) + (one Merkle path)`, feasible
+- Verification is `(86 × FALCON_verify) + (one Merkle path)`, feasible
   on any chain with a reasonable VM.
 
 The inbound half is the adapter parachain's light client of the foreign

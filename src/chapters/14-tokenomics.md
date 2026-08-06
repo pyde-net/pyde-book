@@ -501,7 +501,7 @@ accumulates value from three streams:
 
 1. **Genesis allocation**: direct allocation in the genesis config.
 2. **Fee share**: 10% of every transaction fee.
-3. **Inflation share**: a configurable share of per-block mint.
+3. **Emission share**: a configurable share of the per-epoch shortfall mint.
 4. **Airdrop residual**: whatever wasn't claimed by the deadline.
 
 Treasury spending is **always** through the on-chain `MultisigTx` (tx

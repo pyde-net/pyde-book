@@ -29,7 +29,7 @@ Pyde's choice is closer to the Bitcoin BIP / Ethereum EIP model than to
 Cosmos-style on-chain governance:
 
 1. **Proposals are documents**, not on-chain ballots. They live in a public
-   `pips` repo (`zarah-s/pips`), open to any author, indexed and discussed
+   `pips` repo (`pyde-net/pips`), open to any author, indexed and discussed
    in the open.
 2. **Adoption is via voluntary validator upgrade.** When validators
    running a new client version reach a sufficient share of the active
@@ -58,7 +58,7 @@ PIP lifecycle:
 
   1. Draft        Author writes a markdown document (problem, design,
                   rationale, security considerations).
-                  Creates a PR against zarah-s/pips.
+                  Creates a PR against pyde-net/pips.
 
   2. Discussion   Open discussion on the PR, in forums, etc.
                   Author iterates.
@@ -86,7 +86,7 @@ genuine signal.
 
 | Change type                                     | PIP needed?    |
 | ----------------------------------------------- | -------------- |
-| Consensus rule change (block format, finality)  | Yes            |
+| Consensus rule change (wave format, finality)   | Yes            |
 | Gas cost changes                                | Yes            |
 | Fee distribution changes (e.g., the 30/50/20 split) | Yes           |
 | Cryptographic primitive change                  | Yes            |
@@ -121,7 +121,7 @@ How a consensus rule change actually takes effect:
 2. A new node release is cut, including the new behavior.
 3. Validators choose whether to upgrade to the new release.
 4. If enough validators upgrade simultaneously, the new behavior takes
-   effect at the activation block (specified in the PIP).
+   effect at the activation wave (specified in the PIP).
 5. Validators on the old release either continue producing the old rules
    (forking off if the change is incompatible) or stay in sync (if the
    change is opt-in or backward-compatible).
@@ -279,7 +279,7 @@ validator upgrade:
 | DAG round period (~150 ms)     | `crates/consensus/src/round.rs`       |
 | Commit cadence (~500 ms median) | `crates/consensus/src/wave.rs`  |
 | Committee size (128)           | `crates/consensus/src/committee.rs`   |
-| Quorum / threshold (85)        | `crates/consensus/src/quorum.rs`      |
+| Quorum / threshold (86)        | `crates/consensus/src/quorum.rs`      |
 | Equivocation threshold (44)    | `crates/consensus/src/quorum.rs`      |
 | Validator min stake (10,000 PYDE) | `crates/tx/src/pipeline.rs` (will move to shared crate post-consensus-rebuild) |
 | Operator-identity cap (3 / operator) | `crates/tx/src/pipeline.rs`     |
@@ -389,7 +389,7 @@ PIP process is open, and validators decide what code they run.
 
 | Component                       | Status at mainnet                     |
 | ------------------------------- | ------------------------------------- |
-| PIP process                     | Off-chain, in `zarah-s/pips`           |
+| PIP process                     | Off-chain, in `pyde-net/pips`          |
 | PIP authority                   | Documents intent; not protocol law    |
 | Validator upgrade               | Voluntary; per-release                 |
 | Treasury multisig               | On-chain, `MultisigTx` (type 9)        |

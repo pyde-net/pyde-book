@@ -11,7 +11,7 @@ Pyde is a Layer 1 blockchain built greenfield to ship four properties as default
 
 1. **MEV resistance at the protocol layer, not via a trusted relayer.** A keyless commit-reveal mempool: users commit to a transaction as a Blake3 hash, the DAG fixes commit order before any content is revealed, and revealed transactions execute in that committed order. Sandwich attacks, front-running, and proposer extraction are not policed or auctioned; they are structurally impossible. No committee holds a decryption key, so the property is unconditionally trustless. For users, this means trades execute at the price signed; for businesses, no invisible tax on customer transactions and no third-party relayer to opt into and trust.
 
-2. **Sub-second finality.** Mysticeti-style consensus, ~500 ms median commit finality, an 85-of-128 FALCON quorum certificate. For users, transactions confirm immediately rather than after a multi-second spinner; for businesses, settlement completes before checkout abandonment kicks in, and every confirmed transaction carries a portable cryptographic receipt that compliance teams verify offline.
+2. **Sub-second finality.** Mysticeti-style consensus, ~500 ms median commit finality, an 86-of-128 FALCON quorum certificate. For users, transactions confirm immediately rather than after a multi-second spinner; for businesses, settlement completes before checkout abandonment kicks in, and every confirmed transaction carries a portable cryptographic receipt that compliance teams verify offline.
 
 3. **Commodity-hardware decentralization.** Full nodes and validators awaiting committee selection run on 8 cores / 16 GB RAM. Validators on the active committee at production throughput require a 500 Mbps to 1 Gbps NIC; every committee seat carries one vote regardless of stake. Enterprises that want to verify the chain independently can do so at hardware costs measured in thousands per year, rather than the far larger monthly bills that production-grade validators on the highest-throughput chains can require.
 
@@ -158,7 +158,7 @@ Poseidon2 over the Goldilocks field is the algebraic hash everywhere a future ZK
 
 ### 5.4 Randomness Beacon
 
-Each epoch's beacon is produced by the previous epoch's committee via a threshold-signature ceremony on a known message. ≥ 85 shares combine into a deterministic aggregated signature; the hash of the signature is the beacon, 32 bytes. The beacon seeds:
+Each epoch's beacon is produced by the previous epoch's committee via a threshold-signature ceremony on a known message. ≥ 86 shares combine into a deterministic aggregated signature; the hash of the signature is the beacon, 32 bytes. The beacon seeds:
 
 - Per-round anchor selection: `anchor_member_id = Hash(beacon, round, prev_state_root) mod 128`
 - Next epoch's committee VRF picks
@@ -202,7 +202,7 @@ struct Vertex {
     round: u64,
     member_id: u32,
     batch_refs: Vec<BatchHash>,                  // hashes of batches I have
-    parent_vertex_refs: Vec<VertexHash>,         // ≥ 85 round-(N-1) hashes
+    parent_vertex_refs: Vec<VertexHash>,         // ≥ 86 round-(N-1) hashes
     state_root_sigs: Vec<StateRootSig>,          // attestations on recent commits
     prev_anchor_attestation: VertexHash,         // attestation of prior anchor
     beacon_share: BeaconShare,                   // per-member beacon contribution
@@ -216,7 +216,7 @@ Vertex size: typically ~ 830 bytes minimal, ~ 25 KB heavy (50 batches + 5 state-
 
 ### 6.4 Rounds, Anchor, and Commit
 
-Rounds are data-driven: a member ticks from round N to N + 1 once it collects ≥ 85 valid round-N parents (the slowest 43 can lag without blocking anyone). Round rate: ~ 5 to 10 rounds / sec depending on network conditions.
+Rounds are data-driven: a member ticks from round N to N + 1 once it collects ≥ 86 valid round-N parents (the slowest 42 can lag without blocking anyone). Round rate: ~ 5 to 10 rounds / sec depending on network conditions.
 
 Each round has a deterministically-selected anchor:
 
@@ -231,8 +231,8 @@ When the anchor vertex collects sufficient Mysticeti 3-stage support from later 
 3. Batches referenced by each vertex are dereferenced.
 4. For each **Reveal** transaction within those batches, the resolution pass recomputes `Blake3("pyde-commit-reveal-v1" || borsh(inner_tx) || nonce)`, matches it to the earlier commitment, refunds the bond, and slots the inner transaction for execution in the commit order the DAG already fixed. Commits whose reveal never arrived within `COMMIT_REVEAL_WINDOW_WAVES = 120` expire and forfeit their bond.
 5. wasmtime executes transactions in canonical order (revealed inner transactions in commit order).
-6. State root is computed (Blake3 + Poseidon2 dual), FALCON-signed by ≥ 85 committee members.
-7. Finality is declared once ≥ 85 state-root signatures converge.
+6. State root is computed (Blake3 + Poseidon2 dual), FALCON-signed by ≥ 86 committee members.
+7. Finality is declared once ≥ 86 state-root signatures converge.
 
 **Median end-to-end finality target: ~ 500 ms.** Validated by performance harness pre-publication.
 
@@ -248,7 +248,9 @@ When the anchor vertex collects sufficient Mysticeti 3-stage support from later 
 
 ### 6.6 BFT Properties
 
-For `n = 128`: `f = ⌊(n − 1) / 3⌋ = 42` is the maximum tolerable Byzantine count; the quorum threshold is `2f + 1 = 85`. This single number appears throughout the protocol (vertex certification, commit support, state-root sigs, beacon aggregation); consistency across uses avoids attack edges from boundary mismatches.
+For `n = 128`: `f = ⌊(n − 1) / 3⌋ = 42` is the maximum tolerable Byzantine count; the quorum threshold is `⌊(n + f) / 2⌋ + 1 = 86`. That is the smallest quorum which is strictly safe — any two quorums overlap in `2·86 − 128 = 44` members, at least 2 of them honest — while still reachable with `f` members faulty (`86 ≤ n − f`). The familiar `2f + 1` form of the threshold is the `n = 3f + 1` special case and does not apply here: `128 = 3f + 2`, and `2f + 1 = 85` would leave an intersection of exactly `42 = f`, an overlap the Byzantine members could fill entirely. The rule is the formula, not the constant, so a smaller committee derives its own quorum (`n = 7 → 5` for the launch committee).
+
+This single number appears throughout the protocol (vertex certification, commit support, state-root sigs, beacon aggregation); consistency across uses avoids attack edges from boundary mismatches. The beacon's share-combine threshold tracks the consensus quorum by construction, though the beacon is not itself a safety quorum — there is no conflicting-beacon certification for two quorums to intersect over.
 
 Safety holds under any network conditions assuming at most `f = 42` Byzantine members. Liveness holds under partial synchrony.
 
@@ -290,7 +292,7 @@ Smart contracts are authored in **any wasm32-target language** (Rust, AssemblySc
 - Reentrancy guards (`#[reentrant]`), checked arithmetic by default, custom errors and events
 - `#[view]` / `#[payable]` / `#[reentrant]` function attributes
 - Compile-time static access-list inference: for each function, the compiler emits the set of storage slots it provably touches, plus regions where access depends on runtime values
-- Block context is `block.anchor` (the wave's canonical anchor vertex), not `block.proposer`; Pyde's DAG has no single proposer, so contracts that depended on `block.proposer` on other chains do not have an analog here
+- Wave context is `wave.anchor` (the wave's canonical anchor vertex); there is no proposer field. Pyde's DAG has no single proposer, so contracts that depended on `block.proposer` on other chains do not have an analog here
 
 ### 7.3 Block-STM Parallel Scheduler
 
@@ -327,8 +329,8 @@ Commit (~500 ms median):
   13. Anchor selected; subdag walked; canonical order emitted
   14. (Commit-reveal mempool) match reveals to committed commitments; slot inner txs in commit order
   15. wasmtime executes in canonical order
-  16. State root computed, signed by ≥ 85 committee members
-  17. Finality declared on 85 state-root sigs
+  16. State root computed, signed by ≥ 86 committee members
+  17. Finality declared on 86 state-root sigs
 ```
 
 End-to-end latency: ~ 500 ms median for a plaintext transaction. A commit-reveal transaction settles over two waves (the Commit locks the order, then the Reveal in a later wave executes it), so end-to-end latency depends on how quickly the reveal is submitted (bounded by the 120-wave window).
@@ -344,9 +346,9 @@ State is stored in a Jellyfish Merkle Tree (radix-16, path-compressed), persiste
 - Same authentication properties (Merkle commitment, inclusion / exclusion proofs)
 - Production-proven (Diem, Aptos)
 
-State commitment is dual-rooted at every commit: Blake3 for fast native verification by committee and validators, Poseidon2 for future ZK light clients and validity proofs. Both roots are signed by ≥ 85 committee members.
+State commitment is dual-rooted at every commit: Blake3 for fast native verification by committee and validators, Poseidon2 for future ZK light clients and validity proofs. Both roots are signed by ≥ 86 committee members.
 
-The block witness (every state slot touched by a wave plus a single batched JMT proof against the pre-state root) has a hard 1 MB cap, rejected at verification before any proof work runs.
+The wave witness (every state slot touched by a wave plus a single batched JMT proof against the pre-state root) has a hard 1 MB cap, rejected at verification before any proof work runs.
 
 ---
 
@@ -399,7 +401,7 @@ The macro is asynchronous by construction. The originating transaction marks the
 
 ### 11.2 HardFinalityCert
 
-A FALCON quorum certificate over `(wave_id, blake3_state_root, poseidon2_state_root)`, signed by ≥ 85 of the active committee. Verification on any counterparty chain: 85 FALCON-512 verifies (~ 85 ms) plus a Merkle path, feasible on any chain with a reasonable VM. The cert's stability across the chain's lifetime is what makes parachains feasible without further protocol changes after mainnet.
+A FALCON quorum certificate over `(wave_id, blake3_state_root, poseidon2_state_root)`, signed by ≥ 86 of the active committee. Verification on any counterparty chain: 86 FALCON-512 verifies (~ 86 ms) plus a Merkle path, feasible on any chain with a reasonable VM. The cert's stability across the chain's lifetime is what makes parachains feasible without further protocol changes after mainnet.
 
 ### 11.3 Architecture vs Implementation
 
@@ -475,7 +477,7 @@ Anti-Sybil cap: max 3 validators per operator (identity-bound). Bonding: 1 epoch
 
 ### 13.3 Fee Model
 
-EIP-1559 base fee with elastic 4 × blocks; **no priority tips**. Priority would re-introduce the information asymmetry the commit-reveal mempool eliminates, so it is structurally excluded rather than zeroed by policy. Every transaction pays exactly `gas_used × base_fee`, so wallets quote a single number, not a range.
+EIP-1559 base fee with elastic 4 × waves; **no priority tips**. Priority would re-introduce the information asymmetry the commit-reveal mempool eliminates, so it is structurally excluded rather than zeroed by policy. Every transaction pays exactly `gas_used × base_fee`, so wallets quote a single number, not a range.
 
 Each transaction's base fee splits deterministically:
 
@@ -548,7 +550,7 @@ Each chain in this matrix is competently engineered by serious teams. The differ
 Pyde does not invent every wheel. The chain stands on a foundation the rest of the industry built, and the strategic claim is not that other chains are wrong, but that the time has come to integrate the field's best ideas into a single greenfield design.
 
 - **Bitcoin** invented the field. Public chain, hard rules, minimal trust assumptions: the social model everything in this document presupposes.
-- **Ethereum** invented the programmable blockchain and shaped most of the design vocabulary the field still uses: smart contracts, EVM execution semantics, the EIP process, EIP-1559, account abstraction, the entire MEV literature. Pyde adopts the EIP-1559 base-fee + elastic-block design (with the priority-tip removal the commit-reveal mempool enables) and the EIP-style off-chain governance workflow.
+- **Ethereum** invented the programmable blockchain and shaped most of the design vocabulary the field still uses: smart contracts, EVM execution semantics, the EIP process, EIP-1559, account abstraction, the entire MEV literature. Pyde adopts the EIP-1559 base-fee + elastic-capacity design (with the priority-tip removal the commit-reveal mempool enables) and the EIP-style off-chain governance workflow.
 - **Solana** proved at scale that a monolithic-binary L1 with parallel execution can deliver retail throughput, and that consensus and execution sharing one process is operationally viable. Pyde's monolithic architecture, access-list-driven scheduler, and sub-second-finality commitment are the same family of design choices Solana legitimized in production. Solana's stability work (mempool overload mitigations, consensus liveness fixes, gossipsub tuning) is the production reference for what hardening a high-throughput chain looks like.
 - **Aptos** contributed the Jellyfish Merkle Tree that Pyde adopts as its state structure, and **Block-STM as the optimistic parallel execution model Pyde adopts uniformly at v1**. Aptos's measured production numbers under Block-STM (10-30K real-world TPS sustained) are the proof point Pyde's v1 throughput target is anchored against.
 - **Sui** introduced the object-centric model as one of the cleanest expressions of ownership encoded in the transaction structure. Pyde's scheduler operates against declared access lists rather than encoded ownership, but Sui's work established that parallelism is a function of transaction format, not just scheduler implementation. Mysticeti, the consensus Pyde adopts post-pivot, was developed by the Mysten Labs team behind Sui.
@@ -599,7 +601,7 @@ This document is the technical specification of the post-pivot design. The engin
 1. **Performance harness build-out.** Multi-region production-realistic infrastructure; workload generators for the four target tx-mixes; chaos / failure injection; soak-test schedule. Pre-mainnet test slate is mandatory before any external TPS claim.
 3. **External audit programme.** Multi-track, specialist firms across consensus, the WASM execution layer integration (host-function ABI, fuel-to-gas mapping, deploy-time validator), post-quantum cryptography, networking, and the `otigen` developer toolchain. Remediate all critical and high findings; re-audit the remediation. The wasmtime runtime itself is a vetted production dependency from the Bytecode Alliance and is not separately audited.
 4. **Incentivized testnet.** Reference dApps (DEX, lending market, NFT marketplace); fully-funded bug bounty at mainnet-tier scale; a multi-month soak test; remediate community-found issues before launch.
-5. **128-validator genesis.** Recruit operators with documented hardware benchmarks and incentivized-testnet participation. Geo-distribute across 3 + regions. Sign the genesis block. Publish the chain hash.
+5. **128-validator genesis.** Recruit operators with documented hardware benchmarks and incentivized-testnet participation. Geo-distribute across 3 + regions. Sign the genesis manifest. Publish the chain hash.
 
 There is no public schedule. Mainnet ships when the audit programme passes and the incentivized testnet validates the throughput target on production-realistic infrastructure, not before. For investors, the absence of a public schedule is by design: the project prioritizes correctness over a date, and each milestone above is a gate that must close on the merits before mainnet.
 

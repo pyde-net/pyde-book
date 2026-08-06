@@ -48,9 +48,9 @@ Three lessons survived the pivot intact:
 
 ## What survived
 
-Several pieces of the HotStuff-era architecture carried forward into the current Mysticeti-based design without change:
+Several pieces of the HotStuff-era architecture carried forward into the current Mysticeti-based design, most of them without change:
 
-- The **128-validator committee size** with **85-quorum** threshold.
+- The **128-validator committee size**, and the quorum threshold with it. The HotStuff era ran an **85-quorum**; that number was later corrected to **86**, once it was clear `2f + 1` is only the right threshold when n = 3f + 1, and that at n = 128 an 85-quorum leaves zero safety margin. The committee size survived the pivot unchanged; the threshold survived as a concept and was re-derived.
 - The **FALCON-512 signature scheme** for quorum certificates.
 - The **equal-power, VRF-rotated** committee selection model.
 - The general **wave** abstraction (a periodic commit unit with an associated state root).

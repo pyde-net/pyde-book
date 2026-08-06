@@ -138,7 +138,7 @@ Fixed sizes used by the ABI:
 | Slot hash | 32 |
 | Hash output (Blake3, Poseidon2, Keccak256) | 32 |
 | u128 (balance, value, amount) | 16 |
-| u64 (block height, wave id, chain id, timestamp) | 8 |
+| u64 (wave id, chain id, timestamp) | 8 |
 | u32 (gas, length, counter) | 4 |
 
 ### 3.3 Return values
@@ -1308,7 +1308,7 @@ Gas: 80,000 base + 100 per byte.
 
 Semantics (v2+, reserved): would encrypt under a committee threshold public key,
 producing a Kyber-768 KEM envelope + ChaCha20-Poly1305 ciphertext decryptable only
-after the committee combines ≥85 shares. Not live in v1 — see the §8.5 status note.
+after the committee combines ≥86 shares. Not live in v1 — see the §8.5 status note.
 ```
 
 #### `threshold_decrypt`

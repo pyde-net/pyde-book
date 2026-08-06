@@ -15,7 +15,7 @@ things follow from that, in plain language.
 
 ### 1. Fair ordering, without a trusted relayer
 
-The order of transactions inside a block usually gets to decide who
+The order in which transactions get executed usually decides who
 profits. Whoever fixes that order can slot their own trade in front
 of yours before you ever see it land.
 

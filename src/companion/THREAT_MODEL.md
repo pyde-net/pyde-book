@@ -40,7 +40,7 @@ This is a living document. Update on new threats discovered, protocol changes, a
 | MEV resistance | Critical | Core value proposition |
 | Validator stake | High | Slashing must be fair |
 | Liveness | High | Chain stops being useful |
-| Privacy | High | Pre-reveal confidentiality promise violated |
+| Pre-reveal confidentiality | High | Pre-reveal confidentiality promise violated |
 | Cross-chain integrity | High | Bridge hacks have historically been a major loss category |
 
 ## 2. Adversary Model
@@ -81,10 +81,10 @@ This is a living document. Update on new threats discovered, protocol changes, a
 - ✅ Can equivocate (each commits slashable offense)
 - ✅ Can collude on transactions (but ordering is deterministic)
 - ❌ Cannot read commit-reveal mempool content before reveal (no key to collude on; the property is unconditional)
-- ❌ Cannot violate safety (need 85+ for any commit)
+- ❌ Cannot violate safety (need 86+ for any commit)
 - ❌ Cannot censor (other 86+ can include any transaction)
 
-**Coordinated insiders (≥85 validators, above BFT threshold):**
+**Coordinated insiders (≥86 validators, above BFT threshold):**
 - ✅ Can commit to invalid states (others detect and halt)
 - ✅ Can censor
 - ✅ Can fork the chain
@@ -104,7 +104,7 @@ This is a living document. Update on new threats discovered, protocol changes, a
 - At least one honest path exists between any two honest nodes
 
 ### Validator Behavior
-- ≥85 of 128 committee members are honest (BFT supermajority)
+- At most f = ⌊(128 − 1)/3⌋ = 42 committee members are Byzantine — equivalently, ≥86 of 128 are honest (the fault bound the 86-of-128 quorum is derived from)
 - Honest nodes follow the protocol; slashing punishes deviation
 - Validator software is correctly implemented (defense via formal methods + audits)
 
@@ -210,7 +210,7 @@ Session keys ship at v2. The threats below are catalogued now so the v2 implemen
 
 | Mitigation | Specification |
 |---|---|
-| BFT 85/128 quorum + Mysticeti-style consensus | See WHITEPAPER §5 |
+| BFT 86/128 quorum + Mysticeti-style consensus | See WHITEPAPER §5 |
 | Slashing | See SLASHING.md |
 | Keyless commit-reveal mempool + commit-before-reveal | See WHITEPAPER §5.2, §9 |
 | Anti-Sybil (operator identity binding) | See VALIDATOR_LIFECYCLE.md |
@@ -225,7 +225,7 @@ Session keys ship at v2. The threats below are catalogued now so the v2 implemen
 
 These are risks Pyde cannot fully eliminate:
 
-1. **Coordinated 85+ validator collusion**: out of BFT scope. If 85+ collude, safety can be violated. Mitigation: economic disincentives + stake distribution + operator identity cap.
+1. **Coordinated 86+ validator collusion**: out of BFT scope. If 86+ collude, they can certify a quorum on their own and safety can be violated. Mitigation: economic disincentives + stake distribution + operator identity cap.
 
 2. **Quantum compute breaking PQ primitives in <10 years**: not currently feasible to defend; PQ choice is the best available.
 

@@ -19,7 +19,7 @@
   <g filter="url(#sh)"><rect x="20" y="155" width="250" height="100" rx="14" fill="#f6f6f7" stroke="#e4e4e8" stroke-width="1.5"/></g>
   <text x="145" y="198" text-anchor="middle" font-size="18" font-weight="650" fill="#16161a">Wallet submits</text>
   <text x="145" y="222" text-anchor="middle" font-size="12.5" fill="#7a7a82">FALCON-signed; commit-reveal</text>
-  <text x="145" y="238" text-anchor="middle" font-size="12.5" fill="#7a7a82">pair for the private lane</text>
+  <text x="145" y="238" text-anchor="middle" font-size="12.5" fill="#7a7a82">pair for the commit-reveal lane</text>
 
   <g filter="url(#sh)"><rect x="310" y="155" width="250" height="100" rx="14" fill="#f6f6f7" stroke="#e4e4e8" stroke-width="1.5"/></g>
   <text x="435" y="198" text-anchor="middle" font-size="18" font-weight="650" fill="#16161a">Worker</text>
@@ -60,7 +60,7 @@
 
   <g filter="url(#sh)"><rect x="730" y="375" width="250" height="100" rx="14" fill="#16161a"/></g>
   <text x="855" y="418" text-anchor="middle" font-size="18" font-weight="650" fill="#ffffff">Finality</text>
-  <text x="855" y="442" text-anchor="middle" font-size="12.5" fill="#b6b6be">at least 85 of 128 state-root</text>
+  <text x="855" y="442" text-anchor="middle" font-size="12.5" fill="#b6b6be">at least 86 of 128 state-root</text>
   <text x="855" y="458" text-anchor="middle" font-size="12.5" fill="#b6b6be">FALCON signatures</text>
 
   <!-- callout -->

@@ -21,7 +21,7 @@ This document specifies all slashable offenses, detection mechanisms, slash amou
 |---|---|---|---|---|---|
 | 1 | Equivocation (vertex): two different vertices for same (round, member_id) | **10%** | 50% | 1 epoch | 50% burn / 30% treasury / 20% reporter |
 | 2 | Bad state-root signature: two contradictory state roots for same commit | **10%** | 50% | 1 epoch | Same as above |
-| 3 | Bad anchor attestation: vertex's prev_anchor_attestation contradicts 85+ honest majority | **5%** | 20% | 1 epoch | Same as above |
+| 3 | Bad anchor attestation: vertex's prev_anchor_attestation contradicts 86+ honest majority | **5%** | 20% | 1 epoch | Same as above |
 | 4 | Invalid vertex structure: parent refs out of order, refs to non-existent batches | **5%** | 30% | 1 epoch | 100% burn |
 
 ### Liveness Offenses (Auto-Detected, Graduated)
@@ -183,10 +183,10 @@ Slashing applies during BOTH bonded and unbonding states. After withdrawal (past
 
 ### 1. Network Partition
 
-If >43 validators go offline simultaneously due to network split:
-- Downtime slashing PAUSES (auto-detected by protocol: committee active count < 85 → liveness mode)
-- Resumes once active count ≥ 85
-- Prevents punishing the 85+ honest majority while 43+ are partitioned
+If >42 validators go offline simultaneously due to network split:
+- Downtime slashing PAUSES (auto-detected by protocol: committee active count < 86, the quorum the chain needs to commit → liveness mode)
+- Resumes once active count ≥ 86
+- Prevents punishing the honest members still online while 43+ are partitioned
 
 ### 2. Key Compromise
 

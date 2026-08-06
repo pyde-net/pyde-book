@@ -46,7 +46,7 @@ Pyde mainnet ships with:
 
 - Post-quantum cryptography: FALCON signatures, Poseidon2 + Blake3 hashing.
 - Fair ordering via the keyless commit-reveal mempool: commit order is fixed by the DAG before content is revealed; no committee decryption key.
-- Mysticeti-style consensus with sub-second median commit and 85-of-128 FALCON quorum certificates.
+- Mysticeti-style consensus with sub-second median commit and 86-of-128 FALCON quorum certificates.
 - WASM execution via wasmtime + Cranelift AOT, with the host-function ABI v1.0.
 - JMT state with dual-hash (Blake3 + Poseidon2) per node, PIP-2 clustered keys, PIP-3 prefetch, PIP-4 write-back cache.
 - libp2p + QUIC + Gossipsub networking with bootstrap-based peer discovery (no DHT).

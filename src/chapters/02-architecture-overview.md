@@ -62,7 +62,7 @@ Workers can be scaled independently of the primary. A validator with high incomi
 Pyde's consensus is a Mysticeti-style DAG protocol. Every round (~150ms), each committee member's primary produces exactly one vertex. The vertex contains:
 
 - Batch hashes (data layer references)
-- 85+ parent vertex hashes (consensus structure, from prior round)
+- 86+ parent vertex hashes (consensus structure, from prior round)
 - State root signatures (attestations on recent commits)
 - Anchor attestation (prior round's anchor vertex hash)
 - FALCON signature
@@ -88,7 +88,7 @@ After consensus commits a wave (canonical ordered transactions), the execution l
 4. **wasmtime executes** each tx with Cranelift AOT and fuel-based gas metering. Smart contracts compile from Rust, AssemblyScript, Go, or C/C++ to WASM.
 5. **State root computed**: dual-hash (Blake3 + Poseidon2) per JMT node
 6. **Committee FALCON-signs state root** (piggybacked on next vertices)
-7. **Finality** when ≥85 state root signatures collected
+7. **Finality** when ≥86 state root signatures collected
 
 ## State: Jellyfish Merkle Tree
 
@@ -148,7 +148,7 @@ Accounts hold:
 
 ![The life of a transaction, from wallet submission through worker batching, a DAG vertex, wave commit, parallel execution, and the dual-hash state root to finality.](../assets/diagrams/ch02-tx-lifecycle.svg)
 
-*The end-to-end life of a transaction: worker batching, a DAG vertex referencing batches by hash, a wave commit fixing canonical order, Block-STM parallel execution, a dual-hash state root, and finality at 85 of 128 committee signatures.*
+*The end-to-end life of a transaction: worker batching, a DAG vertex referencing batches by hash, a wave commit fixing canonical order, Block-STM parallel execution, a dual-hash state root, and finality at 86 of 128 committee signatures.*
 
 ```
 1. Wallet constructs tx
@@ -164,7 +164,7 @@ Accounts hold:
 11. (Commit-reveal mempool) revealed inner txs are spliced into their commit order during the resolution pass (Chapter 9)
 12. wasmtime executes WASM modules in canonical order
 13. JMT updates (dual-hash per node), state root signed
-14. Finality declared (≥85 state root sigs)
+14. Finality declared (≥86 state root sigs)
 ```
 
 ## Cross-Chain and Off-Chain (Post-Mainnet)

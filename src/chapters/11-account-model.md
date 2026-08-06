@@ -49,7 +49,7 @@ the leaf value.
 | `nonce`        | per-tx (window slides forward)          |
 | `balance`      | per-tx                                   |
 | `code_hash`    | set once at deploy; never changes        |
-| `storage_root` | every block that mutates the contract    |
+| `storage_root` | every wave that mutates the contract     |
 | `account_type` | immutable                               |
 | `auth_keys`    | rotatable (increments `key_nonce`)       |
 | `gas_tank`     | deposit by anyone; withdraw by owner     |
@@ -543,7 +543,7 @@ type).
 | 8   | `SweepAirdrop`    | Move unclaimed airdrop residue to treasury (post-deadline)  |
 | 9   | `MultisigTx`      | Treasury spend with multisig signatures                     |
 | 10  | `RotateMultisig`  | Rotate multisig signer set + threshold                      |
-| 11  | `EmergencyPause`  | Halt block production (multisig-signed)                     |
+| 11  | `EmergencyPause`  | Halt wave production (multisig-signed)                      |
 | 12  | `EmergencyResume` | Resume normal processing (multisig-signed, clears pause)    |
 | 13  | `RegisterPubkey`  | First-time pubkey registration for a funded-but-unregistered account. No signature, no gas, no value: proof of pubkey ownership is the address-derivation check (only the keypair holder can produce a pubkey that hashes to a given address). Allowed only when `balance > 0` and `auth_keys == AuthKeys::None`. After execution, `auth_keys = AuthKeys::Single(tx.data)` and the account can sign normal txs. |
 
@@ -646,7 +646,7 @@ There is no separate "account trie" + "storage trie" indirection. One root,
 one path, one proof.
 
 Light clients use this property to verify state without storing the full
-chain: they need block headers and on-demand JMT proofs from full nodes.
+chain: they need wave headers and on-demand JMT proofs from full nodes.
 
 ---
 
@@ -661,7 +661,7 @@ Step 1 — Wallet builds tx
   gas_limit:   150,000
   nonce:       42 (within Alice's nonce window)
   fee_payer:   GasTank          <- DEX contract pays
-  deadline:    block 2,000,025  (10 sec from now)
+  deadline:    wave 2,000,025   (10 sec from now)
   chain_id:    1
   tx_type:     Standard
   signature:   FALCON-512(Alice's sk, hash of all fields)
@@ -714,7 +714,7 @@ Step 9 — State writeback
   debited.  Alice's nonce 42 marked used; window slides if 40, 41 also used.
 
 Step 10 — Finality (state root attestation, ~500 ms median end-to-end)
-  85+ FALCON state-root sigs piggybacked on subsequent vertices.
+  86+ FALCON state-root sigs piggybacked on subsequent vertices.
 
 Step 11 — Receipt
   pyde_getTransactionReceipt returns success, gas_used, logs, fee_paid.

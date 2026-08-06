@@ -53,7 +53,7 @@ The WebAssembly core specification defines exactly five value types that can app
 | WASM value type | Bits | What it represents |
 |---|---|---|
 | `i32` | 32 | Signed or unsigned 32-bit integer. **Also serves as the type for linear-memory pointers** since Pyde uses the `wasm32` address space. |
-| `i64` | 64 | Signed or unsigned 64-bit integer. Used for gas budgets, timestamps, block heights, the low/high halves of `u128`. |
+| `i64` | 64 | Signed or unsigned 64-bit integer. Used for gas budgets, timestamps, wave ids, the low/high halves of `u128`. |
 | `f32` | 32 | IEEE-754 single-precision float. *Discouraged in contracts*: floating-point determinism across NaN encodings is fragile. |
 | `f64` | 64 | IEEE-754 double-precision float. *Discouraged in contracts*: same caveat. |
 | `v128` | 128 | SIMD vector. **Disabled in Pyde** (`config.wasm_simd(false)` per [Chapter 3 §3.2](../chapters/03-virtual-machine.md)). |
@@ -315,7 +315,7 @@ If the host's data exceeds the caller's capacity, the spec defines the behavior 
 All multi-byte integers crossing the boundary are **little-endian**, matching the WASM linear-memory native byte order (HOST_FN_ABI_SPEC §3.2). This applies to:
 
 - The 16 bytes of a `u128` value
-- The 8 bytes of a `u64` block height or timestamp
+- The 8 bytes of a `u64` wave id or timestamp
 - The 4 bytes of an `i32` length written via `out_len_ptr`
 
 Big-endian encoding would require the host to byte-swap on every read/write: wasted cycles for no portability benefit, since the only consumer is the wasmtime instance that already speaks little-endian.
@@ -328,7 +328,7 @@ Big-endian encoding would require the host to byte-swap on every read/write: was
 | Slot hash | 32 | Raw bytes |
 | Hash output (Blake3, Poseidon2, Keccak256) | 32 | Raw bytes |
 | `u128` (balance, value, amount) | 16 | Little-endian |
-| `u64` (block height, wave id, chain id, timestamp) | 8 | Little-endian |
+| `u64` (wave id, chain id, timestamp) | 8 | Little-endian |
 | `u32` (gas, length, counter) | 4 | Little-endian |
 
 ---
@@ -1110,7 +1110,7 @@ When a primary contract calls `pyde::cross_call(target, fn_name, calldata, value
 3. **Value transfer.** The `value` parameter debits the caller's native-PYDE balance and credits the target's. Inside the callee, `tx_value()` returns the same `value`. The transfer happens in the parent's frame, so even if the sub-call reverts (and the runner snapshots state), the transfer rolls back too.
 4. **Revert rollback.** Sub-call trap (revert / unreachable / out-of-fuel / etc.) does NOT propagate to the parent. Instead the host fn returns `ERR_CROSS_CALL_FAILED = -10` and rolls back all of the sub-call's storage / balance / event mutations. The parent observes the rc and decides whether to handle the failure or revert further.
 
-The four invariants land cleanly in any caller / callee pair where the caller drives a `cross_call` into the callee. `fungible-token` (transfer paths) and `upgradeable-proxy` (`delegate_call`) ship as the canonical reference templates that exercise the storage-namespace + caller-shift + value-transfer + revert-rollback rules end-to-end. The proxy's `forward(fn, calldata)` dispatcher is the readable cross-contract harness; the ERC-20 transfer is the readable payable + state-mutation harness. Read them side-by-side as a calibration point for any cross-contract design.
+The four invariants land cleanly in any caller / callee pair where the caller drives a `cross_call` into the callee. `fungible-token` (transfer paths) and `upgradeable-proxy` (`delegate_call`) ship as the canonical reference templates that exercise the storage-namespace + caller-shift + value-transfer + revert-rollback rules end-to-end. The proxy's `forward(fn, calldata)` dispatcher is the readable cross-contract harness; the `fungible-token` transfer is the readable payable + state-mutation harness. Read them side-by-side as a calibration point for any cross-contract design.
 
 #### Sub-call dispatch convention
 
@@ -1489,7 +1489,7 @@ The simplest sound encoding: pack each level as a 33-byte step, `[position_byte]
 Two common alternatives, and why I'd avoid them:
 
 - **Sorted-pair hashing** (OpenZeppelin's default): hash `(min(a, b), max(a, b))` at each level so the position bit isn't needed. Saves a byte per level but lets attackers permute proofs: there's only one valid hash for any `(a, b)` regardless of which side `a` lives on. Easier to forge if the tree-builder later changes orderings; harder to extend with auxiliary metadata.
-- **Bit-packed positions**: stash all the position bits in a single 4-byte prefix, then sibling-array. Saves `depth - 4` bytes (negligible at depth 10) at the cost of a manual bit-unpacking loop. Pick this only if proof size genuinely matters (block-space-sensitive proofs, on-chain *every* tx).
+- **Bit-packed positions**: stash all the position bits in a single 4-byte prefix, then sibling-array. Saves `depth - 4` bytes (negligible at depth 10) at the cost of a manual bit-unpacking loop. Pick this only if proof size genuinely matters (space-sensitive proofs, on-chain *every* tx).
 
 Stick with the byte-per-step encoding unless you have a concrete reason not to.
 
@@ -2153,7 +2153,7 @@ Run `otigen test -v` and watch stderr for `[debug] <fn>: alice_balance=100`. Str
 - [WebAssembly Core Specification](https://webassembly.github.io/spec/core/): the upstream WASM spec for value types, linear memory, instruction semantics.
 - **Examples catalog**: [`pyde-book/otigen/examples`](../otigen/examples.md), a full table of every canonical example with what each demonstrates, host fns exercised, and per-language test counts.
 - [`otigen/examples/counter`](https://github.com/pyde-net/otigen/tree/main/examples/counter): the canonical minimal-viable Rust template demonstrating §2.3, §6.1, §6.2 patterns end-to-end. Per-language `counter-{go,as,c}` siblings live under [`examples/`](https://github.com/pyde-net/otigen/tree/main/examples) and run the same TOML test suite against each port; the four ports stay aligned by hand (no shared scaffold today).
-- [`otigen/examples/fungible-token`](https://github.com/pyde-net/otigen/tree/main/examples/fungible-token): full ERC20-style fungible token on the macro substrate. Canonical real-contract reference: exercises typed-arg marshalling (`address` / `uint128`) via `#[pyde::entry]`, three storage layouts (scalar / mapping / composite-key) via `pyde::declare_storage!()`, multi-topic events via `pyde::declare_events!()`, and the `transfer_from` allowance flow.
+- [`otigen/examples/fungible-token`](https://github.com/pyde-net/otigen/tree/main/examples/fungible-token): full `pts-f/1` fungible token on the macro substrate. Canonical real-contract reference: exercises typed-arg marshalling (`address` / `uint128`) via `#[pyde::entry]`, three storage layouts (scalar / mapping / composite-key) via `pyde::declare_storage!()`, multi-topic events via `pyde::declare_events!()`, and the `transfer_from` allowance flow.
 - [`otigen/examples/simple-multisig`](https://github.com/pyde-net/otigen/tree/main/examples/simple-multisig): 3-signer FALCON-512 multisig (§9 canonical example).
 - [`otigen/examples/upgradeable-proxy`](https://github.com/pyde-net/otigen/tree/main/examples/upgradeable-proxy): upgradeable proxy via `delegate_call` (§10 canonical example).
 - [`otigen/examples/merkle-claim-airdrop`](https://github.com/pyde-net/otigen/tree/main/examples/merkle-claim-airdrop): Merkle-tree airdrop claim with `hash_blake3` host fn (§11 canonical example).

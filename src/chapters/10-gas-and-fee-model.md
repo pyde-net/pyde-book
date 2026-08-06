@@ -5,12 +5,12 @@
 *A fee's full path: wasmtime fuel meters execution, the per-wave base fee prices it, and every fee splits 30/50/20 across burn, rewards, and treasury.*
 
 Pyde meters every operation in **gas**. The economic model on top of gas is
-EIP-1559 with 4× elastic blocks, deterministic 30/50/20 fee distribution,
+EIP-1559 with 4× elastic waves, deterministic 30/50/20 fee distribution,
 and no priority fees. There is no tip field, no builder/proposer separation,
 no bidding war for inclusion order.
 
 This chapter covers the full model: gas costs per opcode, the EIP-1559 base
-fee math, elastic block sizing, the 30/50/20 split, sponsored transactions
+fee math, elastic wave sizing, the 30/50/20 split, sponsored transactions
 through gas tanks, and the calldata/tx size limits.
 
 ---
@@ -86,18 +86,18 @@ Should ZK proving land later, the second dimension can be re-introduced as a sep
 
 ## 10.2 EIP-1559 Base Fee
 
-Pyde's base fee adjusts every block by up to 12.5% in either direction
-based on whether the previous block exceeded or fell below the gas target.
+Pyde's base fee adjusts every wave by up to 12.5% in either direction
+based on whether the previous wave exceeded or fell below the gas target.
 
 ### Constants (`crates/tx/src/fee.rs`)
 
 | Constant              | Value                          | Meaning                            |
 | --------------------- | ------------------------------ | ---------------------------------- |
 | `GAS_TARGET`          | 400,000,000                    | 50% of the elastic ceiling         |
-| `GAS_CEILING`         | 1,600,000,000                  | 4× target; hard block ceiling      |
+| `GAS_CEILING`         | 1,600,000,000                  | 4× target; hard wave ceiling       |
 | `GENESIS_BASE_FEE`    | 50,000,000,000 quanta          | Initial value at genesis           |
 | `MIN_BASE_FEE`        | 1                              | Floor; cannot drop to zero         |
-| `ADJUSTMENT_DIVISOR`  | 8                              | 1/8 = 12.5% max change per block   |
+| `ADJUSTMENT_DIVISOR`  | 8                              | 1/8 = 12.5% max change per wave    |
 
 ### Adjustment formula
 
@@ -119,20 +119,20 @@ fn adjust_base_fee(parent_base_fee: u128, parent_gas_used: u64) -> u128 {
 
 Properties:
 
-- **Proportional adjustment.** The change scales with how far the block
-  deviated from target. A block at 75% target produces a smaller bump than
+- **Proportional adjustment.** The change scales with how far the wave
+  deviated from target. A wave at 75% target produces a smaller bump than
   one at 100% target.
-- **Capped at ±12.5% per block.** No oracle, no governance vote.
+- **Capped at ±12.5% per wave.** No oracle, no governance vote.
 - **Bounded below by `MIN_BASE_FEE`.** Cannot reach zero.
-- **Minimum increase of 1 quanta.** Even at very low fees, a busy block
+- **Minimum increase of 1 quanta.** Even at very low fees, a busy wave
   bumps the fee at least one quanta.
 
 ### Convergence at ~500 ms commits
 
 Mysticeti DAG produces a commit every ~500 ms median (Chapter 6).
-Each commit is the unit at which the base fee is recomputed (`block` and
-`commit` are interchangeable here; Pyde collapses both concepts
-since the DAG commits at per-commit granularity).
+Each wave is the unit at which the base fee is recomputed. The DAG commits at
+per-wave granularity, so "wave" and "commit" name the same boundary. Pyde has
+no block: wherever another chain would say "block", Pyde means the wave.
 
 | Scenario                    | Time to 2× the fee         |
 | --------------------------- | -------------------------- |
@@ -144,18 +144,17 @@ Equilibrium under fluctuating demand sits around 50% of the gas target.
 
 ---
 
-## 10.3 Elastic Blocks
+## 10.3 Elastic Waves
 
-Pyde blocks have two gas limits:
+Pyde waves have two gas limits:
 
 | Limit             | Value (gas)        | Role                                  |
 | ----------------- | ------------------ | ------------------------------------- |
-| Target            | 400,000,000        | "Normal" block fullness               |
+| Target            | 400,000,000        | "Normal" wave fullness                |
 | Hard ceiling (4×) | 1,600,000,000      | Cannot exceed even under congestion   |
 
-Block builders can pack up to `4 × GAS_TARGET = 1.6B` gas into a single
-block. When they exceed the target, the base fee for the next block rises
-proportionally.
+A single wave can carry up to `4 × GAS_TARGET = 1.6B` gas. When a wave exceeds
+the target, the base fee for the next wave rises proportionally.
 
 ```
 Gas usage during a congestion spike:
@@ -170,21 +169,21 @@ target┤----+                 +---+----  target line
       │   /                       \
    1× ┤  /                         +-...
       │
-      +---------------------------------------> blocks
+      +---------------------------------------> waves
                 spike      decay
         base fee rises ~2x         then settles
 ```
 
 ### Why 4× and not higher
 
-- **Validator memory.** A 4× block has up to 4× more transactions to buffer
+- **Validator memory.** A 4× wave has up to 4× more transactions to buffer
   and execute. The per-validator memory ceiling caps how high this
   can safely go on commodity hardware.
 - **Reveal-resolution + voting timing.** A 4× wave's commit-reveal mempool
   reveal-resolution pass (re-executing revealed inner transactions in
   deterministic commit order) takes longer; the commit timing budget
   assumes the worst case fits.
-- **State growth.** Larger blocks drive faster state growth. The 4× ceiling
+- **State growth.** Larger waves drive faster state growth. The 4× ceiling
   bounds worst-case growth by the same factor.
 
 ### Gas-bound throughput ceiling
@@ -194,11 +193,11 @@ At 2 commits/sec (~500 ms commit), `GAS_TARGET = 400M`, `GAS_CEILING = 1.6B`:
 | Workload                | Gas/tx  | Relative gas-bound ceiling | Realistic v1 (committee-bound) |
 | ----------------------- | ------- | -------------------------- | ------------------------------ |
 | Simple transfer         | 21,000  | Highest                    | awaiting harness |
-| Token transfer (ERC-20) | 65,000  | Moderate                   | awaiting harness |
+| Token transfer (pts-f/1)| 65,000  | Moderate                   | awaiting harness |
 | DEX swap                | 200,000 | Lowest                     | awaiting harness |
 
 **Honest v1 numbers.** The gas-bound ceiling above is a mechanical cap
-(block gas budget ÷ gas-per-tx), assuming committee hardware fully
+(wave gas budget ÷ gas-per-tx), assuming committee hardware fully
 saturates execution. In practice, the v1 honest throughput
 target (to be established by the multi-region performance harness) is set on
 commodity committee hardware (500 Mbps NIC, 32-core, 64 GB). Higher numbers
@@ -346,7 +345,7 @@ Treasury:    367,500 micro-PYDE
 
 ### Low-demand scenario
 
-If sustained empty blocks have driven the base fee to half normal:
+If sustained empty waves have driven the base fee to half normal:
 
 ```
 base_fee = 25,000,000,000 quanta
@@ -485,7 +484,7 @@ The transaction validator
 | Limit             | Value      | Constant                   |
 | ----------------- | ---------- | -------------------------- |
 | Min gas limit     | 21,000     | `MIN_GAS_LIMIT`            |
-| Max gas per block | 1.6B       | `BLOCK_GAS_MAX`            |
+| Max gas per wave  | 1.6B       | `WAVE_GAS_MAX`             |
 | Max tx size       | 128 KB     | `MAX_TX_SIZE`              |
 | Max calldata size | 64 KB      | `MAX_CALLDATA`             |
 
@@ -522,7 +521,7 @@ state and returns the predicted gas consumption.
 
 Wallets typically multiply the estimate by ~1.10 to absorb state changes
 between estimation and inclusion. Because base fee can move at most ±12.5%
-per block, the inclusion-time fee is bounded relative to the
+per wave, the inclusion-time fee is bounded relative to the
 estimation-time fee.
 
 `pyde_call` runs read-only simulation without state mutation;
@@ -539,9 +538,9 @@ access list.
 | ------------------------ | --------------------------- | --------------------------------- |
 | Gas dimensions           | 1                           | 1                                 |
 | Base fee mechanism       | Algorithmic (EIP-1559)      | Algorithmic (EIP-1559)            |
-| Max base-fee change/block| ±12.5%                      | ±12.5%                            |
+| Max base-fee change/unit | ±12.5% (per block)          | ±12.5% (per wave)                 |
 | Priority fee / tip       | Yes                         | No                                |
-| Block elasticity         | 2× (15M target / 30M max)   | 4× (400M target / 1.6B max)       |
+| Elasticity               | 2× (15M target / 30M max)   | 4× (400M target / 1.6B max)       |
 | Fee burn                 | 100% of base fee            | 30% of total fee                  |
 | Validator share          | Tips only                   | 50% of total fee (no tip)         |
 | Treasury share           | None                        | 20% of total fee                  |
@@ -582,11 +581,10 @@ struct CommitHeader {
 }
 ```
 
-(The web3-compatibility RPC methods `pyde_getBlockByNumber` /
-`pyde_getBlockByHash` return a representation of this header, since
-external tooling expects "block" terminology.)
+(`pyde_getWave` returns a representation of this header. Pyde ships no
+block-named RPC aliases.)
 
-The base fee for block `N+1` is computed from block `N`'s header by
+The base fee for wave `N+1` is computed from wave `N`'s header by
 `adjust_base_fee()`, so every honest node arrives at the same value.
 
 ---
@@ -596,7 +594,7 @@ The base fee for block `N+1` is computed from block `N`'s header by
 | Property                  | Value                                           |
 | ------------------------- | ----------------------------------------------- |
 | Gas dimensions            | 1 (single counter)                              |
-| Base fee mechanism        | EIP-1559, ±12.5% per block adjustment           |
+| Base fee mechanism        | EIP-1559, ±12.5% per wave adjustment            |
 | Genesis base fee          | 50,000,000,000 quanta                            |
 | Gas target                | 400,000,000 (50% of ceiling)                    |
 | Gas ceiling               | 1,600,000,000 (4× target; elastic max)          |

@@ -17,7 +17,7 @@ The HotStuff lesson made operational: explicit halt detection → investigation 
 ### Soft Stall (Automatic)
 
 - No commit for > 5 rounds (~1s expected, so 5s threshold)
-- <85 vertices certified for last K rounds
+- <86 vertices certified for last K rounds
 - Active committee count drops below safety threshold (86)
 
 **Response:** Validators enter "stall mode": produce vertices, wait for
@@ -85,7 +85,7 @@ Phase 3: Recovery Plan (within 24-72 hours)
 ### 1. Wait It Out (Soft Stalls)
 
 - Network/validator issues resolve naturally
-- 85+ validators come back online
+- 86+ validators come back online
 - Quorum forms, commits resume
 - No intervention needed
 - Typical: <30 minutes; >1 hour escalates
@@ -161,7 +161,7 @@ This is industry standard pattern (Solana de facto, Ethereum has emergency rollb
 
 ### Scenario B: 43+ Committee Offline Simultaneously
 
-- Detection: <85 quorum cannot form
+- Detection: fewer than 86 active, quorum cannot form
 - Action: soft stall
 - Investigation: coordinated (attack) or correlated (datacenter outage)?
 - Recovery: correlated → wait; coordinated → governance emergency halt to remove

@@ -44,9 +44,9 @@ Polkadot. It gives Pyde:
 | Connection migration   | not supported            | supported (connection IDs)    |
 | Mandatory encryption   | optional (TLS)          | always (TLS 1.3 in handshake) |
 
-Per-stream independence matters most when block propagation (large) and
+Per-stream independence matters most when wave propagation (large) and
 consensus votes (latency-critical) share the same QUIC connection. A single
-lost packet on the block stream does not stall the vote stream.
+lost packet on the wave stream does not stall the vote stream.
 
 The libp2p config is set up in `crates/net/src/node.rs` via
 `SwarmBuilder::with_quic()`.
@@ -79,7 +79,7 @@ type. Pyde splits traffic into four channels, each tuned for its workload.
 |                          Pyde Node                            |
 |                                                               |
 |  +-------------+ +-------------+ +-------------+ +----------+  |
-|  | Consensus   | | Transactions| | Blocks      | | Sync     |  |
+|  | Consensus   | | Transactions| | Waves       | | Sync     |  |
 |  | gossip      | | gossip      | | gossip      | | req/resp |  |
 |  +------+------+ +------+------+ +------+------+ +----+-----+  |
 |         |               |               |             |        |
@@ -160,8 +160,7 @@ The fix (commit 2018b17) was twofold:
 The combination raised sustained TPS from ~1K to ~4K on the same testnet
 hardware. There is also a paired change in the wave executor that skips
 redundant per-tx FALCON verification when the wave-level batched verify
-already passed (`block_sigs_pre_verified` flag in `WaveContext`), for
-roughly a 70% reduction in wave-execution CPU.
+already passed, for roughly a 70% reduction in wave-execution CPU.
 
 ---
 
@@ -265,7 +264,7 @@ dns_seed = "seed.pyde.network"
 
 Each committee validator's `(falcon_pubkey, peer_id, multiaddr)` is on
 chain in the validator-registry account, updated when a validator joins
-the committee. A new node fetching the genesis block (or any later state
+the committee. A new node fetching the genesis manifest (or any later state
 snapshot) has the complete committee directory: no DHT lookup required.
 
 ### Peer exchange (PEX)
@@ -419,7 +418,7 @@ These are well within commodity hosting tiers: no datacenter requirement.
 
 - **Transaction batching** within gossipsub (configurable batch + 50 ms
   flush window).
-- **Compact blocks** for large block bodies: short tx IDs (6 bytes of
+- **Compact waves** for large wave bodies: short tx IDs (6 bytes of
   Poseidon2 hash) instead of full tx hashes (32 bytes).
 - **LZ4 / Snappy compression** on gossip payloads (~60% reduction on
   transaction batches).
@@ -465,7 +464,7 @@ Every node exposes a Prometheus endpoint with at minimum:
 | `pyde_gossip_messages_sent`         | counter | Messages sent per topic              |
 | `pyde_bandwidth_inbound_bytes`      | counter | Total inbound bytes                  |
 | `pyde_bandwidth_outbound_bytes`     | counter | Total outbound bytes                 |
-| `pyde_block_propagation_time_ms`    | histo   | Time from propose to receipt         |
+| `pyde_wave_propagation_time_ms`     | histo   | Time from propose to receipt         |
 | `pyde_consensus_msg_latency_ms`     | histo   | Round-trip on consensus channel      |
 | `pyde_dht_routing_table_size`       | gauge   | Kademlia routing table entries       |
 | `pyde_falcon_handshakes_completed`  | counter | Successful peer handshakes            |

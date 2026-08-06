@@ -119,7 +119,7 @@ Layer 2: DAG COMMIT-BEFORE-REVEAL ORDERING
       readable, so there is nothing to reorder once content appears.
 
 Layer 3: STRUCTURAL INCLUSION (DAG)
-    - Every vertex from round R includes references to >= 85 parent
+    - Every vertex from round R includes references to >= 86 parent
       vertices from round R-1. A tx introduced into the DAG via any
       honest member's batch is committed once any committed anchor
       references the path containing it.
@@ -339,10 +339,13 @@ the local-view mandatory-inclusion check. Under Mysticeti DAG, there is
 round, each vertex references batches from any worker the producer
 gossiped with, and every committed wave traverses the entire subdag.
 
-For a transaction to be censored, **a coalition of ≥ 44 validators**
-(equivocation threshold = `n - 2f = 128 - 84 = 44`) must all refuse to
-reference the batch containing it. Below that threshold, ≥ 85 honest
-vertices reference it and it lands in some committed subdag. This applies
+For a transaction to be censored, every member of the committed subdag's
+support set must refuse to reference the batch containing it. That support
+set is ≥ 86 of the 128 members, so the refusing coalition would have to
+contain all of them — **≥ 86 colluding validators**, more than double the
+Byzantine bound of `f = 42`. Below that, the support set and the
+referencing vertices necessarily overlap and the tx lands in some
+committed subdag. This applies
 equally to Commits and Reveals: an adversary cannot censor a reveal to
 force a victim's bond to expire without a coalition-scale, visible attack.
 
@@ -483,7 +486,7 @@ Step 6 - EXECUTION (Block-STM)
 Step 7 - STATE ROOT ATTESTATION
   - Each committee member FALCON-signs (wave_id, blake3_state_root, poseidon2_state_root).
   - Sigs piggyback on subsequent vertices.
-  - ≥ 85 sigs -> finality.
+  - ≥ 86 sigs -> finality.
 
 Step 8 - RECEIPT
   - Receipt available via pyde_getTransactionReceipt for the revealed

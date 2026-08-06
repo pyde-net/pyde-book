@@ -41,7 +41,7 @@
     <line x1="770" y1="435" x2="828" y2="435" marker-end="url(#ar)"/>
   </g>
   <text x="399" y="418" text-anchor="middle" font-size="12" fill="#9a9aa2">sigs ride next vertices</text>
-  <text x="799" y="418" text-anchor="middle" font-size="12" fill="#9a9aa2">same root, 85 times</text>
+  <text x="799" y="418" text-anchor="middle" font-size="12" fill="#9a9aa2">same root, 86 times</text>
 
   <!-- row 2 -->
   <g filter="url(#sh)"><rect x="70" y="385" width="300" height="100" rx="14" fill="#f6f6f7" stroke="#e4e4e8" stroke-width="1.5"/></g>
@@ -51,7 +51,7 @@
 
   <g filter="url(#sh)"><rect x="430" y="385" width="340" height="100" rx="14" fill="#16161a"/></g>
   <text x="600" y="428" text-anchor="middle" font-size="18" font-weight="650" fill="#ffffff">Quorum certification</text>
-  <text x="600" y="452" text-anchor="middle" font-size="12.5" fill="#b6b6be">at least 85 of 128 members</text>
+  <text x="600" y="452" text-anchor="middle" font-size="12.5" fill="#b6b6be">at least 86 of 128 members</text>
   <text x="600" y="468" text-anchor="middle" font-size="12.5" fill="#b6b6be">FALCON-sign the state root</text>
 
   <g filter="url(#sh)"><rect x="830" y="385" width="300" height="100" rx="14" fill="#f6f6f7" stroke="#e4e4e8" stroke-width="1.5"/></g>
@@ -61,5 +61,5 @@
 
   <!-- callout -->
   <rect x="150" y="540" width="900" height="52" rx="15" fill="#fafafa" stroke="#ececf0" stroke-width="1.5"/>
-  <text x="600" y="573" text-anchor="middle" font-size="16" font-weight="600" fill="#2a2a30">One quorum everywhere: 85 of 128 (f = 42) gates certification, commit support, state roots, and the beacon alike.</text>
+  <text x="600" y="573" text-anchor="middle" font-size="16" font-weight="600" fill="#2a2a30">One quorum everywhere: 86 of 128 (f = 42) gates certification, commit support, and state roots.</text>
 </svg>

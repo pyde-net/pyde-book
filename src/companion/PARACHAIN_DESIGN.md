@@ -16,7 +16,7 @@ callback model that `parachain_call` extends, and the
 marked **open** are named as unresolved rather than pretended solved.
 
 > Revision note (0.2 to 0.3): parachains no longer stand up their own
-> consensus or produce their own blocks. A parachain's validators
+> consensus or produce their own waves. A parachain's validators
 > stake PYDE and attest into Pyde's security: results carry the
 > parachain's per-member aggregated FALCON attestation and post to
 > Pyde as ordinary transactions of a dedicated result type, ordered in
@@ -501,7 +501,7 @@ The parachain contract stays in the deterministic WASM subset (no
 floats outside canonical NaN, no threads, no non-deterministic SIMD,
 no mutable globals), which keeps it amenable to future zk-WASM
 proving. Bridge-capability parachains additionally benefit from
-ZK-aggregated FALCON verification (one proof instead of 85 verifies
+ZK-aggregated FALCON verification (one proof instead of 86 verifies
 per finality cert on the counterparty side). Both are tracked
 post-layer work.
 

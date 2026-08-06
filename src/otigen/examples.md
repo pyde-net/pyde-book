@@ -6,7 +6,7 @@ The fastest way to start a new contract is to clone one of the canonical templat
 otigen new my-contract --from <template-name>
 ```
 
-The eight templates `otigen new --list` exposes are the curated entry points: each one demonstrates a concrete pattern with a working `[state]` schema, host-fn usage, and (where applicable) a TOML test suite. Beyond the eight, the [`otigen/examples/`](https://github.com/pyde-net/otigen/tree/main/examples) directory carries additional reference contracts that aren't yet promoted to first-class scaffold templates. Clone them with `git` if you want to study them.
+The eleven templates `otigen new --list` exposes are the curated entry points: each one demonstrates a concrete pattern with a working `[state]` schema, host-fn usage, and (where applicable) a TOML test suite. Beyond those eleven, the [`otigen/examples/`](https://github.com/pyde-net/otigen/tree/main/examples) directory carries additional reference contracts that aren't yet promoted to first-class scaffold templates. Clone them with `git` if you want to study them.
 
 ---
 
@@ -17,6 +17,8 @@ What `otigen new --list` returns today, with honest status:
 | Template | Status | What it demonstrates |
 | --- | :--- | --- |
 | [`counter`](https://github.com/pyde-net/otigen/tree/main/examples/counter-rust) | ✅ builds, 3/3 tests green | Minimum viable contract: single `u64` counter via `pyde::declare_storage!{}` + `#[pyde::entry]`. The default `otigen new counter --lang rust` scaffold, and the starter member `otigen init` seeds a workspace with. |
+| [`token`](https://github.com/pyde-net/otigen-templates/tree/main/standards/token) | ✅ ships in `otigen new --list` | Fungible token (PTS-F, `pts-f/1`) — config-only: edit `otigen.toml`, `otigen build` generates the rest. Scaffolds for rust / go / assemblyscript / c. |
+| [`nft`](https://github.com/pyde-net/otigen-templates/tree/main/standards/nft) | ✅ ships in `otigen new --list` | NFT collection (PTS-N, `pts-n/1`) — config-only: edit `otigen.toml`, `otigen build` generates the rest. Scaffolds for rust / go / assemblyscript / c. |
 | [`fungible-token`](https://github.com/pyde-net/otigen/tree/main/examples/fungible-token) | ✅ builds, 1/1 test green | PTS-F reference token (pts-f/1). Typed-arg marshalling: `otigen call` automatically encodes function arguments per `[functions.<fn>].inputs` (e.g. `address`, `u128`); see [Typed arguments](./commands.md#typed-arguments) in the command reference. Mapping + composite-key mapping (`balances`, `allowances`). |
 | [`nft-token`](https://github.com/pyde-net/otigen/tree/main/examples/nft-token) | ✅ builds, 17/17 tests green | PTS-N reference NFT (pts-n/1). Per-token ownership, `balance_of(owner)`, single-spender per-token approval cleared atomically on `transfer_from`. |
 | [`upgradeable-proxy`](https://github.com/pyde-net/otigen/tree/main/examples/upgradeable-proxy) | ✅ builds, 16/16 tests green | Upgradeable proxy via `delegate_call`. Admin-controlled implementation slot with `transfer_admin` / `renounce_admin` rotation and namespaced `proxy_admin` / `proxy_logic` storage slots. |
@@ -24,6 +26,7 @@ What `otigen new --list` returns today, with honest status:
 | [`simple-multisig`](https://github.com/pyde-net/otigen/tree/main/examples/simple-multisig) | ✅ builds, 14/14 tests green | 3-signer FALCON-512 multisig. Demonstrates `falcon_verify` + signer-ID lookup + `action_digest(target, amount, nonce)` view for off-chain signers + nonce-bound replay protection. |
 | [`merkle-claim-airdrop`](https://github.com/pyde-net/otigen/tree/main/examples/merkle-claim-airdrop) | ✅ builds, 17/17 tests green | Merkle-tree airdrop claim. Off-chain commitment + on-chain inclusion verification via `hash_blake3`. Macro substrate; `Vec<u8>`-typed proof argument. Ships a `#[payable] fn fund()` so the contract custodies native PYDE end-to-end and pays out on claim. |
 | [`vesting`](https://github.com/pyde-net/otigen/tree/main/examples/vesting) | ✅ builds, 21/21 tests green | Linear vesting with cliff. Time-locked allocation via `wave_timestamp`. Ships a `#[payable] fn fund()` so the contract holds native PYDE and releases it to the beneficiary as time accrues. |
+| [`factory`](https://github.com/pyde-net/otigen-templates/tree/main/rust/factory) | ✅ ships in `otigen new --list` | Factory pattern: a contract that deploys child contracts of any template via `pyde::instantiate`. |
 
 ---
 

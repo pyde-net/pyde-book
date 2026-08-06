@@ -29,7 +29,7 @@ pyde-bench/
 ├── workloads/           # Workload generators
 │   ├── transfers.rs         (simple PYDE transfers)
 │   ├── contract_calls.rs    (WASM contract interactions)
-│   ├── private_swaps.rs     (commit-reveal, MEV-sensitive)
+│   ├── commit_reveal_swaps.rs (commit-reveal, MEV-sensitive)
 │   ├── nft_mint_burst.rs    (burst pattern simulation)
 │   └── mixed.rs             (realistic distribution)
 ├── metrics/             # Metrics collection + reporting
@@ -79,7 +79,7 @@ trait Workload {
 Concrete workloads:
 - **TransferWorkload:** simple A→B transfers; baseline
 - **ContractWorkload:** realistic WASM contract interactions
-- **PrivateSwapWorkload:** ~80% commit-reveal pairs (worst-case for reveal-resolution)
+- **CommitRevealSwapWorkload:** ~80% commit-reveal pairs (worst-case for reveal-resolution)
 - **NFTMintBurstWorkload:** ramps from idle to a high burst and back over 60s
 - **MixedWorkload:** 70% transfers / 15% contracts / 10% commit-reveal / 5% complex
 
@@ -110,7 +110,7 @@ Concrete workloads:
 
 ### Consensus Metrics
 - `round_advance_rate`: rounds/sec per validator
-- `vertex_certification_rate`: % of vertices that get 85+ certs
+- `vertex_certification_rate`: % of vertices that get 86+ certs
 - `commit_success_rate`: % of rounds where commit fires
 - `anchor_selection_success_rate`: % of anchors that have valid vertex
 

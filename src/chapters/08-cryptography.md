@@ -73,7 +73,7 @@ signature scheme. NIST standardized it as part of FIPS 206. Pyde uses the
 
 A blockchain hashes signatures into every transaction, every consensus vote,
 and every finality certificate. A 666 B FALCON sig × 128 committee × per-slot
-finality cert × 10K blocks/hour adds up. Dilithium's 2420 B would inflate
+finality cert × 7.2K waves/hour adds up. Dilithium's 2420 B would inflate
 that by 3.6×, SPHINCS+ by ~12×. FALCON's compactness is what keeps the
 bandwidth budget reasonable.
 
@@ -117,7 +117,7 @@ context to prevent cross-protocol signature reuse.
 2. **Vertex production:** every DAG vertex is FALCON-signed by its producer.
 3. **State-root attestations:** committee members sign `(wave_id,
    blake3_state_root, poseidon2_state_root)` after each commit;
-   ≥ 85 sigs constitute the `HardFinalityCert`.
+   ≥ 86 sigs constitute the `HardFinalityCert`.
 4. **Beacon contributions:** each committee member signs its per-member
    beacon share with a `BeaconKeypair`; ≥ quorum aggregated FALCON sigs
    form the epoch beacon (see Chapter 6).
@@ -132,7 +132,7 @@ sequentially. The current implementation is **not** algebraically batched:
 it returns true only if every individual verification succeeds. Algebraic
 batch verification (sharing FFT operations across signatures) is on the
 post-mainnet hardening list; the sequential version is correct and meets the
-current per-block budget.
+current per-wave budget.
 
 ---
 

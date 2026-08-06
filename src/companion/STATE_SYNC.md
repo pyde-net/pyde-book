@@ -29,7 +29,7 @@ struct SnapshotManifest {
     snapshot_state_root_poseidon2: Hash,
     chunk_manifest: Vec<ChunkRef>,
     current_committee_pubkeys: Vec<FalconPubkey>,  // chain-of-trust
-    signatures: Vec<FalconSig>,                     // ≥85 from prior epoch's committee
+    signatures: Vec<FalconSig>,                     // ≥86 from prior epoch's committee
 }
 
 struct ChunkRef {
@@ -167,7 +167,7 @@ Phase 1: Discover & Verify Manifest
   1. Bootstrap from seed peers
   2. Discover manifest URLs/hashes from peers
   3. Download signed manifest (~5 KB)
-  4. Verify ≥85 FALCON sigs against trusted committee pubkeys
+  4. Verify ≥86 FALCON sigs against trusted committee pubkeys
 
 Phase 2: Download Chunks
   5. Discover peers serving snapshot
@@ -182,7 +182,7 @@ Phase 3: Reconstruct State
   12. If match: snapshot valid, accept
 
 Phase 4: Recent Sync (Tail)
-  13. Download blocks from snapshot point to current
+  13. Download waves from snapshot point to current
   14. Replay txs against snapshot state
   15. Reach current state, exit sync mode
 
@@ -196,7 +196,7 @@ Phase 5: Active Operation
 A new node doesn't yet know which committee pubkeys to trust. Solved via genesis chain:
 
 ```
-Genesis block: contains committee_0.pubkeys (hardcoded by founders)
+Genesis manifest: contains committee_0.pubkeys (hardcoded by founders)
   ↓
 Snapshot at epoch 8: signed by committee 0, contains committee_8.pubkeys
   ↓
@@ -232,13 +232,13 @@ Both produce same security guarantees from the trusted point forward.
 Doesn't download full state. For mobile wallets, browser dApps, embedded clients.
 
 ### Storage
-- Block headers only (no full blocks)
+- Wave headers only (no full waves)
 - Recent committee pubkeys
 - Own account state + recent transactions
 - JMT proofs for accounts user cares about
 
 ### Operations
-- Verify new block headers via FALCON sigs (~85 verifies, ~6.8ms)
+- Verify new wave headers via FALCON sigs (~86 verifies, ~6.9ms)
 - Query specific accounts: ask full node for `{balance, JMT inclusion proof}`
 - Verify proof against latest signed state root
 - Submit transactions: same as regular RPC
@@ -267,11 +267,11 @@ Saves bandwidth: typical delta is 10-50 MB vs full 3 GB.
 
 ## Storage / Pruning Policy
 
-| Node type | State retention | Block retention |
+| Node type | State retention | Wave retention |
 |---|---|---|
-| Archive node | All historical state | All blocks since genesis |
-| Full node (default) | State for last 90 days | Blocks for last 30 days |
-| Committee validator | State for last 30 days | Blocks for last 8 epochs |
+| Archive node | All historical state | All waves since genesis |
+| Full node (default) | State for last 90 days | Waves for last 30 days |
+| Committee validator | State for last 30 days | Waves for last 8 epochs |
 | Light client | Headers + cared-about accounts | Headers only |
 
 Tunable per-node. Archive nodes earn slightly higher RPC fees for serving historical queries.
@@ -290,7 +290,7 @@ Tunable per-node. Archive nodes earn slightly higher RPC fees for serving histor
 
 ```
 Bootstrap from genesis (small):       ~5 seconds
-Manifest verification (85 FALCON):    ~7 ms
+Manifest verification (86 FALCON):    ~7 ms
 Snapshot download (3 GB at 100 Mbps): ~4 minutes
 JMT reconstruction:                   ~5 minutes
 Recent tail sync (8 epochs of txs):   ~30 minutes

@@ -49,16 +49,16 @@ a genesis endowment or a funding cliff, and real usage retires it.
 ## Fee Model (EIP-1559 Style)
 
 Every transaction has:
-- **Base fee:** dynamically adjusted per block (EIP-1559 mechanism, target 50% block utilization)
+- **Base fee:** dynamically adjusted per wave (EIP-1559 mechanism, target 50% wave utilization)
 - **No priority tip.** The keyless commit-reveal mempool eliminates the information asymmetry that priority fees price. Priority would re-introduce ordering exploitation.
 - **Combined gas:** for `parachain_call!` invocations (post-mainnet), Pyde-side + parachain-side gas billed in one transaction
 
-### Block Elasticity
+### Wave Elasticity
 
-- Target gas limit per block: 400M gas
+- Target gas limit per wave: 400M gas
 - Maximum (4× elastic): 1.6B gas
-- Base fee adjusts up when blocks are >50% full, down when <50%
-- Adjustment factor: ±12.5% per block (EIP-1559 standard)
+- Base fee adjusts up when waves are >50% full, down when <50%
+- Adjustment factor: ±12.5% per wave (EIP-1559 standard)
 
 ### Per-Transaction Fee Flow
 

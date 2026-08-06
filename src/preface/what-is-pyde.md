@@ -70,7 +70,7 @@ The atomic reading is not visual flavour. It is the design.
 
 **Things orbit without merging.** A Pyde finality certificate can travel to Ethereum and prove itself there without phoning home. A parachain has its own sub-orbit inside Pyde's well (its own validators, its own job, its own working state), and every result it attests lands on the core as an ordered transaction. Sovereignty without isolation.
 
-**Compression is BFT under pressure.** Wave commits run under adversarial conditions. The 85-of-128 quorum, the slashing schedule, the structural MEV resistance: they exist so the core holds when squeezed. Stress-tested.
+**Compression is BFT under pressure.** Wave commits run under adversarial conditions. The 86-of-128 quorum, the slashing schedule, the structural MEV resistance: they exist so the core holds when squeezed. Stress-tested.
 
 One core. Many orbits. Bound by physics, not by trust.
 
@@ -111,9 +111,9 @@ Every node, and especially every committee validator, runs a validation pipeline
 
 ### Stage 3: Assembly-line dispatch (batches and vertices)
 
-Inside each of the 128 committee members for this epoch, two things happen continuously. First, every hundred milliseconds or so, the member packs the highest-fee transactions into a **Batch** (~50-200 txs, ~4 MB cap) and broadcasts it on the `/pyde/batches/1.0.0` topic. Second, every round (~150-500 ms, structurally paced; see below), the member emits a **Vertex** that references ≥85 parent vertices from the previous round, references whichever batches it wants to include, contributes a beacon share, attests to the previous anchor, and is signed by the member's epoch key. Vertices broadcast on `/pyde/dag/1.0.0` and form the next floor of the DAG.
+Inside each of the 128 committee members for this epoch, two things happen continuously. First, every hundred milliseconds or so, the member packs the highest-fee transactions into a **Batch** (~50-200 txs, ~4 MB cap) and broadcasts it on the `/pyde/batches/1.0.0` topic. Second, every round (~150-500 ms, structurally paced; see below), the member emits a **Vertex** that references ≥86 parent vertices from the previous round, references whichever batches it wants to include, contributes a beacon share, attests to the previous anchor, and is signed by the member's epoch key. Vertices broadcast on `/pyde/dag/1.0.0` and form the next floor of the DAG.
 
-The round advances when the member has _seen ≥85 vertices from the current round_, not when its own timer fires. This is the structural-pacing trick that makes Mysticeti elegant: the floor speed is the median peer speed, not the slowest peer's speed. A single laggard cannot stall the line.
+The round advances when the member has _seen ≥86 vertices from the current round_, not when its own timer fires. This is the structural-pacing trick that makes Mysticeti elegant: the floor speed is the median peer speed, not the slowest peer's speed. A single laggard cannot stall the line.
 
 ### Stage 4: The foreman picks the lead (anchor selection)
 
@@ -127,7 +127,7 @@ The beacon is the XOR of the prior round's VRF shares (public randomness). The p
 
 ### Stage 5: The press slams (wave commit) 💥
 
-Once the anchor has accumulated ≥85 attestations from later-round vertices (other members' vertices that reach the anchor transitively through parent links), the **commit threshold** trips. The press comes down.
+Once the anchor has accumulated ≥86 attestations from later-round vertices (other members' vertices that reach the anchor transitively through parent links), the **commit threshold** trips. The press comes down.
 
 What the slam does, in three lines:
 

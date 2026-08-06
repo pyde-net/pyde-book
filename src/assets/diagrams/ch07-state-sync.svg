@@ -24,7 +24,7 @@
   <g filter="url(#sh)"><rect x="430" y="160" width="340" height="100" rx="14" fill="#f6f6f7" stroke="#e4e4e8" stroke-width="1.5"/></g>
   <text x="600" y="203" text-anchor="middle" font-size="18" font-weight="650" fill="#16161a">Verify the manifest</text>
   <text x="600" y="227" text-anchor="middle" font-size="12.5" fill="#7a7a82">~5 KB, carrying both roots;</text>
-  <text x="600" y="243" text-anchor="middle" font-size="12.5" fill="#7a7a82">at least 85 FALCON signatures</text>
+  <text x="600" y="243" text-anchor="middle" font-size="12.5" fill="#7a7a82">at least 86 FALCON signatures</text>
 
   <g filter="url(#sh)"><rect x="830" y="160" width="300" height="100" rx="14" fill="#f6f6f7" stroke="#e4e4e8" stroke-width="1.5"/></g>
   <text x="980" y="203" text-anchor="middle" font-size="18" font-weight="650" fill="#16161a">Download chunks</text>

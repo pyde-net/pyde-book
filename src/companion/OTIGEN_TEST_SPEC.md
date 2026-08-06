@@ -644,7 +644,7 @@ otigen test [-v|-vv] [--filter <pattern>] [--bundle <path>] [--dry-run] [--watch
 
 ---
 
-## 8. Worked example: ERC-20-style transfer
+## 8. Worked example: pts-f/1 transfer
 
 The full file an author would write for a token contract:
 
@@ -842,7 +842,6 @@ Reserved for future expansion (parsed-but-noop or noted in §9): fuzz / invarian
 - [Chapter 4: State Model](../chapters/04-state-model.md): PIP-2 slot derivation that name resolution mirrors.
 - [Chapter 5: Otigen Toolchain](../chapters/05-otigen-toolchain.md): narrative overview; `otigen test` section lands at §5.13.
 - [Chapter 17 §17.6](../chapters/17-developer-tools.md): developer tools roundup; references back here.
-- [`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md): Stream α tracking, `OTIGEN_TEST` track.
 
 ---
 

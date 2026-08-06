@@ -45,7 +45,7 @@ If the balance is below the drip amount times 100 (fewer than 100 drips remainin
 # 1. Top up the faucet from the foundation treasury wallet.
 TREASURY_KEYPAIR=/etc/pyde/treasury.keypair
 FAUCET_ADDR=0xfa00cefa00cefa00cefa00cefa00cefa00cefa00
-REFILL_AMOUNT=10000000000000000000000  # 10,000 PYDE in wei
+REFILL_AMOUNT=10000000000000  # 10,000 PYDE in quanta (1 PYDE = 10^9 quanta)
 
 pyde send \
   --rpc https://rpc.testnet.pyde.network \

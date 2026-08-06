@@ -25,7 +25,7 @@ and this doc just cross-links.
 - Parsing `otigen.toml` without crashing or panicking on adversarial input.
 - Validating a compiled `.wasm` against the chain's Host Function ABI without crashing on malformed binaries.
 - Embedding the `pyde.abi` custom section without altering the executable code section.
-- Storing FALCON-512 secret keys at rest under Argon2id + AES-256-GCM (only the keystore subcommands, post-MC-2 milestone).
+- Storing FALCON-512 secret keys at rest under Argon2id + AES-256-GCM (keystore subcommands only).
 - Signing transactions only with the explicitly-named keystore entry; refusing to sign with anything else.
 - Submitting deploy / upgrade / lifecycle transactions over an attested RPC channel (TLS + chain identity verification).
 
@@ -133,7 +133,7 @@ Each threat ID prefixed `T-` (toolchain). Numbered for cross-reference. Severity
 **Description:** An attacker with write access to the project's `target/wasm32-unknown-unknown/release/` swaps the compiled `.wasm` with a malicious one before `otigen build` runs. The bundle ends up containing the attacker's bytes, signed off by the author who thought they were building their own source.
 
 **Mitigations:**
-- `otigen verify` (post-MC-2) compares the on-chain stored bytes against a local rebuild of the bundle. Reproducibility property tested in `otigen-cli/tests/reproducibility.rs`: same source + same toolchain → byte-identical `contract.wasm`. A swapped `.wasm` would produce a different blake3 hash, surfacing at `verify` time.
+- `otigen verify` compares the on-chain stored bytes against a local rebuild of the bundle. Reproducibility property tested in `otigen-cli/tests/reproducibility.rs`: same source + same toolchain → byte-identical `contract.wasm`. A swapped `.wasm` would produce a different blake3 hash, surfacing at `verify` time.
 - The bundle's `manifest.json` carries `wasm_hash_blake3` so a code reviewer can confirm the deployed hash matches the committed source.
 
 **Residual risk:** The author doesn't run `otigen verify` and doesn't review the manifest hash. This is an operational responsibility (covered by docs, not code).
@@ -270,7 +270,7 @@ Each threat ID prefixed `T-` (toolchain). Numbered for cross-reference. Severity
 | T-01 malicious otigen.toml | ✅ adversarial corpus + cargo-fuzz target |
 | T-02 malicious .wasm | ✅ 8-check validator + cargo-fuzz target + chain-side re-check |
 | T-03 inject corrupts code section | ✅ RawSection pass-through + property test + chain-side re-extract |
-| T-04 substituted .wasm | ⏳ `otigen verify` lands post-MC-2 |
+| T-04 substituted .wasm | ✅ `otigen verify` |
 | T-05 RPC MITM | ⏳ enforce HTTPS-or-localhost when otigen-rpc lands |
 | T-06 keystore tampering | ✅ Argon2id (64 MiB / 3 / 4, per OWASP 2024) + AES-256-GCM with fresh per-entry salt + nonce + zeroize on both AES session key and `FalconSecretKey` + constant-time decrypt + single error variant (no timing oracle). 43 tests in `crates/otigen-wallet/src/`. Per-entry crypto details: §3 above |
 | T-07 phished password | ⏳ signed binary releases (α.qual.release) |

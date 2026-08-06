@@ -58,7 +58,7 @@ T+30d   Drill that scenario in testnet
 
 - **Trigger:** BGP routing issue, undersea cable cut, ISP outage
 - **Detection:**
-  - Active committee count drops below 85 (quorum threshold = 2f+1, f=42)
+  - Active committee count drops below 86 (quorum threshold = ⌊(n+f)/2⌋ + 1 = 86 at n=128, f=42; the familiar 2f+1 holds only when n = 3f+1, and here n = 3f+2)
   - Soft stall triggered automatically
   - Downtime slashing PAUSES (partition-aware)
 - **Initial Response:**
@@ -206,7 +206,7 @@ T+30d   Drill that scenario in testnet
 - **Recovery:**
   - 43 offline: emergency halt + governance removal
   - 43 equivocating: slash all 43 (correlation multiplier = 2× → full bond)
-  - Network resumes with remaining 85+ honest
+  - Network resumes once the next epoch reseats a full 128-member committee from the remaining eligible pool — the 85 honest members left are one short of the 86-quorum and cannot commit on their own
 - **Time to Recovery:** 24-72 hours
 - **Slashing:** Up to 100% × 43 validators (correlation max)
 - **Lessons:** This is the BFT boundary; design defends but at cost

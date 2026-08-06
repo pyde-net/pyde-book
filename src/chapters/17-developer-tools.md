@@ -30,9 +30,9 @@ The Cargo-equivalent build-and-deploy toolchain for Pyde. Replaces the earlier `
 ### Subcommand summary
 
 ```
-otigen new <name> --from <template>     Clone a canonical template (8 ship: counter, erc20-token, erc721-token,
-                                        simple-multisig, upgradeable-proxy, merkle-claim-airdrop, vesting,
-                                        dao-governance). `otigen new --list` enumerates them.
+otigen new <name> --from <template>     Clone a canonical template (11 ship: counter, token, nft, fungible-token,
+                                        nft-token, simple-multisig, upgradeable-proxy, merkle-claim-airdrop,
+                                        vesting, dao-governance, factory). `otigen new --list` enumerates them.
 otigen init <name> --lang <language>    Scaffold a new project (--type contract|parachain selects the surface)
 otigen build                            Build the WASM module + ABI + bundle artifact
 otigen check                            Validate without packaging (fast CI gate)

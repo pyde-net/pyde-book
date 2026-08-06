@@ -99,15 +99,13 @@ Pyde is **pre-mainnet**. What's already shippable:
 
 - The protocol spec (everything in this book).
 - The post-quantum cryptography crate: [pyde-crypto](https://github.com/pyde-net/pyde-crypto).
-- The engine workspace's interface layer (MC-0, the `phase-0-foundation`
-  tag on `pyde-net/engine`).
+- The engine workspace's interface layer on `pyde-net/engine`.
 - The marketing site you arrived from.
 
 What's in active build-out:
 
-- The engine (execution + consensus + node binary). MC-1 in flight
-  across two parallel streams; see [Implementation Plan §3.2](../companion/IMPLEMENTATION_PLAN.md).
-- The otigen toolchain. MC-1 Stream α; see `pyde-net/otigen`.
+- The engine: execution, consensus, and the node binary.
+- The otigen toolchain; see `pyde-net/otigen`.
 
 What you can do right now:
 

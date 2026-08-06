@@ -22,7 +22,7 @@ Different changes require different process weight.
 | Operational config update                 | Bootstrap node list, log level           | Operator-side; no PIP                    |
 | Bug fix (no protocol change)              | Memory leak, RPC parse bug               | Code release; PIP not required           |
 | Backward-compatible feature               | New opcode unused by existing contracts  | PIP + voluntary upgrade; no fork         |
-| Backward-incompatible (hard fork)         | Gas cost change, new tx type semantics    | PIP + activation block + coordinated upgrade |
+| Backward-incompatible (hard fork)         | Gas cost change, new tx type semantics    | PIP + activation wave + coordinated upgrade |
 | Cryptographic primitive change            | Hash migration                            | PIP + multi-version overlap window        |
 | Treasury action                           | Grant payout, audit funding              | PIP + on-chain `MultisigTx`              |
 | Emergency response                        | Active exploit                           | `EmergencyPause` (multisig); fix; resume |
@@ -38,10 +38,10 @@ For a typical hard-fork-grade change (e.g., adjusting a gas constant):
 
 ```
 Step 1 — PIP draft
-    Author writes the PIP, opens PR against zarah-s/pips, defines:
+    Author writes the PIP, opens PR against pyde-net/pips, defines:
       - the change
       - the rationale
-      - the activation block height (or activation epoch)
+      - the activation wave id (or activation epoch)
       - the test plan
       - backward compatibility implications
 
@@ -54,16 +54,16 @@ Step 3 — Implementation
     Ships in the next node release (e.g. v0.5.0).
 
 Step 4 — Release announcement
-    The release notes name the activation block.
+    The release notes name the activation wave.
     Typical activation window: weeks to months out, to give validators
     time to upgrade.
 
 Step 5 — Validator upgrade
     Each validator operator updates their binary. They can do this as
-    early as they want; the new code is dormant until activation block.
+    early as they want; the new code is dormant until the activation wave.
 
 Step 6 — Activation
-    At the named activation block, every node running the new release
+    At the named activation wave, every node running the new release
     starts using the new rule. Nodes still on the old release either:
       - Fork off (if the change is consensus-incompatible).
       - Stay in sync (if the change is backward-compatible).
@@ -74,9 +74,9 @@ Step 7 — Stable state
 ```
 
 There is no on-chain "yes/no" vote. The closest signal is **what fraction
-of the active committee runs the new code at activation**. If less than
-2f+1 (85 of 128) validators upgrade, the new rule cannot reach finality
-and the change is effectively rejected by the network.
+of the active committee runs the new code at activation**. If fewer than
+a quorum (86 of 128) of validators upgrade, the new rule cannot reach
+finality and the change is effectively rejected by the network.
 
 This is governance through validator opt-in. It is slow and conservative
 by design.
@@ -93,9 +93,9 @@ the old code doesn't recognize, a change to the signature scheme.
 
 For a hard fork:
 
-- Activation block must be set well in advance.
-- Validator coordination is required: at least 2f+1 must be on the new
-  release at activation.
+- Activation wave must be set well in advance.
+- Validator coordination is required: at least a quorum (86 of 128) must
+  be on the new release at activation.
 - Validators that don't upgrade fork off; their chain is the legacy
   version.
 - Hard forks should be rare and well-justified.
@@ -104,7 +104,7 @@ For a hard fork:
 
 A soft fork tightens the rules: old nodes still accept the new rules
 (they're a subset of what the old node would accept), but new nodes won't
-accept blocks that violate the new rules.
+accept waves that violate the new rules.
 
 For a soft fork:
 
@@ -118,7 +118,7 @@ For a soft fork:
 
 Changes that don't alter consensus semantics (e.g., a new RPC method, a
 performance optimization, a logging fix) ship in regular releases
-without any activation block. Operators upgrade at their own pace.
+without any activation wave. Operators upgrade at their own pace.
 
 ---
 
@@ -133,7 +133,7 @@ Per Chapter 15:
 | DAG round period (~150 ms)     | `crates/consensus/src/round.rs`       |
 | Commit target (~500 ms)   | `crates/consensus/src/wave.rs`        |
 | Committee size (128)           | `crates/consensus/src/committee.rs`   |
-| Quorum / threshold (85)        | `crates/consensus/src/quorum.rs`      |
+| Quorum / threshold (86)        | `crates/consensus/src/quorum.rs`      |
 | Equivocation threshold (44)    | `crates/consensus/src/quorum.rs`      |
 | Validator min stake (10,000 PYDE) | `crates/tx/src/pipeline.rs` (will move to shared crate post-consensus-rebuild) |
 | Operator-identity cap (3 / operator) | `crates/tx/src/pipeline.rs`     |
@@ -223,17 +223,17 @@ Example: adding a new field to the Account struct.
 
 This works for additive changes that don't break existing readers.
 
-### Pattern 2: Activation-block migration
+### Pattern 2: Activation-wave migration
 
-A specific block height where the format flips. Before that block, old
+A specific wave id where the format flips. Before that wave, old
 format; after, new format.
 
 ```
 Example: changing the canonical hash function (hypothetical).
-  - Activation block N.
+  - Activation wave N.
   - Pre-N: all hashes are Poseidon2.
   - Post-N: all hashes are NewHash2.
-  - Old data continues to be read with Poseidon2 (matches its block height);
+  - Old data continues to be read with Poseidon2 (matches its wave id);
     new data uses NewHash2.
   - State proofs for pre-N data remain valid against pre-N state roots;
     post-N data uses post-N state roots.
@@ -262,7 +262,7 @@ gradually.
 
 ## 18.7 Versioning Discipline
 
-The Pyde release cadence is **release-based, not block-based**: releases
+The Pyde release cadence is **release-based, not wave-based**: releases
 ship when ready, not on a fixed schedule. Each release has a semver-style
 version (e.g., `0.4.2`).
 
@@ -287,22 +287,23 @@ versions.
 The day-of-upgrade checklist for a hard fork:
 
 ```
-T-30 days:  PIP merged, release tagged, activation block announced.
+T-30 days:  PIP merged, release tagged, activation wave announced.
 T-14 days:  Foundation publishes "validator upgrade tracker" — counts how
             many of the active committee have signaled the new release.
 T-7 days:   If <80% of active committee on the new release, postpone the
-            activation block via a follow-up PIP.
+            activation wave via a follow-up PIP.
 T-1 day:    Final reminder.
-T-0:        Activation block. New rule takes effect.
+T-0:        Activation wave. New rule takes effect.
 T+1 hour:   Foundation confirms chain is producing under the new rule.
 T+1 week:   Old releases marked deprecated.
 ```
 
 The "80% signaling threshold" is a social norm, not a protocol enforced
-threshold. The protocol-enforced threshold is 2f+1 = 85 of 128, but
-shipping at exactly 85 is brittle: a single validator going offline
-mid-flight drops the network below quorum. 80%+ as a social coordination
-target gives margin above the protocol minimum.
+threshold. The protocol-enforced threshold is the BFT quorum,
+`⌊(n+f)/2⌋ + 1 = 86 of 128`, but shipping at exactly 86 is brittle: a
+single validator going offline mid-flight drops the network below quorum.
+80%+ as a social coordination target gives margin above the protocol
+minimum.
 
 ### Validator signaling
 
@@ -327,7 +328,7 @@ improvement list.
 | Off-chain proposal             | PIP                         | EIP                     | TIP / CIP                      |
 | On-chain governance vote       | None                        | None at protocol level  | Yes (stake-weighted)           |
 | Validator upgrade              | Voluntary                   | Voluntary               | On-chain "self-amendment"      |
-| Hard-fork coordination         | Activation block + social   | Activation block + social| Voted on-chain                 |
+| Hard-fork coordination         | Activation wave + social    | Activation block + social| Voted on-chain                 |
 | Treasury action                | On-chain multisig + PIP     | Foundation grants       | On-chain (Tezos), proposal (Cosmos)|
 | Emergency halt                 | Multisig pause              | None                    | Sometimes (social fork only)   |
 
@@ -360,11 +361,11 @@ plutocratic-vote attack surface.
 | Property                      | Status at mainnet                      |
 | ----------------------------- | -------------------------------------- |
 | Upgrade model                 | PIP + voluntary validator upgrade       |
-| Hard fork mechanism            | Activation block + coordinated upgrade  |
+| Hard fork mechanism            | Activation wave + coordinated upgrade   |
 | Soft fork mechanism            | Same; old nodes stay in sync            |
 | Treasury action                | On-chain `MultisigTx` + PIP linkage     |
 | Emergency response             | `EmergencyPause` (≤30 days, auto-expiring) |
-| State migration patterns       | Lazy / activation-block / migration tx  |
+| State migration patterns       | Lazy / activation-wave / migration tx   |
 | Wire-format versions           | `EVIDENCE_VERSION`, `MULTISIG_VERSION` (bumped on layout change) |
 | On-chain validator-upgrade signal | None (out-of-band tracking)         |
 | Automatic rollback             | None (re-release path)                  |

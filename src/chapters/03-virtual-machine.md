@@ -313,7 +313,7 @@ For consensus to hold, every validator must produce bit-identical state changes 
 
 **What contracts cannot observe:**
 - Wall-clock time. Use `wave_timestamp` (deterministic, set by consensus).
-- True randomness. Use a VRF-derived host function when randomness is required (deterministic per block, unpredictable beforehand).
+- True randomness. Use a VRF-derived host function when randomness is required (deterministic per wave, unpredictable beforehand).
 - The host machine. No CPU info, no OS info, no environment access.
 
 **Deploy-time validation:**

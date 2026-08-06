@@ -323,7 +323,7 @@ When tx A calls X.foo() which dynamically calls Y.bar(), the discovered slot rea
 
 ## State-Holding Host Functions
 
-The host fns that read or write chain state, namely `sload`, `sstore`, `sdelete`, `balance`, `code_size`, `code_hash`, `block_*` (frozen), etc., all route through `MvccLayer` in the parallel executor. Pure host fns (Blake3, FALCON verify, etc.) don't touch state and are unaffected.
+The host fns that read or write chain state, namely `sload`, `sstore`, `sdelete`, `balance`, `code_size`, `code_hash`, `wave_*` (frozen per wave), etc., all route through `MvccLayer` in the parallel executor. Pure host fns (Blake3, FALCON verify, etc.) don't touch state and are unaffected.
 
 The `wasm-exec` adapter exposes a `HostFnBackend` trait:
 

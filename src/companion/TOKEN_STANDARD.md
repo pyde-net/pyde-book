@@ -192,8 +192,8 @@ All of it at build time, each error naming the offending key:
 - **Commit-reveal neutrality (normative):** no conformant function
   may depend on mempool visibility, same-wave ordering, or
   first-come state races. Every PTS operation must behave identically
-  when wrapped in a private send. Wallets should surface private
-  sends for conformant tokens.
+  when wrapped in a commit-reveal send. Wallets should surface
+  commit-reveal sends for conformant tokens.
 
 ## 6. The fungible surface (pts-f/1)
 
@@ -244,8 +244,9 @@ Three layers, ordered by preference:
 3. **No off-chain approval signatures.** `permit`-class primitives
    moved granting into invisible signatures and became a leading
    phishing vector. Pyde does not need them: gasless flows use the platform's
-   `SPONSORED` attribute, private flows use commit-reveal, and
-   session keys (v2) will deliver scoped account-layer authority. A
+   `SPONSORED` attribute, front-run-protected flows use the commit-reveal
+   mempool, and session keys (v2) will deliver scoped account-layer
+   authority. A
    FALCON-signed **one-shot payment authorization** (exact
    recipient, exact amount, wave-window validity, single-use id) is
    reserved as the `pts-f/2` extension: a signed *check*, never a

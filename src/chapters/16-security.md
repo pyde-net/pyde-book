@@ -48,24 +48,62 @@ Each of these is covered in more detail below.
 **Safety (Mysticeti DAG):** no two conflicting subdag commits or state
 roots ever achieve finality at the same wave, provided fewer than
 `f = ⌊(n-1)/3⌋ = 42` committee members are Byzantine. At `n = 128`,
-this is `f ≤ 42`, threshold `2f + 1 = 85`.
+this is `f ≤ 42`, quorum `q = ⌊(n + f)/2⌋ + 1 = 86`.
 
 **Liveness:** the DAG advances and produces commits as long as
-`85 of 128` committee members are honest and online.
+`86 of 128` committee members are honest and online.
+
+### Why the quorum is 86
+
+Everything rests on **quorum intersection**. Two quorums of size `q`
+drawn from `n` members must overlap in at least `2q − n` members. That
+overlap is only evidence of anything if it is guaranteed to contain an
+honest member, so it has to exceed the Byzantine budget:
+
+```
+2q − n > f     ⟺     q > (n + f) / 2
+```
+
+The smallest integer satisfying that is `q = ⌊(n + f)/2⌋ + 1`. This is
+the protocol's quorum rule at every committee size. At `n = 128`,
+`f = 42`:
+
+```
+q            = ⌊(128 + 42) / 2⌋ + 1 = 85 + 1 = 86
+intersection = 2·86 − 128           = 44 members
+honest in it ≥ 44 − 42              = 2 members
+```
+
+The familiar `2f + 1` form of the threshold is the special case
+`n = 3f + 1`, and it does not apply here: `128 = 3f + 2`. Taking
+`2f + 1 = 85` at this committee size gives an intersection of
+`2·85 − 128 = 42 = f` — exactly the Byzantine budget, an overlap the 42
+adversarial members could fill entirely on their own, with no honest
+member in it at all. That is a zero safety margin, not a proof. Pyde
+certifies at `q = 86`, where two honest members are forced into every
+intersection.
+
+Smaller committees use the same formula rather than the constant
+(`n = 4 → q = 3`, `n = 7 → q = 5`, `n = 128 → q = 86`), so the launch
+committee is governed by the identical rule.
 
 ### Why it holds
 
-Each vertex carries ≥ 85 parent vertex references. An anchor commit at
-round R+3 requires Mysticeti 3-stage support: at least 85 round-(R+1)
+Each vertex carries ≥ 86 parent vertex references. An anchor commit at
+round R+3 requires Mysticeti 3-stage support: at least 86 round-(R+1)
 vertices that reference the anchor as a parent. Two conflicting commits
-of contradictory subdags at the same wave would each need 85+ signing
-vertices; the total exceeds `n = 128`, so at least `85 + 85 − 128 = 42`
-honest members would have had to equivocate (sign in both forks). Under
-the Byzantine bound, at most 42 are adversarial. Equivocation is
-slashable evidence at `100% of stake`, so the cost is total. ∎
+of contradictory subdags at the same wave would each need 86 signing
+vertices; `86 + 86 = 172 > 128`, so the two support sets share at least
+`2·86 − 128 = 44` members. At most 42 of those are adversarial under the
+Byzantine bound, so at least **2 honest members** would have had to
+equivocate (sign in both forks) — which honest members, by definition,
+do not. The 42 Byzantine members cannot certify both branches by
+themselves. And where equivocation is attempted, the two conflicting
+signatures over the same slot are slashable evidence at `100% of stake`,
+so the cost is total. ∎
 
-State-root divergence (two contradictory Blake3 state roots both signed
-by 85 members) is detected automatically and triggers a **hard halt**
+State-root divergence (two contradictory Blake3 state roots each signed
+by 86 members) is detected automatically and triggers a **hard halt**
 (Chapter 7 / [companion/CHAIN_HALT.md](../companion/CHAIN_HALT.md)).
 
 ### What if more than 1/3 are Byzantine
@@ -103,7 +141,7 @@ reference point, it cannot distinguish the real chain from the alternative.
 
 ### The defense: weak-subjectivity checkpoints
 
-When a commit collects ≥ 85 FALCON state-root signatures, the
+When a commit collects ≥ 86 FALCON state-root signatures, the
 validator writes a `FinalityCheckpoint` to the consensus store:
 
 ```rust
@@ -122,7 +160,7 @@ checkpoint**. `FinalityTracker::can_reorg(wave_id)` returns false for any
 wave at or before the checkpoint's `wave_id`.
 
 For a cold-syncing node, the protocol doesn't pick a checkpoint on its
-own: the node's operator provides a **trusted recent block hash** from a
+own: the node's operator provides a **trusted recent wave hash** from a
 source they trust (the Foundation website, a public explorer, a known
 good peer). This is called "weak subjectivity" because new nodes must
 trust *something* outside pure protocol to anchor their sync.
@@ -133,12 +171,12 @@ local checkpoint going forward.
 
 ### Bootstrap peers
 
-The genesis block hash is built into the client binary; no external
+The genesis hash is built into the client binary; no external
 trust needed for it. The `MAINNET_BOOTSTRAP` and `TESTNET_BOOTSTRAP` lists
 (`crates/net/src/discovery.rs`) provide starting peers, which provide the
 current chain state. A new node combines:
 
-1. Genesis block hash (hard-coded).
+1. Genesis hash (hard-coded).
 2. Recent weak-subjectivity checkpoint (operator-provided).
 3. Current peer set (from `bootstrap_peers`).
 
@@ -201,7 +239,7 @@ node has a financial reason to surface attacker evidence within the
 **4. Hard-halt detection on state-root divergence.**
 Two contradictory signed state roots trigger an automatic chain halt
 (Chapter 7 §Part 2). Attackers cannot quietly corrupt state: safety
-violations are loud, visible, and immediately interrupt block
+violations are loud, visible, and immediately interrupt wave
 production. The 1-epoch bounded rollback policy contains damage to a
 narrow window.
 
@@ -382,7 +420,7 @@ transactions. Honest validators would incorrectly accept a bogus state.
 Every honest validator executes each committed wave themselves and
 FALCON-signs `(wave_id, blake3_state_root, poseidon2_state_root)`. A
 malicious vertex producer that claims a wrong root gets 0 honest
-state-root sigs; the network cannot reach the 85-sig finality bar.
+state-root sigs; the network cannot reach the 86-sig finality bar.
 
 Two conflicting state claims can't both reach finality (same BFT
 argument: > 1/3 would have to equivocate). State root divergence is
@@ -395,7 +433,7 @@ For light clients that do not execute the wave, the JMT batched proof +
 the signed `blake3_state_root` + the committee's FALCON signatures are
 the authentication path. A light client verifies:
 
-1. `HardFinalityCert` for the wave is valid (≥ 85 FALCON sigs).
+1. `HardFinalityCert` for the wave is valid (≥ 86 FALCON sigs).
 2. The JMT proof from `blake3_state_root` to the specific leaf is valid.
 3. The leaf value is what the light client was querying.
 
@@ -601,7 +639,7 @@ Aspects that are not cryptographic but matter at mainnet operation:
   traffic and keep the validator process unreachable directly. This is a
   deployment concern, not protocol-enforced.
 - **Monitoring.** Every node exposes Prometheus metrics; operators run
-  alerting on consensus participation rate, block inclusion rate, and
+  alerting on consensus participation rate, wave inclusion rate, and
   peer churn.
 - **Bug bounty.** A permanent bug bounty program is part of the community
   allocation (Chapter 14). The Phase 7 testnet tier has its own bounty;
@@ -661,7 +699,7 @@ flooding, RPC DoS, eclipse simulations) runs in parallel.
 | Property / defense                          | Status at mainnet                |
 | ------------------------------------------- | -------------------------------- |
 | BFT safety `f < n/3`                        | Shipped                          |
-| Liveness `85/128 honest + online` (2f+1)    | Shipped                          |
+| Liveness `86/128 honest + online` (⌊(n+f)/2⌋+1) | Shipped                      |
 | Weak-subjectivity checkpoints                | Shipped                          |
 | FALCON peer authentication                   | Shipped                          |
 | Validator-channel filtering                  | Shipped                          |

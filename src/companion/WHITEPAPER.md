@@ -122,7 +122,7 @@ Three operational tiers run the same binary; role differentiation is configurati
 
 ### 5.1 FALCON-512 Signatures
 
-Every transaction, vertex, and state-root attestation is signed with FALCON-512 (NIST FIPS 206). Properties:
+Every transaction, vertex, and state-root attestation is signed with FALCON-512 (FN-DSA, selected by NIST for standardization; draft FIPS 206). Properties:
 
 - Signature size: ~666 bytes (variable, hard cap 1,280 bytes). Public key: 897 bytes.
 - Verification: ~1 ms on commodity x86_64 / ARM64, per `pyde-crypto` measurements.

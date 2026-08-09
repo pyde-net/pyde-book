@@ -135,7 +135,7 @@ End-to-end latency: ~500ms median for a plaintext transaction. A commit-reveal t
 
 ### Signatures: FALCON-512
 
-NIST FIPS 206 standard. Used for:
+Selected by NIST for standardization as FN-DSA; draft FIPS 206, not yet published. Used for:
 - User transaction authorization
 - Validator vertex production
 - Committee state-root attestations

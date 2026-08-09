@@ -21,7 +21,7 @@ and the post-mainnet plan.
 | **JMT**              | Jellyfish Merkle Tree. The state commitment structure (radix-16, path-compressed). |
 | **Blake3**           | Fast bitwise hash. Used for JMT internals, batch hashes, vertex hashes, gossip de-dup. |
 | **Poseidon2**        | Algebraic hash over the Goldilocks field. State root commit, addresses, MAC, VRF, ZK-bearing paths. |
-| **FALCON-512**       | NIST FIPS 206 post-quantum signature scheme. ~666-byte sigs, 897-byte pks.   |
+| **FALCON-512**       | Post-quantum signature scheme, NIST-selected as FN-DSA (draft FIPS 206). ~666-byte sigs, 897-byte pks. |
 | **Kyber-768**        | NIST FIPS 203 post-quantum KEM. P2P / transport session keys.              |
 | **Threshold encryption** *(retired)* | A committee-key encrypted mempool (Kyber + Shamir 85-of-128) from earlier drafts. Removed from the protocol: trustless PQ threshold keygen is research-blocked (lattice pubkeys do not combine homomorphically). MEV protection is now the keyless commit-reveal mempool (Chapter 9). A one-shot ciphertext lane stays v2+ research; see [Chapter 20](20-future-direction.md). |
 | **PSS** *(retired)*  | Proactive Secret Sharing, which refreshed threshold key shares in the retired encrypted-mempool design. Gone with the threshold lane. |
@@ -293,7 +293,7 @@ resumes a `logs` stream after disconnect. Full mechanics:
 
 | Purpose                | Primitive                       | Sizes                             |
 | ---------------------- | ------------------------------- | --------------------------------- |
-| Digital signatures     | FALCON-512 (NIST FIPS 206)      | pk 897 B, sk 1281 B, sig ~666 B   |
+| Digital signatures     | FALCON-512 (FN-DSA, draft FIPS 206) | pk 897 B, sk 1281 B, sig ~666 B |
 | Key encapsulation      | Kyber-768 / ML-KEM (FIPS 203)   | pk 1184 B, sk seed 64 B, ct 1088 B|
 | High-volume hashing    | Blake3                           | 256-bit output, ~3 GB/s native     |
 | ZK-bearing hashing     | Poseidon2 over Goldilocks       | 256-bit output, ~400 constraints/hash|

@@ -41,7 +41,7 @@ Traditional blockchain crypto stack:
   Randomness:   BLS-based VRF             broken by quantum
 
 Pyde crypto stack:
-  Signatures:   FALCON-512                lattice (NIST FIPS 206)
+  Signatures:   FALCON-512                lattice (FN-DSA, draft FIPS 206)
   Key exchange: Kyber-768 / ML-KEM        lattice (NIST FIPS 203)
   Hashing:      Blake3 + Poseidon2        hybrid: speed + ZK-friendly
                   Blake3 (Goldilocks-free, ~3 GB/s)
@@ -64,7 +64,8 @@ at each engine call site rather than through a Pyde wrapper module.
 ## 8.2 FALCON-512: Digital Signatures
 
 FALCON (Fast Fourier Lattice-based Compact Signatures over NTRU) is Pyde's
-signature scheme. NIST standardized it as part of FIPS 206. Pyde uses the
+signature scheme. NIST selected it for standardization as FN-DSA; FIPS 206 is
+assigned but not yet published. Pyde uses the
 **FALCON-512** parameter set (`LOGN = 9`, dimension 512).
 
 ### Why FALCON-512 over Dilithium / SPHINCS+

@@ -108,7 +108,7 @@ State commitment is dual-rooted:
 Three primitives form the cryptographic foundation:
 
 ### FALCON-512 (Signatures)
-NIST FIPS 206 standard. Used for: user tx authorization, vertex production, state root attestations, beacon shares. 666-byte signature, ~80μs verification.
+Selected by NIST for standardization as FN-DSA; draft FIPS 206, not yet published. Used for: user tx authorization, vertex production, state root attestations, beacon shares. 666-byte signature, ~80μs verification.
 
 ### Keyless Commit-Reveal (MEV Protection)
 Pyde's commit-reveal mempool needs **no encryption primitive and no committee key**. A commitment is a Blake3 hash of the inner transaction; the reveal carries the plaintext, and the DAG fixes commit order before contents are known. Safety is unconditionally trustless: it never rests on a threshold of honest committee members. The primitives it leans on (Blake3 hashing, FALCON signatures) are already post-quantum. See Chapter 9. (A ciphertext-based lane remains v2+ research; see Chapter 20.)

@@ -107,7 +107,7 @@ A commit fires when the anchor vertex has sufficient support (Mysticeti 3-stage 
 4. Batches dereferenced from each vertex
 5. Reveal-resolution pass: each Reveal's `Blake3(...)` is recomputed and matched to its committed commitment; the bond is refunded and the inner tx slotted in commit order (unrevealed commits past the 120-wave window expire, bond burned)
 6. wasmtime executes in canonical order (revealed inner txs in commit order)
-7. State root computed (Blake3 + Poseidon2 dual)
+7. State root computed (Blake3; the parallel Poseidon2 leg is disabled today)
 8. ≥86 committee FALCON-sign state root (piggybacked on next vertices)
 9. Finality declared
 ```
@@ -164,8 +164,8 @@ Pyde's MEV protection is a keyless commit-reveal scheme built only on Blake3 (co
 
 | Use case | Hash | Why |
 |---|---|---|
-| JMT internal nodes | Blake3 | ~30× faster than Poseidon2 on CPU |
-| State root (published) | Both | Blake3 native verification + Poseidon2 for ZK |
+| JMT nodes and the live state root | Blake3 | ~30× faster than Poseidon2 on CPU |
+| State root (published) | Blake3 (Poseidon2 leg designed-in but disabled: `POSEIDON2_STATE_ROOT_ENABLED = false`) | Blake3 native verification; the Poseidon2 leg, once enabled, keeps ZK proofs future-compatible |
 | Transaction hashes | Blake3 (ciphertext), Poseidon2 (plaintext canonical) | Per use |
 | Address derivation | Poseidon2 | Used in sig-verify ZK circuits |
 | FALCON sig hashing | Poseidon2 | Inside ZK aggregation circuit |
@@ -246,11 +246,11 @@ Radix-16, path-compressed Merkle tree (Diem/Aptos lineage):
 
 ### State Root Commitment
 
-Dual-rooted:
-- **Blake3 root:** fast native verification (used by validators)
-- **Poseidon2 root:** ZK-circuit-friendly (future light clients, validity proofs)
+Blake3-rooted today, with a designed-in-but-disabled Poseidon2 leg:
+- **Blake3 root:** the live state root — fast native verification (used by validators)
+- **Poseidon2 root:** ZK-circuit-friendly (future light clients, validity proofs), but currently disabled (`POSEIDON2_STATE_ROOT_ENABLED = false`) and carried as an inert zero placeholder
 
-Both computed at each commit, both signed by committee.
+Only the Blake3 root is computed and signed at each commit today; the Poseidon2 leg is reserved for when ZK consumers land.
 
 ### State Pruning
 
@@ -417,7 +417,7 @@ Commit (per round, ~390ms median):
        - Access list verification (vs runtime)
        - Uniform Block-STM scheduler runs txs optimistically in parallel
        - Execute, apply state diffs
-  17. JMT updated, state root computed (Blake3 + Poseidon2)
+  17. JMT updated, state root computed (Blake3; Poseidon2 leg disabled today)
   18. Committee FALCON-signs state root, ≥86 collected
   19. Finality declared
 ```

@@ -29,9 +29,12 @@ Three constraints shape every choice:
    high-volume native paths (JMT internals, gossip de-dup, batch hashes).
    Algebraic hashes (Poseidon2) are 30-50× slower in native execution but
    roughly 1000× cheaper inside an algebraic constraint system (STARK,
-   future ZK validity proof). Pyde uses both: Blake3 where the work is
-   off-chain or committee-signed, Poseidon2 where the hash may be exposed
-   to a ZK circuit (state root, address derivation, signature payloads).
+   future ZK validity proof). Pyde uses both: Blake3 for the state tree and
+   its live root and wherever the work is off-chain or committee-signed,
+   Poseidon2 where the hash may be exposed to a ZK circuit (address
+   derivation, storage keys, signature payloads). A Poseidon2 state-root leg
+   is designed-in but currently disabled (`POSEIDON2_STATE_ROOT_ENABLED =
+   false`), so the live state root is Blake3-only.
 
 ```
 Traditional blockchain crypto stack:
@@ -48,7 +51,8 @@ Pyde crypto stack:
                     JMT internals, batch hashes, vertex hashes, gossip,
                     commit-reveal commitments
                   Poseidon2 (Goldilocks field, ZK-native)
-                    state root, addresses, VRF output, RNG mix
+                    addresses, storage keys, VRF output, RNG mix
+                    (state-root leg designed-in but disabled today)
   Randomness:   Lattice VRF (FALCON-proof + Poseidon2 output)
   Symmetric:    AES-256-GCM (hardware-accelerated)
 ```
@@ -124,7 +128,9 @@ context to prevent cross-protocol signature reuse.
 2. **Vertex production:** every DAG vertex is FALCON-signed by its producer.
 3. **State-root attestations:** committee members sign `(wave_id,
    blake3_state_root, poseidon2_state_root)` after each commit;
-   ≥ 86 sigs constitute the `HardFinalityCert`.
+   ≥ 86 sigs constitute the `HardFinalityCert`. (v1: this leg is an inert
+   zero placeholder; `POSEIDON2_STATE_ROOT_ENABLED = false`, so only the
+   Blake3 root is computed and signed today.)
 4. **Beacon contributions:** each committee member signs its per-member
    beacon share with a `BeaconKeypair`; ≥ quorum aggregated FALCON sigs
    form the epoch beacon (see Chapter 6).
@@ -216,8 +222,8 @@ Pyde uses **two** hash functions, each chosen for a class of paths:
 
 | Function    | Speed (native) | ZK cost (constraints) | Used for |
 |-------------|----------------|------------------------|----------|
-| **Blake3**  | ~3 GB/s        | ~150k per hash (huge) | JMT internal nodes, batch hashes, vertex hashes, gossip de-dup, RocksDB keys |
-| **Poseidon2** | ~60 MB/s     | ~400 (small)          | State root commitment, address derivation, VRF output, FALCON sig hashing inside ZK circuits, `poseidon2` WASM host function |
+| **Blake3**  | ~3 GB/s        | ~150k per hash (huge) | JMT nodes and the live state root, batch hashes, vertex hashes, gossip de-dup, RocksDB keys |
+| **Poseidon2** | ~60 MB/s     | ~400 (small)          | Address derivation, storage-key derivation, VRF output, FALCON sig hashing inside ZK circuits, `poseidon2` WASM host function (plus a designed-in-but-disabled state-root leg, `POSEIDON2_STATE_ROOT_ENABLED = false`) |
 
 ### Blake3
 
@@ -295,8 +301,10 @@ bytes at a time (avoiding values that exceed the Goldilocks modulus).
 
 ### Where Poseidon2 is used
 
-1. **State root commitment:** the dual-rooted state has a Poseidon2 root
-   alongside the Blake3 root, signed by the committee.
+1. **State root commitment (designed-in, currently disabled):** a Poseidon2
+   state-root leg sits alongside the Blake3 root in the signed structure, but
+   it is an inert zero placeholder today — `POSEIDON2_STATE_ROOT_ENABLED =
+   false`, so only the Blake3 root is computed and signed.
 2. **Account address derivation:** `Poseidon2(falcon_pubkey)` for EOAs.
 3. **Contract / child address derivation:** `Poseidon2("pyde-contract:" ||
    name)` for named deploys and `Poseidon2("pyde-child:" || parent ||
@@ -548,11 +556,12 @@ is a wallet-side concern; the protocol doesn't care.
    +----------------+     +----------------+
         |                       |
         v                       v
-   JMT internals          state root commit,
-   batch hashes           addresses, storage keys,
-   vertex hashes          VRF output, RNG mix
-   gossip dedup           poseidon2 host function
-   commit-reveal hash
+   JMT nodes + root       addresses, storage keys,
+   batch hashes           VRF output, RNG mix,
+   vertex hashes          poseidon2 host function
+   gossip dedup           (state-root leg present but
+   commit-reveal hash      disabled: POSEIDON2_STATE_
+   live state root         ROOT_ENABLED = false)
 
    +----------------+
    | AES-256-GCM    |
@@ -594,8 +603,8 @@ happen if a substantive cryptanalytic break appeared.
 | ------------------ | ------------------------------------------------ | -------------------------------- |
 | FALCON-512         | All signatures (txs, vertices, state roots, attestations, beacon)| `pyde_crypto::falcon` |
 | Kyber-768 / ML-KEM | P2P transport session keys (transport only)      | design only — not in code (§8.3) |
-| Blake3             | High-volume native hashes (JMT, batches, vertices, gossip) + commit-reveal commitments | upstream `blake3` crate, called at each site |
-| Poseidon2          | ZK-bearing hashes (state root, addresses, slot keys)| `pyde_crypto::poseidon2` |
+| Blake3             | High-volume native hashes (JMT nodes and the live state root, batches, vertices, gossip) + commit-reveal commitments | upstream `blake3` crate, called at each site |
+| Poseidon2          | ZK-bearing hashes (addresses, slot keys; state-root leg designed-in but disabled, `POSEIDON2_STATE_ROOT_ENABLED = false`)| `pyde_crypto::poseidon2` |
 | Commit-reveal      | Keyless commit-reveal mempool (Blake3 commitment + bond)| see Chapter 9 (MEV Protection)   |
 | Epoch beacon       | Anchor seeding, randomness, committee score      | `crates/consensus/src/beacon.rs`, `anchor.rs` |
 | AES-256-GCM        | Symmetric AEAD (P2P transport, wallet keystore)  | (via the `aes-gcm` crate)        |

@@ -147,8 +147,8 @@ MEV-sensitive transactions enter in two halves:
 
 | Use | Hash | Reason |
 | --- | --- | --- |
-| JMT internal nodes (high volume) | **Blake3** | ~30× faster than Poseidon2 on CPU; not in ZK circuits |
-| Published state root (per commit) | **Both** (Blake3 native + Poseidon2 ZK) | Native verification fast; ZK validity proofs future-compatible |
+| JMT nodes and the live state root | **Blake3** | ~30× faster than Poseidon2 on CPU; not in ZK circuits |
+| Published state root (per commit) | **Blake3** (a parallel Poseidon2 leg is designed-in but disabled: `POSEIDON2_STATE_ROOT_ENABLED = false`) | Native verification fast; the Poseidon2 leg, once enabled, keeps ZK validity proofs future-compatible |
 | Transaction hashes (ciphertext) | Blake3 | Gossip / dedup, not in ZK |
 | Transaction hashes (plaintext canonical) | Poseidon2 | Inside sig-verify ZK circuits |
 | Address derivation | Poseidon2 | `Poseidon2(falcon_pk)` exposed to sig-verify circuits |
@@ -231,7 +231,7 @@ When the anchor vertex collects sufficient Mysticeti 3-stage support from later 
 3. Batches referenced by each vertex are dereferenced.
 4. For each **Reveal** transaction within those batches, the resolution pass recomputes `Blake3("pyde-commit-reveal-v1" || borsh(inner_tx) || nonce)`, matches it to the earlier commitment, refunds the bond, and slots the inner transaction for execution in the commit order the DAG already fixed. Commits whose reveal never arrived within `COMMIT_REVEAL_WINDOW_WAVES = 120` expire and forfeit their bond.
 5. wasmtime executes transactions in canonical order (revealed inner transactions in commit order).
-6. State root is computed (Blake3 + Poseidon2 dual), FALCON-signed by ≥ 86 committee members.
+6. State root is computed (Blake3; the parallel Poseidon2 leg is disabled today), FALCON-signed by ≥ 86 committee members.
 7. Finality is declared once ≥ 86 state-root signatures converge.
 
 **Median end-to-end finality target: ~ 500 ms.** Validated by performance harness pre-publication.
@@ -346,7 +346,7 @@ State is stored in a Jellyfish Merkle Tree (radix-16, path-compressed), persiste
 - Same authentication properties (Merkle commitment, inclusion / exclusion proofs)
 - Production-proven (Diem, Aptos)
 
-State commitment is dual-rooted at every commit: Blake3 for fast native verification by committee and validators, Poseidon2 for future ZK light clients and validity proofs. Both roots are signed by ≥ 86 committee members.
+State commitment uses Blake3 for the performance-critical state tree and live state root, which committee and validators verify against and which ≥ 86 committee members sign. A parallel Poseidon2 state-root leg — intended for future ZK light clients and validity proofs — is designed-in but currently disabled (`POSEIDON2_STATE_ROOT_ENABLED = false`) and carried as an inert zero placeholder, so only the Blake3 root is computed and signed today.
 
 The wave witness (every state slot touched by a wave plus a single batched JMT proof against the pre-state root) has a hard 1 MB cap, rejected at verification before any proof work runs.
 
@@ -401,7 +401,7 @@ The macro is asynchronous by construction. The originating transaction marks the
 
 ### 11.2 HardFinalityCert
 
-A FALCON quorum certificate over `(wave_id, blake3_state_root, poseidon2_state_root)`, signed by ≥ 86 of the active committee. Verification on any counterparty chain: 86 FALCON-512 verifies (~ 86 ms at the ~ 1 ms per-verify rate of §5.1) plus a Merkle path, feasible on any chain with a reasonable VM. The cert's stability across the chain's lifetime is what makes parachains feasible without further protocol changes after mainnet.
+A FALCON quorum certificate over `(wave_id, blake3_state_root, poseidon2_state_root)`, signed by ≥ 86 of the active committee. (v1: the `poseidon2_state_root` leg is an inert zero placeholder; `POSEIDON2_STATE_ROOT_ENABLED = false`, so only the Blake3 root is computed and signed today.) Verification on any counterparty chain: 86 FALCON-512 verifies (~ 86 ms at the ~ 1 ms per-verify rate of §5.1) plus a Merkle path, feasible on any chain with a reasonable VM. The cert's stability across the chain's lifetime is what makes parachains feasible without further protocol changes after mainnet.
 
 ### 11.3 Architecture vs Implementation
 

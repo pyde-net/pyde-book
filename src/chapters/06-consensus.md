@@ -231,7 +231,7 @@ When the anchor vertex collects sufficient support from later rounds (Mysticeti 
 4. For each vertex in sorted order, dereference batch_refs
 5. Run the commit-reveal resolution pass: revealed inner txs splice into their DAG-fixed commit order (commit-reveal mempool, Chapter 9)
 6. wasmtime executes all transactions in canonical order
-7. State root computed (Blake3 + Poseidon2 dual)
+7. State root computed (Blake3; the parallel Poseidon2 leg is designed-in but disabled today, `POSEIDON2_STATE_ROOT_ENABLED = false`)
 8. ≥86 committee FALCON-sign state root (piggybacked on next-round vertices)
 9. ≥86 state-root sigs collected → finality declared
 ```

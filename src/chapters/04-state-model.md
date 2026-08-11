@@ -6,18 +6,22 @@ state model decides how fast you commit, how cheap you sync, and how well you
 parallelize execution.
 
 Pyde stores all state in a **Jellyfish Merkle Tree (JMT)**, persisted in
-RocksDB, with **hybrid hashing**: Blake3 on high-volume native paths,
-Poseidon2 on ZK-bearing paths. The state commitment is dual-rooted:
-Blake3 for fast native verification by committee and validators, Poseidon2
-for future ZK light clients and validity proofs.
+RocksDB, with **hybrid hashing**: Blake3 for the performance-critical state
+tree and live state root, Poseidon2 for address/storage-key derivation and
+ZK-bearing exports. A Poseidon2 state-root leg is designed-in but currently
+disabled (`POSEIDON2_STATE_ROOT_ENABLED = false`), so the live state root
+that committee and validators verify against is Blake3-only; the parallel
+Poseidon2 root, once enabled, would serve future ZK light clients and
+validity proofs.
 
 The JMT replaces the fixed-depth Sparse Merkle Tree the project initially
 shipped, a swap made because JMT's radix-16 path compression delivers
 roughly 40× faster commits. Hybrid hashing was adopted post-pivot once the
 performance cost of running Poseidon2 over every internal JMT node became
-clear; Blake3 is ~50× faster on commodity CPUs without sacrificing the
-ZK-friendly properties where they matter (state root, address derivation,
-FALCON-sig-hashing inside circuits).
+clear; Blake3 is ~50× faster on commodity CPUs while Poseidon2 is retained
+where its ZK-friendly properties matter (address derivation and
+FALCON-sig-hashing inside circuits, plus the designed-in-but-disabled
+Poseidon2 state-root leg).
 
 ---
 
@@ -58,10 +62,12 @@ PersistentJMT {
 ```
 
 A `HybridJmtHasher` adapter implements the `jmt::SimpleHasher` trait,
-delegating internal node hashes to **Blake3** (the high-volume path) and
-exposing **Poseidon2** for state-root and address-derivation paths. The
-JMT internals use Blake3; the snapshot manifest and ZK-bearing exports
-use Poseidon2. Both roots are computed and signed (Chapter 6).
+hashing **every JMT node — internal nodes and the root — with Blake3**
+(the high-volume path). **Poseidon2** is used for address/storage-key
+derivation and ZK-bearing exports, not for the tree itself. The live state
+root is therefore Blake3-only; a parallel Poseidon2 state-root leg is
+designed-in but currently disabled (`POSEIDON2_STATE_ROOT_ENABLED = false`),
+so only the Blake3 root is computed and signed today (Chapter 6).
 
 ---
 
@@ -186,28 +192,31 @@ For query semantics (`pyde_getLogs`), subscriptions (`pyde_subscribe`), and the 
 
 ## 4.2 Hybrid Hashing: Blake3 + Poseidon2
 
-![One Jellyfish Merkle Tree with two roots: a Blake3 native root for validators and light clients, and a Poseidon2 root kept ready for future ZK consumers.](../assets/diagrams/ch04-dual-root-jmt.svg)
+![One Jellyfish Merkle Tree hashed end-to-end with Blake3 for validators and light clients, with a parallel Poseidon2 root designed-in but currently disabled for future ZK consumers.](../assets/diagrams/ch04-dual-root-jmt.svg)
 
-*One Jellyfish Merkle Tree, two roots: Blake3 for the high-volume native path, Poseidon2 for the ZK-facing commitment, both carried in every signed snapshot manifest.*
+*One Jellyfish Merkle Tree: Blake3 hashes the whole tree and the live state root; a parallel Poseidon2 root is designed-in for future ZK consumers but currently disabled (`POSEIDON2_STATE_ROOT_ENABLED = false`), so only the Blake3 root is carried and signed in every snapshot manifest today.*
 
 Pyde uses two hashes in different layers, chosen for what each is best at:
 
 | Hash       | Speed (commodity CPU) | ZK-friendly | Where used |
 |------------|----------------------|-------------|------------|
-| **Blake3** | ~3 GB/s              | No (huge circuit) | JMT internal nodes, batch hashes, vertex hashes, gossip de-dup, RocksDB keys |
-| **Poseidon2** | ~60 MB/s          | Yes (small circuit) | State root commitment, address derivation, FALCON sig hashing inside ZK circuits, threshold MAC |
+| **Blake3** | ~3 GB/s              | No (huge circuit) | JMT nodes and the live state root, batch hashes, vertex hashes, gossip de-dup, RocksDB keys |
+| **Poseidon2** | ~60 MB/s          | Yes (small circuit) | Address derivation, storage-key derivation, FALCON sig hashing inside ZK circuits, threshold MAC (plus a designed-in-but-disabled state-root leg, `POSEIDON2_STATE_ROOT_ENABLED = false`) |
 
-**The split rule:** every hash that lives entirely off-chain or inside a
-trusted committee-signed structure can be Blake3. Every hash that may be
-exposed to a future ZK proof (state root, addresses, signature payloads)
-is Poseidon2.
+**The split rule:** the state tree and its live root, plus every hash that
+lives entirely off-chain or inside a trusted committee-signed structure, use
+Blake3. Poseidon2 is reserved for hashes that must be re-derived inside a
+future ZK proof (addresses, storage keys, signature payloads); the state root
+has a Poseidon2 leg reserved under the same rule, but it is designed-in and
+currently disabled (`POSEIDON2_STATE_ROOT_ENABLED = false`).
 
 ### Poseidon2 (Goldilocks)
 
-Poseidon2 is the algebraic hash used everywhere in Pyde: the JMT, contract
-storage-key derivation, transaction hashing, the threshold MAC, the VRF, and
-the `poseidon2` WASM host function. The parameter set (see Chapter 8 for full
-detail):
+Poseidon2 is the algebraic hash used on Pyde's ZK-bearing paths: contract
+storage-key and address derivation, canonical transaction hashing, the
+threshold MAC, the VRF, and the `poseidon2` WASM host function. It is **not**
+used for the JMT, whose nodes and root are Blake3. The parameter set (see
+Chapter 8 for full detail):
 
 | Parameter              | Value                              |
 | ---------------------- | ---------------------------------- |
@@ -327,7 +336,7 @@ Some discriminators currently in use (defined in
 
 This flat scheme means a single Merkle path can prove any state claim: there
 is no nested account-trie / storage-trie indirection (the classic
-Patricia-trie pattern). One proof, one `Poseidon2`-walk to the root.
+Patricia-trie pattern). One proof, one `Blake3`-walk to the root.
 
 ### Contract storage layout
 
@@ -465,8 +474,9 @@ existed. Pyde defines three sync modes (full spec: [companion/STATE_SYNC.md](../
 operational summary: Chapter 7):
 
 1. **Snapshot sync (default for new full nodes).** Download a committee-signed
-   `SnapshotManifest` (~5 KB) carrying both Blake3 and Poseidon2 state roots
-   plus chunk references. Verify ≥86 FALCON signatures. Download chunks
+   `SnapshotManifest` (~5 KB) carrying the Blake3 state root plus chunk
+   references (the parallel Poseidon2 root is a disabled inert placeholder
+   today, `POSEIDON2_STATE_ROOT_ENABLED = false`). Verify ≥86 FALCON signatures. Download chunks
    (~4 MB each) in parallel from peers, verify each against the manifest,
    reconstruct the JMT, recompute the Blake3 root, compare. Then replay
    the tail waves (≤ 8 epochs ≈ 24 hours of tx) to reach the current head.
@@ -527,7 +537,7 @@ be globally agreed.
 | --------------------- | ------------------------------------------------------------- |
 | Tree structure        | Jellyfish Merkle Tree (radix-16, path-compressed)             |
 | Internal-node hash    | Blake3 (high-volume, native)                                  |
-| State root            | Dual: Blake3 (native) + Poseidon2 (ZK-bearing)                |
+| State root            | Blake3 (live); Poseidon2 leg designed-in but disabled (`POSEIDON2_STATE_ROOT_ENABLED = false`) |
 | Address-derivation    | Poseidon2 (ZK exposure preserved)                             |
 | Storage layout        | Flat: single tree, discriminator bytes in keys                |
 | Address format        | 32 bytes, Poseidon2 of the FALCON-512 public key              |

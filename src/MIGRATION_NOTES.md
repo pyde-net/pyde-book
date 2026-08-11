@@ -62,7 +62,7 @@ protocol that Sui has been running in production since 2024.
 | Mempool | Always-encrypted | Plaintext default + opt-in keyless commit-reveal lane |
 | State tree | Fixed-depth Sparse Merkle Tree | Jellyfish Merkle Tree (radix-16, path-compressed) |
 | Hashing | Poseidon2 everywhere | Blake3 (native) + Poseidon2 (ZK-bearing) |
-| State root | Single Poseidon2 root | Dual: Blake3 + Poseidon2 |
+| State root | Single Poseidon2 root | Blake3 (live); Poseidon2 leg designed-in but disabled (`POSEIDON2_STATE_ROOT_ENABLED = false`) |
 | Execution | Otigen era: static access lists only. Intermediate proposal (dropped): hybrid static + Block-STM speculation. | Current v1: uniform Block-STM; access list is an optional prefetch hint (PIP-3 multiget cache warm-up) and never partitions execution. |
 | Staking model | Single 10K PYDE | Single 10K PYDE (unchanged; an interim mid-pivot draft of the book proposed 10M/100K tiers, which was an error; flat-tier with operator-cap was the actual decision) |
 | Reward distribution | Direct proposer share (20%) | Epoch reward pool (20%, distributed by stake×uptime) |
@@ -94,7 +94,7 @@ changed most are:
 2. **Chapter 7 (State Sync & Chain Halt)**: new chapter, operational
    procedures absent in pre-pivot.
 3. **Chapter 9 (MEV Protection)**: restructured for DAG ordering.
-4. **Chapter 4 (State Model)**: hybrid hashing, dual state roots.
+4. **Chapter 4 (State Model)**: hybrid hashing; Blake3 state root with a designed-in-but-disabled Poseidon2 leg.
 5. **Chapter 8 (Cryptography)**: Blake3 added; Poseidon2 scope narrowed.
 6. **Chapter 12 (Networking)**: DHT removed; layered discovery + sentry.
 7. **Chapter 14 (Tokenomics)**: single-tier staking (10K PYDE min,
@@ -128,7 +128,7 @@ performance numbers are still gated on the multi-region harness.
 |-----------|--------|
 | Architecture design | ✅ Complete |
 | WASM execution (wasmtime + Cranelift AOT, Block-STM) | 🟢 Live; pooled `Engine`, Host Function ABI v1.0 frozen, Block-STM wired into the commit walk |
-| State (JMT + hybrid Blake3 / Poseidon2 dual root) | 🟢 Wired; `StateRoot { blake3, poseidon2 }` end-to-end |
+| State (JMT + Blake3 root; Poseidon2 leg designed-in, disabled) | 🟢 Blake3 root wired end-to-end. The `StateRoot { blake3, poseidon2 }` type carries a Poseidon2 field, but the leg is disabled (`POSEIDON2_STATE_ROOT_ENABLED = false`) and holds an inert zero placeholder; only the Blake3 root is computed and signed today |
 | Mysticeti DAG consensus | 🟡 Vertex / anchor / beacon / committee / wave commit live; multi-validator genesis DKG + state-sync replay shipped; soak-test hardening and resharing edge cases in flight |
 | MEV protection (keyless commit-reveal mempool) | 🟢 Commit/Reveal tx types, bond escrow, and commit-order reveal resolution live; no committee key, no DKG (the earlier threshold-encryption lane was removed) |
 | Network protocol (libp2p + QUIC + Gossipsub) | 🟢 Migrated; layered discovery, peer scoring, sentry-friendly topology |

@@ -26,7 +26,7 @@ This drops committee disk I/O burden. Manifest is small and committee-signed; ch
 struct SnapshotManifest {
     epoch: u64,
     snapshot_state_root_blake3: Hash,
-    snapshot_state_root_poseidon2: Hash,
+    snapshot_state_root_poseidon2: Hash,  // inert zero placeholder in v1 (disabled)
     chunk_manifest: Vec<ChunkRef>,
     current_committee_pubkeys: Vec<FalconPubkey>,  // chain-of-trust
     signatures: Vec<FalconSig>,                     // ≥86 from prior epoch's committee
@@ -40,12 +40,12 @@ struct ChunkRef {
 }
 ```
 
-### Why Dual Roots
+### Why Two Root Fields
 
-- **Blake3:** fast native verification
-- **Poseidon2:** future ZK light-client compatibility
+- **Blake3:** the live root — fast native verification
+- **Poseidon2:** designed-in for future ZK light-client compatibility, but currently disabled (`POSEIDON2_STATE_ROOT_ENABLED = false`)
 
-Both computed at snapshot time, both signed by committee.
+Only the Blake3 root is computed and signed at snapshot time today; the Poseidon2 field is carried as an inert zero placeholder until the leg is enabled.
 
 ### Snapshot Cadence
 

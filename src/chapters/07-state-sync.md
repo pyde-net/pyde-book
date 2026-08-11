@@ -26,14 +26,14 @@ At the chain's sustained throughput, replaying every wave from genesis is infeas
 struct SnapshotManifest {
     epoch: u64,
     snapshot_state_root_blake3: Hash,
-    snapshot_state_root_poseidon2: Hash,
+    snapshot_state_root_poseidon2: Hash,  // inert zero placeholder in v1 (disabled)
     chunk_manifest: Vec<ChunkRef>,
     current_committee_pubkeys: Vec<FalconPubkey>,  // chain-of-trust
     signatures: Vec<FalconSig>,                     // ≥86 from prior committee
 }
 ```
 
-**Why dual roots:** Blake3 for fast native verification by syncing nodes; Poseidon2 for future ZK light-client compatibility.
+**Why two root fields:** Blake3 is the live root, used for fast native verification by syncing nodes; the Poseidon2 field is designed-in for future ZK light-client compatibility but currently disabled (`POSEIDON2_STATE_ROOT_ENABLED = false`), carried as an inert zero placeholder today.
 
 ### Snapshot Cadence
 

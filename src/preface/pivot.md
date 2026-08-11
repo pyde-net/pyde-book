@@ -204,7 +204,7 @@ The architecture that this book describes is the architecture after the pivots:
 
 - **Consensus:** Mysticeti-style DAG, anchor-every-round, tail-latency-aware.
 - **Execution:** WebAssembly via wasmtime, with Cranelift AOT for hot paths.
-- **State:** Jellyfish Merkle Tree with dual hashing (Blake3 + Poseidon2), PIP-2 clustered slot keys for cache locality, dual roots so we can serve both standard light clients and future ZK light clients from the same tree.
+- **State:** Jellyfish Merkle Tree hashed with Blake3, PIP-2 clustered slot keys for cache locality, and a designed-in-but-currently-disabled parallel Poseidon2 root (`POSEIDON2_STATE_ROOT_ENABLED = false`) so we can eventually serve future ZK light clients from the same tree alongside standard ones.
 - **Cryptography:** FALCON for signatures (post-quantum), a keyless commit-reveal mempool for fair ordering, Poseidon2 as our ZK-friendly hash, Blake3 for fast general hashing.
 - **Developer experience:** the `otigen` binary owns the entire authoring lifecycle. Authors write only their contract logic and a `otigen.toml`. Everything else (language detection, build invocation, state binding generation, ABI emission, deploy-tx submission) is handled by the tool.
 - **Parachains:** WASM runtime per parachain, equal-power governance, full upgrade history retention, ENS-style name registration.

@@ -306,6 +306,10 @@ struct HardFinalityCert {
 }
 ```
 
+(v1: the `poseidon2_state_root` leg is an inert zero placeholder;
+`POSEIDON2_STATE_ROOT_ENABLED = false`, so only the Blake3 root is computed
+and signed today.)
+
 This certificate, signed by ≥ ⌊(n+f)/2⌋ + 1 = 86 of the active committee, is the
 outbound half of any adapter's proof story:
 
@@ -313,8 +317,9 @@ outbound half of any adapter's proof story:
   public keys (refreshed at epoch boundaries).
 - To accept a Pyde-side event it requires a `HardFinalityCert` for the
   commit that included the event, plus a Merkle proof from the wave's
-  `blake3_state_root` (native) or `poseidon2_state_root`
-  (ZK-circuit-friendly) to the event's storage slot.
+  `blake3_state_root` (native) to the event's storage slot. (A
+  `poseidon2_state_root` ZK-circuit-friendly path is reserved for future ZK
+  verification once the leg is enabled; today it is disabled.)
 - Verification is `(86 × FALCON_verify) + (one Merkle path)`, feasible
   on any chain with a reasonable VM.
 

@@ -152,6 +152,10 @@ struct FinalityCheckpoint {
 }
 ```
 
+(v1: the `poseidon2_state_root` leg is an inert zero placeholder;
+`POSEIDON2_STATE_ROOT_ENABLED = false`, so only the Blake3 root is computed
+and signed today.)
+
 (Stored under `FINALITY_CHECKPOINT_KEY` in
 `crates/node/src/consensus_store.rs`.)
 
@@ -429,9 +433,11 @@ transactions. Honest validators would incorrectly accept a bogus state.
 ### The defense
 
 Every honest validator executes each committed wave themselves and
-FALCON-signs `(wave_id, blake3_state_root, poseidon2_state_root)`. A
-malicious vertex producer that claims a wrong root gets 0 honest
-state-root sigs; the network cannot reach the 86-sig finality bar.
+FALCON-signs `(wave_id, blake3_state_root, poseidon2_state_root)`. (v1:
+the `poseidon2_state_root` leg is an inert zero placeholder;
+`POSEIDON2_STATE_ROOT_ENABLED = false`, so only the Blake3 root is computed
+and signed today.) A malicious vertex producer that claims a wrong root gets
+0 honest state-root sigs; the network cannot reach the 86-sig finality bar.
 
 Two conflicting state claims can't both reach finality (same BFT
 argument: > 1/3 would have to equivocate). State root divergence is

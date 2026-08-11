@@ -132,7 +132,7 @@ This section gives the conceptual surface; the spec gives the binary signatures.
 **Hashing primitives:**
 - `hash_keccak256(input) -> hash32`: for compatibility with cross-chain interfaces.
 - `hash_blake3(input) -> hash32`: fast general-purpose hashing.
-- `hash_poseidon2(input) -> hash32`: ZK-friendly hashing (used in state commitments).
+- `hash_poseidon2(input) -> hash32`: ZK-friendly hashing (used for address and storage-key derivation and other ZK-bearing surfaces; the state tree and live root use Blake3).
 
 **Post-quantum cryptography:**
 - `falcon_verify(pubkey, message, signature) -> bool`: verify a FALCON-512 signature.

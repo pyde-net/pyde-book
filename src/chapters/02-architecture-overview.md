@@ -15,8 +15,8 @@ Pyde is a monolithic Layer 1: consensus, execution, and state in a single binary
 │ prefetch                                    │
 ├─────────────────────────────────────────────┤
 │ State Layer                                 │
-│ Jellyfish Merkle Tree (JMT), dual-hash      │
-│ Blake3 + Poseidon2 per node, PIP-2 clusters │
+│ Jellyfish Merkle Tree (JMT), Blake3 root,   │
+│ PIP-2 clusters (Poseidon2 leg disabled)     │
 ├─────────────────────────────────────────────┤
 │ Consensus Layer                             │
 │ Mysticeti DAG, anchor selection, finality   │
@@ -86,7 +86,7 @@ After consensus commits a wave (canonical ordered transactions), the execution l
 2. **Access-list prefetch**: one batched `state_cf.multi_get` (PIP-3) over the union of every tx's declared `(addr, slot)` pairs lands warm values in the dashmap (PIP-4) before workers start. The lists are hints only; they never partition the wave or affect correctness.
 3. **Block-STM scheduler** runs every tx in parallel on a `rayon` pool: optimistic execute against an MVCC layer + validate against canonical tx_index order + cascade-invalidate + re-incarnate on conflict + fixpoint. Final state per slot is the highest-tx_index's last write. Full algorithm in [companion/BLOCK_STM_EXECUTION.md](../companion/BLOCK_STM_EXECUTION.md).
 4. **wasmtime executes** each tx with Cranelift AOT and fuel-based gas metering. Smart contracts compile from Rust, AssemblyScript, Go, or C/C++ to WASM.
-5. **State root computed**: dual-hash (Blake3 + Poseidon2) per JMT node
+5. **State root computed**: Blake3 over the JMT (the parallel Poseidon2 leg is designed-in but disabled today)
 6. **Committee FALCON-signs state root** (piggybacked on next vertices)
 7. **Finality** when ≥86 state root signatures collected
 
@@ -99,9 +99,10 @@ Account state and contract storage are stored in a **Jellyfish Merkle Tree (JMT)
 - Same authentication properties (Merkle commitment, inclusion / exclusion proofs)
 - Production-proven (Diem, Aptos)
 
-State commitment is dual-rooted:
-- **Blake3 root:** fast native verification (committee + validators)
-- **Poseidon2 root:** ZK-circuit-friendly (future light clients, validity proofs)
+State commitment is Blake3-rooted today, with a designed-in-but-disabled
+Poseidon2 leg:
+- **Blake3 root:** the live state root — fast native verification (committee + validators)
+- **Poseidon2 root:** ZK-circuit-friendly (future light clients, validity proofs), but currently disabled (`POSEIDON2_STATE_ROOT_ENABLED = false`) and carried as an inert zero placeholder
 
 ## Cryptography Layer
 
@@ -114,7 +115,7 @@ Selected by NIST for standardization as FN-DSA; draft FIPS 206, not yet publishe
 Pyde's commit-reveal mempool needs **no encryption primitive and no committee key**. A commitment is a Blake3 hash of the inner transaction; the reveal carries the plaintext, and the DAG fixes commit order before contents are known. Safety is unconditionally trustless: it never rests on a threshold of honest committee members. The primitives it leans on (Blake3 hashing, FALCON signatures) are already post-quantum. See Chapter 9. (A ciphertext-based lane remains v2+ research; see Chapter 20.)
 
 ### Poseidon2 + Blake3 (Hashing)
-Hybrid layered: Blake3 for high-volume native paths (JMT internals), Poseidon2 for ZK-bearing paths (state root commitment exposed to future ZK proofs, address derivation, FALCON sig hashing inside ZK circuits).
+Hybrid layered: Blake3 for the state tree and its live root and other high-volume native paths (JMT nodes, gossip, batches), Poseidon2 for ZK-bearing paths (address derivation, storage keys, FALCON sig hashing inside ZK circuits). A Poseidon2 state-root leg is designed-in but currently disabled (`POSEIDON2_STATE_ROOT_ENABLED = false`), so the live state root is Blake3-only.
 
 ## Network Layer
 
@@ -146,9 +147,9 @@ Accounts hold:
 
 ## Transaction Lifecycle
 
-![The life of a transaction, from wallet submission through worker batching, a DAG vertex, wave commit, parallel execution, and the dual-hash state root to finality.](../assets/diagrams/ch02-tx-lifecycle.svg)
+![The life of a transaction, from wallet submission through worker batching, a DAG vertex, wave commit, parallel execution, and the Blake3 state root to finality.](../assets/diagrams/ch02-tx-lifecycle.svg)
 
-*The end-to-end life of a transaction: worker batching, a DAG vertex referencing batches by hash, a wave commit fixing canonical order, Block-STM parallel execution, a dual-hash state root, and finality at 86 of 128 committee signatures.*
+*The end-to-end life of a transaction: worker batching, a DAG vertex referencing batches by hash, a wave commit fixing canonical order, Block-STM parallel execution, a Blake3 state root, and finality at 86 of 128 committee signatures.*
 
 ```
 1. Wallet constructs tx
@@ -163,7 +164,7 @@ Accounts hold:
 10. Commit fires (Mysticeti, sub-second target): anchor selected, subdag walked, canonical order emitted
 11. (Commit-reveal mempool) revealed inner txs are spliced into their commit order during the resolution pass (Chapter 9)
 12. wasmtime executes WASM modules in canonical order
-13. JMT updates (dual-hash per node), state root signed
+13. JMT updates (Blake3 per node), state root signed
 14. Finality declared (≥86 state root sigs)
 ```
 

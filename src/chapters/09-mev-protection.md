@@ -489,6 +489,8 @@ Step 6 - EXECUTION (Block-STM)
 
 Step 7 - STATE ROOT ATTESTATION
   - Each committee member FALCON-signs (wave_id, blake3_state_root, poseidon2_state_root).
+    (v1: the poseidon2_state_root leg is an inert zero placeholder;
+     POSEIDON2_STATE_ROOT_ENABLED = false, so only the Blake3 root is computed and signed today.)
   - Sigs piggyback on subsequent vertices.
   - ≥ 86 sigs -> finality.
 

@@ -70,7 +70,7 @@ For the full reference (`otigen.toml` schema, per-language workflows, state bind
 
 ## 17.2 The engine workspace and `otigen devnet`
 
-There is no separate `pyde` node binary at v1. The chain runtime, comprising the execution layer (wasmtime + Cranelift AOT), the JMT state layer (PIP-2 clustering, dual-hash, PIP-3 prefetch, PIP-4 write-back cache), the mempool, and the JSON-RPC server, lives in the `pyde-net/engine` workspace as a library, and ships embedded inside the `otigen` binary so authors get a one-command devnet:
+There is no separate `pyde` node binary at v1. The chain runtime, comprising the execution layer (wasmtime + Cranelift AOT), the JMT state layer (PIP-2 clustering, Blake3 hashing, PIP-3 prefetch, PIP-4 write-back cache), the mempool, and the JSON-RPC server, lives in the `pyde-net/engine` workspace as a library, and ships embedded inside the `otigen` binary so authors get a one-command devnet:
 
 ```
 otigen devnet              One-command local devnet. Spins up the embedded engine, pre-funds 10 deterministic accounts

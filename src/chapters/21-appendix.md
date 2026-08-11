@@ -34,7 +34,7 @@ and the post-mainnet plan.
 | **Wave**             | The Mysticeti commit unit. Anchor at round R+3 commits the subdag rooted at round R. |
 | **Anchor**           | Deterministically-selected committee member whose round-R vertex commits the wave. `Hash(beacon, round, prev_state_root) mod 128`. |
 | **Worker / Primary** | Narwhal pattern: workers gossip tx batches, primary produces vertices and runs consensus. |
-| **HardFinalityCert** | ≥ 86 FALCON sigs over `(wave_id, blake3_state_root, poseidon2_state_root)`. |
+| **HardFinalityCert** | ≥ 86 FALCON sigs over `(wave_id, blake3_state_root, poseidon2_state_root)`. (v1: the `poseidon2_state_root` leg is an inert zero placeholder; `POSEIDON2_STATE_ROOT_ENABLED = false`, so only the Blake3 root is computed and signed today.) |
 | **Committee**        | The 128 active validators per epoch. Equal vote weight; uniform random selection. |
 | **Epoch**            | ~3 hours of waves. Committee rotation + next-epoch beacon fire at the boundary. |
 | **Validator**        | Node staking ≥ `MIN_VALIDATOR_STAKE` (10,000 PYDE). Single tier; uniform-random committee selection picks 128 from the eligible pool each epoch. |

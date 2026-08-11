@@ -42,7 +42,7 @@ Most Layer 1s in production today rest on classical cryptography (secp256k1, Ed2
 - **WebAssembly execution** via wasmtime, with Cranelift AOT. Smart contracts written in Rust, AssemblyScript, Go, or C/C++, the same language ecosystem authors already work in
 - **Worker / Primary split** (Narwhal pattern) for data dissemination separate from consensus
 - **Uniform Block-STM scheduler**: optimistic parallel execution + MVCC validation; access lists from `pyde_simulateTransaction` drive PIP-3 prefetch into the dashmap cache before workers start
-- **JMT state tree** (Jellyfish Merkle Tree, radix-16) replaces fixed-depth SMT, with dual Blake3 + Poseidon2 roots so standard light clients and future ZK light clients verify against the same tree
+- **JMT state tree** (Jellyfish Merkle Tree, radix-16) replaces fixed-depth SMT; the live root is Blake3, with a parallel Poseidon2 root designed-in but currently disabled (`POSEIDON2_STATE_ROOT_ENABLED = false`) so future ZK light clients can eventually verify against the same tree
 - **PIP-2 clustered slot keys + PIP-3 prefetch + PIP-4 write-back cache**: three-layer state performance stack
 - **Keyless commit-reveal mempool opt-in** per-tx: fair-ordering protection where needed, no overhead where not
 - **`otigen` developer toolchain** with zero-extra-code authoring: write contract logic + `otigen.toml`, the tool handles everything else

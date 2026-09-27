@@ -2,127 +2,129 @@
 
 ## What is Pyde?
 
-Pyde is our attempt at what a base layer could have been from the start: fair ordering, honest finality, a node anyone can run, and verification that outlives the cryptography it was built with. Concretely, that shows up as four properties:
+Pyde is **distributed ledger infrastructure for a connected global economy**.
 
-1. **Fair ordering by structure**: a keyless commit-reveal mempool with deterministic commit-order execution removes proposer extraction
-2. **Honest finality**: Mysticeti-style consensus, ~500ms median finality
-3. **A node anyone can run**: modest hardware for validators not currently on the active committee; equal voting power within the active committee
-4. **Verification that outlives its cryptography**: FALCON-512 signatures, Poseidon2 + Blake3 hashing, post-quantum from genesis
+It provides a common programmable foundation for representing, verifying, and coordinating **global economic state** across sovereign networks, open settlement infrastructure, and a permissionless public network.
 
-The execution layer is **WebAssembly via wasmtime**, with Cranelift ahead-of-time compilation and a **uniform Block-STM scheduler**: every tx runs optimistically in parallel through an MVCC layer, conflicts are detected at runtime, losers re-execute until fixpoint. Wallet-attached access lists from `pyde_simulateTransaction` drive PIP-3 multiget prefetch into the dashmap cache before execution starts; the lists are performance hints, not scheduling decisions. Smart contracts can be authored in **Rust, AssemblyScript, Go (TinyGo), or C** (whatever language the team already uses) and bundled by the `otigen` developer toolchain.
+Global economic state includes balances, ownership, authorization, identity relationships, obligations, licenses, settlement positions, regulatory conditions, and contractual relationships. The purpose of the protocol is not simply to represent digital assets. It is to make relevant economic state programmable, verifiable, and coordinatable across domains with different authorities.
 
-Cross-chain interactions (calling functions on other chains, querying oracles, off-chain compute) happen through a permissionless **parachain layer** (post-mainnet) with operators who stake PYDE and earn gas fees from contracts that call them. No custodial multisigs, no auctioned slots.
+The architecture is divided into three environments.
 
-## The Pivots
+**Tier 1** provides sovereign consortium networks for domestic economic state and regulated institutional applications. Authorized sovereign agencies control the validator set and the rules that govern the network.
 
-Pyde has gone through two clean pivots that materially changed the architecture. Both are documented honestly in the preface ([The Pivot](../preface/pivot.md)) and supported by full historical design records in [`pivot/`](../pivot/README.md).
+**Tier 2** provides open interlinking settlement infrastructure. Independent validators can participate subject to the protocol's requirements. Tier 2 coordinates cross domain settlement through foreign exchange observations, settlement pools, obligations, positions, and netting without becoming the monetary authority of the currencies involved.
 
-- **Consensus pivot**: from an in-house HotStuff variant (whose 400ms tail-latency wedges proved structural rather than tunable) to Mysticeti-style DAG consensus. The HotStuff-era consensus crates are archived; the Mysticeti-based rebuild is in progress.
-- **Execution pivot**: from a custom virtual machine (`pyde-vm`), a custom AOT compiler (`pyde-aot`), and a custom language (Otigen) to WebAssembly via wasmtime. The Otigen *name* lives on as the developer toolchain (`otigen`). The original Otigen Book is preserved as a historical artifact.
+**Tier 3** provides the permissionless public environment. Anyone can participate within the protocol rules, deploy smart contracts, issue digital assets, and build public applications.
 
-This book reflects the post-pivot architecture. The work that preceded each pivot is preserved both in code (`archive/`) and in design documentation (`pivot/`).
+All three environments share a distributed ledger foundation while applying different authority and participation rules.
 
-## Why a New Layer 1?
+## The Economic Infrastructure Gap
 
-### Ordering
+The global economy is deeply digital, but it is not digitally unified. Economic activity is represented across sovereign monetary systems, banks, payment networks, government registries, enterprises, exchanges, custodians, identity systems, and private software platforms. Each system performs a specific function and can operate correctly within its own domain, yet the global economy still depends on these systems being able to interact with one another.
 
-Value extracted from ordering has hardened into a tax paid by ordinary users to whoever controls block production. Sandwich attacks, front-running, and proposer extraction are not bugs: they are structural consequences of public mempools and single-proposer block production. **Pyde removes the structural conditions** via a keyless commit-reveal mempool (commit order is fixed by the DAG before content is revealed) with no single proposer to exploit.
+That interaction is where much of the infrastructure gap appears. A single economic relationship can require identity to be established in one system, ownership to be established in another, authorization to be checked somewhere else, value to move through a payment system, and the resulting state to be reconciled across multiple records. The individual systems do not necessarily fail. The friction exists at their boundaries because each system maintains its own representation of economic state, its own authority, and its own rules.
 
-### A node anyone can run
+The effects become more significant when economic activity crosses institutional and national boundaries. A cross border transaction can involve sovereign currencies, banking systems, compliance requirements, foreign exchange processes, settlement instructions, liquidity arrangements, and reconciliation systems. The payment itself is only one component of the economic relationship. The surrounding process must establish that the parties are authorized to act, that the relevant value exists, that the applicable exchange rate is accepted, that settlement liquidity is available, and that the resulting obligations and positions are recorded consistently.
 
-Chains optimizing for throughput have tended to require datacenter-class validator hardware. Chains optimizing for decentralization have tended toward throughput too low for serious applications. **Pyde scales hardware requirements by role**: commodity for validators awaiting committee selection, modest professional for validators on the active committee at production targets, datacenter only for aspirational TPS levels.
+This fragmentation limits how easily economic activity can compose across systems. A payment system may know that value moved without directly representing the commercial obligation that caused the movement. A property registry may maintain authoritative ownership information without sharing that state directly with the financial infrastructure financing the property. A sovereign monetary system may maintain the authoritative value of its currency while international commerce still requires separate coordination mechanisms to connect that value to another jurisdiction.
 
-### Verification that outlives its cryptography
+Existing financial and distributed systems already solve important pieces of this problem. Payment networks move value between institutions. Banking systems maintain account and liability state. Settlement infrastructure coordinates transactions between participants. Permissioned distributed ledgers provide shared state for defined groups, while permissionless networks provide open programmability and public consensus. The gap is not the absence of useful infrastructure. The gap is how independently governed economic environments can coordinate through a common programmable architecture without losing the authority boundaries that define them.
 
-Most Layer 1s in production today rest on classical cryptography (secp256k1, Ed25519, BLS12-381) that Shor's algorithm would eventually undo. NIST's 2024 standardization of FALCON, ML-DSA, and ML-KEM unblocked post-quantum primitives, but retrofitting them into a live chain is a multi-year coordinated migration. **Pyde ships PQ at genesis without retrofitting**, so verification does not have an expiry date built into it.
+Distributed ledger technology provides a natural foundation for this coordination because it can maintain shared, verifiable state across independent participants. But a global economic architecture cannot assume that every participant belongs to one permissionless network or follows one authority model. A sovereign monetary system has different requirements from an open settlement network. An institutional application has different requirements from a public smart contract. A cross border settlement layer must coordinate between domains without becoming the sovereign authority over their currencies.
 
-## What's New (Post-Pivot)
+Pyde is designed around that distinction. It treats **global economic state** as the broader infrastructure abstraction and separates economic participation into three environments with explicit authority boundaries.
 
-- **Mysticeti DAG consensus** replaces HotStuff. No view changes, no single proposer, sub-second commit latency targeted (implementation in progress)
-- **WebAssembly execution** via wasmtime, with Cranelift AOT. Smart contracts written in Rust, AssemblyScript, Go, or C/C++, the same language ecosystem authors already work in
-- **Worker / Primary split** (Narwhal pattern) for data dissemination separate from consensus
-- **Uniform Block-STM scheduler**: optimistic parallel execution + MVCC validation; access lists from `pyde_simulateTransaction` drive PIP-3 prefetch into the dashmap cache before workers start
-- **JMT state tree** (Jellyfish Merkle Tree, radix-16) replaces fixed-depth SMT; the live root is Blake3, with a parallel Poseidon2 root designed-in but currently disabled (`POSEIDON2_STATE_ROOT_ENABLED = false`) so future ZK light clients can eventually verify against the same tree
-- **PIP-2 clustered slot keys + PIP-3 prefetch + PIP-4 write-back cache**: three-layer state performance stack
-- **Keyless commit-reveal mempool opt-in** per-tx: fair-ordering protection where needed, no overhead where not
-- **`otigen` developer toolchain** with zero-extra-code authoring: write contract logic + `otigen.toml`, the tool handles everything else
-- **Honest performance targets**: the v1 throughput target is validated by a multi-region performance harness before any number is published
-- **Phased mainnet plan**: external audit + incentivized testnet before launch
+## Protocol Foundation
 
-## Honest Status
+The economic architecture is implemented on a common technical foundation.
 
-This book describes **designed architecture**, with implementation in various stages:
+### Execution
 
-| Component | Status |
-|---|---|
-| Architecture design | Complete |
-| WASM execution layer (wasmtime + Cranelift) | Functional: substrate macros (`#[pyde::entry]` + typed storage + events) + cross-contract calls + typed-storage host fns all shipped |
-| State layer (JMT, hybrid Blake3 + Poseidon2 hashing) | In place; hybrid hashing wired |
-| Mysticeti-style consensus | Rebuild in progress post-pivot |
-| Post-quantum cryptography (`pyde-crypto`) | Functional: FALCON-512, Poseidon2, Blake3 (the keyless commit-reveal MEV lane needs only Blake3 + FALCON) |
-| Network protocol (libp2p + QUIC + Gossipsub) | In place; layered peer discovery (no DHT) in flight |
-| Devnet (`otigen devnet`) | Shipped: chain runtime embedded in the `otigen` binary (no separate `pyde` download), one-command local devnet, 10 prefunded accounts |
-| `otigen` developer toolchain (WASM-era) | Shipped: scaffold / build / check / test / deploy / call / inspect / verify / wallet / console / validator across Rust / TinyGo / AssemblyScript / C; lifecycle commands (`upgrade` / `pause` / `unpause` / `kill`) scaffold a signed tx but refuse to submit (`EngineNotReady`) until the chain-side `TxType::Lifecycle` handler lands (v1 ships the proxy-pattern + author-declared paused/killed booleans) |
-| Parachain framework | Designed; implementation deferred to a later phase |
-| Performance harness (multi-region, chain-throughput) | Not yet built (mandatory before any TPS claim) |
+Pyde executes smart contracts through **WebAssembly using Wasmtime and Cranelift**. The execution environment is deterministic and exposes protocol capabilities through a defined host function interface. Parallel execution uses a Block STM style scheduler with multi version validation and deterministic state application.
 
-**Mainnet ships when the implementation is complete, audited, and validated by an incentivized testnet**: no public schedule. See [Chapter 19: Launch Strategy](./19-launch-strategy.md) for the phased path.
+Contracts can target the supported WebAssembly environment from languages such as Rust, AssemblyScript, Go through TinyGo, and C or C++ and can be packaged through the `otigen` developer toolchain.
 
-## Performance Targets
+### State
 
-Throughput is validated by a multi-region production-realistic harness (mandatory before any external claim). Pyde publishes **no forward throughput number**: the v1 honest throughput target is established only once the harness measures it under sustained, production-realistic conditions. Latency targets, by contrast, are concrete:
+Economic state is committed through a **Jellyfish Merkle Tree**. The state model provides authenticated representation of balances, contract state, and other protocol records while allowing validators and clients to verify state transitions and inclusion proofs.
 
-| Mode | v1 | v2 | Aspirational |
-|---|---|---|---|
-| Plaintext throughput (commodity) | awaiting harness | awaiting harness | awaiting harness |
-| Commit-reveal throughput (commodity) | awaiting harness | awaiting harness | awaiting harness |
-| Median finality | ~500ms | ~400ms | ~300ms |
+The live state root uses Blake3 today. A Poseidon2 path is designed into the state architecture for future zero knowledge consumers but is not presented as enabled production functionality unless the implementation status says otherwise.
 
-**The HotStuff Lesson:** the pre-pivot implementation hit ~4K TPS in practice despite a higher claimed design target. Pyde now adopts the discipline of publishing only what the harness measures under sustained, production-realistic conditions, never lab extrapolations or microbenchmark peaks. No external TPS claim without harness evidence.
+### Consensus
+
+The consensus layer uses a **Mysticeti style DAG design**. Validators contribute vertices continuously and reach Byzantine fault tolerant finality through the DAG rather than through a single proposer model.
+
+Consensus is the mechanism that makes a state transition canonical. The economic architecture defines what that state means in each tier. Consensus determines which valid transition becomes part of the shared ledger state.
+
+### Cryptography
+
+Pyde uses **FALCON 512** for protocol signatures, with Blake3 and Poseidon2 used according to the requirements of each protocol component. Post quantum cryptography is part of the protocol foundation rather than a later migration story.
+
+The exact primitive and implementation status of each cryptographic component is defined in [Chapter 8: Cryptography](./08-cryptography.md).
+
+### Networking and synchronization
+
+Validators and nodes communicate through the protocol networking layer and synchronize authenticated state so that independent participants can converge on the same economic state. Recovery and state synchronization are treated as protocol properties rather than operational assumptions.
+
+## What is implemented today?
+
+The current public development environment is **Tier 3**.
+
+The existing implementation work includes the execution environment, state model, cryptographic foundation, networking, developer tooling, and consensus architecture described throughout this book. Individual components remain at different implementation stages, and this book distinguishes designed functionality from shipped functionality.
+
+Tier 1 and Tier 2 are architectural designs. They are not presented as deployed production networks. Their production deployment requires additional engineering, security review, institutional integration, operational infrastructure, and jurisdiction specific work.
+
+The distinction matters: the three tier architecture is the current definition of Pyde, while Tier 3 is the current public implementation environment.
+
+## What Pyde does not claim
+
+Pyde does not claim that existing financial infrastructure is obsolete. Existing systems already perform critical economic functions at global scale.
+
+Pyde also does not claim that a distributed ledger should become the authority over every economic relationship.
+
+The architectural proposition is narrower and more useful: independently governed economic systems need infrastructure that can represent and coordinate shared economic state where those systems choose to interact.
 
 ## Reading Path
 
-This book is the comprehensive technical reference. Different paths for different audiences:
+**For the economic architecture:**
 
-**For a researcher / cryptographer:**
-1. [Chapter 2: Architecture Overview](./02-architecture-overview.md)
-2. [Chapter 6: Consensus (Mysticeti DAG)](./06-consensus.md)
-3. [Chapter 8: Cryptography](./08-cryptography.md)
-4. [Chapter 9: MEV Protection](./09-mev-protection.md)
-5. Companion: [Whitepaper](../companion/WHITEPAPER.md)
+1. [What is Pyde](../preface/what-is-pyde.md)
+2. [Why Pyde](../preface/why-pyde.md)
+3. [Chapter 2: Architecture Overview](./02-architecture-overview.md)
+4. [Chapter 13: Cross Chain and Settlement](./13-cross-chain.md)
+5. [Chapter 14: Economics](./14-tokenomics.md)
 
-**For an implementer / contributor:**
+**For protocol implementation:**
+
 1. [Chapter 2: Architecture Overview](./02-architecture-overview.md)
-2. [Chapter 3: Execution Layer (WASM)](./03-virtual-machine.md)
+2. [Chapter 3: Execution Layer](./03-virtual-machine.md)
 3. [Chapter 4: State Model](./04-state-model.md)
-4. [Chapter 5: Otigen Toolchain](./05-otigen-toolchain.md)
-5. [Chapter 11: Account Model](./11-account-model.md)
-6. [Chapter 12: Networking](./12-networking.md)
-7. Companion: [Architecture (Design Doc)](../companion/DESIGN.md)
-8. Preface: [The Pivot](../preface/pivot.md) for context on architectural choices
+4. [Chapter 6: Consensus](./06-consensus.md)
+5. [Chapter 8: Cryptography](./08-cryptography.md)
+6. [Chapter 11: Account Model](./11-account-model.md)
+7. [Chapter 12: Networking](./12-networking.md)
 
-**For a validator operator:**
+**For security review:**
+
 1. [Chapter 6: Consensus](./06-consensus.md)
-2. [Chapter 7: State Sync & Chain Halt](./07-state-sync.md)
-3. [Chapter 16: Security & Threat Model](./16-security.md)
-4. Companions: [Validator Lifecycle](../companion/VALIDATOR_LIFECYCLE.md), [Slashing](../companion/SLASHING.md), [Chain Halt & Recovery](../companion/CHAIN_HALT.md)
+2. [Chapter 8: Cryptography](./08-cryptography.md)
+3. [Chapter 16: Security](./16-security.md)
+4. [Threat Model](../companion/THREAT_MODEL.md)
+5. [Failure Scenarios](../companion/FAILURE_SCENARIOS.md)
 
-**For an investor / decision-maker:**
-1. This Introduction
-2. [Chapter 14: Tokenomics](./14-tokenomics.md)
-3. [Chapter 19: Launch Strategy](./19-launch-strategy.md)
-4. Companion: [Tokenomics Detail](../companion/TOKENOMICS.md)
+**For developers:**
 
-**For someone doing security review / audit:**
-1. [Chapter 16: Security & Threat Model](./16-security.md)
-2. [Chapter 6: Consensus (safety arguments)](./06-consensus.md)
-3. [Chapter 8: Cryptography](./08-cryptography.md)
-4. Companions: [Threat Model](../companion/THREAT_MODEL.md), [Failure Scenarios](../companion/FAILURE_SCENARIOS.md), [Network Protocol](../companion/NETWORK_PROTOCOL.md), [Performance Harness](../companion/PERFORMANCE_HARNESS.md)
+1. [Get Started: for Developers](../preface/get-started-for-developers.md)
+2. [Chapter 3: Execution Layer](./03-virtual-machine.md)
+3. [Chapter 5: Otigen Toolchain](./05-otigen-toolchain.md)
+4. [Host Function ABI](../companion/HOST_FN_ABI_SPEC.md)
 
-## License
+## Historical pivots
 
-Pyde is licensed under [Apache-2.0](https://www.apache.org/licenses/LICENSE-2.0). The full text lives in `LICENSE` at the root of each Pyde repository. The book content is licensed under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
+Pyde has gone through major implementation pivots. The HotStuff consensus era and original Otigen language era are preserved as historical design references. They explain why certain decisions changed, but they are not the current definition of the protocol.
+
+See [The Pivot](../preface/pivot.md) and the [Historical Design References](../pivot/README.md) for the archived material.
 
 ## Status
 
-**Living document.** Updated as the design evolves.
+**Living document.** Architecture, implementation status, and technical specifications are updated as the protocol evolves.

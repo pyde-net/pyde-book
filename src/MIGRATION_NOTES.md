@@ -8,7 +8,7 @@ has been rewritten in place; this page exists as a single reference for
 who need to reconcile against pre-pivot artifacts.
 
 > **Note on MEV protection.** An interim post-pivot draft carried an
-> *optional threshold-encrypted mempool* (Kyber-768 + Shamir shares). That
+> _optional threshold-encrypted mempool_ (Kyber-768 + Shamir shares). That
 > lane was later removed from the protocol: trustless post-quantum
 > threshold keygen is research-blocked. MEV protection is now the **keyless
 > commit-reveal mempool** ([Chapter 9](chapters/09-mev-protection.md));
@@ -19,6 +19,7 @@ who need to reconcile against pre-pivot artifacts.
 ## The Pivot, In One Page
 
 **Before (HotStuff variant):**
+
 - Single-proposer-per-slot BFT consensus with 400 ms slot timing.
 - View-change protocol for proposer failures.
 - Encrypted mempool with proposer-asserted ordering commitment.
@@ -28,6 +29,7 @@ who need to reconcile against pre-pivot artifacts.
 - Targeted 12.5K TPS sustained / 50K peak as headline.
 
 **After (Mysticeti DAG):**
+
 - DAG consensus: every round every committee member produces one vertex.
 - No proposers, no view changes. Anchor selection is deterministic.
 - Keyless commit-reveal mempool for MEV-sensitive transactions
@@ -53,23 +55,23 @@ protocol that Sui has been running in production since 2024.
 
 ## Component-by-Component Diff
 
-| Component | Pre-pivot | Post-pivot |
-|-----------|-----------|------------|
-| Consensus | HotStuff variant, 1 proposer/slot | Mysticeti DAG, 128 vertices/round |
-| Slot timing | 400 ms slot | ~150 ms round, ~500 ms median commit |
-| Ordering | Proposer-asserted ordering commitment | Structural via committed subdag |
-| Validator architecture | Monolithic | Worker (tx batching) + Primary (consensus) |
-| Mempool | Always-encrypted | Plaintext default + opt-in keyless commit-reveal lane |
-| State tree | Fixed-depth Sparse Merkle Tree | Jellyfish Merkle Tree (radix-16, path-compressed) |
-| Hashing | Poseidon2 everywhere | Blake3 (native) + Poseidon2 (ZK-bearing) |
-| State root | Single Poseidon2 root | Blake3 (live); Poseidon2 leg designed-in but disabled (`POSEIDON2_STATE_ROOT_ENABLED = false`) |
-| Execution | Otigen era: static access lists only. Intermediate proposal (dropped): hybrid static + Block-STM speculation. | Current v1: uniform Block-STM; access list is an optional prefetch hint (PIP-3 multiget cache warm-up) and never partitions execution. |
-| Staking model | Single 10K PYDE | Single 10K PYDE (unchanged; an interim mid-pivot draft of the book proposed 10M/100K tiers, which was an error; flat-tier with operator-cap was the actual decision) |
-| Reward distribution | Direct proposer share (20%) | Epoch reward pool (20%, distributed by stake×uptime) |
-| Peer discovery | Kademlia DHT | Layered (seeds → DNS → on-chain registry → PEX → cache) |
-| Committee defense | Operational sentry pattern only | Sentry pattern with protocol support |
-| Cross-chain | Stub `cross_call!` | `cross_call!` + parachain operator network (v2) |
-| Account abstraction | Single + Multisig | Single + Multisig (max 16) + Programmable (v2 reserved) |
+| Component              | Pre-pivot                                                                                                     | Post-pivot                                                                                                                                                           |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Consensus              | HotStuff variant, 1 proposer/slot                                                                             | Mysticeti DAG, 128 vertices/round                                                                                                                                    |
+| Slot timing            | 400 ms slot                                                                                                   | ~150 ms round, ~500 ms median commit                                                                                                                                 |
+| Ordering               | Proposer-asserted ordering commitment                                                                         | Structural via committed subdag                                                                                                                                      |
+| Validator architecture | Monolithic                                                                                                    | Worker (tx batching) + Primary (consensus)                                                                                                                           |
+| Mempool                | Always-encrypted                                                                                              | Plaintext default + opt-in keyless commit-reveal lane                                                                                                                |
+| State tree             | Fixed-depth Sparse Merkle Tree                                                                                | Jellyfish Merkle Tree (radix-16, path-compressed)                                                                                                                    |
+| Hashing                | Poseidon2 everywhere                                                                                          | Blake3 (native) + Poseidon2 (ZK-bearing)                                                                                                                             |
+| State root             | Single Poseidon2 root                                                                                         | Blake3 (live); Poseidon2 leg designed-in but disabled (`POSEIDON2_STATE_ROOT_ENABLED = false`)                                                                       |
+| Execution              | Otigen era: static access lists only. Intermediate proposal (dropped): hybrid static + Block-STM speculation. | Current v1: uniform Block-STM; access list is an optional prefetch hint (PIP-3 multiget cache warm-up) and never partitions execution.                               |
+| Staking model          | Single 10K PYDE                                                                                               | Single 10K PYDE (unchanged; an interim mid-pivot draft of the book proposed 10M/100K tiers, which was an error; flat-tier with operator-cap was the actual decision) |
+| Reward distribution    | Direct proposer share (20%)                                                                                   | Epoch reward pool (20%, distributed by stake×uptime)                                                                                                                 |
+| Peer discovery         | Kademlia DHT                                                                                                  | Layered (seeds → DNS → on-chain registry → PEX → cache)                                                                                                              |
+| Committee defense      | Operational sentry pattern only                                                                               | Sentry pattern with protocol support                                                                                                                                 |
+| Cross-chain            | Stub `cross_call!`                                                                                            | `cross_call!` + parachain operator network (v2)                                                                                                                      |
+| Account abstraction    | Single + Multisig                                                                                             | Single + Multisig (max 16) + Programmable (v2 reserved)                                                                                                              |
 
 ## What Stayed the Same
 
@@ -124,16 +126,16 @@ a multi-validator Mysticeti committee with WASM execution, the keyless
 commit-reveal mempool, and state-sync. Credible public
 performance numbers are still gated on the multi-region harness.
 
-| Component | Status |
-|-----------|--------|
-| Architecture design | ✅ Complete |
-| WASM execution (wasmtime + Cranelift AOT, Block-STM) | 🟢 Live; pooled `Engine`, Host Function ABI v1.0 frozen, Block-STM wired into the commit walk |
+| Component                                                      | Status                                                                                                                                                                                                                                                         |
+| -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Architecture design                                            | ✅ Complete                                                                                                                                                                                                                                                    |
+| WASM execution (wasmtime + Cranelift AOT, Block-STM)           | 🟢 Live; pooled `Engine`, Host Function ABI v1.0 frozen, Block-STM wired into the commit walk                                                                                                                                                                  |
 | State (JMT + Blake3 root; Poseidon2 leg designed-in, disabled) | 🟢 Blake3 root wired end-to-end. The `StateRoot { blake3, poseidon2 }` type carries a Poseidon2 field, but the leg is disabled (`POSEIDON2_STATE_ROOT_ENABLED = false`) and holds an inert zero placeholder; only the Blake3 root is computed and signed today |
-| Mysticeti DAG consensus | 🟡 Vertex / anchor / beacon / committee / wave commit live; multi-validator genesis DKG + state-sync replay shipped; soak-test hardening and resharing edge cases in flight |
-| MEV protection (keyless commit-reveal mempool) | 🟢 Commit/Reveal tx types, bond escrow, and commit-order reveal resolution live; no committee key, no DKG (the earlier threshold-encryption lane was removed) |
-| Network protocol (libp2p + QUIC + Gossipsub) | 🟢 Migrated; layered discovery, peer scoring, sentry-friendly topology |
-| Performance harness | 🟡 Local soak-test driver, multi-validator cluster CLI, and vertex-drop fault injection live; multi-region rig and the broader chaos suite not yet built |
-| SDKs (TypeScript + Rust) | 🟡 `pyde-ts-sdk` 0.1.0 staged; Rust SDK in progress |
+| Mysticeti DAG consensus                                        | 🟡 Vertex / anchor / beacon / committee / wave commit live; multi-validator genesis DKG + state-sync replay shipped; soak-test hardening and resharing edge cases in flight                                                                                    |
+| MEV protection (keyless commit-reveal mempool)                 | 🟢 Commit/Reveal tx types, bond escrow, and commit-order reveal resolution live; no committee key, no DKG (the earlier threshold-encryption lane was removed)                                                                                                  |
+| Network protocol (libp2p + QUIC + Gossipsub)                   | 🟢 Migrated; layered discovery, peer scoring, sentry-friendly topology                                                                                                                                                                                         |
+| Performance harness                                            | 🟡 Local soak-test driver, multi-validator cluster CLI, and vertex-drop fault injection live; multi-region rig and the broader chaos suite not yet built                                                                                                       |
+| SDKs (TypeScript + Rust)                                       | 🟡 `pyde-ts-sdk` 0.1.0 staged; Rust SDK in progress                                                                                                                                                                                                            |
 
 The multi-region performance harness is still the bottleneck on credible
 TPS claims. No external number leaves this project without harness
@@ -148,4 +150,4 @@ microbenchmark peaks.
 - Threat model: [companion/THREAT_MODEL.md](companion/THREAT_MODEL.md)
 - Failure scenarios: [companion/FAILURE_SCENARIOS.md](companion/FAILURE_SCENARIOS.md)
 - Performance harness spec: [companion/PERFORMANCE_HARNESS.md](companion/PERFORMANCE_HARNESS.md)
-- Mainnet plan: [Launch Strategy](chapters/19-launch-strategy.md)
+- Deployment and validation: [Implementation, Validation and Deployment](chapters/19-implementation-validation-deployment.md)

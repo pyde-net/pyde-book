@@ -15,7 +15,6 @@
 - [Settlement and Netting](chapters/13-cross-chain.md)
 - [Governance](chapters/15-governance.md)
 - [Economics](chapters/14-tokenomics.md)
-- [Implementation Status](chapters/20-implementation-status.md)
 
 # Protocol Foundation
 
@@ -37,8 +36,8 @@
 
 - [Developer Tools](chapters/17-developer-tools.md)
 - [Protocol Upgrades](chapters/18-protocol-upgrades.md)
-- [Implementation, Validation and Deployment](chapters/19-launch-strategy.md)
-- [Appendix](chapters/21-appendix.md)
+- [Implementation, Validation and Deployment](chapters/19-implementation-validation-deployment.md)
+- [Appendix](chapters/20-appendix.md)
 
 ---
 
@@ -48,6 +47,7 @@
 - [HotStuff Consensus Era](pivot/01-hotstuff-consensus-era.md)
 - [Otigen Language Era](pivot/02-otigen-language-era.md)
 - [Pivot Era Benchmarks](pivot/03-running-benchmarks.md)
+- [Parachain Framework Era](pivot/04-parachain-framework-era.md)
 - [Migration Notes](MIGRATION_NOTES.md)
 
 ---
@@ -95,5 +95,6 @@
 - [Otigen Test Spec](companion/OTIGEN_TEST_SPEC.md)
 - [Tokenomics Detail](companion/TOKENOMICS.md)
 - [Brand Reference](companion/BRAND.md)
+- [Parachain Extension Design](companion/PARACHAIN_DESIGN.md)
 
-> Superseded parachain specifications should be moved into the historical design area. They are not part of the current economic architecture.
+> The parachain specification describes an optional Tier 3 extension. It is not a separate economic tier and is not required by the core three tier architecture.

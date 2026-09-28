@@ -835,7 +835,7 @@ The fundamental requirement is common:
 
 > **A state transition becomes canonical only after the required consensus threshold has been reached.**
 
-The Tier 3 design uses a Mysticeti style DAG architecture with a two thirds Byzantine quorum. The protocol specification describes a 128 member committee with an 85 member quorum.
+The Tier 3 design uses a Mysticeti style DAG architecture with a two thirds Byzantine quorum. The protocol specification describes a 128 member committee with an 86 member quorum.
 
 These parameters describe the protocol design rather than an unconditional production guarantee.
 

@@ -59,7 +59,11 @@ Tier 3 is Pyde's permissionless public environment.
 
 Developers and users can deploy contracts, build applications, issue supported digital assets, operate public infrastructure subject to protocol rules, and participate in public economic activity.
 
-The current public development environment is Tier 3.
+### Tier 3 Extensions
+
+The permissionless public network can support optional extension mechanisms for capabilities that cannot execute deterministically inside the core network itself, including external data, foreign chain interaction, bridge operations, and off chain computation.
+
+Pyde's parachain design defines one such extension. Parachains are not a fourth economic tier and are not required for ordinary Tier 3 applications. They extend Tier 3 by allowing external computation and data to be brought back into the deterministic protocol through explicit attestation and validation rules.
 
 ## Authority Boundaries
 

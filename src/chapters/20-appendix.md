@@ -1,4 +1,4 @@
-# Chapter 21: Appendix
+# Chapter 20: Appendix
 
 This appendix collects terminology, implementation boundaries, and reference material that would otherwise interrupt the main architecture chapters.
 

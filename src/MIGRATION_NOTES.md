@@ -13,8 +13,7 @@ who need to reconcile against pre-pivot artifacts.
 > threshold keygen is research-blocked. MEV protection is now the **keyless
 > commit-reveal mempool** ([Chapter 9](chapters/09-mev-protection.md));
 > a one-shot ciphertext lane remains v2+ research
-> ([Chapter 20](chapters/20-future-direction.md)). The cells below that
-> mention threshold encryption reflect that interim draft, annotated inline.
+> The cells below that mention threshold encryption reflect that interim draft, annotated inline.
 
 ## The Pivot, In One Page
 

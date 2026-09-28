@@ -29,6 +29,7 @@
 
 # Economic Mechanics
 
+- [MEV Protection](chapters/09-mev-protection.md)
 - [Execution Fees and Gas](chapters/10-gas-and-fee-model.md)
 - [Security and Threat Model](chapters/16-security.md)
 
@@ -47,7 +48,6 @@
 - [HotStuff Consensus Era](pivot/01-hotstuff-consensus-era.md)
 - [Otigen Language Era](pivot/02-otigen-language-era.md)
 - [Pivot Era Benchmarks](pivot/03-running-benchmarks.md)
-- [Parachain Framework Era](pivot/04-parachain-framework-era.md)
 - [Migration Notes](MIGRATION_NOTES.md)
 
 ---
@@ -78,6 +78,7 @@
 
 - [Architecture Design](companion/DESIGN.md)
 - [Technical Whitepaper](companion/WHITEPAPER.md)
+- [Parachain Extension Design](companion/PARACHAIN_DESIGN.md)
 - [Validator Lifecycle](companion/VALIDATOR_LIFECYCLE.md)
 - [Slashing](companion/SLASHING.md)
 - [State Sync](companion/STATE_SYNC.md)
@@ -95,6 +96,5 @@
 - [Otigen Test Spec](companion/OTIGEN_TEST_SPEC.md)
 - [Tokenomics Detail](companion/TOKENOMICS.md)
 - [Brand Reference](companion/BRAND.md)
-- [Parachain Extension Design](companion/PARACHAIN_DESIGN.md)
 
 > The parachain specification describes an optional Tier 3 extension. It is not a separate economic tier and is not required by the core three tier architecture.

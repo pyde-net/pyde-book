@@ -4,29 +4,24 @@ Pick the path that fits you.
 
 ---
 
-## [I want to **build on Pyde** →](./get-started-for-developers.md)
+## [I want to build on Pyde →](./get-started-for-developers.md)
 
-You're a developer or technical founder. You want to write a contract,
-spin up a local devnet, deploy something, integrate with the chain.
-Start here for the toolchain, the host-function ABI, language-specific
-examples, and the local-devnet flow.
+You're a developer or technical founder building on the current Tier 3 public development environment.
 
----
-
-## [I want to **use Pyde** →](./get-started-for-users.md)
-
-You're an end user. You want to hold PYDE, send transactions, run a
-node, or follow the project's mainnet path. Start here for the
-wallet story, post-quantum guarantees in plain English, what makes
-Pyde different from other L1s, and what's available pre-mainnet vs
-post-mainnet.
+Start with the developer track for the Otigen toolchain, WebAssembly execution model, host function ABI, contract examples, and local development environment.
 
 ---
 
-Not sure which path? If you're going to type `cargo build` at any
-point, take the developer track. If you only ever interact with Pyde
-through a wallet or a dApp, the user track is where you belong.
+## [I want to understand or use Pyde →](./get-started-for-users.md)
 
-Both paths converge at the same set of canonical specs in the book
-(chapters 1 to 20 and the companion files) when you need to go deep on
-a specific topic.
+You're interested in Pyde as a public economic network or in the broader three tier architecture.
+
+Start with the user track for a plain language explanation of Tier 1 sovereign networks, Tier 2 settlement, Tier 3 public applications, accounts, digital assets, and the current implementation status.
+
+---
+
+## Not sure where to begin?
+
+Read [What is Pyde](./what-is-pyde.md) first.
+
+Both paths ultimately converge on the same technical reference: the architecture chapters and companion specifications.

@@ -2,7 +2,7 @@
 
 **Version 0.3**
 
-This is the design specification for Pyde's parachain extension within Tier 3.
+This is the detailed design specification for Pyde's parachain extension within Tier 3.
 
 Parachains are not a separate economic tier. They are an optional Tier 3 execution and coordination mechanism for workloads that the deterministic public network cannot perform directly, including foreign chain interaction, external data feeds, real world inputs, and off chain computation.
 

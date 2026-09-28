@@ -1,4 +1,12 @@
-# Chapter 15: Governance
+# Chapter 15:
+
+### Scope
+
+This chapter describes governance for the permissionless Tier 3 protocol.
+
+Tier 1 and Tier 2 do not inherit this governance model wholesale. Tier 1 authority remains jurisdiction specific and is exercised by the participating sovereign institutions. Tier 2 governs shared settlement protocol state and validator participation according to its own network rules.
+
+The PIP, voluntary validator upgrade, treasury multisig, and emergency mechanisms described below refer to the Tier 3 public protocol unless explicitly stated otherwise.
 
 Pyde's governance is deliberately minimal at the protocol level. There is
 no two-chamber voting machine, no plutocratic stake-weighted ballot, no
@@ -17,13 +25,13 @@ and what falls outside governance entirely.
 A small number of governance models are well-explored in production
 blockchains, each with distinct failure modes:
 
-| Model                         | Common failure mode                             |
-| ----------------------------- | ----------------------------------------------- |
-| Stake-weighted token voting   | Plutocracy (whales decide, low turnout, capture) |
-| Liquid democracy (delegation) | Concentrated delegates, unstable delegation     |
-| Two-chamber (validators + holders) | Procedural deadlock, complex thresholds     |
-| Off-chain BIP-style + voluntary upgrade | Real but slow                          |
-| Council multisig              | Centralized; depends on signer integrity         |
+| Model                                   | Common failure mode                              |
+| --------------------------------------- | ------------------------------------------------ |
+| Stake-weighted token voting             | Plutocracy (whales decide, low turnout, capture) |
+| Liquid democracy (delegation)           | Concentrated delegates, unstable delegation      |
+| Two-chamber (validators + holders)      | Procedural deadlock, complex thresholds          |
+| Off-chain BIP-style + voluntary upgrade | Real but slow                                    |
+| Council multisig                        | Centralized; depends on signer integrity         |
 
 Pyde's choice is closer to the Bitcoin BIP / Ethereum EIP model than to
 Cosmos-style on-chain governance:
@@ -84,18 +92,18 @@ genuine signal.
 
 ### What gets a PIP
 
-| Change type                                     | PIP needed?    |
-| ----------------------------------------------- | -------------- |
-| Consensus rule change (wave format, finality)   | Yes            |
-| Gas cost changes                                | Yes            |
-| Fee distribution changes (e.g., the 30/50/20 split) | Yes           |
-| Cryptographic primitive change                  | Yes            |
-| New transaction type                            | Yes            |
-| New WASM host function                          | Yes            |
-| Treasury spend (any size)                       | Yes (`data_digest` carries hash) |
-| Bootstrap node list update                      | No (config-driven)|
-| Bug-fix release (no protocol change)            | No (changelog) |
-| Doc updates                                     | No             |
+| Change type                                   | PIP needed?                      |
+| --------------------------------------------- | -------------------------------- |
+| Consensus rule change (wave format, finality) | Yes                              |
+| Gas cost changes                              | Yes                              |
+| Tier 3 fee distribution changes               | Yes                              |
+| Cryptographic primitive change                | Yes                              |
+| New transaction type                          | Yes                              |
+| New WASM host function                        | Yes                              |
+| Treasury spend (any size)                     | Yes (`data_digest` carries hash) |
+| Bootstrap node list update                    | No (config-driven)               |
+| Bug-fix release (no protocol change)          | No (changelog)                   |
+| Doc updates                                   | No                               |
 
 ### What a PIP looks like
 
@@ -154,7 +162,7 @@ contracts, and become standard once enough nodes have upgraded.
 
 ## 15.4 The On-Chain Treasury Multisig
 
-The one piece of "governance" that lives on-chain at mainnet is the
+The one piece of "governance" that lives on-chain in a production Tier 3 deployment is the
 treasury multisig. This is the mechanism by which approved PIPs that
 require funding turn into actual PYDE movement.
 
@@ -162,16 +170,16 @@ require funding turn into actual PYDE movement.
 
 State (recap from Chapter 14):
 
-| Discriminator | Name                  | Holds                              |
-| ------------- | --------------------- | ---------------------------------- |
-| `0x1C`        | `MULTISIG_SIGNERS`    | Length-prefixed array of FALCON pks |
-| `0x1D`        | `MULTISIG_THRESHOLD`  | Required signature count            |
-| `0x1E`        | `MULTISIG_NONCE`      | Replay protection counter           |
+| Discriminator | Name                 | Holds                               |
+| ------------- | -------------------- | ----------------------------------- |
+| `0x1C`        | `MULTISIG_SIGNERS`   | Length-prefixed array of FALCON pks |
+| `0x1D`        | `MULTISIG_THRESHOLD` | Required signature count            |
+| `0x1E`        | `MULTISIG_NONCE`     | Replay protection counter           |
 
 Maximum signers: 16. The threshold is `t-of-n`: it requires `t` valid
 FALCON signatures from distinct signers in `MULTISIG_SIGNERS`.
 
-Suggested initial configuration (set at mainnet genesis): 12 signers,
+Suggested initial configuration (set in a production Tier 3 deployment genesis): 12 signers,
 threshold 7, drawn from the Foundation board, core dev leads, validator
 operator representatives, and independent ecosystem representatives. The
 emergency-halt multisig is **separate** (typically a tighter 5-of-7 of
@@ -274,24 +282,24 @@ Hard-coded protocol constants that **cannot** be changed by any on-chain
 action, only by a PIP + new validator binary release + voluntary
 validator upgrade:
 
-| Constant                                        | Where                                                              |
-| ----------------------------------------------- | ------------------------------------------------------------------ |
+| Constant                                        | Where                                                                                                                                                                                         |
+| ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | DAG round period (~150 ms, observed)            | No constant — rounds advance on ≥ quorum distinct members, never on a clock (`crates/consensus/src/round.rs`); the ~150 ms figure is documented on `Round` in `crates/types/src/consensus.rs` |
-| Commit cadence (~500 ms median)                 | `crates/types/src/consensus.rs` — `TARGET_WAVE_MS = 500`            |
-| Committee size (128)                            | `crates/types/src/consensus.rs` — `COMMITTEE_SIZE`                  |
-| Quorum / threshold (86)                         | `crates/types/src/consensus.rs` — `QUORUM`                          |
-| Equivocation threshold (44)                     | No constant — derived as `2 × QUORUM − COMMITTEE_SIZE` from `crates/types/src/consensus.rs`; the matching `f = 42` is `MAX_BYZANTINE` in `crates/slashing/src/amount.rs` |
-| Validator min stake (10,000 PYDE = 10¹³ quanta) | `crates/tx/src/handlers/staking.rs` — `MIN_VALIDATOR_STAKE`; mirrored for genesis validation as `MIN_VALIDATOR_STAKE_QUANTA` in `crates/types/src/genesis.rs` |
-| Operator-identity cap (3 / operator)            | `crates/tx/src/handlers/staking.rs` — `OPERATOR_CAP`                |
-| Unbonding period (30 days = 5,184,000 waves)    | `crates/tx/src/handlers/staking.rs` — `UNBONDING_PERIOD_WAVES`      |
-| Emission cap (1%/yr ceiling)                    | `crates/tx/src/distributor.rs` — `EMISSION_CAP_BPS = 100`           |
-| Fee split (30/50/20)                            | `crates/tx/src/fee.rs` — `BURN_BPS`, `REWARD_POOL_BPS`; treasury is the remainder |
-| Gas target / ceiling                            | `crates/tx/src/fee.rs` — `GAS_TARGET`, `GAS_CEILING`                |
-| `MAX_TX_SIZE` (128 KB)                          | `crates/tx/src/validation.rs`                                       |
-| `MAX_CALLDATA` (64 KB)                          | `crates/tx/src/validation.rs`                                       |
-| Max batch size (4 MB)                           | `crates/node/src/vertex_producer.rs` — `BATCH_MAX_BYTES`            |
-| Cryptographic primitives                        | `pyde-crypto` polyrepo (FALCON, Blake3, Poseidon2)                  |
-| WASM host function ABI                          | `crates/wasm-exec/src/host_fns/` + Host Function ABI spec doc       |
+| Commit cadence (~500 ms median)                 | `crates/types/src/consensus.rs` — `TARGET_WAVE_MS = 500`                                                                                                                                      |
+| Committee size (128)                            | `crates/types/src/consensus.rs` — `COMMITTEE_SIZE`                                                                                                                                            |
+| Quorum / threshold (86)                         | `crates/types/src/consensus.rs` — `QUORUM`                                                                                                                                                    |
+| Equivocation threshold (44)                     | No constant — derived as `2 × QUORUM − COMMITTEE_SIZE` from `crates/types/src/consensus.rs`; the matching `f = 42` is `MAX_BYZANTINE` in `crates/slashing/src/amount.rs`                      |
+| Validator min stake (10,000 PYDE = 10¹³ quanta) | `crates/tx/src/handlers/staking.rs` — `MIN_VALIDATOR_STAKE`; mirrored for genesis validation as `MIN_VALIDATOR_STAKE_QUANTA` in `crates/types/src/genesis.rs`                                 |
+| Operator-identity cap (3 / operator)            | `crates/tx/src/handlers/staking.rs` — `OPERATOR_CAP`                                                                                                                                          |
+| Unbonding period (30 days = 5,184,000 waves)    | `crates/tx/src/handlers/staking.rs` — `UNBONDING_PERIOD_WAVES`                                                                                                                                |
+| Emission cap (1%/yr ceiling)                    | `crates/tx/src/distributor.rs` — `EMISSION_CAP_BPS = 100`                                                                                                                                     |
+| Tier 3 fee split (30/50/20)                     | `crates/tx/src/fee.rs` — `BURN_BPS`, `REWARD_POOL_BPS`; treasury is the remainder                                                                                                             |
+| Gas target / ceiling                            | `crates/tx/src/fee.rs` — `GAS_TARGET`, `GAS_CEILING`                                                                                                                                          |
+| `MAX_TX_SIZE` (128 KB)                          | `crates/tx/src/validation.rs`                                                                                                                                                                 |
+| `MAX_CALLDATA` (64 KB)                          | `crates/tx/src/validation.rs`                                                                                                                                                                 |
+| Max batch size (4 MB)                           | `crates/node/src/vertex_producer.rs` — `BATCH_MAX_BYTES`                                                                                                                                      |
+| Cryptographic primitives                        | `pyde-crypto` polyrepo (FALCON, Blake3, Poseidon2)                                                                                                                                            |
+| WASM host function ABI                          | `crates/wasm-exec/src/host_fns/` + Host Function ABI spec doc                                                                                                                                 |
 
 Changing any of these requires a code release. Validators choose whether
 to run it.
@@ -303,16 +311,16 @@ to run it.
 Some operational concerns sit outside both the PIP process and the
 multisig:
 
-| Concern                        | Handled by                         |
-| ------------------------------ | ---------------------------------- |
-| Bootstrap node list            | Config: operators ship their own    |
-| Block explorer                 | Foundation operates a public one    |
-| RPC endpoints                  | Multiple operators run them         |
-| Indexing / data products       | Ecosystem builds them               |
-| Wallet integrations            | Ecosystem partnerships              |
-| Marketing / branding           | Foundation                          |
-| Conference sponsorships        | Treasury via PIP-driven multisig    |
-| Bug bounty payments            | Treasury via PIP-driven multisig    |
+| Concern                  | Handled by                       |
+| ------------------------ | -------------------------------- |
+| Bootstrap node list      | Config: operators ship their own |
+| Block explorer           | Foundation operates a public one |
+| RPC endpoints            | Multiple operators run them      |
+| Indexing / data products | Ecosystem builds them            |
+| Wallet integrations      | Ecosystem partnerships           |
+| Marketing / branding     | Foundation                       |
+| Conference sponsorships  | Treasury via PIP-driven multisig |
+| Bug bounty payments      | Treasury via PIP-driven multisig |
 
 These are not "governance" in any rigorous sense. They are operational
 choices that the Foundation, validators, and ecosystem participants make
@@ -322,15 +330,15 @@ independently.
 
 ## 15.8 Comparison with Other Networks
 
-| Property                         | Pyde                            | Ethereum               | Cosmos / Tendermint        | Polkadot                |
-| -------------------------------- | ------------------------------- | ---------------------- | -------------------------- | ----------------------- |
-| Protocol-rule change             | PIP + voluntary upgrade         | EIP + voluntary upgrade| On-chain governance vote   | Council + referenda     |
-| Treasury spend                   | On-chain multisig + PIP         | Foundation grants       | On-chain governance         | On-chain treasury / Council|
-| Emergency halt                   | Multisig pause                  | None at protocol layer  | None at protocol layer      | Sudo (pre-removal)       |
-| Token voting                     | None                            | None at protocol layer  | Stake-weighted              | Stake-weighted          |
-| Validator-only signal            | Voluntary upgrade               | Voluntary upgrade       | On-chain                     | Council inclusion        |
-| Off-chain coordination doc       | PIP                              | EIP                     | Forum + on-chain proposal    | OpenGov / Forum          |
-| Constitutional parameters        | All of them, hard-coded         | Hard-coded              | Some on-chain                | Some on-chain            |
+| Property                   | Pyde                    | Ethereum                | Cosmos / Tendermint       | Polkadot                    |
+| -------------------------- | ----------------------- | ----------------------- | ------------------------- | --------------------------- |
+| Protocol-rule change       | PIP + voluntary upgrade | EIP + voluntary upgrade | On-chain governance vote  | Council + referenda         |
+| Treasury spend             | On-chain multisig + PIP | Foundation grants       | On-chain governance       | On-chain treasury / Council |
+| Emergency halt             | Multisig pause          | None at protocol layer  | None at protocol layer    | Sudo (pre-removal)          |
+| Token voting               | None                    | None at protocol layer  | Stake-weighted            | Stake-weighted              |
+| Validator-only signal      | Voluntary upgrade       | Voluntary upgrade       | On-chain                  | Council inclusion           |
+| Off-chain coordination doc | PIP                     | EIP                     | Forum + on-chain proposal | OpenGov / Forum             |
+| Constitutional parameters  | All of them, hard-coded | Hard-coded              | Some on-chain             | Some on-chain               |
 
 The Pyde model is closest to Ethereum's: heavy reliance on off-chain
 proposals and voluntary validator upgrades, with a small on-chain mechanism
@@ -366,40 +374,21 @@ Each piece is a clear, narrow authority. None of them aggregate into
 
 ---
 
-## 15.10 Future Direction
-
-Possible post-mainnet additions to governance, none on the critical path:
-
-- **Validator signal mechanism.** A way for validators to publicly signal
-  support or opposition for a PIP before activation, increasing process
-  transparency. Pure off-chain or a thin on-chain log.
-- **Quadratic / conviction voting for treasury allocation.** A sub-process
-  for ecosystem grant allocation that gives some weighted input to
-  ecosystem participants without becoming token-weighted control.
-- **Optional on-chain PIP registry.** A storage-discriminator (`PIP_REGISTRY`?)
-  that mirrors the off-chain PIP repo so on-chain readers can resolve a
-  `data_digest` without needing the off-chain repo.
-
-None of these change the fundamental shape: the multisig is bounded, the
-PIP process is open, and validators decide what code they run.
-
----
-
 ## Summary
 
-| Component                       | Status at mainnet                     |
-| ------------------------------- | ------------------------------------- |
-| PIP process                     | Off-chain, in `pyde-net/pips`          |
-| PIP authority                   | Documents intent; not protocol law    |
-| Validator upgrade               | Voluntary; per-release                 |
-| Treasury multisig               | On-chain, `MultisigTx` (type 9)        |
-| Multisig rotation               | On-chain, `RotateMultisig` (type 10)   |
-| Multisig signer cap             | 16                                     |
-| `MultisigTx` PIP linkage        | `data_digest = hash(pip_file)` on-chain |
-| Emergency pause                 | On-chain, `EmergencyPause` (type 11)   |
-| Pause max window                | ~30 days (auto-expiring)               |
-| On-chain stake-weighted voting  | None                                    |
-| Hard-coded protocol constants   | All of them (change via code release)  |
+| Component                      | Status in a production Tier 3 deployment |
+| ------------------------------ | ---------------------------------------- |
+| PIP process                    | Off-chain, in `pyde-net/pips`            |
+| PIP authority                  | Documents intent; not protocol law       |
+| Validator upgrade              | Voluntary; per-release                   |
+| Treasury multisig              | On-chain, `MultisigTx` (type 9)          |
+| Multisig rotation              | On-chain, `RotateMultisig` (type 10)     |
+| Multisig signer cap            | 16                                       |
+| `MultisigTx` PIP linkage       | `data_digest = hash(pip_file)` on-chain  |
+| Emergency pause                | On-chain, `EmergencyPause` (type 11)     |
+| Pause max window               | ~30 days (auto-expiring)                 |
+| On-chain stake-weighted voting | None                                     |
+| Hard-coded protocol constants  | All of them (change via code release)    |
 
 The next chapter covers security: the threat model, slashing detail, and
 the weak-subjectivity defenses that protect against long-range attacks.

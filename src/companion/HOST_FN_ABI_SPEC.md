@@ -1289,7 +1289,6 @@ Rate limit: 64 outgoing messages per wave per parachain by default
 > L1 MEV protection is the keyless commit-reveal mempool (Chapter 9), which
 > needs no committee key. A one-shot ciphertext lane (Threshold-LWE) that would back
 > these host functions remains v2+ research, gated on a trustless PQ threshold-keygen
-> breakthrough; see [Chapter 20](../chapters/20-future-direction.md). The signatures
 > below are frozen so contracts compiled against them remain forward-compatible, but
 > a v1 engine surfaces them as unavailable.
 

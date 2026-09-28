@@ -1,7 +1,7 @@
 {
   "name": "The Pyde Book",
   "short_name": "Pyde Book",
-  "description": "Comprehensive technical reference for the Pyde blockchain protocol",
+  "description": "Technical reference for Pyde, distributed ledger infrastructure for a connected global economy.",
   "icons": [
     {
       "src": "assets/android-chrome-192x192.png",

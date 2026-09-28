@@ -36,13 +36,13 @@ Polkadot. It gives Pyde:
 
 ### Why QUIC
 
-| Property               | TCP + Yamux/mplex       | QUIC                          |
-| ---------------------- | ----------------------- | ----------------------------- |
-| Connection setup       | 1-3 RTT (TCP + TLS)     | 0-1 RTT (integrated TLS)      |
-| Head-of-line blocking  | yes (all streams share) | no (per-stream flow control)  |
-| Multiplexing           | userspace (Yamux)       | native (kernel-assisted)      |
-| Connection migration   | not supported            | supported (connection IDs)    |
-| Mandatory encryption   | optional (TLS)          | always (TLS 1.3 in handshake) |
+| Property              | TCP + Yamux/mplex       | QUIC                          |
+| --------------------- | ----------------------- | ----------------------------- |
+| Connection setup      | 1-3 RTT (TCP + TLS)     | 0-1 RTT (integrated TLS)      |
+| Head-of-line blocking | yes (all streams share) | no (per-stream flow control)  |
+| Multiplexing          | userspace (Yamux)       | native (kernel-assisted)      |
+| Connection migration  | not supported           | supported (connection IDs)    |
+| Mandatory encryption  | optional (TLS)          | always (TLS 1.3 in handshake) |
 
 Per-stream independence matters most when wave propagation (large) and
 consensus votes (latency-critical) share the same QUIC connection. A single
@@ -97,18 +97,18 @@ The wire strings are frozen: adding a topic is fine (older nodes just
 don't subscribe), renaming one is a forking event. The full set is
 `crates/net/src/topics.rs`:
 
-| Topic                     | Participants            | What it carries                          |
-| ------------------------- | ----------------------- | ---------------------------------------- |
-| `pyde/vertices/1`         | Committee primaries     | DAG vertices (batch refs + parent refs + state-root sigs + beacon commits + FALCON sig) |
-| `pyde/batches/1`          | Workers + primaries     | Transaction batches; vertices reference them by hash |
-| `pyde/mempool/1`          | All nodes               | Pending-transaction propagation between RPC ingress and mempool workers |
-| `pyde/beacon-shares/1`    | Committee members       | Per-epoch beacon shares, combined at the epoch boundary |
-| `pyde/state-root-sigs/1`  | Committee members       | Rolling state-root attestations; feeds finality |
-| `pyde/wave-commits/1`     | Validators → all nodes  | Committed `WaveCommitRecord` announcements; full nodes use them as the tx list to execute locally |
-| `pyde/state-sync/1`       | All nodes               | Snapshot manifest + chunk announcements  |
-| `pyde/checkpoints/1`      | Committee members       | Signed weak-subjectivity checkpoints     |
-| `pyde/evidence/1`         | Validators              | Slashing evidence (double-sign, equivocation) |
-| `pyde/governance/1`       | All nodes               | Governance proposals + votes             |
+| Topic                    | Participants           | What it carries                                                                                   |
+| ------------------------ | ---------------------- | ------------------------------------------------------------------------------------------------- |
+| `pyde/vertices/1`        | Committee primaries    | DAG vertices (batch refs + parent refs + state-root sigs + beacon commits + FALCON sig)           |
+| `pyde/batches/1`         | Workers + primaries    | Transaction batches; vertices reference them by hash                                              |
+| `pyde/mempool/1`         | All nodes              | Pending-transaction propagation between RPC ingress and mempool workers                           |
+| `pyde/beacon-shares/1`   | Committee members      | Per-epoch beacon shares, combined at the epoch boundary                                           |
+| `pyde/state-root-sigs/1` | Committee members      | Rolling state-root attestations; feeds finality                                                   |
+| `pyde/wave-commits/1`    | Validators → all nodes | Committed `WaveCommitRecord` announcements; full nodes use them as the tx list to execute locally |
+| `pyde/state-sync/1`      | All nodes              | Snapshot manifest + chunk announcements                                                           |
+| `pyde/checkpoints/1`     | Committee members      | Signed weak-subjectivity checkpoints                                                              |
+| `pyde/evidence/1`        | Validators             | Slashing evidence (double-sign, equivocation)                                                     |
+| `pyde/governance/1`      | All nodes              | Governance proposals + votes                                                                      |
 
 ### Per-message size limit
 
@@ -137,13 +137,13 @@ reported `Reject` and counted against the sender).
 Only the parameters Pyde sets are listed; everything else is the libp2p
 default:
 
-| Parameter                | Value                | Why                                |
-| ------------------------ | -------------------- | ---------------------------------- |
-| `protocol_id_prefix`     | fork-scoped          | Two chains with different `fork_id` advertise different meshsub protocol strings, so a foreign-fork peer's gossip never enters the process |
-| `validation_mode`        | `Strict`             | Envelope must carry a valid libp2p signature before anything else looks at it |
-| `heartbeat_interval`     | 1 s (`GOSSIPSUB_HEARTBEAT`) | libp2p's default, kept for v1; retuned once the perf harness lands |
-| `max_transmit_size`      | 4 MiB (`GOSSIPSUB_MAX_TRANSMIT_SIZE`) | Large enough for a full vertex with batch refs; still modest-hardware friendly |
-| `message_authenticity`   | `Signed(keypair)`    | Every published message is signed with the host's libp2p key |
+| Parameter              | Value                                 | Why                                                                                                                                        |
+| ---------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `protocol_id_prefix`   | fork-scoped                           | Two chains with different `fork_id` advertise different meshsub protocol strings, so a foreign-fork peer's gossip never enters the process |
+| `validation_mode`      | `Strict`                              | Envelope must carry a valid libp2p signature before anything else looks at it                                                              |
+| `heartbeat_interval`   | 1 s (`GOSSIPSUB_HEARTBEAT`)           | libp2p's default, kept for v1; retuned once the perf harness lands                                                                         |
+| `max_transmit_size`    | 4 MiB (`GOSSIPSUB_MAX_TRANSMIT_SIZE`) | Large enough for a full vertex with batch refs; still modest-hardware friendly                                                             |
+| `message_authenticity` | `Signed(keypair)`                     | Every published message is signed with the host's libp2p key                                                                               |
 
 Mesh sizing (`mesh_n`, `mesh_n_low`, `mesh_n_high`, `mesh_outbound_min`) is
 left at libp2p's production defaults **except** in small-cluster mode,
@@ -159,16 +159,16 @@ Strict validation means gossipsub stops forwarding a message on receipt and
 waits for the application to report a verdict. That is the right shape — a
 node should not amplify junk to its whole mesh before looking at the bytes
 — but it converts a bandwidth bug into a liveness one: a message the
-application never reports on is *never forwarded*, silently, with no error.
+application never reports on is _never forwarded_, silently, with no error.
 A topic whose verdict is missed stops propagating fleet-wide.
 
 `crates/net/src/gossip_verdict.rs` closes that hole with two deliberate
 choices. The verdict is produced by a guard that reports on `Drop`, so
 early returns, `?` and panics all still produce one. And the drop default
 is `Accept`, never `Ignore`. That looks backwards until you compare failure
-modes: defaulting to `Ignore` degrades to *the mesh stops carrying that
-topic*; defaulting to `Accept` degrades to *we relayed a size-bounded
-message without judging it*. One has a no-regression failure mode, the
+modes: defaulting to `Ignore` degrades to _the mesh stops carrying that
+topic_; defaulting to `Accept` degrades to _we relayed a size-bounded
+message without judging it_. One has a no-regression failure mode, the
 other halts the chain. The missed verdict is still logged at `error` and
 counted — loud, but not fatal.
 
@@ -179,7 +179,7 @@ counted — loud, but not fatal.
 **Status: designed, not built.** There is no `auth` module in the net
 crate and no connection-level FALCON exchange today. What ships instead:
 libp2p's own Ed25519 identity binds the PeerId at the transport layer, and
-every consensus message carries its FALCON signature *inside the payload*,
+every consensus message carries its FALCON signature _inside the payload_,
 verified by the node-side consumer against the committee set before the
 message is acted on. `crates/net/src/behaviour.rs` states the split
 directly — the gossipsub signature is the cheap first filter, FALCON is the
@@ -243,7 +243,7 @@ session is either a bug or an attack).
 ### What the binding would buy
 
 With the binding in place, a message on `pyde/vertices/1` could be checked
-against the attested pubkey of the *publishing peer* and dropped before any
+against the attested pubkey of the _publishing peer_ and dropped before any
 heavyweight verification runs. Today the equivalent check happens one layer
 later, against the FALCON signature inside the message, so the saving is
 CPU on junk rather than any change to what the chain accepts.
@@ -317,12 +317,12 @@ today.
 
 ### Trust model per layer
 
-| Layer                     | Status  | Trust model                    |
-| ------------------------- | ------- | ------------------------------ |
-| Operator bootnodes file   | shipped | Operator-trusted                |
-| DNS resolution of `/dns/` | shipped | DNS operator trusted            |
-| On-chain registry         | future  | Consensus-finalized             |
-| PEX cache                 | future  | Peer-attested only              |
+| Layer                     | Status  | Trust model          |
+| ------------------------- | ------- | -------------------- |
+| Operator bootnodes file   | shipped | Operator-trusted     |
+| DNS resolution of `/dns/` | shipped | DNS operator trusted |
+| On-chain registry         | future  | Consensus-finalized  |
+| PEX cache                 | future  | Peer-attested only   |
 
 ---
 
@@ -332,14 +332,14 @@ Connection caps are compile-time constants in
 `crates/net/src/behaviour.rs`, applied through libp2p's
 `connection_limits::Behaviour` — not an operator-tunable config file:
 
-| Constant                       | Value       | Meaning                                  |
-| ------------------------------ | ----------- | ---------------------------------------- |
-| `MAX_ESTABLISHED_INCOMING`     | 128         | Established inbound connections           |
-| `MAX_ESTABLISHED_OUTGOING`     | 64          | Established outbound (peers we dialed)    |
-| `MAX_ESTABLISHED_TOTAL`        | 192         | Aggregate ceiling — the hard FD cap       |
-| `MAX_ESTABLISHED_PER_PEER`     | 4           | Connections to any one peer               |
-| `MAX_PENDING_INCOMING`         | 32          | In-flight inbound handshakes              |
-| `MAX_PENDING_OUTGOING`         | 16          | In-flight outbound dials                  |
+| Constant                   | Value | Meaning                                |
+| -------------------------- | ----- | -------------------------------------- |
+| `MAX_ESTABLISHED_INCOMING` | 128   | Established inbound connections        |
+| `MAX_ESTABLISHED_OUTGOING` | 64    | Established outbound (peers we dialed) |
+| `MAX_ESTABLISHED_TOTAL`    | 192   | Aggregate ceiling — the hard FD cap    |
+| `MAX_ESTABLISHED_PER_PEER` | 4     | Connections to any one peer            |
+| `MAX_PENDING_INCOMING`     | 32    | In-flight inbound handshakes           |
+| `MAX_PENDING_OUTGOING`     | 16    | In-flight outbound dials               |
 
 The split is an **eclipse-safety invariant**, not arbitrary sizing: the
 total is exactly incoming + outgoing, so an inbound flood that maxes the
@@ -350,7 +350,7 @@ it breaks is a build error rather than a silent eclipse regression.
 
 ### Global request-rate limits
 
-Inbound *serve* requests — vertex fetch, batch fetch, state-sync chunk
+Inbound _serve_ requests — vertex fetch, batch fetch, state-sync chunk
 fetch — are rate-limited by token bucket in
 `crates/net/src/inbound_limit.rs`. Connection limits bound how many peers
 can connect; they do not bound the request rate from the peers that are
@@ -358,11 +358,11 @@ already connected, and cheap Ed25519 PeerId rotation defeats any purely
 per-peer limit. So the bucket is **global** — aggregate across all peers —
 which a rotating attacker cannot escape:
 
-| Bucket                | Capacity | Refill / sec |
-| --------------------- | -------- | ------------ |
-| Consensus fetch       | 2,048    | 1,024        |
-| State-sync chunk serve| 512      | 256          |
-| Durable vertex serve  | 64       | 32           |
+| Bucket                 | Capacity | Refill / sec |
+| ---------------------- | -------- | ------------ |
+| Consensus fetch        | 2,048    | 1,024        |
+| State-sync chunk serve | 512      | 256          |
+| Durable vertex serve   | 64       | 32           |
 
 The pressure this relieves is real: every inbound fetch is served
 synchronously on the single swarm event-loop task, so without a cap any set
@@ -439,23 +439,23 @@ At the steady-state v1 throughput target (to be established by the
 multi-region performance harness; ~80 KB average batches, ~500 ms median
 commit cadence):
 
-| Channel               | Inbound       | Outbound      |
-| --------------------- | ------------- | ------------- |
-| Transactions          | ~3 MB/s        | ~3 MB/s        |
-| Batches               | ~1 MB/s        | ~1 MB/s        |
-| Consensus (validator) | ~0.3 MB/s      | ~0.3 MB/s      |
-| Sync (serving)        | ~2 MB/s        | ~2 MB/s        |
-| DHT / discovery       | ~0.1 MB/s      | ~0.1 MB/s      |
-| **Validator total**   | **~6 MB/s**   | **~6 MB/s**   |
-| **Full node total**   | **~4 MB/s**   | **~4 MB/s**   |
+| Channel               | Inbound     | Outbound    |
+| --------------------- | ----------- | ----------- |
+| Transactions          | ~3 MB/s     | ~3 MB/s     |
+| Batches               | ~1 MB/s     | ~1 MB/s     |
+| Consensus (validator) | ~0.3 MB/s   | ~0.3 MB/s   |
+| Sync (serving)        | ~2 MB/s     | ~2 MB/s     |
+| DHT / discovery       | ~0.1 MB/s   | ~0.1 MB/s   |
+| **Validator total**   | **~6 MB/s** | **~6 MB/s** |
+| **Full node total**   | **~4 MB/s** | **~4 MB/s** |
 
 Recommended links:
 
-| Role         | Bandwidth          | Connections |
-| ------------ | ------------------ | ----------- |
-| Validator    | 100+ Mbps symmetric| 50 to 100   |
-| Full node    | 100 Mbps symmetric | 30 to 60    |
-| Light client | 1 Mbps             | 3 to 5      |
+| Role         | Bandwidth           | Connections |
+| ------------ | ------------------- | ----------- |
+| Validator    | 100+ Mbps symmetric | 50 to 100   |
+| Full node    | 100 Mbps symmetric  | 30 to 60    |
+| Light client | 1 Mbps              | 3 to 5      |
 
 These are well within commodity hosting tiers: no datacenter requirement.
 
@@ -501,19 +501,19 @@ On `pyde run`:
 
 Every node exposes a Prometheus endpoint with at minimum:
 
-| Metric                              | Type    | Meaning                              |
-| ----------------------------------- | ------- | ------------------------------------ |
-| `pyde_peers_connected`              | gauge   | Total connected peers                |
-| `pyde_peers_by_role`                | gauge   | Validators / full / unknown          |
-| `pyde_gossip_messages_received`     | counter | Messages received per topic          |
-| `pyde_gossip_messages_sent`         | counter | Messages sent per topic              |
-| `pyde_bandwidth_inbound_bytes`      | counter | Total inbound bytes                  |
-| `pyde_bandwidth_outbound_bytes`     | counter | Total outbound bytes                 |
-| `pyde_wave_propagation_time_ms`     | histo   | Time from propose to receipt         |
-| `pyde_consensus_msg_latency_ms`     | histo   | Round-trip on consensus channel      |
-| `pyde_dht_routing_table_size`       | gauge   | Kademlia routing table entries       |
-| `pyde_falcon_handshakes_completed`  | counter | Successful peer handshakes            |
-| `pyde_falcon_handshakes_failed`     | counter | Verification failures                 |
+| Metric                             | Type    | Meaning                         |
+| ---------------------------------- | ------- | ------------------------------- |
+| `pyde_peers_connected`             | gauge   | Total connected peers           |
+| `pyde_peers_by_role`               | gauge   | Validators / full / unknown     |
+| `pyde_gossip_messages_received`    | counter | Messages received per topic     |
+| `pyde_gossip_messages_sent`        | counter | Messages sent per topic         |
+| `pyde_bandwidth_inbound_bytes`     | counter | Total inbound bytes             |
+| `pyde_bandwidth_outbound_bytes`    | counter | Total outbound bytes            |
+| `pyde_wave_propagation_time_ms`    | histo   | Time from propose to receipt    |
+| `pyde_consensus_msg_latency_ms`    | histo   | Round-trip on consensus channel |
+| `pyde_dht_routing_table_size`      | gauge   | Kademlia routing table entries  |
+| `pyde_falcon_handshakes_completed` | counter | Successful peer handshakes      |
+| `pyde_falcon_handshakes_failed`    | counter | Verification failures           |
 
 These feed into the `docker/grafana` dashboards that ship with the repo.
 
@@ -581,24 +581,22 @@ Honest about what is not in the network layer at launch:
 
 ## Summary
 
-| Component                  | Choice                                                |
-| -------------------------- | ----------------------------------------------------- |
-| Transport                  | libp2p over QUIC (TCP fallback)                       |
-| libp2p identity            | Ed25519 (PeerId routing only)                          |
-| Application identity       | FALCON-512 (vertex sigs, attestations, evidence)       |
-| Channels                   | 5: vertices / transactions / batches / sync / evidence |
-| Validator channel filter   | FALCON pubkey ∈ current committee                      |
-| Gossipsub mode             | `Permissive` + `flood_publish = true`                 |
-| Heartbeat                  | 150 ms (matches DAG round cadence)                    |
-| Mesh size                  | 8 (low 4, high 12)                                    |
-| Peer handshake             | FALCON-512 attestation; binds peer_id → falcon_pk      |
-| Discovery                  | Layered: seeds → DNS → on-chain registry → PEX → cache (no DHT) |
-| Committee defense          | Sentry node pattern (Cosmos-style)                    |
-| Connection limits          | 50 total / 30 inbound / 20 outbound (defaults)        |
-| Rate limit (per IP)        | 5 / sec (defaults)                                    |
-| Symmetric encryption       | TLS 1.3 inside QUIC                                   |
-| Bandwidth (committee)      | 500 Mbps, scales with throughput (Ch 19)              |
+| Component                | Choice                                                          |
+| ------------------------ | --------------------------------------------------------------- |
+| Transport                | libp2p over QUIC (TCP fallback)                                 |
+| libp2p identity          | Ed25519 (PeerId routing only)                                   |
+| Application identity     | FALCON-512 (vertex sigs, attestations, evidence)                |
+| Channels                 | 5: vertices / transactions / batches / sync / evidence          |
+| Validator channel filter | FALCON pubkey ∈ current committee                               |
+| Gossipsub mode           | `Permissive` + `flood_publish = true`                           |
+| Heartbeat                | 150 ms (matches DAG round cadence)                              |
+| Mesh size                | 8 (low 4, high 12)                                              |
+| Peer handshake           | FALCON-512 attestation; binds peer_id → falcon_pk               |
+| Discovery                | Layered: seeds → DNS → on-chain registry → PEX → cache (no DHT) |
+| Committee defense        | Sentry node pattern (Cosmos-style)                              |
+| Connection limits        | 50 total / 30 inbound / 20 outbound (defaults)                  |
+| Rate limit (per IP)      | 5 / sec (defaults)                                              |
+| Symmetric encryption     | TLS 1.3 inside QUIC                                             |
+| Bandwidth (committee)    | 500 Mbps, scales with throughput (Ch 19)                        |
 
-The next chapter covers the parachain layer (Pyde's one mechanism for
-everything off-chain, from foreign chains to data feeds): what's locked
-at mainnet, what ships after, and how the layer stays honest.
+The next chapter describes Pyde's interlinking settlement environment: the shared state used to coordinate participating economic domains through foreign exchange observations, settlement pools, obligations, positions, and netting.

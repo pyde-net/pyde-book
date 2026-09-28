@@ -10,35 +10,31 @@
 
 The Pyde Book is the technical reference for Pyde, a distributed ledger architecture designed to represent, verify, and coordinate global economic state across sovereign networks, open settlement infrastructure, and permissionless applications.
 
-Pyde is built around one protocol foundation with three operating environments:
+Pyde is organized into three operating environments:
 
-| Tier | Economic environment | Primary role |
-|---|---|---|
-| Tier 1 | Sovereign economic networks | Domestic economic state and regulated institutional applications |
-| Tier 2 | Open interlinking settlement | Cross domain settlement, FX observations, obligations, positions, and netting |
-| Tier 3 | Permissionless public network | Open applications, smart contracts, digital assets, and public economic activity |
+| Tier   | Economic environment          | Primary role                                                                                |
+| ------ | ----------------------------- | ------------------------------------------------------------------------------------------- |
+| Tier 1 | Sovereign economic networks   | Domestic economic state and regulated institutional applications                            |
+| Tier 2 | Open interlinking settlement  | Cross domain settlement, foreign exchange observations, obligations, positions, and netting |
+| Tier 3 | Permissionless public network | Open applications, smart contracts, digital assets, and public economic activity            |
 
-The three tiers share core protocol technology while keeping authority boundaries explicit. A sovereign network is not required to behave like a public network. The settlement layer does not become the monetary authority of the jurisdictions it connects.
+The three tiers share a common distributed ledger foundation while keeping authority boundaries explicit. A sovereign network is not required to behave like a public network, and the settlement layer does not become the monetary authority of the jurisdictions it connects.
 
 ## How to read this book
 
 Start with [What is Pyde](src/preface/what-is-pyde.md), then read [Why Pyde](src/preface/why-pyde.md) and [Chapter 1: Introduction](src/chapters/01-introduction.md).
 
-The architectural definition is in [Chapter 2: Architecture Overview](src/chapters/02-architecture-overview.md). From there, the book moves into the technical foundation: execution, state, tooling, consensus, synchronization, cryptography, accounts, and networking.
+[Chapter 2: Architecture Overview](src/chapters/02-architecture-overview.md) defines the current architecture. The following chapters explain the protocol foundation, economic mechanics, security model, developer infrastructure, and deployment requirements.
 
-[Chapter 13: Cross Chain and Settlement](src/chapters/13-cross-chain.md) contains the current settlement and external coordination material. [Chapter 14: Economics](src/chapters/14-tokenomics.md) contains the current PYDE and validator economics and is being aligned with the new three tier model.
-
-The existing technical chapters describe the protocol machinery beneath the economic architecture. They are not a separate product definition.
+The book is intentionally descriptive. It explains the system Pyde is designed to provide, the technical machinery beneath that architecture, and the distinction between implemented functionality and architectural components that still require deployment or validation.
 
 ## Current implementation position
 
 The current public development environment is Tier 3.
 
-Tier 1 and Tier 2 are architectural designs rather than deployed production networks. Their authority models, settlement mechanisms, institutional integration, and operating rules require independent engineering, security review, regulatory work, and institutional deployment before production use.
+Tier 1 and Tier 2 are architectural designs rather than deployed production networks. Their authority models, settlement mechanisms, institutional integrations, operational requirements, security assumptions, and jurisdiction specific deployments require additional engineering, independent security review, and institutional work.
 
-The Tier 3 engineering work remains the technical foundation on which the broader architecture builds.
-
-The project publishes performance only when measured under the conditions stated with the result. Architectural targets are not presented as unconditional production guarantees.
+The Tier 3 engineering work provides the current technical foundation for the broader architecture.
 
 ## Core technical areas
 
@@ -48,20 +44,20 @@ The book covers:
 - deterministic state transitions and parallel execution
 - Jellyfish Merkle state
 - Mysticeti style DAG consensus
-- FALCON 512 and the protocol cryptographic stack
+- post quantum cryptographic primitives used by the protocol
 - state synchronization and recovery
 - accounts and authorization
 - networking
 - the Otigen developer toolchain
 - protocol security and threat modeling
 - settlement, obligations, positions, and netting
-- PYDE validator alignment and protocol economics
+- PYDE validator alignment and public network economics
 
 ## Historical design material
 
 Earlier Pyde designs are retained where they are useful for understanding architectural decisions.
 
-The HotStuff era, original Otigen language era, and other superseded designs remain under [Historical Design References](src/SUMMARY.md). They are historical records, not the current definition of Pyde.
+The HotStuff era, original Otigen language era, and superseded cross network designs are historical records, not the current definition of Pyde.
 
 ## Building the book
 

@@ -6,17 +6,16 @@
 [Get Started: for Developers](preface/get-started-for-developers.md)
 [Get Started: for Users](preface/get-started-for-users.md)
 [Introduction](chapters/01-introduction.md)
-[Architecture Overview](chapters/02-architecture-overview.md)
 
 ---
 
 # Economic Architecture
 
 - [Architecture Overview](chapters/02-architecture-overview.md)
-- [Tier 2 Settlement](chapters/13-cross-chain.md)
+- [Settlement and Netting](chapters/13-cross-chain.md)
 - [Governance](chapters/15-governance.md)
-- [Economics and Incentives](chapters/14-tokenomics.md)
-- [Future Direction](chapters/20-future-direction.md)
+- [Economics](chapters/14-tokenomics.md)
+- [Implementation Status](chapters/20-implementation-status.md)
 
 # Protocol Foundation
 
@@ -32,14 +31,13 @@
 # Economic Mechanics
 
 - [Execution Fees and Gas](chapters/10-gas-and-fee-model.md)
-- [Settlement and Netting](chapters/13-cross-chain.md)
 - [Security and Threat Model](chapters/16-security.md)
 
 # Developer and Operator Infrastructure
 
 - [Developer Tools](chapters/17-developer-tools.md)
 - [Protocol Upgrades](chapters/18-protocol-upgrades.md)
-- [Implementation, Validation and Launch](chapters/19-launch-strategy.md)
+- [Implementation, Validation and Deployment](chapters/19-launch-strategy.md)
 - [Appendix](chapters/21-appendix.md)
 
 ---
@@ -98,4 +96,4 @@
 - [Tokenomics Detail](companion/TOKENOMICS.md)
 - [Brand Reference](companion/BRAND.md)
 
-> Legacy parachain specifications remain in the repository for historical reference. They are not presented as the current economic architecture.
+> Superseded parachain specifications should be moved into the historical design area. They are not part of the current economic architecture.

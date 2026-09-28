@@ -1,454 +1,214 @@
-# Chapter 13: Parachains and Cross-Chain
+# Chapter 13: Interlinking Settlement and Netting
 
-Almost everything an application wants to touch lives outside the chain
-it runs on: other networks, price data, real-world events, files,
-arbitrary APIs. Pyde reaches all of it through one mechanism, the
-**parachain layer**.
+Tier 2 is Pyde's open interlinking settlement environment.
 
-A parachain is a small, decentralized, staked network that does one job
-the base chain deliberately cannot do on its own, then posts the
-result back to Pyde in a form Pyde can check. One parachain speaks to a
-foreign chain through that chain's light client. Another publishes
-price data. Another reports real-world events or moves files. A
-contract on Pyde reaches any of them the same way, through
-`parachain_call` with a callback, and what comes back is a verified
-result.
+Its purpose is not to create another sovereign currency, become a global central bank, or operate as a generic bridge marketplace.
 
-This unifies two topics that most ecosystems treat separately:
+Its purpose is to maintain the shared state required for participating economic domains to coordinate cross border activity.
 
-1. **Cross-chain interoperability.** A bridge to a foreign chain is not
-   a separate product bolted onto Pyde; it is one *kind* of parachain,
-   an adapter that implements the foreign chain's transaction format
-   and runs its light client.
-2. **Off-chain data and computation.** Oracles, feeds, and IO are not a
-   trusted sidecar; they are parachains too, under the same staking,
-   consensus, and slashing rules as everything else in the layer.
+The core state consists of foreign exchange observations, settlement pool state, obligations, positions, and netting results.
 
-**Timing:** the parachain layer is v2, shipping post-mainnet. What v1
-locks in is the surface: the `cross_call` host function and the
-callback model that `parachain_call` extends, the
-`HardFinalityCert` primitive, the
-`type = "parachain"` manifest schema in otigen, and the gated parachain
-host-function namespace. Contracts written against the interface today
-compile and deploy today. The deep mechanics live in
-[companion/PARACHAIN_DESIGN.md](../companion/PARACHAIN_DESIGN.md).
+## 13.1 Why a Settlement Layer Exists
 
----
+Cross border commerce is not only a payment problem.
 
-## 13.1 The Problem: Everything Interesting Is Off-Chain
+A transaction may require:
 
-A chain is deliberately sealed. It cannot make a network request, read
-a price, or watch another network, because if it could, every validator
-would observe a slightly different answer and consensus would never
-close. That seal is the safety property. It is also a wall.
+- identity and authorization checks;
+- account and regulatory state;
+- foreign exchange state;
+- source liquidity;
+- destination liquidity;
+- settlement authorization;
+- reconciliation of the resulting economic obligation.
 
-The industry's answers to the wall have been the largest source of
-catastrophic loss in the ecosystem's history: trusted bridge multisigs
-(Wormhole, Ronin, Nomad, Multichain) and centralized oracle operators.
-Each one re-introduces exactly the trusted party the chain existed to
-remove.
+Existing systems solve individual parts of this process. Tier 2 provides a shared coordination environment for the relationships between participating systems.
 
-Pyde's position: keep the wall, build a proper door. The door is a
-decentralized, staked network that attests its work into Pyde's own
-security, where Pyde re-validates it. Not a multisig. Not an operator
-whitelist. Not a promise.
+## 13.2 Open Validator Participation
 
----
+Tier 2 is open infrastructure.
 
-## 13.2 The Shape of the Layer
+Anyone satisfying the validator requirements can operate the Tier 2 binary and participate in consensus.
 
-![Pyde in the center with parachains around it, each doing a different job: Chain X and Chain Y adapters running light clients, price feeds, events and file IO.](../assets/diagrams/parachain-concept.svg)
+Tier 2 validators do not become validators of participating Tier 1 networks.
 
-*One off-chain layer, many jobs: every parachain is its own staked,
-decentralized network, attesting its results into Pyde's own security.*
+Tier 2 consensus establishes the canonical state of the shared settlement ledger. Sovereign consensus remains authoritative over each Tier 1 monetary domain.
 
-Each parachain declares one **capability**: what job it does, what a
-request payload looks like, and how its validators agree on a result.
-Different parachains implement different things. One can cover several
-foreign chains at once; another can be nothing but a single price pair.
-The layer grows by deployment, not by protocol change, because the base
-chain never learns what any particular parachain does. It only learns
-how to check the work.
+## 13.3 Foreign Exchange Oracle
 
----
+Tier 2 validators independently publish foreign exchange observations.
 
-## 13.3 How a Cross-Network Call Flows
+The network aggregates those observations according to the configured oracle rules and records a consensus supported reference state.
 
-A contract on Pyde wants to run a swap on Chain X and act on the
-result:
+The oracle does not independently prove that a real world price is correct. It provides a consensus supported reference from participating observations.
 
-![A Pyde contract issues a parachain_call; the parachain signs and submits on Chain X, watches through its light client, confirms, attests the result, and posts it to Pyde as an ordinary result transaction.](../assets/diagrams/parachain-flow.svg)
+Settlement contracts consume the resulting state subject to their own authorization rules.
 
-*A contract drives an action on another network and gets a verified
-result back: the parachain attests the result and posts it to Pyde as
-an ordinary result transaction, ordered in the DAG like any other.*
+## 13.4 Settlement Pools
 
-1. The contract issues a `parachain_call` naming the parachain, the action,
-   the payload (target address, function, arguments), and the callback
-   to run on the result.
-2. The parachain's validators pick up the forwarded request, validate
-   it, sign the outbound transaction, and submit it on Chain X.
-3. Chain X executes.
-4. The parachain watches the transaction through its Chain X light
-   client, confirms the receipt, and processes whatever it needs on its
-   own side, including its own state.
-5. The attested result posts back to Pyde as an ordinary transaction
-   of a dedicated result type; the calling contract reads it through a
-   view (pull-first), with a push handler form to follow once the
-   result path is proven.
+Each participating sovereign consortium can operate a standardized settlement contract on its Tier 1 network.
 
-The result becomes canonical the same way everything on Pyde does: it
-is an ordered transaction, gossiped, sequenced in the DAG, and
-dispatched deterministically. The parachain's members attest it with
-the same per-member aggregated FALCON signing the base chain's beacon
-already uses, so no new consensus primitive exists anywhere in the
-path. The work is not just reported: it is recorded, checkable, and
-slashable.
+The contract maintains a pool of sovereign currency dedicated to authorized cross border settlement.
 
-If a parachain attests a fraudulent or invalid result, Pyde challenges
-it, and until the challenge resolves, Pyde stops forwarding requests
-to it. Forwarding cutoff is the liveness lever;
-slashing of the offending validators' stake is the economic one. Both
-apply.
+The pool remains inside its sovereign domain.
 
----
+Tier 2 does not hold the sovereign currency directly. Instead, the participating Tier 1 consortium grants the settlement mechanism authority to move funds within that defined pool according to the accepted settlement rules.
 
-## 13.4 The Call Model: `cross_call` and `parachain_call`
+The sovereign monetary authority controls the pool's funding and withdrawal process.
 
-Cross-context invocation in Pyde is exposed as a WASM host function.
-The v1 contract-to-contract form:
+## 13.5 Cross Border Settlement Example
 
-```rust
-// From the WASM contract author's perspective (Rust example):
-let result = pyde::cross_call(
-    target_address,                    // contract or parachain address
-    "request_price",                   // function name
-    &args,                             // serialized arguments
-    CallbackSpec {
-        success_method: "on_price_received",
-        error_method:   "on_price_failed",
-        max_callback_gas: 100_000,
-        timeout_waves:   100,
-    },
-)?;
-```
+Consider a Nigerian participant sending the equivalent of €20 to a German participant.
 
-The same callback model serves three call shapes:
+The source participant holds Nigerian sovereign currency. The destination receives euros from the German settlement pool.
 
-1. **Smart contract → smart contract** via `cross_call` (same chain,
-   fully working at v1). Synchronous if both contracts are in the same
-   wave; asynchronous via callback if execution spans waves.
-2. **Smart contract → parachain** via `parachain_call` (v2, when the
-   parachain layer ships). Always asynchronous; the parachain's
-   validators process the call and the callback carries the result
-   back. `parachain_call` names the parachain, the action, the
-   payload, and the callback, and enters the ABI through its additive
-   path when the layer ships.
-3. **Smart contract → foreign chain** (v2, a `parachain_call` to an
-   adapter). There is no separate "foreign transport": reaching
-   Chain X *is* a call to the parachain that adapts it. The contract
-   never handles foreign formats; the adapter does.
+The logical flow is:
 
-The `cross_call` signature is part of the v1 Host Function ABI
-specification and is stable at genesis. Contracts written today against
-the v1 interface keep working as the parachain layer comes online.
-
-### Callback context preserved
-
-Every call, `cross_call` and `parachain_call` alike, carries enough
-context that the callback can reconstruct what happened:
-
-- `callback_id` (unique per call)
-- `original_caller` (address that initiated the original transaction)
-- `original_fn` (function that issued the call)
-- `original_args_hash` (hash of original args; full args retrievable from the chain log)
-- `issued_at_wave` (when the call was issued)
-- `target` (who was called)
-
-On result (success, error, or timeout), the callback handler receives
-both the result payload and the context. Full audit trail is always
-preserved.
-
----
-
-## 13.5 Anatomy of a Parachain
-
-A parachain has four parts, and the boundary between them is the whole
-design:
+1. The sender authorizes the operation.
+2. The source consortium verifies account status, authorization, balance, allowance, settlement rules, and relevant regulatory restrictions.
+3. Tier 2 provides the applicable foreign exchange reference.
+4. The required source currency moves into the source settlement pool.
+5. Tier 2 records the resulting cross domain obligation.
+6. The destination settlement pool releases the corresponding destination currency.
+7. The destination participant receives the authorized amount.
 
 ```text
- ┌──────────────────────────── one operator node ────────────────────────────┐
- │                                                                            │
- │   ┌──────────────────┐  declares IO   ┌──────────────────┐                 │
- │   │ parachain         │───────────────►│ relay backend     │──► real world  │
- │   │ contract (WASM)   │◄───────────────│ (author's, any    │◄── (Chain X,   │
- │   │ deterministic     │  result        │  language)        │     an API...) │
- │   └──────────────────┘                └──────────────────┘                 │
- │             │                                                              │
- │   ┌─────────▼─────────────────────────────────────────────┐                │
- │   │ Pyde-provided operator binary                          │                │
- │   │ networking, peer discovery, stake wiring, result        │                │
- │   │ agreement, attestation + result posting to Pyde         │                │
- │   └───────────────────────────────────────────────────────┘                │
- │                                                                            │
- │   all of it shipped as one canonical Docker image,                          │
- │   its digest pinned in the parachain's on-chain state                       │
- └────────────────────────────────────────────────────────────────────────────┘
+Participant
+   │
+   ▼
+Tier 1 source network
+   │
+   │ source currency enters authorized pool
+   ▼
+Tier 2
+   │  FX state + obligation + settlement state
+   ▼
+Tier 1 destination network
+   │
+   │ destination pool releases value
+   ▼
+Recipient
 ```
 
-**The parachain contract** is a WASM module, written and deployed
-exactly like a smart contract through otigen, with `type = "parachain"`
-in `otigen.toml` unlocking the parachain host-function namespace. It is
-pure and deterministic: it validates requests, transforms payloads,
-manages the parachain's state, and *declares* any outside-world call it
-needs. It never performs IO itself.
+The settlement layer coordinates the relationship. It does not become the owner of either sovereign currency.
 
-**The relay backend** is the author's own service, written in any
-language, running beside the contract on every operator node. It
-performs the IO the contract declared: submits the Chain X transaction,
-fetches the price, uploads the file. It runs outside consensus, where
-non-determinism cannot hurt anything.
+## 13.6 Preflight Simulation
 
-**The operator binary** is provided by Pyde and is the same for every
-parachain. It handles what authors should never have to build:
-networking, peer discovery, the connection to the Pyde network, stake
-verification, running the agreement rule over results, and posting the
-attested result transactions back to Pyde. An operator points it at a parachain id and
-a config; it pulls everything else.
+Settlement operations can be simulated before execution.
 
-**The canonical image.** Each parachain version registers its Docker
-image digest in the parachain's on-chain state. Every operator runs the
-same verified bytes; drift is detectable; upgrades are explicit state
-changes. The image is public so anyone can pull, inspect, and join. And
-the image is the messy part, sandboxed, never the trusted part: it is
-third-party code on validator hardware, so it runs contained, and the
-guarantee comes from validators agreeing on the result, not from
-trusting the image.
+The simulation can evaluate:
 
-### Why the IO split is the whole trick
+- authorization;
+- account status;
+- allowance;
+- relevant regulatory state;
+- FX data;
+- settlement fees;
+- source liquidity;
+- destination liquidity;
+- other configured settlement conditions.
 
-![The parachain contract stays deterministic and declares the IO; the relay backend performs it against the external world; the validators agree on the returned result and seal it into the wave.](../assets/diagrams/parachain-io-split.svg)
+Simulation is a preflight check. It does not replace consensus or finality.
 
-*Determinism inside, reality outside, agreement at the boundary.*
+## 13.7 Obligation State
 
-If the contract made the network call itself, every validator would get
-a slightly different answer (timing, peers, API jitter) and the
-parachain could never agree on a wave. So the deterministic core
-declares the IO as data (target, method, payload schema, timeout) and
-the relay backend performs it outside the agreement path. What comes
-back is the result, and the validators' one job is to agree on that
-result before it is attested into Pyde. Determinism inside, reality
-outside, agreement at the boundary.
+An obligation records an economic relationship created by cross domain activity.
 
-### How validators agree on a result
-
-Each parachain declares its agreement rule in config, because data
-divides into two honesty classes:
-
-| Data class | Example | Agreement | Trust basis |
-|---|---|---|---|
-| **Provable** | a Chain X receipt | exact match | verified against Chain X's own consensus via light client; Pyde can re-check it |
-| **Attested** | a price, a weather reading, an API response | each validator fetches independently and commits to its value before revealing (the base chain's own commit-reveal, reused), then the median of the revealed quorum within a declared tolerance | validator quorum + stake + slashing; this is an oracle, and the layer says so honestly |
-
-Pyde re-validates what can be re-validated: the aggregated member
-attestation, light-client proofs, and the deterministic dispatch of the
-result transaction. For attested data, the guarantee is economic: a
-quorum of independent staked observers agreed within tolerance, a
-minority cannot swing the median, and sitting persistently outside the
-tolerance is slashable.
-
----
-
-## 13.6 Running and Joining a Parachain
-
-The layer is open at both ends.
-
-**Authors** build two things, the parachain contract and its relay
-backend, and declare the rest in config: the capability, the agreement
-rule, the minimum validator stake, the gas charge for serving requests,
-bootnodes, and metadata. Deployment goes through otigen like any
-contract. Pyde publishes a conformance spec for what qualifies as a
-parachain; conformant parachains receive forwarded calls.
-
-**Operators** join permissionlessly:
+For example:
 
 ```text
- pull by parachain id ──► pass config ──► stake (per the parachain's
- config) ──► binary validates eligibility ──► join the network
+Nigeria → Germany: €100
 ```
 
-The Pyde-provided binary handles discovery, peers, and the anchored
-connection to the main network. There is no whitelist and no committee
-membership prerequisite: eligibility is the stake and the spec,
-enforced in code.
+means that Tier 2 records an obligation associated with those domains for the stated value and currency.
 
-**Economics.** PYDE remains the gas token across the layer. Contracts
-pay the parachain's declared gas charge when a `parachain_call` is served;
-parachain validators earn from serving honestly and lose stake for
-serving fraudulently. Parachain authors can layer their own token
-economies on top; that is an application concern, not protocol
-mechanics.
+The obligation is not sovereign money held by Tier 2.
 
----
+It is shared coordination state.
 
-## 13.7 The Proof Machinery Adapters Use
+## 13.8 Position State
 
-The one piece of cross-chain infrastructure v1 ships implicitly is the
-**hard-finality certificate** (Chapter 6):
+A position represents net exposure after relevant obligations are considered.
 
-```rust
-struct HardFinalityCert {
-    wave_id:              u64,
-    blake3_state_root:    Hash,
-    poseidon2_state_root: Hash,
-    voter_bitmap:         u128,                     // 128-bit bitmap
-    signatures:           Vec<FalconSignature>,     // ≥ 86
-}
+For example:
+
+```text
+Nigeria owes Germany: €100
+Germany owes Nigeria: €40
 ```
 
-(v1: the `poseidon2_state_root` leg is an inert zero placeholder;
-`POSEIDON2_STATE_ROOT_ENABLED = false`, so only the Blake3 root is computed
-and signed today.)
+produces a bilateral net position of:
 
-This certificate, signed by ≥ ⌊(n+f)/2⌋ + 1 = 86 of the active committee, is the
-outbound half of any adapter's proof story:
+```text
+Nigeria owes Germany: €60
+```
 
-- A counterparty-side verifier holds the active committee's FALCON
-  public keys (refreshed at epoch boundaries).
-- To accept a Pyde-side event it requires a `HardFinalityCert` for the
-  commit that included the event, plus a Merkle proof from the wave's
-  `blake3_state_root` (native) to the event's storage slot. (A
-  `poseidon2_state_root` ZK-circuit-friendly path is reserved for future ZK
-  verification once the leg is enabled; today it is disabled.)
-- Verification is `(86 × FALCON_verify) + (one Merkle path)`, feasible
-  on any chain with a reasonable VM.
+The position is an accounting representation of economic exposure.
 
-The inbound half is the adapter parachain's light client of the foreign
-chain, which is how a Chain X receipt becomes provable data under
-§13.5's agreement table. Between the two, an adapter needs no trusted
-relay in either direction: Pyde events are proven by finality certs,
-foreign events are proven by light clients, and the adapter's own
-honesty is staked and slashable.
+## 13.9 Bilateral Netting
 
-Three principles carry over from the earlier bridge analysis, now as
-requirements on adapter parachains:
+Where two domains have opposing obligations, the settlement state can reduce them to a smaller net position.
 
-1. **No new trusted parties.** No multisig guardians between Pyde and
-   the counterparty chain.
-2. **Light-client verification.** The foreign chain's finality is
-   checked cryptographically, not attested socially.
-3. **Verifiable in at least one direction, stated plainly where only
-   one.** Chains without practical light clients (probabilistic-
-   finality PoW being the hard case) get asymmetric adapters, and the
-   asymmetry is declared in the parachain's capability, not hidden.
+The historical obligations remain available according to the retention rules of the participating system.
 
----
+Netting reduces unnecessary gross settlement without pretending that the original economic relationships never existed.
 
-## 13.8 Trust Model, Stated Honestly
+## 13.10 Multilateral Netting
 
-What the layer removes:
+The same principle works across multiple participants.
 
-- The bridge multisig. Outbound foreign-chain transactions are signed
-  under the parachain's consensus, not by a fixed keyholder set beside
-  it.
-- The oracle whitelist. Feeds are open networks anyone can stake into,
-  with declared agreement rules, not an operator agreement.
-- The silent failure. Every result lands on Pyde as an ordered,
-  attested transaction; fraud is challengeable, slashable, and cuts
-  off forwarding.
+Consider:
 
-What remains, named rather than waved away:
+```text
+Nigeria → Germany: €100
+Germany → Japan: €100
+Japan → Nigeria: €100
+```
 
-- **Attested data is attested.** No mechanism makes a price *provable*;
-  the layer makes the attestation economic and its rule explicit.
-- **Outbound key custody: three keys, not one threshold.** Pyde's own
-  consensus stays FALCON, and a parachain attests its results with the
-  same per-member aggregated FALCON the beacon already uses, so no
-  post-quantum threshold scheme is reintroduced anywhere. Only the key
-  that submits on a foreign chain is different, and it has to be: the
-  target chain dictates its scheme (a chain that verifies secp256k1
-  cannot verify FALCON), so that one foreign-facing key is held under a
-  standard MPC scheme across the parachain's validators, never a
-  single signer, backed by slashing. The read-only side, oracles and
-  provable-state reads, needs no outbound key at all. The operational
-  security of that key (ceremony, resharing, making a stolen key
-  unprofitable) is a primary open design item.
-- **Dispute mechanics.** Challenge windows, the fraud-proof format for
-  provable data, and who adjudicates the edge cases are open design,
-  tracked in
-  [companion/PARACHAIN_DESIGN.md](../companion/PARACHAIN_DESIGN.md),
-  not silently assumed solved.
-- **Deterministic timeouts.** A request that times out for one
-  validator but not another must still resolve to one agreed outcome,
-  so the timeout is folded into what the quorum attests rather than
-  left to each validator's wall clock. Open design, named as such.
+Each participant has a zero net exposure after the cycle is recognized.
 
----
+No additional gross currency movement is required merely to cancel the circular claims.
 
-## 13.9 What Contracts Can Do Today (v1, No Parachains)
+The network therefore reduces the amount of settlement activity required to reconcile the participating positions.
 
-A few cross-chain-adjacent things are possible at the application layer
-before the parachain layer ships:
+## 13.11 Residual Settlement
 
-### Off-chain oracle pattern
+Most real networks are not perfectly circular.
 
-A contract that needs an external value can define an
-`oracle: Address` field, restrict writes to it, and let an off-chain
-process submit updates. This is a trusted feed, not a bridge, and it
-unlocks DeFi-shaped applications today. The parachain layer is the v2
-answer that decentralizes exactly this pattern: same shape, staked and
-slashable instead of trusted.
+After netting, residual positive and negative positions can remain.
 
-### Mirror tokens
+Those positions remain part of Tier 2 settlement state and can be reconciled through the authorized processes of the participating sovereign monetary systems.
 
-A token contract can represent off-chain assets by trusting a
-designated minter. Appropriate when the operator is genuinely trusted
-(a regulated custodian); not appropriate as a default bridge.
+Future transactions can create offsetting obligations and reduce residual exposure over time.
 
-### Light-client contracts
+## 13.12 Atomicity
 
-A developer can deploy a foreign-chain light client as a WASM contract
-today, consuming relayed headers and verifying execution proofs
-on-chain. The relay is operationally trusted but the verification is
-trustless. This is the same pattern an adapter parachain
-industrializes: the light client moves into the parachain, the relay
-becomes the staked relay backend, and the trust in the relay operator
-becomes stake and slashing.
+A cross domain operation is treated as one logical settlement.
 
----
+The participating state transitions must satisfy the required authorization, liquidity, consensus, and settlement conditions before the operation is considered complete.
 
-## 13.10 What the Plan Looks Like
+A partially completed state is not presented as a successful settlement.
 
-| Stage | Capability |
-| --- | --- |
-| **Mainnet (v1)** | Surface locked: `cross_call` + callbacks live for contract-to-contract; `HardFinalityCert` format stable; `type = "parachain"` schema + gated host-fn namespace reserved |
-| **Post-mainnet (v2), first wave** | Parachain layer live: operator binary, canonical images, staking + slashing, result transactions; first data-feed parachains |
-| **Post-mainnet (v2), second wave** | First chain adapters (light client + threshold outbound signing), starting with one high-value counterparty chain |
-| **Later** | ZK-aggregated FALCON verification (collapses proof costs for adapters and committees); zk-WASM proven execution where research heads |
+This property is critical because the system is coordinating separate economic domains. A system that can debit one side and silently fail on the other side does not provide reliable settlement infrastructure.
 
-These are directional, gated on the maturity of the previous stage and
-on credible auditor capacity, not on a calendar.
+## 13.13 Failure Isolation
 
----
+A Tier 2 failure should pause or restrict cross border settlement rather than rewrite domestic Tier 1 state.
 
-## Summary
+A Tier 1 network can continue domestic activity even if Tier 2 is unavailable.
 
-| Capability | At mainnet? | Post-mainnet plan |
-| --- | --- | --- |
-| Sovereign L1 | Yes | none |
-| Hard-finality certificate (format) | Yes | The outbound proof primitive for adapters |
-| `cross_call` host function (interface) | Yes | The callback model `parachain_call` extends to parachains, then foreign chains through adapters |
-| Smart-contract → smart-contract calls | Yes (working) | Performance optimizations |
-| Parachain layer (operator network) | Surface reserved | Ships as v2: staking, attestation into Pyde, result transactions, slashing |
-| Smart-contract → parachain calls | Interface only | Live with the layer |
-| Foreign-chain reach | No | Through adapter parachains: light clients in, finality certs out, no multisig anywhere |
-| Off-chain data (prices, events, IO) | App-layer trusted feeds possible | Decentralized, staked, agreement-ruled parachains |
+A sovereign that temporarily stops participating in Tier 2 cannot simply erase historical obligations already recorded in the shared settlement state.
 
-Pyde at launch is a sovereign network designed not to *depend* on
-anything outside itself. The parachain layer then makes the outside
-world reachable without importing the trust models that broke
-everywhere else: one mechanism, staked and re-validated, from foreign
-chains to a weather report.
+Participation and withdrawal are therefore explicit protocol state transitions.
 
-The next chapter covers the PYDE token: supply, inflation,
-distribution, fee mechanics, and staking economics.
+## 13.14 What Tier 2 Is Not
+
+Tier 2 is not:
+
+- a sovereign monetary authority;
+- a shared pool containing all participating sovereign currencies;
+- a universal KYC provider;
+- a generic application chain marketplace;
+- a replacement for domestic banking or legal systems.
+
+It is shared settlement and coordination infrastructure.

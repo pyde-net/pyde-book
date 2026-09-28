@@ -1,208 +1,142 @@
 # Architecture Overview
 
-## System Architecture
+Pyde is distributed ledger infrastructure for a connected global economy.
 
-Pyde is a monolithic Layer 1: consensus, execution, and state in a single binary. Validators and full nodes run the same `pyde` process; role differentiation is configuration (whether the node stakes, whether it joins the active committee, whether it serves RPC).
+The architecture is organized into three operating environments that share a common protocol foundation while enforcing different authority and participation models.
 
-```
-┌─────────────────────────────────────────────┐
-│ Application Layer                           │
-│ WASM smart contracts, dApps, wallets, RPC   │
-├─────────────────────────────────────────────┤
-│ Execution Layer                             │
-│ WebAssembly (wasmtime + Cranelift AOT),     │
-│ Block-STM scheduler, MVCC, access-list      │
-│ prefetch                                    │
-├─────────────────────────────────────────────┤
-│ State Layer                                 │
-│ Jellyfish Merkle Tree (JMT), Blake3 root,   │
-│ PIP-2 clusters (Poseidon2 leg disabled)     │
-├─────────────────────────────────────────────┤
-│ Consensus Layer                             │
-│ Mysticeti DAG, anchor selection, finality   │
-├─────────────────────────────────────────────┤
-│ Cryptography Layer                          │
-│ FALCON-512 signatures, Blake3 + Poseidon2   │
-├─────────────────────────────────────────────┤
-│ Network Layer                               │
-│ libp2p + QUIC, Gossipsub, worker/primary    │
-└─────────────────────────────────────────────┘
+```text
+┌─────────────────────────────────────────────────────────────┐
+│ Tier 1                                                       │
+│ Sovereign economic networks                                  │
+│ Domestic economic state · regulated institutions             │
+├─────────────────────────────────────────────────────────────┤
+│ Tier 2                                                       │
+│ Open interlinking settlement                                 │
+│ FX observations · settlement · obligations · positions      │
+│ bilateral and multilateral netting                           │
+├─────────────────────────────────────────────────────────────┤
+│ Tier 3                                                       │
+│ Permissionless public network                                │
+│ Contracts · applications · digital assets · public economy   │
+├─────────────────────────────────────────────────────────────┤
+│ Common protocol foundation                                    │
+│ Execution · state · consensus · cryptography · networking   │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-## Worker / Primary Split (Narwhal Pattern)
+The important distinction is not that the three tiers are three unrelated chains. The distinction is that the same core technology is configured for different economic domains and authority boundaries.
 
-Within each validator, the consensus role is split:
+## Tier 1: Sovereign Consortium Networks
 
-- **Workers (N processes per validator):** handle transaction ingress, build batches of incoming transactions, gossip batches peer-to-peer with other validators' workers
-- **Primary (one process per validator):** handles consensus; produces vertices each round, gathers parent references, signs state roots
+Tier 1 provides a permissioned distributed ledger environment for a sovereign economic domain.
 
-This separation decouples high-volume data dissemination from low-volume consensus structure. Transactions travel the network exactly once (via worker gossip); consensus vertices stay tiny (carry only batch hashes by reference).
+The validator set is controlled by authorized sovereign agencies under the participating jurisdiction's governance model. A validator set can include a central bank, finance authority, treasury, tax authority, or other legally authorized public institution.
 
-```
-┌────────────────────────────────────────────────────┐
-│ Validator Process                                  │
-│                                                    │
-│  ┌──────────────┐    ┌──────────────────────────┐ │
-│  │   Workers    │    │       Primary            │ │
-│  │  (1 or more) │◄───┤  - Produces vertices     │ │
-│  │              │    │  - Tracks DAG            │ │
-│  │ - Tx ingress │    │  - Signs state roots     │ │
-│  │ - Build      │    │  - Signs beacon shares   │ │
-│  │   batches    │    │  - Executes WASM         │ │
-│  │ - Gossip     │    └──────────────────────────┘ │
-│  │   batches    │                                  │
-│  └──────────────┘                                  │
-└────────────────────────────────────────────────────┘
-```
+The network can represent domestic monetary state, regulated institutional state, account restrictions, licensing state, and other jurisdiction specific economic records.
 
-Workers can be scaled independently of the primary. A validator with high incoming traffic can run 4-8 workers; a quieter validator can run 1.
+Tier 1 is not designed to replace national law. The sovereign remains responsible for monetary policy, legal identity, regulatory authority, licensing, and the legal interpretation of the state represented by the network.
 
-## Consensus: Mysticeti DAG
+## Tier 2: Open Interlinking Settlement
 
-Pyde's consensus is a Mysticeti-style DAG protocol. Every round (~150ms), each committee member's primary produces exactly one vertex. The vertex contains:
+Tier 2 is the open coordination environment between participating economic domains.
 
-- Batch hashes (data layer references)
-- 86+ parent vertex hashes (consensus structure, from prior round)
-- State root signatures (attestations on recent commits)
-- Anchor attestation (prior round's anchor vertex hash)
-- FALCON signature
+Anyone who satisfies the Tier 2 validator requirements can operate a validator and participate in consensus. A Tier 2 validator does not become a validator of a Tier 1 consortium.
 
-Vertices form a Directed Acyclic Graph: parents must be strictly from prior rounds. This is purely a consensus structure; transaction data lives in batches referenced by hash.
+Tier 2 maintains shared cross domain state, including:
 
-Each round has a deterministically-selected **anchor**:
-```
-anchor_member = Hash(beacon, round, prev_state_root) mod 128
-```
+- foreign exchange observations and aggregated reference state;
+- settlement pool state;
+- cross domain obligations;
+- participant and sovereign positions;
+- bilateral and multilateral netting state;
+- residual settlement information.
 
-When the anchor vertex collects sufficient support from later rounds (Mysticeti 3-stage support), a commit fires. ~95% of rounds commit successfully; ~5% skip (next round absorbs the skip).
+Tier 2 does not become the owner of sovereign currencies. Sovereign assets remain inside the participating Tier 1 networks and their authorized settlement pools.
 
-End-to-end commit latency: **~500ms median**.
+## Tier 3: Permissionless Public Network
 
-## Execution: WebAssembly + Block-STM
+Tier 3 is Pyde's permissionless public environment.
 
-After consensus commits a wave (canonical ordered transactions), the execution layer:
+Developers and users can deploy contracts, build applications, issue supported digital assets, operate public infrastructure subject to protocol rules, and participate in public economic activity.
 
-1. **Commit-reveal resolution**: revealed inner transactions from prior commits are spliced into their DAG-fixed commit order (keyless commit-reveal mempool; see Chapter 9)
-2. **Access-list prefetch**: one batched `state_cf.multi_get` (PIP-3) over the union of every tx's declared `(addr, slot)` pairs lands warm values in the dashmap (PIP-4) before workers start. The lists are hints only; they never partition the wave or affect correctness.
-3. **Block-STM scheduler** runs every tx in parallel on a `rayon` pool: optimistic execute against an MVCC layer + validate against canonical tx_index order + cascade-invalidate + re-incarnate on conflict + fixpoint. Final state per slot is the highest-tx_index's last write. Full algorithm in [companion/BLOCK_STM_EXECUTION.md](../companion/BLOCK_STM_EXECUTION.md).
-4. **wasmtime executes** each tx with Cranelift AOT and fuel-based gas metering. Smart contracts compile from Rust, AssemblyScript, Go, or C/C++ to WASM.
-5. **State root computed**: Blake3 over the JMT (the parallel Poseidon2 leg is designed-in but disabled today)
-6. **Committee FALCON-signs state root** (piggybacked on next vertices)
-7. **Finality** when ≥86 state root signatures collected
+The current public development environment is Tier 3.
 
-## State: Jellyfish Merkle Tree
+## Authority Boundaries
 
-Account state and contract storage are stored in a **Jellyfish Merkle Tree (JMT)**: radix-16, path-compressed. Compared to a fixed-depth-256 Sparse Merkle Tree:
+The same address or contract technology does not imply the same legal or economic authority in every tier.
 
-- ~5-10 nodes touched per state operation (vs ~256)
-- Substantial I/O savings at high TPS
-- Same authentication properties (Merkle commitment, inclusion / exclusion proofs)
-- Production-proven (Diem, Aptos)
+| Property                 | Tier 1                                | Tier 2                                  | Tier 3                              |
+| ------------------------ | ------------------------------------- | --------------------------------------- | ----------------------------------- |
+| Validator participation  | Permissioned                          | Open subject to protocol requirements   | Permissionless public rules         |
+| Primary state            | Sovereign domestic economic state     | Cross domain coordination state         | Public economic state               |
+| Currency authority       | Sovereign                             | None over sovereign currencies          | Public network token and assets     |
+| KYC and regulatory state | Jurisdiction specific                 | Used when required by connected domains | Not a sovereign authorization layer |
+| Smart contracts          | Authorized institutional applications | Settlement and coordination logic       | Public applications                 |
 
-State commitment is Blake3-rooted today, with a designed-in-but-disabled
-Poseidon2 leg:
-- **Blake3 root:** the live state root — fast native verification (committee + validators)
-- **Poseidon2 root:** ZK-circuit-friendly (future light clients, validity proofs), but currently disabled (`POSEIDON2_STATE_ROOT_ENABLED = false`) and carried as an inert zero placeholder
+A participant in one tier does not automatically receive authority in another.
 
-## Cryptography Layer
+## Common Technical Foundation
 
-Three primitives form the cryptographic foundation:
+The common protocol foundation includes:
 
-### FALCON-512 (Signatures)
-Selected by NIST for standardization as FN-DSA; draft FIPS 206, not yet published. Used for: user tx authorization, vertex production, state root attestations, beacon shares. 666-byte signature, ~80μs verification.
+- WebAssembly execution using Wasmtime and Cranelift;
+- deterministic state transitions and parallel execution;
+- Jellyfish Merkle state;
+- Mysticeti style DAG consensus for the public protocol design;
+- FALCON 512 and the other protocol cryptographic primitives;
+- authenticated networking and state synchronization;
+- smart contract infrastructure;
+- the Otigen developer toolchain.
 
-### Keyless Commit-Reveal (MEV Protection)
-Pyde's commit-reveal mempool needs **no encryption primitive and no committee key**. A commitment is a Blake3 hash of the inner transaction; the reveal carries the plaintext, and the DAG fixes commit order before contents are known. Safety is unconditionally trustless: it never rests on a threshold of honest committee members. The primitives it leans on (Blake3 hashing, FALCON signatures) are already post-quantum. See Chapter 9. (A ciphertext-based lane remains v2+ research; see Chapter 20.)
+The exact consensus configuration, validator authorization, contract permissions, and enabled protocol capabilities are profile specific.
 
-### Poseidon2 + Blake3 (Hashing)
-Hybrid layered: Blake3 for the state tree and its live root and other high-volume native paths (JMT nodes, gossip, batches), Poseidon2 for ZK-bearing paths (address derivation, storage keys, FALCON sig hashing inside ZK circuits). A Poseidon2 state-root leg is designed-in but currently disabled (`POSEIDON2_STATE_ROOT_ENABLED = false`), so the live state root is Blake3-only.
+## Structural Capability Boundaries
 
-## Network Layer
+A permissioned network should not rely only on application level switches to simulate the absence of capabilities that are fundamentally incompatible with its operating model.
 
-- **Transport:** QUIC over UDP (no HOL blocking, TLS 1.3 built-in, mature in Rust via quinn). TCP fallback.
-- **P2P library:** libp2p (Rust), mature, audited, used by Ethereum/Filecoin/Polkadot
-- **Peer discovery:** layered (hardcoded → DNS → on-chain validator registry → PEX → cache). No DHT.
-- **Gossip:** Gossipsub with per-topic meshes
-- **DoS protection:** 4-layer (connection / message / peer-scoring / application)
-- **Committee defense:** sentry node pattern (Cosmos-style)
+Pyde therefore treats network profile as a first class configuration boundary. Where appropriate, profile specific capabilities are excluded from the executable environment rather than merely hidden behind runtime permissions.
 
-Committee NIC requirement at v1's honest throughput target (to be established by the multi-region performance harness) is **≥500 Mbps**. Higher-throughput regimes are post-mainnet scaling work; the v1 target is what mainnet hardware is sized against.
+This allows a sovereign profile to omit capabilities that belong only to the public environment while retaining the same underlying execution architecture.
 
-## Account Model
+## Execution Architecture
 
-Accounts hold:
-- nonce (8 bytes)
-- balance (16 bytes, u128)
-- gas_tank (16 bytes, pre-deposited gas for sponsored transactions)
-- auth_keys (variable: Single | Multisig | Programmable)
-- code_hash (32 bytes, for contracts)
-- storage_root (32 bytes, JMT subtree for contract storage)
-- key_nonce (4 bytes, FALCON key rotation counter)
+The current Tier 3 execution design uses WebAssembly through Wasmtime and Cranelift AOT compilation.
 
-**Native multisig** at v1: `AuthKeys::Multisig(M, [pubkey_1, ..., pubkey_N])` with max 16 signers. A protocol primitive rather than a contract each project reimplements (as with the Gnosis Safe pattern on Ethereum), so wallets and contracts rely on one audited implementation.
+Transactions can execute in parallel using optimistic execution and multi version validation. Independent operations can progress concurrently while conflicting operations are re executed until the canonical result is deterministic.
 
-**Programmable accounts** and **session keys** ship post-mainnet. v1 reserves the `Programmable` enum variant so contracts written today survive the upgrade without rewriting.
+This architecture is useful beyond public applications. Tier 2 settlement workloads naturally contain many independent operations across accounts, corridors, pools, and netting relationships.
 
-**16-slot nonce window**: accounts can have up to 16 transactions in-flight out-of-order within the window. Decouples user-level submission from consensus-level execution ordering.
+## State Architecture
 
-## Transaction Lifecycle
+Pyde uses Merkle based authenticated state. The current Tier 3 design uses a Jellyfish Merkle Tree with the protocol's hybrid hashing strategy.
 
-![The life of a transaction, from wallet submission through worker batching, a DAG vertex, wave commit, parallel execution, and the Blake3 state root to finality.](../assets/diagrams/ch02-tx-lifecycle.svg)
+The state model is intentionally broader than a simple token balance. Depending on the network profile, state can represent balances, contract state, authorization state, obligations, positions, regulatory references, and other protocol defined economic state.
 
-*The end-to-end life of a transaction: worker batching, a DAG vertex referencing batches by hash, a wave commit fixing canonical order, Block-STM parallel execution, a Blake3 state root, and finality at 86 of 128 committee signatures.*
+## Consensus and Finality
 
-```
-1. Wallet constructs tx
-2. Wallet → RPC: pyde_estimateAccess(tx) → returns gas_estimate + access_list
-3. Wallet attaches access_list to tx
-4. Wallet FALCON-signs tx hash
-5. (Optional, commit-reveal mempool) Wallet builds a Blake3 commitment over the signed inner tx and submits a Commit; the plaintext is disclosed later via a Reveal (commit-reveal; see Chapter 9)
-6. Wallet submits: pyde_sendRawTransaction (or a Commit/Reveal tx pair for the commit-reveal mempool)
-7. RPC node validates wire format, forwards to nearest worker
-8. Worker verifies sig, batches, gossips
-9. Primary produces vertex, gossips
-10. Commit fires (Mysticeti, sub-second target): anchor selected, subdag walked, canonical order emitted
-11. (Commit-reveal mempool) revealed inner txs are spliced into their commit order during the resolution pass (Chapter 9)
-12. wasmtime executes WASM modules in canonical order
-13. JMT updates (Blake3 per node), state root signed
-14. Finality declared (≥86 state root sigs)
-```
+Consensus makes a valid state transition canonical.
 
-## Cross-Chain and Off-Chain (Post-Mainnet)
+For Tier 1, the validator set is defined by the sovereign consortium. For Tier 2, validators participate openly subject to the network's validator rules. For Tier 3, validators participate under the public protocol rules.
 
-Everything outside the chain (foreign chains, price feeds, real-world data, arbitrary IO) is reached through one permissionless **parachain layer**: small decentralized networks that each do one declared job, staked in PYDE and attesting into Pyde's own security. A bridge to another chain is just one kind of parachain (an adapter running that chain's light client); an oracle feed is another. Contracts reach any of them via the `parachain_call!` macro and get a verified result back as an ordinary result transaction (Chapter 13).
+The current Tier 3 design uses a Mysticeti style DAG consensus architecture and Byzantine quorum rules. Exact committee parameters remain subject to the current consensus specification and security validation.
 
-The protocol-level surface (the `cross_call` callback model that `parachain_call!` extends, the `HardFinalityCert` primitive, the unified gas model, and the `type = "parachain"` manifest schema) is settled at v1 genesis. The actual parachain layer ships post-mainnet.
+<!-- ## What Exists Today
 
-## Three-Tier Node Model
+The current public development environment is Tier 3.
 
-| Tier | Stake | Committee Role | Earns |
-|---|---|---|---|
-| Committee validator | ≥10K PYDE (single-tier min) | Active (1 of 128) | Per-seat wage from the reward pool: 50% flat, 50% weighted by consensus work (Ch 14) |
-| Non-committee validator | ≥10K PYDE (single-tier min, same floor) | Stake-only, waiting selection | Nothing while off the committee (pay is a wage for work, not a yield on stake) |
-| RPC node | None | None | Off-chain RPC fees (market-set) |
+The execution, state, consensus, cryptography, networking, account, and developer infrastructure described in the technical chapters form the current engineering foundation.
 
-RPC providers (Infura/Alchemy analog) fit Tier 3: no stake, no slashing risk.
+Tier 1 and Tier 2 are architectural systems. They are not presented here as deployed production networks.
 
-## Key Differentiators
+Their production deployment requires:
 
-| | Ethereum | Solana | Sui | **Pyde** |
-|---|---|---|---|---|
-| MEV resistance | Auction (PBS) | Proposer extracts | Some via Mysticeti | **Fair ordering, no trusted relayer** |
-| Finality | 12-15s | 400ms | 390ms | **~500ms** |
-| Commodity validator | Possible | Datacenter-class | Datacenter-class | **Yes (any validator awaiting committee selection)** |
-| Smart contract language | Solidity | Rust/Anchor | Move | **Any wasm32 target** (Rust, AssemblyScript, Go, C/C++) |
-| Verification lifespan | Migration required | Not addressed | Not addressed | **Post-quantum by default** |
-| Account abstraction | Retrofit (ERC-4337) | None native | Limited | **Native (v2)** |
-| Cross-chain | Bridges (trusted) | Bridges | Bridges | **Permissionless parachain (v2)** |
-| ZK readiness | Retrofit ongoing | Limited | Limited | **Architecture ready (v2)** |
+- independent engineering validation;
+- external security review;
+- institutional integration;
+- jurisdiction specific regulatory work;
+- operational infrastructure;
+- deployment specific governance and authorization. -->
 
-## Next Chapters
+## Historical Designs
 
-- Chapter 3: Execution Layer (wasmtime runtime, host function ABI, Cranelift AOT, fuel-based gas, determinism boundary)
-- Chapter 4: State Model (JMT details, dual-hash strategy, PIP-2 clustering)
-- Chapter 5: Otigen Toolchain, the developer-facing binary (build, deploy, wallet, ABI extraction, per-language attribute declaration)
-- Chapter 6: Consensus (full Mysticeti DAG specification)
-- Chapter 7: State Sync & Chain Halt (operational protocols)
-- Chapter 8: Cryptography (FALCON, Poseidon2, Blake3, hashing and signature details)
-- Chapter 9: MEV Protection (keyless commit-reveal mempool)
+Earlier Pyde designs included a separate parachain framework and other Layer 1 specific architectural choices. Those materials remain useful as historical records but are no longer the definition of Pyde's current economic architecture.

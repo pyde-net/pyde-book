@@ -1,127 +1,64 @@
 # Get Started: for Developers
 
-You're here because you want to build something on Pyde. This page is
-the on-ramp: enough orientation to land you on the right specs,
-without reproducing them.
+You're here because you want to build on Pyde.
 
----
+The current public development environment is Tier 3, Pyde's permissionless network. The developer surface is therefore centered on WASM smart contracts, accounts, state, the Host Function ABI, and the Otigen toolchain.
 
 ## What you can build
 
-Pyde supports two contract surfaces:
+You can build permissionless applications and smart contracts that execute inside Pyde's deterministic WebAssembly environment.
 
-1. **Smart contracts**: sandboxed WASM modules deployed to the chain.
-   Standard L1 contract development; read [Chapter 3: Execution
-   Layer](../chapters/03-virtual-machine.md) for the runtime model.
-2. **Parachains** (v2): permissionless decentralized networks that do
-   one job the base chain cannot (foreign-chain adapters, data feeds,
-   real-world IO), with their own staked validators and their own
-   state, anchored to and re-validated by Pyde, and an extended ABI
-   for declared IO + cross-parachain messaging.
-   Read [Chapter 13: Parachains](../chapters/13-cross-chain.md).
+Applications can include financial protocols, markets, games, asset systems, enterprise integrations, public registries, and other programmable economic systems.
 
-Both compile to WebAssembly. Pyde executes them via
-[wasmtime](https://wasmtime.dev) + Cranelift AOT: deterministic
-feature subset, per-tx overlay isolation, fuel-metered gas.
+Tier 1 and Tier 2 introduce additional execution and authorization rules around the same technical foundation. They are not separate developer products that replace the Tier 3 contract model.
 
----
+## What to read
 
-## What language?
+1. [Chapter 1: Introduction](../chapters/01-introduction.md) for the purpose of Pyde.
+2. [Chapter 2: Architecture Overview](../chapters/02-architecture-overview.md) for the three tier model.
+3. [Chapter 3: Execution Layer](../chapters/03-virtual-machine.md) for WebAssembly execution.
+4. [Chapter 5: Otigen Toolchain](../chapters/05-otigen-toolchain.md) for the developer workflow.
+5. [Host Function ABI](../companion/HOST_FN_ABI_SPEC.md) for the contract interface.
+6. [Otigen Binary Spec](../companion/OTIGEN_BINARY_SPEC.md) for the command line surface.
+7. [Otigen Test Spec](../companion/OTIGEN_TEST_SPEC.md) for contract testing.
 
-Whatever targets `wasm32`. Pyde doesn't ship per-language SDKs;
-authors compile their `.wasm` themselves and use the `otigen`
-toolchain to package + deploy it. First-class examples ship for:
+Then read the account, state, gas, consensus, networking, and security chapters as needed.
 
-- **Rust**: `cargo build --target wasm32-unknown-unknown --release`
-- **AssemblyScript**: `npx asc contract.ts -o contract.wasm`
-- **Go (TinyGo)**: `tinygo build -target wasm-unknown -o contract.wasm`
-- **C / C++**: `clang --target=wasm32 -nostdlib -Wl,--no-entry`
+## Languages
 
-The chain only sees the bytes. Pick what fits your team.
+Pyde's public execution environment accepts WebAssembly modules.
 
----
+Supported development examples include Rust, AssemblyScript, Go or TinyGo, and C or C++ where the toolchain and target produce compatible WebAssembly.
 
-## The five things to read
+The chain sees the resulting WASM module and the declared protocol interface. It does not require developers to learn a proprietary smart contract language.
 
-In order:
-
-1. **[Chapter 1: Introduction](../chapters/01-introduction.md)**:
-   10-minute orientation. Why Pyde exists, what it's not.
-2. **[Chapter 3: Execution Layer](../chapters/03-virtual-machine.md)**:
-   the runtime, the per-tx overlay, the determinism contract.
-3. **[Host Function ABI v1.0](../companion/HOST_FN_ABI_SPEC.md)**:
-   every `pyde::*` function your WASM can import. Signatures,
-   semantics, gas costs, error codes. This is the contract the chain
-   stands on.
-4. **[Chapter 5: Otigen Toolchain](../chapters/05-otigen-toolchain.md)**:
-   how `otigen` builds, tests, deploys, and manages wallets.
-5. **[Otigen Binary Spec v1.0](../companion/OTIGEN_BINARY_SPEC.md)**:
-   the CLI surface. Every command, every flag.
-6. **[Otigen Test Spec v1.0](../companion/OTIGEN_TEST_SPEC.md)**:
-   the contract-behaviour test framework (Foundry-grade, TOML).
-   Read once you have a working contract.
-
-Bookmark these. The rest of the book (state model, gas, accounts,
-consensus, networking, parachains, slashing, governance) you read on
-demand.
-
----
-
-## The minimum loop (once mainnet ships)
+## Minimum development loop
 
 ```sh
 # 1. Scaffold a project
-otigen init my-token --lang rust
+otigen init my-app --lang rust
 
-# 2. Edit src/lib.rs + otigen.toml; write tests/contract.test.toml
-
-# 3. Build (you run cargo; otigen post-processes)
-cargo build --target wasm32-unknown-unknown --release
+# 2. Build the WASM module
 otigen build
 
-# 4. Run the behaviour tests
+# 3. Run contract tests
 otigen test
 
-# 5. Deploy to devnet / testnet / mainnet
+# 4. Deploy to the current development environment
 otigen deploy --network devnet
 ```
 
-This loop is detailed in
-[`OTIGEN_BINARY_SPEC` §3.2 + §3.10](../companion/OTIGEN_BINARY_SPEC.md).
-The TOML format for `tests/contract.test.toml` is documented in
-[`OTIGEN_TEST_SPEC.md`](../companion/OTIGEN_TEST_SPEC.md).
+The exact commands and supported flags belong to the Otigen specifications.
 
----
+## Tier aware development
 
-## Pre-mainnet status (today)
+The same technical foundation can appear in different Pyde network profiles.
 
-Pyde is **pre-mainnet**. What's already shippable:
+A Tier 1 application operates under sovereign and institutional authorization. A Tier 2 settlement contract operates under the settlement and consensus rules of the interlinking network. A Tier 3 application is permissionless within the public protocol rules.
 
-- The protocol spec (everything in this book).
-- The post-quantum cryptography crate: [pyde-crypto](https://github.com/pyde-net/pyde-crypto).
-- The engine workspace's interface layer on `pyde-net/engine`.
-- The marketing site you arrived from.
+The developer should therefore distinguish:
 
-What's in active build-out:
-
-- The engine: execution, consensus, and the node binary.
-- The otigen toolchain; see `pyde-net/otigen`.
-
-What you can do right now:
-
-- Read the spec, file issues, propose PIPs.
-- Watch the repos.
-- Track [the launch plan](../chapters/19-launch-strategy.md).
-
----
-
-## Where to ask
-
-- **[GitHub Discussions](https://github.com/pyde-net)**: design
-  questions, spec ambiguities.
-- **[Telegram](https://t.me/pydenet)**: quick chat, anything that
-  doesn't need a paper trail.
-- **[PIPs](https://github.com/pyde-net/pips)**: propose a protocol
-  change.
-
-Welcome aboard.
+- the contract logic;
+- the protocol capability required by that logic;
+- the network profile in which it is allowed to operate;
+- the authorization required by that profile.

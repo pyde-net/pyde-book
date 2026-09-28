@@ -66,7 +66,7 @@ The exact primitive and implementation status of each cryptographic component is
 
 Validators and nodes communicate through the protocol networking layer and synchronize authenticated state so that independent participants can converge on the same economic state. Recovery and state synchronization are treated as protocol properties rather than operational assumptions.
 
-## What is implemented today?
+<!-- ## What is implemented today?
 
 The current public development environment is **Tier 3**.
 
@@ -74,7 +74,7 @@ The existing implementation work includes the execution environment, state model
 
 Tier 1 and Tier 2 are architectural designs. They are not presented as deployed production networks. Their production deployment requires additional engineering, security review, institutional integration, operational infrastructure, and jurisdiction specific work.
 
-The distinction matters: the three tier architecture is the current definition of Pyde, while Tier 3 is the current public implementation environment.
+The distinction matters: the three tier architecture is the current definition of Pyde, while Tier 3 is the current public implementation environment. -->
 
 ## What Pyde does not claim
 
@@ -124,7 +124,3 @@ The architectural proposition is narrower and more useful: independently governe
 Pyde has gone through major implementation pivots. The HotStuff consensus era and original Otigen language era are preserved as historical design references. They explain why certain decisions changed, but they are not the current definition of the protocol.
 
 See [The Pivot](../preface/pivot.md) and the [Historical Design References](../pivot/README.md) for the archived material.
-
-## Status
-
-**Living document.** Architecture, implementation status, and technical specifications are updated as the protocol evolves.

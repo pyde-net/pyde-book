@@ -1,98 +1,124 @@
-# Chapter 19: Launch Strategy
+# Chapter 19: Implementation, Validation and Deployment
 
-This chapter is the road from "code in a repo" to "live mainnet": the principles and the shape of the path, not the calendar.
+This chapter describes the boundary between protocol engineering and production deployment.
 
-There are no specific launch dates in this document. Phasing is honest; calendar commitments are not made.
+Pyde's current public implementation is Tier 3. Tier 1 and Tier 2 are architectural systems that require additional validation and institutional deployment work.
 
----
+No calendar promise is made here.
 
-## 19.1 Launch Philosophy
+## 19.1 Current State
 
-Three principles that shape every phase:
+The current public development environment is Tier 3.
 
-1. **Audit before stake.** Every line of consensus, cryptography, execution, and state-layer code goes through external audit before any user has serious skin in the game. The audit is not a formality.
+The existing engineering foundation includes:
 
-2. **Testnet exposure before mainnet.** A multi-month incentivized testnet with reference contracts and external developers must run cleanly before any genesis ceremony. Real network conditions catch issues no simulation does.
+- WebAssembly execution;
+- deterministic state transitions;
+- parallel execution;
+- Merkle based state;
+- consensus and finality machinery;
+- post quantum account and protocol cryptography;
+- networking and synchronization;
+- the Otigen developer toolchain;
+- account and authorization infrastructure;
+- protocol security work.
 
-3. **Voluntary launch.** No one is forced onto Pyde mainnet. The genesis validator set is recruited and validated; users opt in by deploying contracts and bridging value.
+These components form the technical base on which the wider architecture can be built.
 
-The plan is conservative on purpose. A delayed launch is recoverable; a botched launch is not. Bridge exploits and broken consensus hard-forks have ended chains.
+## 19.2 Tier 1 Deployment Requirements
 
----
+A production Tier 1 network requires more than protocol code.
 
-## 19.2 The Shape of the Path
+It requires:
 
-The plan groups work into sequenced phases. They are not strictly linear (many items run in parallel within a phase), but each phase has a bar that gates the next.
+- a defined sovereign authority model;
+- participating validator agencies;
+- jurisdiction specific account and KYC rules;
+- monetary issuance and redemption procedures;
+- institutional licensing and integration;
+- operational key management;
+- independent security review;
+- recovery and incident procedures;
+- legal and regulatory approval where applicable.
 
-Summary, in order:
+A Tier 1 network should not be described as production infrastructure until these non technical requirements are also addressed.
 
-| Phase | Bar |
-|-------|-----|
-| Pivot foundations | Documentation, repo cleanup, foundational design specs |
-| Engine cleanup | Pre-pivot crates removed from active workspace; archived for reference |
-| WASM execution hardening | Single-language end-to-end (contracts deploy, execute, modify state, state verifiable) |
-| Multi-language + parachain framework | All supported languages working; parachain governance + lifecycle complete |
-| Public testnet | Multi-region committee, external developers building real contracts |
-| Audit + stress + bug bounty | External audit complete; all critical findings resolved; stress testing passed |
-| Mainnet candidate | Final build; validator set committed; genesis configuration locked |
+## 19.3 Tier 2 Deployment Requirements
 
-Each phase's deliverables and exit criteria are tracked to the smallest actionable unit; this chapter covers the shape, not the line-item checklist.
+A production Tier 2 network requires:
 
----
+- validated settlement contracts;
+- participating Tier 1 networks;
+- defined settlement pool rules;
+- foreign exchange aggregation rules;
+- open validator requirements;
+- economic fee accounting;
+- obligation and position state;
+- bilateral and multilateral netting rules;
+- residual settlement procedures;
+- failure and withdrawal procedures;
+- independent security review.
 
-## 19.3 What ships at mainnet vs after
+The critical validation target is not simply transaction throughput. The system must prove that cross domain economic state remains correct under failures, disputes, unavailable pools, stale oracle data, and validator faults.
 
-Pyde mainnet ships with:
+## 19.4 Tier 3 Production Validation
 
-- Post-quantum cryptography: FALCON signatures, Poseidon2 + Blake3 hashing.
-- Fair ordering via the keyless commit-reveal mempool: commit order is fixed by the DAG before content is revealed; no committee decryption key.
-- Mysticeti-style consensus with sub-second median commit and 86-of-128 FALCON quorum certificates.
-- WASM execution via wasmtime + Cranelift AOT, with the host-function ABI v1.0.
-- JMT state hashed with Blake3 (parallel Poseidon2 state-root leg designed-in but disabled today), PIP-2 clustered keys, PIP-3 prefetch, PIP-4 write-back cache.
-- libp2p + QUIC + Gossipsub networking with bootstrap-based peer discovery (no DHT).
-- Native multisig accounts; ENS-style name registration for contracts and parachains.
-- The `otigen` developer toolchain with Rust, AssemblyScript, Go (TinyGo), and C/C++ support.
-- The Rust and TypeScript SDKs.
+Tier 3 requires the ordinary production validation cycle for a public distributed ledger:
 
-Mainnet does **not** ship with:
+1. implementation validation;
+2. multi node testing;
+3. adversarial testing;
+4. performance measurement under stated conditions;
+5. external security review;
+6. recovery and synchronization testing;
+7. economic and validator testing;
+8. operational runbooks;
+9. final deployment configuration.
 
-- Programmable accounts (post-mainnet; `Programmable` enum variant reserved at v1 so contracts written today survive).
-- Native session keys (post-mainnet, paired with programmable accounts).
-- Live parachain operator network (designed for v1, implementation in a later phase; the interfaces ship at v1 so the design forward-commits).
-- ZK-aggregated FALCON signatures (the path to substantially higher signature-verification throughput; v2/v3 work).
-- zk-WASM proven execution (research-stage; integrated when the upstream provers reach production quality).
-- Cross-chain bridges to other L1s (post-mainnet, only with proven security models).
+Performance claims must come from reproducible measurements rather than theoretical execution ceilings or isolated microbenchmarks.
 
-This split is intentional. v1 ships the properties that justify Pyde's existence: fair ordering, honest sub-second finality, a node anyone can run on commodity hardware, multi-language WASM contracts, and verification that outlives the cryptography it was built with, with post-quantum security as one quiet supporting point among them. Everything else is sequenced honestly and shipped when ready.
+## 19.5 What Is Implemented vs Designed
 
----
+The book uses three statuses:
 
-## 19.4 The Publishing Discipline
+**Implemented** means the functionality exists in the current public codebase or development environment.
 
-A discipline carried forward from the consensus pivot:
+**Specified** means the architecture and behavior are documented but not necessarily deployed as production infrastructure.
 
-> No external TPS claim is published until the performance harness exists, has been run on production-realistic conditions, and the methodology is reproducible by third parties. Publish only what the harness measures under sustained, production-realistic conditions: never burst, never microbenchmark, never single-machine if multi-region is the relevant scope.
+**Deployment dependent** means the feature requires external institutional, jurisdictional, or operational conditions beyond protocol implementation.
 
-The earlier consensus implementation hit roughly 4K TPS in lab tests despite a higher claimed design target. The discipline above prevents that gap from recurring. The v1 honest throughput target (to be established by the multi-region performance harness) on commodity validator hardware comes from this discipline.
+The three tier model should be read using these distinctions.
 
-See the [Performance Harness](../companion/PERFORMANCE_HARNESS.md) companion document for the testing methodology.
+## 19.6 Deployment Does Not Mean One Global Mainnet
 
----
+Pyde is not defined by a requirement that every economic participant join one globally administered ledger.
 
-## 19.5 What carries forward from the pivots
+A sovereign consortium can operate independently.
 
-For context (see [The Pivot](../preface/pivot.md) for the full story):
+Tier 2 can connect participating economic domains.
 
-- **HotStuff-era consensus work**: properties, lessons, and invariants carry forward; the code is archived and the consensus layer is being rebuilt around Mysticeti.
-- **Otigen-era execution work**: the safety properties (reentrancy guards, checked arithmetic, typed storage, no `tx.origin`, compile-time access-list inference) carry forward as patterns in the WASM host-function ABI and the binding generators; the language and custom VM are retired.
+Tier 3 can remain open to public applications.
 
-Both pivots reset the critical path for the affected layer but did not invalidate the work on adjacent layers (state, accounts, transactions, tokenomics, vesting, multisig, all preserved across both pivots).
+The architecture is successful when these environments can interact through explicit authorization and settlement rules without losing the authority boundaries that make each environment meaningful.
 
----
+## 19.7 Publication Discipline
 
-## 19.6 Reading on
+Documentation should distinguish:
 
-- [Preface: The Pivot](../preface/pivot.md): context on both architectural pivots.
-- [Performance Harness](../companion/PERFORMANCE_HARNESS.md): testing methodology.
-- [Chapter 16: Security](./16-security.md): threat model and audit scope.
-- [Chapter 6: Consensus](./06-consensus.md): the consensus design that ships at mainnet.
+- architectural targets;
+- current implementation;
+- measured performance;
+- production guarantees;
+- deployment dependent functionality.
+
+A benchmark should be published with its workload, hardware, network topology, state size, duration, and methodology where those factors affect interpretation.
+
+A design target should not be presented as a measured production result.
+
+## Summary
+
+Pyde's present engineering center is Tier 3.
+
+Tier 1 and Tier 2 extend that technical foundation into sovereign and cross domain economic infrastructure, but their production deployment requires independent technical, institutional, regulatory, and operational work.
+
+The objective of the implementation process is therefore not simply to launch software. It is to demonstrate that the complete economic architecture behaves correctly under the conditions in which it will actually be used.

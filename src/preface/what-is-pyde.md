@@ -32,11 +32,11 @@ Pyde does not attempt to make every economic participant follow the same rules.
 
 It provides infrastructure through which independently governed systems can interact where the relevant authorities permit that interaction.
 
-## What exists today
+<!-- ## What exists today
 
 The current public development environment is Tier 3.
 
-The Tier 1 and Tier 2 architecture is defined at the protocol and economic design level but is not presented as already deployed production infrastructure. Their production use requires engineering validation, security review, institutional integration, and jurisdiction specific deployment work.
+The Tier 1 and Tier 2 architecture is defined at the protocol and economic design level but is not presented as already deployed production infrastructure. Their production use requires engineering validation, security review, institutional integration, and jurisdiction specific deployment work. -->
 
 ## Where to go next
 

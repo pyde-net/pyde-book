@@ -2,7 +2,7 @@
 
 ## What is Pyde?
 
-Pyde is **distributed ledger infrastructure for a connected global economy**.
+Pyde is a **distributed ledger infrastructure for a connected global economy**.
 
 It provides a common programmable foundation for representing, verifying, and coordinating **global economic state** across sovereign networks, open settlement infrastructure, and a permissionless public network.
 

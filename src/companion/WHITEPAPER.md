@@ -108,7 +108,7 @@ What changes is the authority surrounding those transitions.
 
 Tier 1 constrains participation to authorized sovereign agencies and licensed institutions. Tier 2 permits open validator participation while governing the shared state used for cross domain coordination. Tier 3 is permissionless.
 
-This distinction is fundamental. Pyde does not use one unrestricted runtime and rely on a collection of application level permissions to pretend that three different systems exist. Capabilities that are fundamentally incompatible with a network profile can be removed at compile time.
+This distinction is fundamental. Pyde does not use one unrestricted runtime and rely on a collection of application level permissions to pretend that three different systems exist. Capabilities that are fundamentally incompatible with a network profile are removed at compile time.
 
 ## II.3 The Three Economic Environments
 

@@ -6,7 +6,7 @@ _What Pyde is, what it coordinates, and how the three tier architecture operates
 
 ## Pyde, in one paragraph
 
-Pyde is **distributed ledger infrastructure for a connected global economy**.
+Pyde is a **distributed ledger infrastructure for a connected global economy**.
 
 It provides a common programmable foundation for representing, verifying, and coordinating economic state across systems that have different authorities, participants, and rules.
 
@@ -40,7 +40,7 @@ The Tier 1 and Tier 2 architecture is defined at the protocol and economic desig
 
 ## Where to go next
 
-Read [Why Pyde](./why-pyde.md) for the economic rationale.
+Read [Why Pyde](../preface/why-pyde.md) for the economic rationale.
 
 Read [Chapter 1: Introduction](../chapters/01-introduction.md) for the infrastructure gap and Pyde thesis.
 

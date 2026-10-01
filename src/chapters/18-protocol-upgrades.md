@@ -17,15 +17,15 @@ state migrations.
 
 Different changes require different process weight.
 
-| Category                                  | Example                                  | Process required                         |
-| ----------------------------------------- | ---------------------------------------- | ---------------------------------------- |
-| Operational config update                 | Bootstrap node list, log level           | Operator-side; no PIP                    |
-| Bug fix (no protocol change)              | Memory leak, RPC parse bug               | Code release; PIP not required           |
-| Backward-compatible feature               | New opcode unused by existing contracts  | PIP + voluntary upgrade; no fork         |
-| Backward-incompatible (hard fork)         | Gas cost change, new tx type semantics    | PIP + activation wave + coordinated upgrade |
-| Cryptographic primitive change            | Hash migration                            | PIP + multi-version overlap window        |
-| Treasury action                           | Grant payout, audit funding              | PIP + on-chain `MultisigTx`              |
-| Emergency response                        | Active exploit                           | `EmergencyPause` (multisig); fix; resume |
+| Category                          | Example                                 | Process required                            |
+| --------------------------------- | --------------------------------------- | ------------------------------------------- |
+| Operational config update         | Bootstrap node list, log level          | Operator-side; no PIP                       |
+| Bug fix (no protocol change)      | Memory leak, RPC parse bug              | Code release; PIP not required              |
+| Backward-compatible feature       | New opcode unused by existing contracts | PIP + voluntary upgrade; no fork            |
+| Backward-incompatible (hard fork) | Gas cost change, new tx type semantics  | PIP + activation wave + coordinated upgrade |
+| Cryptographic primitive change    | Hash migration                          | PIP + multi-version overlap window          |
+| Treasury action                   | Grant payout, audit funding             | PIP + on-chain `MultisigTx`                 |
+| Emergency response                | Active exploit                          | `EmergencyPause` (multisig); fix; resume    |
 
 Each path has its own velocity. A bug fix can ship in days; a hash
 migration takes months and dedicated audit time.
@@ -128,47 +128,47 @@ without any activation wave. Operators upgrade at their own pace.
 
 Per Chapter 15 §15.6:
 
-| Constant                                  | Where                                                              |
-| ----------------------------------------- | ------------------------------------------------------------------ |
-| DAG round period (~150 ms, observed)      | No constant — rounds advance on ≥ quorum distinct members, never on a clock (`crates/consensus/src/round.rs`); the ~150 ms figure is documented on `Round` in `crates/types/src/consensus.rs` |
-| Commit target (~500 ms)                   | `crates/types/src/consensus.rs` — `TARGET_WAVE_MS = 500`            |
-| Committee size (128)                      | `crates/types/src/consensus.rs` — `COMMITTEE_SIZE`                  |
-| Quorum / threshold (86)                   | `crates/types/src/consensus.rs` — `QUORUM`                          |
-| Equivocation threshold (44)               | No constant — derived as `2 × QUORUM − COMMITTEE_SIZE` from `crates/types/src/consensus.rs`; the matching `f = 42` is `MAX_BYZANTINE` in `crates/slashing/src/amount.rs` |
-| Validator min stake (10,000 PYDE = 10¹³ quanta) | `crates/tx/src/handlers/staking.rs` — `MIN_VALIDATOR_STAKE`; mirrored for genesis validation as `MIN_VALIDATOR_STAKE_QUANTA` in `crates/types/src/genesis.rs` |
-| Operator-identity cap (3 / operator)      | `crates/tx/src/handlers/staking.rs` — `OPERATOR_CAP`                |
-| Unbonding period (30 days = 5,184,000 waves) | `crates/tx/src/handlers/staking.rs` — `UNBONDING_PERIOD_WAVES`   |
-| Emission cap (1%/yr ceiling)              | `crates/tx/src/distributor.rs` — `EMISSION_CAP_BPS = 100`           |
-| Fee split (30/50/20)                      | `crates/tx/src/fee.rs` — `BURN_BPS`, `REWARD_POOL_BPS`; treasury is the remainder |
-| Gas target / ceiling                      | `crates/tx/src/fee.rs` — `GAS_TARGET`, `GAS_CEILING`                |
-| Tx / calldata size limits                 | `crates/tx/src/validation.rs` — `MAX_TX_SIZE`, `MAX_CALLDATA`       |
-| Max batch size (4 MB)                     | `crates/node/src/vertex_producer.rs` — `BATCH_MAX_BYTES`            |
-| Cryptographic primitives                  | `pyde-crypto` polyrepo (FALCON, Blake3, Poseidon2)                  |
-| WASM host function ABI                    | `crates/wasm-exec/src/host_fns/` + Host Function ABI spec doc       |
+| Constant                                        | Where                                                                                                                                                                                         |
+| ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| DAG round period (~150 ms, observed)            | No constant — rounds advance on ≥ quorum distinct members, never on a clock (`crates/consensus/src/round.rs`); the ~150 ms figure is documented on `Round` in `crates/types/src/consensus.rs` |
+| Commit target (~500 ms)                         | `crates/types/src/consensus.rs` — `TARGET_WAVE_MS = 500`                                                                                                                                      |
+| Committee size (128)                            | `crates/types/src/consensus.rs` — `COMMITTEE_SIZE`                                                                                                                                            |
+| Quorum / threshold (86)                         | `crates/types/src/consensus.rs` — `QUORUM`                                                                                                                                                    |
+| Equivocation threshold (44)                     | No constant — derived as `2 × QUORUM − COMMITTEE_SIZE` from `crates/types/src/consensus.rs`; the matching `f = 42` is `MAX_BYZANTINE` in `crates/slashing/src/amount.rs`                      |
+| Validator min stake (10,000 PYDE = 10¹³ quanta) | `crates/tx/src/handlers/staking.rs` — `MIN_VALIDATOR_STAKE`; mirrored for genesis validation as `MIN_VALIDATOR_STAKE_QUANTA` in `crates/types/src/genesis.rs`                                 |
+| Operator-identity cap (3 / operator)            | `crates/tx/src/handlers/staking.rs` — `OPERATOR_CAP`                                                                                                                                          |
+| Unbonding period (30 days = 5,184,000 waves)    | `crates/tx/src/handlers/staking.rs` — `UNBONDING_PERIOD_WAVES`                                                                                                                                |
+| Emission cap (1%/yr ceiling)                    | `crates/tx/src/distributor.rs` — `EMISSION_CAP_BPS = 100`                                                                                                                                     |
+| Tier 3 fee split (30/50/20)                     | `crates/tx/src/fee.rs` — `BURN_BPS`, `REWARD_POOL_BPS`; treasury is the remainder                                                                                                             |
+| Gas target / ceiling                            | `crates/tx/src/fee.rs` — `GAS_TARGET`, `GAS_CEILING`                                                                                                                                          |
+| Tx / calldata size limits                       | `crates/tx/src/validation.rs` — `MAX_TX_SIZE`, `MAX_CALLDATA`                                                                                                                                 |
+| Max batch size (4 MB)                           | `crates/node/src/vertex_producer.rs` — `BATCH_MAX_BYTES`                                                                                                                                      |
+| Cryptographic primitives                        | `pyde-crypto` polyrepo (FALCON, Blake3, Poseidon2)                                                                                                                                            |
+| WASM host function ABI                          | `crates/wasm-exec/src/host_fns/` + Host Function ABI spec doc                                                                                                                                 |
 
 Changing any of these requires a release + voluntary upgrade.
 
 ### On-chain (multisig-controlled)
 
-| Item                  | Mechanism                                  |
-| --------------------- | ------------------------------------------ |
-| Treasury spend        | `MultisigTx` (type 9)                       |
-| Multisig signer set   | `RotateMultisig` (type 10)                  |
-| Emergency pause       | `EmergencyPause` (type 11)                  |
-| Resume from pause     | `EmergencyResume` (type 12)                 |
+| Item                | Mechanism                   |
+| ------------------- | --------------------------- |
+| Treasury spend      | `MultisigTx` (type 9)       |
+| Multisig signer set | `RotateMultisig` (type 10)  |
+| Emergency pause     | `EmergencyPause` (type 11)  |
+| Resume from pause   | `EmergencyResume` (type 12) |
 
 These are bounded actions: drain treasury (with PIP linkage), rotate
 signers, halt for ≤ 30 days, resume. They cannot change protocol rules.
 
 ### Operator-side
 
-| Item                  | Lives in                                  |
-| --------------------- | ----------------------------------------- |
-| Bootstrap peer list   | `pyde.toml` `[network] bootstrap_peers`    |
-| RPC endpoint config   | `pyde.toml` `[rpc]`                        |
-| Log level / format    | `pyde.toml` `[logging]`                    |
-| Metrics port          | `pyde.toml` `[metrics]`                    |
-| Datadir location      | `pyde.toml` `[node] datadir`               |
+| Item                | Lives in                                |
+| ------------------- | --------------------------------------- |
+| Bootstrap peer list | `pyde.toml` `[network] bootstrap_peers` |
+| RPC endpoint config | `pyde.toml` `[rpc]`                     |
+| Log level / format  | `pyde.toml` `[logging]`                 |
+| Metrics port        | `pyde.toml` `[metrics]`                 |
+| Datadir location    | `pyde.toml` `[node] datadir`            |
 
 Operators control these per-node; they don't require coordination.
 
@@ -266,14 +266,14 @@ The Pyde release cadence is **release-based, not wave-based**: releases
 ship when ready, not on a fixed schedule. Each release has a semver-style
 version (e.g., `0.4.2`).
 
-| Component                | Version source           |
-| ------------------------ | ------------------------ |
-| Node binary              | `pyde --version`         |
-| `otigen` developer toolchain | `otigen --version`   |
-| `pyde-rust-sdk` crate    | `Cargo.toml` `version`   |
-| `pyde-crypto-wasm` pkg   | `package.json`           |
-| Host Function ABI version | embedded in the artifact |
-| Contract ABI version     | embedded in the artifact |
+| Component                    | Version source           |
+| ---------------------------- | ------------------------ |
+| Node binary                  | `pyde --version`         |
+| `otigen` developer toolchain | `otigen --version`       |
+| `pyde-rust-sdk` crate        | `Cargo.toml` `version`   |
+| `pyde-crypto-wasm` pkg       | `package.json`           |
+| Host Function ABI version    | embedded in the artifact |
+| Contract ABI version         | embedded in the artifact |
 
 The binary embeds the wire-format version (`EVIDENCE_VERSION = 1` for
 slashing evidence, `MULTISIG_VERSION = 0x01` for multisig payloads). If
@@ -323,14 +323,14 @@ improvement list.
 
 ## 18.9 Comparison: Pyde vs Other Upgrade Models
 
-| Property                       | Pyde                       | Ethereum               | Tezos / Cosmos                |
-| ------------------------------ | -------------------------- | ---------------------- | ----------------------------- |
-| Off-chain proposal             | PIP                         | EIP                     | TIP / CIP                      |
-| On-chain governance vote       | None                        | None at protocol level  | Yes (stake-weighted)           |
-| Validator upgrade              | Voluntary                   | Voluntary               | On-chain "self-amendment"      |
-| Hard-fork coordination         | Activation wave + social    | Activation block + social| Voted on-chain                 |
-| Treasury action                | On-chain multisig + PIP     | Foundation grants       | On-chain (Tezos), proposal (Cosmos)|
-| Emergency halt                 | Multisig pause              | None                    | Sometimes (social fork only)   |
+| Property                 | Pyde                     | Ethereum                  | Tezos / Cosmos                      |
+| ------------------------ | ------------------------ | ------------------------- | ----------------------------------- |
+| Off-chain proposal       | PIP                      | EIP                       | TIP / CIP                           |
+| On-chain governance vote | None                     | None at protocol level    | Yes (stake-weighted)                |
+| Validator upgrade        | Voluntary                | Voluntary                 | On-chain "self-amendment"           |
+| Hard-fork coordination   | Activation wave + social | Activation block + social | Voted on-chain                      |
+| Treasury action          | On-chain multisig + PIP  | Foundation grants         | On-chain (Tezos), proposal (Cosmos) |
+| Emergency halt           | Multisig pause           | None                      | Sometimes (social fork only)        |
 
 Pyde's model is closer to Ethereum / Bitcoin than to Tezos / Cosmos. The
 trade-off: slower to react than on-chain governance, but no
@@ -338,38 +338,18 @@ plutocratic-vote attack surface.
 
 ---
 
-## 18.10 Honest About Limitations
-
-- **No on-chain validator-upgrade signal.** Coordinated activation depends
-  on out-of-band tracking. A future PIP could add an opt-in
-  signaling-via-vote-payload mechanism.
-- **No automatic rollback.** If a hard fork ships with a critical bug
-  discovered post-activation, recovery requires another release + another
-  upgrade. The emergency pause buys time but doesn't undo state changes.
-- **Manual genesis adjustment** for catastrophic-recovery scenarios is
-  documented but never operationally tested at scale. (The mainnet plan's
-  Phase 9 incentivized testnet is the place where this kind of recovery
-  could be rehearsed.)
-- **No validator slashing for "voted for the wrong fork."** Validators can
-  signal whatever they want; only protocol-level misbehavior (double
-  signing, equivocation, etc.) is slashed.
-
----
-
 ## Summary
 
-| Property                      | Status at mainnet                      |
-| ----------------------------- | -------------------------------------- |
-| Upgrade model                 | PIP + voluntary validator upgrade       |
-| Hard fork mechanism            | Activation wave + coordinated upgrade   |
-| Soft fork mechanism            | Same; old nodes stay in sync            |
-| Treasury action                | On-chain `MultisigTx` + PIP linkage     |
-| Emergency response             | `EmergencyPause` (≤30 days, auto-expiring) |
-| State migration patterns       | Lazy / activation-wave / migration tx   |
-| Wire-format versions           | `EVIDENCE_VERSION`, `MULTISIG_VERSION` (bumped on layout change) |
-| On-chain validator-upgrade signal | None (out-of-band tracking)         |
-| Automatic rollback             | None (re-release path)                  |
+| Property                          | Status at mainnet                                                |
+| --------------------------------- | ---------------------------------------------------------------- |
+| Upgrade model                     | PIP + voluntary validator upgrade                                |
+| Hard fork mechanism               | Activation wave + coordinated upgrade                            |
+| Soft fork mechanism               | Same; old nodes stay in sync                                     |
+| Treasury action                   | On-chain `MultisigTx` + PIP linkage                              |
+| Emergency response                | `EmergencyPause` (≤30 days, auto-expiring)                       |
+| State migration patterns          | Lazy / activation-wave / migration tx                            |
+| Wire-format versions              | `EVIDENCE_VERSION`, `MULTISIG_VERSION` (bumped on layout change) |
+| On-chain validator-upgrade signal | None (out-of-band tracking)                                      |
+| Automatic rollback                | None (re-release path)                                           |
 
-The next chapter covers the launch strategy: the ten-phase mainnet plan,
-the testnet milestones, and the audit + incentivized testnet
-requirements before mainnet genesis.
+The next chapter describes the boundary between protocol engineering and production deployment, including the validation requirements for Tier 1, Tier 2, and Tier 3.

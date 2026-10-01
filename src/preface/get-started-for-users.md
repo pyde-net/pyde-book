@@ -1,117 +1,55 @@
 # Get Started: For Users
 
-You're not here to write contracts. You want to *use* Pyde: hold
-PYDE, send a transaction, run a node, or follow the project's path to
-mainnet. This page is your map.
+Pyde is being built as distributed ledger infrastructure for a connected global economy.
 
----
+The current public development environment is Tier 3, the permissionless public network. Tier 1 and Tier 2 are additional economic environments designed for sovereign and cross domain use.
 
-## What's different about Pyde
+## The three environments in plain language
 
-Pyde is our attempt at what a base layer could have been from the
-start: fair ordering, honest finality, a node anyone can run, and
-verification that outlives the cryptography it was built with. Three
-things follow from that, in plain language.
+**Tier 1** is where a sovereign jurisdiction can represent domestic economic state and regulated institutional activity.
 
-### 1. Fair ordering, without a trusted relayer
+**Tier 2** is where participating economic domains coordinate cross border settlement, foreign exchange state, obligations, positions, and netting.
 
-The order in which transactions get executed usually decides who
-profits. Whoever fixes that order can slot their own trade in front
-of yours before you ever see it land.
+**Tier 3** is where public developers and users can build and participate without requiring sovereign approval for every application.
 
-Pyde runs a **keyless commit-reveal mempool**. You submit a Blake3
-commitment to your transaction first; the DAG fixes its order, and
-only **then** do you reveal the content. By the time anyone can
-read what's inside a transaction, the ordering is already final.
-No committee holds a decryption key, so the safety of this doesn't
-depend on validators declining to collude. There is no profitable
-front-run because there's no information to front-run on.
+These environments are connected by protocol infrastructure, but they do not share the same authority model.
 
-Read more: [Chapter 9: MEV Protection](../chapters/09-mev-protection.md).
+## What matters to a public user
 
-### 2. Verification that outlives the cryptography
+Tier 3 provides the public application environment.
 
-Every signature on Pyde uses **FALCON-512**, a NIST-standardised
-post-quantum signature scheme. Hashing uses **Blake3** and
-**Poseidon2**, and transport-layer session keys use **Kyber-768
-(ML-KEM)**, NIST's post-quantum key-encapsulation scheme. Every
-primitive on a consensus or account path is post-quantum.
+A user can interact with smart contracts, hold supported assets, and use applications according to the public network rules.
 
-Translation: the chain is built so its verification stays sound even
-as the cryptography around it ages. There is no migration window
-because there's no legacy scheme to migrate away from.
+The account is a cryptographic protocol identity. It is not automatically a legal identity or a government record.
 
-Read more: [Chapter 8: Cryptography](../chapters/08-cryptography.md).
+## What matters in regulated environments
 
-### 3. Your account doesn't die when one key leaks
+A Tier 1 account can be linked to a jurisdictional identity or institutional authorization through an off chain reference such as `kyc_id`.
 
-Native multisig is a protocol feature, not a contract every wallet
-re-implements. Lose a key, the rest of the keys still control the
-account. Coming post-mainnet: programmable accounts with spend
-limits, time locks, social recovery, and per-app session keys that
-can be revoked at any time.
+The underlying identity record remains outside the ledger.
 
-Read more: [Chapter 11: Account Model](../chapters/11-account-model.md).
+A jurisdiction can also restrict, freeze, or otherwise change the regulatory state of an account according to its own authority and legal procedures.
 
----
+## What Tier 2 does
 
-## Honest status (today)
+Tier 2 does not replace the sovereign currencies involved in cross border activity.
 
-Pyde is **pre-mainnet**. That means:
+Instead, it coordinates the relationship between participating domains.
 
-| What | When |
-|---|---|
-| Read the spec | ✅ Now (this book) |
-| Open a wallet / acquire PYDE | ❌ Mainnet |
-| Send a transaction | ❌ Mainnet (testnet earlier) |
-| Run a validator | ❌ Mainnet |
-| Run a full node | ❌ Mainnet (devnet earlier) |
-| Follow the project | ✅ Now |
+For example, a cross border transaction can use one sovereign currency in the source domain and another sovereign currency in the destination domain. Tier 2 coordinates the foreign exchange reference, settlement state, resulting obligation, and net position.
 
-The sections below track the path from "pre-mainnet engineering" to
-"mainnet live".
+## Honest status
 
----
+The current public development environment is Tier 3.
 
-## What you can do right now
+Tier 1 and Tier 2 are architectural systems that still require institutional integration, security review, deployment infrastructure, and jurisdiction specific work before production use.
 
-1. **Read the [whitepaper](../companion/WHITEPAPER.md).** 30 minutes;
-   covers everything at a digestible depth.
-2. **Follow the [launch plan](../chapters/19-launch-strategy.md).**
-   Phased to mainnet: no calendar dates; each phase ships when its
-   bar is met.
-3. **Join [Telegram](https://t.me/pydenet)** for project chat.
-4. **Follow [@pydenet on X](https://x.com/pydenet)** for milestone
-   announcements.
-5. **Watch the [GitHub org](https://github.com/pyde-net)** if you want
-   to see the work as it lands.
+This book distinguishes implemented functionality from designed architecture throughout the technical chapters.
 
----
+## Where to go next
 
-## When mainnet ships
+Read [What is Pyde](./what-is-pyde.md) for the concise definition.
 
-You'll do the things you'd do on any L1, with two structural
-differences:
+Read [Why Pyde](./why-pyde.md) for the economic rationale.
 
-- **Your address is 32 bytes** (`0x` + 64 hex chars). Pyde doesn't
-  truncate addresses the way Ethereum does. You'll see this in any
-  Pyde-native wallet.
-- **Your account survives single-key compromise** if you set up
-  native multisig at registration. The wallet UX will surface this
-  as the default for non-trivial balances.
-
-Gas works like Ethereum's EIP-1559 (no priority fees on Pyde;
-inclusion order isn't biddable), and the chain commits a wave every
-~500 ms. Transactions land fast and final.
-
----
-
-## Where to follow along
-
-- **[Launch Strategy](../chapters/19-launch-strategy.md)**: the phased path to mainnet.
-- **[GitHub org](https://github.com/pyde-net)**: every repo, every commit.
-- **[Telegram](https://t.me/pydenet)**: community chat.
-- **[X (@pydenet)](https://x.com/pydenet)**: milestone announcements.
-- **`info@pyde.network`**: formal contact.
-
-Welcome to the pre-mainnet phase. It's the most honest place to be.
+Read [Chapter 1](../chapters/01-introduction.md) and [Chapter 2](../chapters/02-architecture-overview.md) for the full architecture.

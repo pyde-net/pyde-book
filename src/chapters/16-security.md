@@ -1,741 +1,183 @@
 # Chapter 16: Security
 
-Security is the substrate on which every other property of Pyde rests.
-This chapter catalogs the realistic attack surface at mainnet, the concrete
-defense for each class, the invariants that make the BFT safety argument
-work, and the operational hygiene that keeps a post-launch network
-healthy.
-
-The scope of this chapter is the *shipped* mainnet. Where a defense is on
-the post-mainnet hardening list rather than live, the chapter says so.
-
-> **Note.** This chapter is the *narrative* security reference. The
-> canonical catalog (~50 threats by ID, organized by layer, with
-> mitigation cross-references and acknowledged residual risks) lives in
-> [companion/THREAT_MODEL.md](../companion/THREAT_MODEL.md). External
-> auditors should start with the threat model and use this chapter for
-> context; readers building intuition should start here and dip into the
-> threat model when they want the full catalog.
-
----
-
-## 16.1 Attack Surface
-
-| Attack class                | Severity  | Primary defense                                           |
-| --------------------------- | --------- | --------------------------------------------------------- |
-| 51% / Byzantine takeover    | Critical  | BFT `f < n/3` with equal-vote committee, Mysticeti-style safety|
-| Long-range attack           | High      | Weak-subjectivity checkpoints; hard-finality irreversibility|
-| Sybil attack                | High      | Layered: structural MEV-resistance removes attack incentive + operator-identity cap (max 3/operator) + slashing + minimum stake floor |
-| Eclipse attack              | High      | Layered discovery (no DHT) + FALCON peer auth + sentry pattern |
-| DDoS (network-level)        | Medium    | Rate limiting, peer scoring, per-channel size caps, sentry  |
-| Front-running / MEV         | High      | Keyless commit-reveal mempool + DAG-fixed ordering (Ch 9)|
-| State manipulation          | Critical  | JMT batched Merkle proofs, deterministic replay, 2 state roots (Blake3+Poseidon2) |
-| Quantum attacks              | Critical  | Entire stack is post-quantum from genesis (Ch 8)            |
-| Smart contract exploit       | High      | Default safety attributes (no reentrancy, checked arithmetic) enforced at runtime via the WASM execution layer |
-| VM / runtime exploit         | Critical  | wasmtime sandbox (production-vetted at Microsoft / Fastly / Shopify), deterministic feature subset enforced, deploy-time import validation |
-| Consensus persistence loss    | Critical  | `WriteOptions::set_sync(true)` + panic-on-persist-failure  |
-| Replay across chains          | High      | Mandatory `chain_id` in every tx hash                       |
-| Treasury drain                | Critical  | Multisig-only spend + `data_digest` audit trail             |
-
-Each of these is covered in more detail below.
-
----
-
-## 16.2 BFT Safety and Liveness
-
-### The guarantee
-
-**Safety (Mysticeti DAG):** no two conflicting subdag commits or state
-roots ever achieve finality at the same wave, provided fewer than
-`f = ⌊(n-1)/3⌋ = 42` committee members are Byzantine. At `n = 128`,
-this is `f ≤ 42`, quorum `q = ⌊(n + f)/2⌋ + 1 = 86`.
-
-**Liveness:** the DAG advances and produces commits as long as
-`86 of 128` committee members are honest and online.
-
-### Why the quorum is 86
-
-Everything rests on **quorum intersection**. Two quorums of size `q`
-drawn from `n` members must overlap in at least `2q − n` members. That
-overlap is only evidence of anything if it is guaranteed to contain an
-honest member, so it has to exceed the Byzantine budget:
-
-```
-2q − n > f     ⟺     q > (n + f) / 2
-```
-
-The smallest integer satisfying that is `q = ⌊(n + f)/2⌋ + 1`. This is
-the protocol's quorum rule at every committee size. At `n = 128`,
-`f = 42`:
-
-```
-q            = ⌊(128 + 42) / 2⌋ + 1 = 85 + 1 = 86
-intersection = 2·86 − 128           = 44 members
-honest in it ≥ 44 − 42              = 2 members
-```
-
-The familiar `2f + 1` form of the threshold is the special case
-`n = 3f + 1`, and it does not apply here: `128 = 3f + 2`. Taking
-`2f + 1 = 85` at this committee size gives an intersection of
-`2·85 − 128 = 42 = f` — exactly the Byzantine budget, an overlap the 42
-adversarial members could fill entirely on their own, with no honest
-member in it at all. That is a zero safety margin, not a proof. Pyde
-certifies at `q = 86`, where two honest members are forced into every
-intersection.
-
-Smaller committees use the same formula rather than the constant
-(`n = 4 → q = 3`, `n = 7 → q = 5`, `n = 128 → q = 86`), so the launch
-committee is governed by the identical rule.
-
-### Why it holds
-
-Each vertex carries ≥ 86 parent vertex references. An anchor commit at
-round R+3 requires Mysticeti 3-stage support: at least 86 round-(R+1)
-vertices that reference the anchor as a parent. Two conflicting commits
-of contradictory subdags at the same wave would each need 86 signing
-vertices; `86 + 86 = 172 > 128`, so the two support sets share at least
-`2·86 − 128 = 44` members. At most 42 of those are adversarial under the
-Byzantine bound, so at least **2 honest members** would have had to
-equivocate (sign in both forks) — which honest members, by definition,
-do not. The 42 Byzantine members cannot certify both branches by
-themselves. And where equivocation is attempted, the two conflicting
-signatures over the same slot are slashable evidence at `100% of stake`,
-so the cost is total. ∎
+Pyde security is built around explicit authority boundaries.
 
-State-root divergence (two contradictory Blake3 state roots each signed
-by 86 members) is detected automatically and triggers a **hard halt**
-(Chapter 7 / [companion/CHAIN_HALT.md](../companion/CHAIN_HALT.md)).
+A permissionless public network, a sovereign consortium, and an open settlement network do not have identical trust assumptions. Treating them as identical would hide important risks.
 
-### What if more than 1/3 are Byzantine
+## 16.1 Security Domains
 
-The protocol cannot promise safety above the 1/3 threshold; that's a
-mathematical limit of BFT consensus. Defenses:
-
-1. **Raise the cost.** 10M PYDE per committee validator × 43 = 430M PYDE
-   at stake minimum for a safety violation, all slashable at 100%.
-   Slashing evidence can be submitted with a 10% finder's fee, creating
-   economic incentive for whistleblowers.
-2. **Weak-subjectivity checkpoints.** If an adversary somehow accumulated
-   ≥ 1/3 and started forking, nodes that sync from a recent checkpoint
-   reject the fork outright (§16.3).
-3. **Hard halt on detected divergence.** State root divergence (two
-   signed contradictory roots) triggers an automatic chain halt; the
-   network stops producing commits until the divergence is resolved
-   (Chapter 7).
-4. **Social consensus.** As with every BFT chain, the final backstop is
-   human coordination: if the chain demonstrably goes off the rails, the
-   honest majority forks away and the broken chain loses social
-   legitimacy.
-
----
-
-## 16.3 Long-Range Attacks and Weak Subjectivity
-
-### The attack
-
-An attacker buys (or otherwise acquires) a majority of validator keys
-that were active at some point in the past. They create a long
-alternative chain starting from that point: completely different history,
-potentially different token holders. If a fresh node syncs without any
-reference point, it cannot distinguish the real chain from the alternative.
-
-### The defense: weak-subjectivity checkpoints
-
-When a commit collects ≥ 86 FALCON state-root signatures, the
-validator writes a `FinalityCheckpoint` to the consensus store:
-
-```rust
-struct FinalityCheckpoint {
-    wave_id:    u64,
-    blake3_state_root:    Hash,
-    poseidon2_state_root: Hash,
-}
-```
-
-(v1: the `poseidon2_state_root` leg is an inert zero placeholder;
-`POSEIDON2_STATE_ROOT_ENABLED = false`, so only the Blake3 root is computed
-and signed today.)
-
-(Stored under `FINALITY_CHECKPOINT_KEY` in
-`crates/node/src/consensus_store.rs`.)
-
-A node that's currently synced will **refuse to reorg past the latest
-checkpoint**. `FinalityTracker::can_reorg(wave_id)` returns false for any
-wave at or before the checkpoint's `wave_id`.
-
-For a cold-syncing node, the protocol doesn't pick a checkpoint on its
-own: the node's operator provides a **trusted recent wave hash** from a
-source they trust (the Foundation website, a public explorer, a known
-good peer). This is called "weak subjectivity" because new nodes must
-trust *something* outside pure protocol to anchor their sync.
-
-The human-trust assumption is narrow: all you need is any one honest,
-recent observation of the chain. Once anchored, the node enforces its own
-local checkpoint going forward.
-
-### Bootstrap peers
-
-The genesis hash is built into the client binary; no external
-trust needed for it. The `MAINNET_BOOTSTRAP` and `TESTNET_BOOTSTRAP` lists
-(`crates/net/src/discovery.rs`) provide starting peers, which provide the
-current chain state. A new node combines:
-
-1. Genesis hash (hard-coded).
-2. Recent weak-subjectivity checkpoint (operator-provided).
-3. Current peer set (from `bootstrap_peers`).
-
-Together, these pin down which chain is real without requiring a full
-replay from genesis.
-
----
-
-## 16.4 Sybil Resistance
-
-### The attack
-
-An adversary creates many validator identities to dominate consensus,
-bypassing the `f < n/3` bound by simply *being* the majority of the
-active committee.
-
-### The defense: layered, not stake-driven
-
-Pyde's Sybil resistance is intentionally not anchored to stake size. The
-chain's structural MEV resistance removes the primary attack incentive,
-which lets the stake floor sit at a modest 10,000 PYDE (single tier) and
-shifts the security burden onto a stack of qualitative defenses. Five
-layers:
-
-**1. Structural MEV-resistance removes the attack incentive.**
-The dominant reason adversaries attack BFT consensus on production
-chains is MEV extraction: front-running, sandwich attacks, transaction
-reordering. On Pyde, this attack value is structurally near-zero. Even
-a Byzantine 1/3 cannot:
-- Read a committed-but-unrevealed transaction: a commit is a Blake3
-  hash, and the inner transaction is disclosed only after the DAG has
-  already fixed its order (Chapter 9);
-- Reorder transactions after the DAG anchor commits the canonical order
-  (Chapter 9);
-- Profitably front-run any transaction routed through the commit-reveal mempool.
-
-Crucially, this safety is **unconditional**: it does not depend on any
-threshold of committee members staying honest. There is no decryption key
-for a colluding quorum to combine: the mechanism is keyless commit-reveal,
-and a commit is just a hash.
-
-This collapses the attack-profit equation that drives high stake
-floors elsewhere. Pyde does not need to price stake
-against MEV profits because there are no MEV profits to be made.
-
-**2. Operator-identity cap (max 3 validators per operator).**
-A Byzantine fork needs `f + 1 = 43` of 128 committee slots. Under a
-3-per-operator cap, that translates to **≥ 15 distinct KYC'd operator
-identities**, much harder to manufacture than capital. Identity binding
-is enforced via the stake-account-to-operator mapping; high-stake
-operators face additional KYC verification at registration.
-
-**3. Slashing at 100% on safety violations.**
-Equivocation and bad state-root signatures incur full-stake slashing
-plus permanent ban (see Chapter 14 §14.5 / [companion/SLASHING.md](../companion/SLASHING.md)). The 10%
-finder's fee creates an active whistleblower incentive: every honest
-node has a financial reason to surface attacker evidence within the
-21-day freshness window.
-
-**4. Hard-halt detection on state-root divergence.**
-Two contradictory signed state roots trigger an automatic chain halt
-(Chapter 7 §Part 2). Attackers cannot quietly corrupt state: safety
-violations are loud, visible, and immediately interrupt wave
-production. The 1-epoch bounded rollback policy contains damage to a
-narrow window.
-
-**5. Minimum-stake credibility deposit.**
-The 10K PYDE floor is a credible-commitment deposit, not the
-load-bearing economic defense. It ensures every validator has *some*
-skin in the game and gives the slashing mechanism something to slash.
-Combined with the operator cap, the lower bound on committed capital
-for a 43-Byzantine attack is ≥ 15 operators × 3 validators × 10K PYDE =
-**450K PYDE locked** plus the legal and reputational exposure of 15
-KYC'd entities. Modest in dollar terms; meaningful in coordination terms.
-
-### The honest framing
-
-The single-number "you'd lose $N million in stake to attack" argument
-does not apply here. Pyde's claim is
-different: **the protocol is designed such that there is no
-profitable attack to fund.** Stake economics back this up at the
-margin. Operator identity binding does the heavy lifting on Sybil
-specifically. The keyless commit-reveal mempool does the work of
-removing the attack value entirely.
-
-This shifts the trust assumption from "stake is large enough to deter
-attack" to "operator-identity binding + slashing + structural
-MEV-resistance jointly make attack unprofitable and detectable." The
-second is a substantively different argument and worth being explicit
-about. And, unlike a threshold-encryption scheme, the commit-reveal
-mempool adds no honest-quorum trust assumption of its own.
-
-### Genesis Sybil resistance
-
-The initial 128-validator set is Foundation-curated at genesis (Phase 10
-of the launch plan, recruited + validated across 3+ regions). This is a
-"trusted launch" assumption: not that the Foundation is trusted forever,
-but that the initial set is diverse and honest. After genesis, committee
-rotation and permissionless stake-based registration take over.
-
----
-
-## 16.5 Eclipse Attacks
-
-### The attack
-
-An adversary surrounds a single target validator with only-adversary
-peers. The target sees whatever the adversary wants them to see: fake
-proposals, faked votes, a fake chain. If the adversary can eclipse enough
-validators, they can force consensus on a fake state (though safety still
-holds under the 1/3 rule, liveness can be hurt).
-
-### The defense
-
-1. **Reserved outbound capacity.** `crates/net/src/behaviour.rs` splits the
-   connection budget so inbound and outbound have independent caps
-   (`MAX_ESTABLISHED_INCOMING` = 128, `MAX_ESTABLISHED_OUTGOING` = 64) and
-   the aggregate is exactly their sum. An inbound flood that maxes the
-   incoming cap therefore still leaves the node's full outbound budget free
-   for its own committee dials — it cannot be crowded out of reaching
-   honest peers. A compile-time assertion pins the relationship.
-   Subnet-aware limits are **not** implemented; an adversary holding many
-   addresses in a single `/24` is bounded only by the aggregate caps.
-2. **Layered discovery (no DHT).** Pyde explicitly chose not to use a
-   Kademlia DHT (Chapter 12). Discovery is layered: hardcoded seeds, DNS,
-   on-chain validator registry, PEX, local cache. This eliminates the
-   DHT-poisoning eclipse vector: an attacker can't pollute a routing
-   table that doesn't exist.
-3. **FALCON peer authentication** (§12.4). After the libp2p connection,
-   peers run a FALCON-signed attestation that binds PeerId to a
-   post-quantum identity. An adversary can't clone a validator's PeerId
-   without their FALCON secret key.
-4. **Sentry node pattern (Chapter 12).** Committee validators are
-   reachable only through trusted sentry proxies; their real IPs are
-   not in the public peer set. Eclipsing a committee validator requires
-   compromising the sentry layer, not just the public network.
-5. **Validator-channel filtering.** The vertex channel only accepts
-   messages from peers whose attested FALCON pubkey is in the current
-   committee. A non-validator eclipse peer can inject garbage on gossip
-   topics but cannot fake vertex signatures.
-
-### What isn't defended (yet)
-
-The current peer-scoring system is deliberately simple (reputation =
-`messages_received - 10 * invalid_messages`). A more sophisticated
-gossipsub score with per-topic weights, decay parameters, and gray-listing
-is on the post-mainnet hardening list. The current model is enough for
-the DDoS-shaped threats at mainnet scale; more sophisticated Eclipse
-attacks against one specific validator would show up as anomalous peer
-behavior that operators could see in their metrics.
-
----
-
-## 16.6 DDoS Resistance
-
-### Connection-level
-
-Compile-time caps in `crates/net/src/behaviour.rs`, enforced by libp2p's
-`connection_limits::Behaviour`:
-
-```rust
-MAX_ESTABLISHED_INCOMING  = 128
-MAX_ESTABLISHED_OUTGOING  = 64
-MAX_ESTABLISHED_TOTAL     = 192   // exactly incoming + outgoing
-MAX_ESTABLISHED_PER_PEER  = 4
-MAX_PENDING_INCOMING      = 32    // in-flight handshakes
-MAX_PENDING_OUTGOING      = 16
-```
-
-The pending caps bound half-open connection-storm memory before a
-connection is even established. There is no per-IP connect-rate limiter and
-no per-subnet cap; both are on the hardening list (Chapter 12 §12.6).
-
-### Request-flood rate limiting
-
-Every inbound vertex, batch, or state-sync chunk fetch is served
-synchronously on the single swarm event-loop task. Without a cap, any set
-of connected peers can pin that loop's CPU and upload bandwidth — a
-request-flood DoS that connection limits do not touch, since they bound how
-many peers connect, not the request rate from the ones already connected.
-
-The limit is a token bucket in `crates/net/src/inbound_limit.rs`, and it is
-deliberately **global** rather than per-peer: Ed25519 PeerId rotation is
-cheap, so a rotating attacker escapes any per-peer accounting. Consensus
-fetch gets 2,048 capacity refilling at 1,024/s; chunk serve 512 at 256/s;
-durable vertex serve 64 at 32/s.
-
-Signature-verification floods are bounded separately and by construction —
-a FALCON-512 verify costs roughly **1 ms**, so the useful defence is
-refusing to reach the verify at all for traffic that has not already
-cleared the size and structural gates.
-
-### Message size limit
-
-One cap, applied uniformly: `max_transmit_size` = 4 MiB on the gossipsub
-config (`crates/net/src/behaviour.rs`). There is no per-topic size table.
-Oversized messages never reach the application layer.
-
-### Ingress validation
-
-Invalid transactions never enter the mempool. Admission runs in
-`Mempool::admit` (`crates/mempool/src/mempool.rs`), whose structural gate is
-`validate_tx_structure` in `crates/tx/src/validation.rs` — encoded tx size,
-calldata size, gas bounds, signature presence, and the per-type payload
-shape — before anything is queued or gossipped. Pollution is isolated to
-the single ingress node.
-
-### Mempool per-sender caps
-
-```
-DEFAULT_MAX_TX_PER_WINDOW_PER_SENDER = 10  (per 1-sec window)
-DEFAULT_MAX_CONCURRENT_PER_SENDER    = 100 (concurrent txs in pool)
-```
-
-A single spammer cannot flood the mempool. If they try, their per-sender
-quota blocks further submissions until the window slides.
-
----
-
-## 16.7 Front-Running and MEV
-
-Covered in detail in Chapter 9. The short version:
-
-- **Keyless commit-reveal mempool.** A commit publishes only a
-  Blake3 hash of the transaction; the plaintext is disclosed only after
-  ordering is fixed. There is no committee decryption key and no
-  decryption shares, so safety is unconditional: it never depends on a
-  threshold of committee members staying honest. Users opt in per tx.
-- **DAG-fixed ordering.** The DAG fixes a commit's position in the
-  canonical order at commit time, before its contents are known. Reveals
-  execute in commit order, never reveal order, so no actor can both read a
-  transaction and still change where it lands.
-- **Structural inclusion.** No single proposer to censor; censoring a tx
-  requires ≥ 44 colluding committee members.
-- **No tips.** The wire format has no priority-fee field.
-
-Each layer closes attacks the others cannot. Together, MEV is not
-discouraged; it is structurally unexpressible.
-
----
-
-## 16.8 State Manipulation
-
-### The attack
-
-A malicious vertex producer submits a wave-anchor candidate whose claimed
-post-state root doesn't actually match the result of executing the wave's
-transactions. Honest validators would incorrectly accept a bogus state.
-
-### The defense
-
-Every honest validator executes each committed wave themselves and
-FALCON-signs `(wave_id, blake3_state_root, poseidon2_state_root)`. (v1:
-the `poseidon2_state_root` leg is an inert zero placeholder;
-`POSEIDON2_STATE_ROOT_ENABLED = false`, so only the Blake3 root is computed
-and signed today.) A malicious vertex producer that claims a wrong root gets
-0 honest state-root sigs; the network cannot reach the 86-sig finality bar.
-
-Two conflicting state claims can't both reach finality (same BFT
-argument: > 1/3 would have to equivocate). State root divergence is
-**hard-halt detectable** (Chapter 7): the network stops automatically
-once two contradictory signed roots appear.
-
-### JMT Merkle proofs
-
-For light clients that do not execute the wave, the JMT batched proof +
-the signed `blake3_state_root` + the committee's FALCON signatures are
-the authentication path. A light client verifies:
-
-1. `HardFinalityCert` for the wave is valid (≥ 86 FALCON sigs).
-2. The JMT proof from `blake3_state_root` to the specific leaf is valid.
-3. The leaf value is what the light client was querying.
-
-The chain of authentication is end-to-end cryptographic. ZK light clients
-(post-mainnet) can use the parallel `poseidon2_state_root` for SNARK-based
-verification at much lower cost.
-
----
-
-## 16.9 Quantum Attacks
-
-Every primitive in the protocol is post-quantum:
-
-- **FALCON-512** signatures: NTRU lattice, not factoring.
-- **Kyber-768 / ML-KEM** key exchange: lattice, not ECDH.
-- **Poseidon2** hashing: algebraic, not affected by quantum.
-- **Lattice VRF**: inherits FALCON security.
-- **AES-256-GCM**: symmetric, 128-bit post-quantum security under
-  Grover's algorithm.
-
-The weakest link is Poseidon2's 64-bit post-quantum collision resistance
-(Grover halves the exponent). 64-bit collision resistance requires
-`2^64` quantum hash evaluations, which is far beyond any realistic near-
-or mid-term quantum capability. If cryptanalytic advances tighten this,
-a hash migration is a standard-shape protocol upgrade.
-
-Pyde has **no elliptic-curve crypto** anywhere in the protocol. No
-secp256k1, no ed25519, no BLS12-381. The libp2p transport layer uses
-ed25519 for PeerId routing only; application-level authentication uses
-FALCON.
-
----
-
-## 16.10 Smart Contract Safety
-
-The default-safe properties Otigen the language provided are **preserved** in the WASM era. Mechanism changed; guarantees did not. See [Chapter 5 §5.6](./05-otigen-toolchain.md) for the full attribute surface.
-
-- **No reentrancy by default.** Every function is guarded by the WASM execution layer; opt out with the `reentrant` attribute (language-native: `#[pyde::reentrant]` / `@pyde.reentrant` / `//pyde:reentrant` / `PYDE_REENTRANT`).
-- **Checked arithmetic.** Encouraged by per-language SDK helper patterns; wrapping ops require explicit opt-in (e.g., Rust's `wrapping_add` is explicitly named).
-- **Typed storage.** Declared in `otigen.toml` `[state]` schema; the build tool emits type-safe accessors and the runtime enforces slot-hash uniqueness.
-- **No `tx.origin`.** The host function ABI exposes only `caller()` (direct caller). The Solidity-style phishing vector is absent.
-- **Access-list enforcement.** Slot accesses against slots not declared in the contract's state schema fail at the host-function layer.
-
-These defaults eliminate the most common smart-contract exploit classes at the toolchain + runtime level, not as library choices developers might forget.
-
-### The toolchain audit surface
-
-The `otigen` developer toolchain (specifically its state binding generators and ABI extractor) is part of the audit surface. A codegen bug in a binding generator could emit accessor code that violates declared semantics. Mitigations:
-
-- **Unit tests per binding-generator output pattern.** Each language target (Rust, AssemblyScript, Go, C/C++) has its own generator with its own test suite covering every accessor shape.
-- **Property tests** for slot-hash determinism across languages: given the same `otigen.toml`, all four generators must produce identical runtime slot_hash values for identical inputs.
-- **External audit** of the `otigen` toolchain before mainnet.
-- **Wasmtime as a trust-minimized dependency.** The execution runtime itself is wasmtime, which inherits years of production fuzzing and Bytecode Alliance audit attention; we do not audit a VM we built ourselves.
-
----
-
-## 16.11 WASM Execution Layer Safety
-
-Pyde's execution layer is **wasmtime** (with Cranelift AOT). The trap surface is wasmtime's, augmented by host-function-specific traps Pyde injects through the ABI.
-
-### WASM-native traps
-
-wasmtime traps when the executing module violates its sandbox or its fuel budget. The canonical trap conditions:
-
-```
-OutOfFuel              IntegerOverflow         IntegerDivisionByZero
-MemoryOutOfBounds      StackOverflow           UndefinedElement
-IndirectCallToNull     BadSignature            UnreachableCodeReached
-TableOutOfBounds       Interrupt               (host-function traps)
-```
-
-Each trap is a *clean* revert: state writes roll back, gas is consumed up to the trap point (computed from fuel actually consumed), the transaction fails. There is no undefined behavior path. wasmtime's sandbox guarantees structural safety: no buffer overflows, no control-flow hijacks, no type confusion.
-
-### Pyde-specific traps via host functions
-
-The host functions add another trap layer for Pyde-specific safety properties:
+Pyde has three primary security domains:
 
-| Trap                       | When                                                            |
-| -------------------------- | --------------------------------------------------------------- |
-| `ReentrancyViolation`       | A cross_call re-enters a non-`reentrant` function               |
-| `AccessListViolation`       | A slot access targets a slot outside the declared state schema  |
-| `ViewFunctionStateModify`   | A state-modifying host call inside a `view`-attributed function |
-| `NonPayableValueAttached`   | `tx.value > 0` on a non-`payable` function                      |
-| `ConstructorReentrant`      | An attempt to call a `constructor`-attributed function post-deploy |
-| `GasTankExhausted`          | A `sponsored` function's contract gas tank ran out               |
-| `InsufficientBalance`       | `transfer` host call when sender balance is below amount         |
-| `ForbiddenImport`           | (deploy-time only) module imports a function outside the ABI allowlist |
-
-### Determinism enforcement
-
-wasmtime is configured to reject any module that uses non-deterministic features. The config enforces (at module instantiation and at deploy validation):
-
-- `cranelift_nan_canonicalization(true)`: floating-point NaN bit patterns canonicalized identically across all validators
-- `wasm_threads(false)`: no threading (non-deterministic by definition)
-- `wasm_simd(false)`, `wasm_relaxed_simd(false)`: SIMD disabled until a deterministic-only subset is vetted
-- `wasm_reference_types(false)`, `wasm_gc(false)`, `wasm_function_references(false)`: complexity surface gated until needed
-- `wasm_multi_memory(false)`, `wasm_memory64(false)`: explicit memory layout
-- No WASI imports
-
-A deploy-time validator (`crates/wasm-exec/src/deploy.rs`, which raises `DeployError::ForbiddenImport`) re-checks the module's import section against the allowlist and rejects anything that would slip past wasmtime's instantiation check.
-
-### Trust-minimization of the runtime
-
-We do not audit wasmtime itself; that work is done continuously by the Bytecode Alliance with years of production fuzzing under adversarial workloads. We pin a tagged wasmtime version per chain release, document the version in the protocol upgrade record, and require validators to upgrade in coordinated forks when we move it. This is a meaningfully smaller audit surface than maintaining a custom VM ourselves would have been (see [The Pivot preface](../preface/pivot.md) for the full reasoning).
-
----
-
-## 16.12 Consensus-State Persistence
-
-**The risk.** If a validator casts a vote, crashes before the vote is
-durable, and restarts with a different view, it can double-vote on
-restart, violating BFT safety.
-
-**The defense.**
-
-1. `WriteOptions::set_sync(true)` on every write to the consensus store
-   (task 014a). A vote is not considered "cast" until `fsync` returns.
-2. `panic!` + `panic = "abort"` on any persist failure (task 014b). The
-   process terminates immediately. Continuing after a failed disk write
-   is a BFT-unsafe operation; halting is the correct fail-safe.
-3. Restart recovery reloads `seen_proposals`, `seen_votes`,
-   `pending_evidence` from the consensus store (task 003, 014c).
-
-Microbenchmark (task 014f) confirmed the per-vertex-sig fsync cost is
-~25.5 µs on Apple Silicon NVMe: ~39K writes/sec headroom against the
-~150 ms round cadence (≥ 1000× margin).
-
-Gradeful drain-and-shutdown on persist failure is a post-mainnet
-operational polish, not a launch blocker.
-
----
-
-## 16.13 Replay Protection
-
-### Cross-chain replay
-
-Every transaction includes `chain_id` in the canonical hash. A
-transaction signed for mainnet cannot be replayed on a testnet; a
-testnet tx cannot be submitted to mainnet. Chain IDs:
-
-| Network  | `chain_id` |
-| -------- | ---------- |
-| Mainnet  | 1          |
-| Testnet  | TBD        |
-| Devnet   | 31337      |
-
-The chain_id is always enforced; the `dev_skip_signature` flag only
-disables *signature* verification for chain_id 31337 (devnet), and only
-if the config explicitly allows it. On any chain_id other than 31337,
-signatures are always required.
-
-### Same-chain replay
-
-Each transaction has a nonce that must fit the sender's 16-slot bitmap
-window (Chapter 11). Once used, the bitmap bit stays set until the window
-slides past it. A replayed tx hits the bitmap and is rejected.
-
-### Multisig replay
-
-Treasury multisig spends include the current `MULTISIG_NONCE` in the
-signing bytes. After a spend, the nonce bumps, so the same signed bytes
-cannot be replayed.
-
-### Emergency replay
-
-`EmergencyPause` and `EmergencyResume` include the current
-`MULTISIG_NONCE` in their signing context. A paused chain that auto-
-expires cannot be re-paused by replaying the same signed payload.
-
----
-
-## 16.14 Treasury Security
-
-See Chapter 15 for the governance model. The treasury's on-chain
-protections:
-
-1. **Multisig-only spend.** No other transaction type drains the treasury
-   account.
-2. **Audit trail.** `data_digest = hash(pip_file_contents)` ties every
-   spend to a published PIP.
-3. **Rotation.** `RotateMultisig` can replace the signer set; no single
-   signer is entrenched.
-4. **Writeback-clobber protection.** `spend.target != tx.from`,
-   `tx.to == 0x00`. Prevents the post-execution pipeline from
-   accidentally overwriting the spend.
-5. **Nonce-bound signatures.** Each spend bumps `MULTISIG_NONCE`; replays
-   fail.
-
-The multisig signer set is a trust assumption. The mitigation is scope:
-the signers can spend the treasury and rotate themselves; they cannot
-change consensus rules, supply, or fee distribution.
-
----
-
-## 16.15 Operational Security
-
-Aspects that are not cryptographic but matter at mainnet operation:
-
-- **Key management.** Validator FALCON secret keys are kept in
-  hardware-backed storage where possible. Key rotation transactions
-  (`key_nonce` bump) exist for compromised-key recovery.
-- **Sentry nodes.** Validators typically expose a sentry node for P2P
-  traffic and keep the validator process unreachable directly. This is a
-  deployment concern, not protocol-enforced.
-- **Monitoring.** Every node exposes Prometheus metrics; operators run
-  alerting on consensus participation rate, wave inclusion rate, and
-  peer churn.
-- **Bug bounty.** A permanent bug bounty program is part of the community
-  allocation (Chapter 14). The Phase 7 testnet tier has its own bounty;
-  the mainnet tier will be funded at launch.
-- **Incident response.** Phase 10 of the mainnet plan specifies on-call
-  rotation and incident response SOPs. The emergency-pause mechanism
-  gives operational response a real lever during a live exploit.
-
----
-
-## 16.16 Hardening Work In-Flight
-
-Pre-mainnet hardening work tracked in the launch plan (chapter 19):
-
-| Task   | Status                                                   |
-| ------ | --------------------------------------------------------- |
-| Clippy/fmt/audit/deny in CI | Hardening track; shipping             |
-| `cargo-fuzz` on wasm-exec / tx / consensus / RPC / otigen toolchain | 72+ h runs           |
-| Property tests on pipeline + tokenomics | Initial properties shipped; expanding |
-| Witness 1 MB bound validation | Shipped                              |
-| Separate `MAX_CALLDATA` cap | Shipped                                |
-| `unsafe` block invariant docs | Being documented                     |
-| `unwrap()` triage on untrusted paths | Ongoing                       |
-| ml-kem 0.3.0-rc -> stable upgrade | Post-standards-release         |
-| Persistent receipt store (archive mode) | Post-mainnet            |
-| Signed-commitment mandatory inclusion | Post-mainnet (Ch 9)     |
-| Algebraic batch FALCON verify         | Post-mainnet                   |
-
-The honest shape at mainnet: a small, audited, heavily-tested core with a
-well-scoped set of known future hardening items.
-
----
-
-## 16.17 External Audits
-
-The launch plan schedules five independent external audits before
-mainnet:
-
-| Audit scope                                                                       |
-| --------------------------------------------------------------------------------- |
-| Consensus layer (Mysticeti DAG, anchor selection, finality, slashing)             |
-| Execution layer (Pyde's host-function ABI, the `wasm-exec` integration, fuel-to-gas mapping, Block-STM scheduler + MVCC layer + determinism contract) |
-| Crypto implementations (FALCON, Blake3, Poseidon2) in the `pyde-crypto` polyrepo |
-| Networking layer (libp2p config, gossipsub, layered discovery, sentry pattern, DDoS) |
-| `otigen` developer toolchain (binding generators, ABI extraction, deploy flow, wallet) |
-
-Note: wasmtime itself is not separately audited; it is a vetted production dependency from the Bytecode Alliance. The Pyde audit focuses on the integration surface (host functions, fuel mapping, validation gate, module cache) and on the toolchain that emits the WASM modules.
-
-Critical + high findings are remediated before mainnet; audit
-remediations themselves are re-audited. Penetration testing (P2P
-flooding, RPC DoS, eclipse simulations) runs in parallel.
-
----
+| Domain | Primary security concern                                                     |
+| ------ | ---------------------------------------------------------------------------- |
+| Tier 1 | Unauthorized sovereign or institutional state changes                        |
+| Tier 2 | Unauthorized creation, alteration, or settlement of cross domain obligations |
+| Tier 3 | Public network consensus, execution, account, and application security       |
+
+The domains share cryptographic and execution infrastructure but maintain different authorization rules.
+
+## 16.2 Tier 1 Security
+
+Tier 1 uses permissioned validator participation.
+
+Security depends on both technical consensus and institutional separation.
+
+A single sovereign agency should not be able to unilaterally rewrite consortium state where the configured quorum requires agreement among multiple authorized validators.
+
+Critical operations such as monetary issuance, redemption, freeze state, and regulatory transitions are subject to the consortium's authorization and consensus rules.
+
+## 16.3 Tier 2 Security
+
+Tier 2 protects shared settlement state.
+
+The principal security objectives are:
+
+- prevent unauthorized obligation creation;
+- prevent unauthorized modification of settlement positions;
+- prevent unauthorized use of settlement pools;
+- prevent invalid foreign exchange state from becoming authoritative;
+- maintain deterministic consensus over shared settlement state;
+- prevent a Tier 2 participant from acquiring sovereign authority.
+
+Tier 2 validators operate openly under the protocol rules. Their agreement is used to establish canonical settlement state.
+
+## 16.4 Settlement Pool Security
+
+A settlement pool remains inside its Tier 1 consortium.
+
+Tier 2 receives only the authority explicitly granted by the settlement contract.
+
+The sovereign authority controls pool funding and withdrawal.
+
+This creates an important boundary: compromise of a Tier 2 validator should not automatically grant unrestricted custody over every sovereign asset represented in the settlement system.
+
+## 16.5 Oracle Security
+
+Foreign exchange state is consensus supported observation, not an assertion of omniscient truth.
+
+Security therefore depends on:
+
+- multiple independent observations;
+- the configured aggregation mechanism;
+- validator honesty assumptions;
+- freshness rules;
+- rejection of stale or invalid data;
+- settlement contracts refusing to act when required oracle conditions are not satisfied.
+
+## 16.6 Cross Domain Atomicity
+
+Cross border settlement creates a special failure mode: one side may succeed while another side fails.
+
+The settlement architecture therefore treats a cross domain operation as one logical settlement.
+
+A partially executed operation must not be represented as a successful completed settlement.
+
+Simulation can prevent many failures before execution, but simulation is not a security guarantee. Finality and atomicity depend on the committed state transitions and consensus rules.
+
+## 16.7 Permissionless Tier 3 Security
+
+Tier 3 inherits the standard distributed ledger attack classes:
+
+- Byzantine validator behavior;
+- Sybil attacks;
+- network partition and eclipse attacks;
+- denial of service;
+- state corruption;
+- replay attacks;
+- smart contract vulnerabilities;
+- cryptographic compromise;
+- implementation bugs.
+
+The public network's consensus, execution sandbox, state commitment, networking controls, account authorization, and cryptographic primitives form the core defensive layers.
+
+## 16.8 Execution Security
+
+Smart contracts execute inside the defined WebAssembly environment.
+
+The runtime restricts access to host functions and validator resources. Contracts cannot arbitrarily access the host filesystem, network, process state, or nondeterministic system resources.
+
+Determinism is a security requirement because all honest validators must derive the same state transition.
+
+## 16.9 State Security
+
+The state tree provides authenticated commitment to network state.
+
+A state transition that produces a different committed root than the canonical result is a consensus safety failure.
+
+State synchronization uses authenticated state data and consensus evidence so that a recovering node can verify the state it receives rather than accepting an arbitrary snapshot.
+
+## 16.10 Cryptographic Security
+
+Pyde treats post quantum cryptography as a protocol design requirement.
+
+FALCON 512 is used for account and protocol signatures in the current public design. Blake3 and Poseidon2 serve the hashing requirements of the relevant protocol components.
+
+Cryptographic implementation remains subject to independent review and future algorithm migration where the protocol determines that a primitive must be replaced.
+
+## 16.11 Regulatory Security
+
+Tier 1 security cannot be separated from legal and institutional authority.
+
+The protocol can enforce that an account is frozen or restricted.
+
+It cannot independently determine whether a court order, corporate license, tax decision, or property claim is legally valid outside the authority systems that establish those facts.
+
+The correct security model therefore treats real world institutions as authoritative sources for the facts they legally control and the ledger as the verifiable execution environment for the resulting digital state.
+
+## 16.12 Failure Isolation
+
+The three tier architecture is designed to limit failure propagation.
+
+A Tier 2 outage should pause or restrict cross border settlement without automatically halting domestic Tier 1 activity.
+
+A Tier 1 regulatory event should not automatically rewrite Tier 3 public state.
+
+A Tier 3 application failure should not automatically acquire authority over a sovereign consortium.
+
+This separation is itself a security property.
+
+## 16.13 Operational Security
+
+Production operation requires:
+
+- independent security review;
+- secure key management;
+- validator isolation and network hardening;
+- reproducible builds;
+- monitoring and alerting;
+- incident response procedures;
+- state recovery procedures;
+- controlled protocol upgrade procedures.
+
+The security chapter is the narrative model. The detailed threat catalog belongs in `companion/THREAT_MODEL.md`.
+
+## 16.14 External Audit
+
+Before production economic deployment, the highest risk surfaces should be independently reviewed.
+
+Priority areas include:
+
+- consensus;
+- account state transitions;
+- cryptography;
+- execution and host functions;
+- Tier 2 settlement contracts;
+- FX aggregation;
+- settlement pool authorization;
+- treasury controls;
+- cross domain atomicity;
+- state synchronization and recovery.
+
+Security review should test both implementation correctness and the economic assumptions on which the architecture depends.
 
 ## Summary
 
-| Property / defense                          | Status at mainnet                |
-| ------------------------------------------- | -------------------------------- |
-| BFT safety `f < n/3`                        | Shipped                          |
-| Liveness `86/128 honest + online` (⌊(n+f)/2⌋+1) | Shipped                      |
-| Weak-subjectivity checkpoints                | Shipped                          |
-| FALCON peer authentication                   | Shipped                          |
-| Validator-channel filtering                  | Shipped                          |
-| Evidence-ingest rate limit                   | Shipped                          |
-| Per-sender mempool rate limit                | Shipped                          |
-| RPC ingress validation                       | Shipped                          |
-| `chain_id` replay protection                 | Shipped                          |
-| Multisig-only treasury drain                 | Shipped                          |
-| `panic = "abort"` on persist failure          | Shipped                          |
-| Set-sync(true) consensus writes              | Shipped                          |
-| WASM sandbox (wasmtime, production-vetted)   | Inherited from wasmtime          |
-| Deterministic-feature-subset enforcement     | Shipped (deploy-time validator)  |
-| Host-function-level safety traps             | Designed; implementation in flight |
-| Reentrancy guard (default-on)                | Designed; runtime in flight      |
-| 1 MB witness size cap                         | Shipped                          |
-| Separate MAX_CALLDATA cap                    | Shipped                          |
-| Signed mempool commitments                   | Post-mainnet                     |
-| Algebraic batch FALCON verify                 | Post-mainnet                     |
-| Archive-node receipt store                   | Post-mainnet                     |
-| External audits (5 specialists)              | Pre-mainnet, Phase 8             |
+Pyde does not use one universal trust model.
 
-The next chapter covers developer tools: the `otigen` developer toolchain, the `pyde` node binary, the Rust and TypeScript SDKs, the WASM crypto bindings, and the JSON-RPC surface.
+Tier 1 protects sovereign state through authorized validators, quorum, and institutional controls.
+
+Tier 2 protects shared settlement state through open consensus, explicit pool authority, oracle rules, and atomic settlement semantics.
+
+Tier 3 protects permissionless public state through BFT consensus, deterministic execution, authenticated state, cryptography, and operational security.
+
+The three tier architecture is therefore part of the security model, not merely an organizational diagram.

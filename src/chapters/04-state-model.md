@@ -34,14 +34,14 @@ subtrees are not materialized.
 
 Why JMT over a fixed-depth Sparse Merkle Tree?
 
-| Property                | Fixed-depth SMT (256 levels) | JMT (radix-16, compressed) |
-| ----------------------- | ---------------------------- | -------------------------- |
-| Node hashes per update  | 256                          | depth-of-key (typ. 8 to 14)|
-| Empty subtree storage   | implicit (precomputed)       | implicit (no materialize)  |
-| Update batching         | per-key                      | bulk via `update_all`      |
-| Throughput (commits)    | baseline                     | ~40× faster                |
-| Proof size              | fixed (256 sibling hashes)   | variable (typ. 8 to 14)    |
-| Non-existence proofs    | empty leaf hash              | path divergence proof      |
+| Property               | Fixed-depth SMT (256 levels) | JMT (radix-16, compressed)  |
+| ---------------------- | ---------------------------- | --------------------------- |
+| Node hashes per update | 256                          | depth-of-key (typ. 8 to 14) |
+| Empty subtree storage  | implicit (precomputed)       | implicit (no materialize)   |
+| Update batching        | per-key                      | bulk via `update_all`       |
+| Throughput (commits)   | baseline                     | ~40× faster                 |
+| Proof size             | fixed (256 sibling hashes)   | variable (typ. 8 to 14)     |
+| Non-existence proofs   | empty leaf hash              | path divergence proof       |
 
 The headline number, 40× faster commits, was the deciding factor. JMT
 removes the per-key 256-Poseidon2 cost, replacing it with a path that follows
@@ -102,9 +102,10 @@ Pyde maintains state in **two RocksDB column families**, each optimized for a di
 
 The JMT alone can serve every read, but each read is `O(depth)`: typically 6-8 RocksDB gets to walk from root to leaf. For live execution at thousands of TPS, that's too expensive.
 
-`state_cf` keeps a flat denormalized index of the *current* value for every slot. A single get returns the value. PIP-2's clustered slot_hash layout keeps `state_cf` entries spatially clustered by contract, so range scans and multigets stay cheap.
+`state_cf` keeps a flat denormalized index of the _current_ value for every slot. A single get returns the value. PIP-2's clustered slot_hash layout keeps `state_cf` entries spatially clustered by contract, so range scans and multigets stay cheap.
 
 The JMT structure is still maintained alongside, because it's needed for:
+
 - **State-root computation**: hash up from leaves to root, deterministically, across all validators
 - **Merkle proofs**: light clients verify `(value, proof) → state_root` without holding full state
 - **Versioned reads**: archive nodes serve historical state by walking older JMT versions
@@ -115,7 +116,7 @@ The JMT structure is still maintained alongside, because it's needed for:
 fn read_slot(slot_hash) -> Option<Bytes>:
   1. dashmap.get(slot_hash)                ← PIP-4 in-memory cache (most live reads)
   2. state_cf.get(slot_hash)                ← ONE disk read (cache miss path)
-  
+
   Total: one disk get, sometimes amortized to zero.
 ```
 
@@ -129,9 +130,9 @@ fn commit_wave(dirty_changes: Vec<(SlotHash, Bytes)>):
        jmt.update(slot_hash, new_value, new_version)
          → JMT recomputes leaf_hash + internal hashes up the affected path
        state_cf.put(slot_hash, new_value)
-  
+
   2. new_state_root = jmt.root_hash(new_version)
-  
+
   3. Both writes happen in a single RocksDB WriteBatch (atomic).
 ```
 
@@ -141,11 +142,11 @@ The two tables stay in lockstep. They are never out of sync because every write 
 
 **Retention split:**
 
-| Node tier | `state_cf` | `jmt_cf` |
-|-----------|-----------|----------|
-| Pruned validator | Current state only | Latest version only (older GC'd) |
-| Archive node | Current state | All historical versions |
-| Light client | None | Just state_root from WaveCommitRecords |
+| Node tier        | `state_cf`         | `jmt_cf`                               |
+| ---------------- | ------------------ | -------------------------------------- |
+| Pruned validator | Current state only | Latest version only (older GC'd)       |
+| Archive node     | Current state      | All historical versions                |
+| Light client     | None               | Just state_root from WaveCommitRecords |
 
 ---
 
@@ -170,6 +171,7 @@ events_by_contract_cf (index)
 **Atomicity:** at every wave commit, the engine writes one RocksDB `WriteBatch` containing updates to `state_cf` + `jmt_cf` + `events_cf` + `events_by_topic_cf` + `events_by_contract_cf` + the wave commit record. Either all five land or none does.
 
 **On-chain commitment:** each wave commit record carries two summaries of the wave's events:
+
 - `events_root` (Blake3): binary Merkle tree over canonical-ordered events, suitable for inclusion proofs.
 - `events_bloom` (256-byte, 2048-bit, 3-hash): probabilistic summary for cheap "any event matching X in this wave?" checks.
 
@@ -177,12 +179,12 @@ Both are threshold-signed as part of the wave's `HardFinalityCert`, so light cli
 
 **Retention:**
 
-| Node tier | `events_cf` + indexes |
-|-----------|------------------------|
-| Archive node | All events, forever |
-| Pruned validator | Last 90 days |
-| Committee validator | Last 30 days |
-| Light client | None (verifies inclusion proofs against signed `events_root`) |
+| Node tier           | `events_cf` + indexes                                         |
+| ------------------- | ------------------------------------------------------------- |
+| Archive node        | All events, forever                                           |
+| Pruned validator    | Last 90 days                                                  |
+| Committee validator | Last 30 days                                                  |
+| Light client        | None (verifies inclusion proofs against signed `events_root`) |
 
 Pruning is in lockstep across all three event column families.
 
@@ -194,14 +196,14 @@ For query semantics (`pyde_getLogs`), subscriptions (`pyde_subscribe`), and the 
 
 ![One Jellyfish Merkle Tree hashed end-to-end with Blake3 for validators and light clients, with a parallel Poseidon2 root designed-in but currently disabled for future ZK consumers.](../assets/diagrams/ch04-dual-root-jmt.svg)
 
-*One Jellyfish Merkle Tree: Blake3 hashes the whole tree and the live state root; a parallel Poseidon2 root is designed-in for future ZK consumers but currently disabled (`POSEIDON2_STATE_ROOT_ENABLED = false`), so only the Blake3 root is carried and signed in every snapshot manifest today.*
+_One Jellyfish Merkle Tree: Blake3 hashes the whole tree and the live state root; a parallel Poseidon2 root is designed-in for future ZK consumers but currently disabled (`POSEIDON2_STATE_ROOT_ENABLED = false`), so only the Blake3 root is carried and signed in every snapshot manifest today._
 
 Pyde uses two hashes in different layers, chosen for what each is best at:
 
-| Hash       | Speed (commodity CPU) | ZK-friendly | Where used |
-|------------|----------------------|-------------|------------|
-| **Blake3** | ~3 GB/s              | No (huge circuit) | JMT nodes and the live state root, batch hashes, vertex hashes, gossip de-dup, RocksDB keys |
-| **Poseidon2** | ~60 MB/s          | Yes (small circuit) | Address derivation, storage-key derivation, FALCON sig hashing inside ZK circuits, threshold MAC (plus a designed-in-but-disabled state-root leg, `POSEIDON2_STATE_ROOT_ENABLED = false`) |
+| Hash          | Speed (commodity CPU) | ZK-friendly         | Where used                                                                                                                                                                                |
+| ------------- | --------------------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Blake3**    | ~3 GB/s               | No (huge circuit)   | JMT nodes and the live state root, batch hashes, vertex hashes, gossip de-dup, RocksDB keys                                                                                               |
+| **Poseidon2** | ~60 MB/s              | Yes (small circuit) | Address derivation, storage-key derivation, FALCON sig hashing inside ZK circuits, threshold MAC (plus a designed-in-but-disabled state-root leg, `POSEIDON2_STATE_ROOT_ENABLED = false`) |
 
 **The split rule:** the state tree and its live root, plus every hash that
 lives entirely off-chain or inside a trusted committee-signed structure, use
@@ -218,24 +220,24 @@ threshold MAC, the VRF, and the `poseidon2` WASM host function. It is **not**
 used for the JMT, whose nodes and root are Blake3. The parameter set (see
 Chapter 8 for full detail):
 
-| Parameter              | Value                              |
-| ---------------------- | ---------------------------------- |
-| Field                  | Goldilocks (`p = 2^64 - 2^32 + 1`) |
-| State width            | 8                                  |
-| Rate                   | 4 (256-bit absorb/squeeze)         |
-| Capacity               | 4                                  |
-| External rounds        | 8 (4 + 4)                          |
-| Internal rounds        | 22                                 |
-| S-box                  | `x^7`                              |
-| Output                 | 256 bits                           |
+| Parameter       | Value                              |
+| --------------- | ---------------------------------- |
+| Field           | Goldilocks (`p = 2^64 - 2^32 + 1`) |
+| State width     | 8                                  |
+| Rate            | 4 (256-bit absorb/squeeze)         |
+| Capacity        | 4                                  |
+| External rounds | 8 (4 + 4)                          |
+| Internal rounds | 22                                 |
+| S-box           | `x^7`                              |
+| Output          | 256 bits                           |
 
 The hash is exposed as three primitives:
 
-| Function                            | Use                                           |
-| ----------------------------------- | --------------------------------------------- |
-| `poseidon2_hash(bytes)`             | arbitrary input → 256-bit digest              |
-| `poseidon2_pair(left, right)`       | Merkle node hash (order-sensitive by design)  |
-| `poseidon2_many(&[Hash256])`        | sponge over a variable-length array of hashes |
+| Function                      | Use                                           |
+| ----------------------------- | --------------------------------------------- |
+| `poseidon2_hash(bytes)`       | arbitrary input → 256-bit digest              |
+| `poseidon2_pair(left, right)` | Merkle node hash (order-sensitive by design)  |
+| `poseidon2_many(&[Hash256])`  | sponge over a variable-length array of hashes |
 
 The `_pair` form is exposed for compatibility but JMT internal nodes use
 Blake3 (`blake3_pair`); Poseidon2's `_hash` form is what storage-key
@@ -315,24 +317,24 @@ Some discriminators currently in use (defined in
 `crates/tx/src/system_slots.rs`; the key derivation itself is
 `crates/state/src/slot_key.rs`):
 
-| Discriminator | Name                      | What it keys                                   |
-| ------------- | ------------------------- | ---------------------------------------------- |
-| 0x14          | `REWARDS_PER_STAKE_UNIT`  | Legacy accrual accumulator (inert in v1; pay is the per-epoch wage) |
-| 0x15          | `TOTAL_ACTIVE_STAKE_WEIGHTED` | Legacy pool denominator (inert in v1)      |
-| 0x16          | `TOTAL_BURNED`            | Cumulative fee burn counter                    |
-| 0x17          | `EPOCH_FEE_INFLOW`        | Reward-pool fee inflow since the last distribution |
-| 0x18          | `AIRDROP_ROOT`            | Genesis airdrop Merkle root                    |
-| 0x19          | `AIRDROP_DEADLINE`        | wave_id after which sweep is allowed           |
-| 0x1A          | `AIRDROP_CLAIMED`         | Per-leaf-index claim bitmap                    |
-| 0x1B          | `AIRDROP_EXPECTED_SUM`    | Genesis pool size invariant                    |
-| 0x1C          | `TOTAL_MINTED`            | Cumulative emission mint (mirror of `TOTAL_BURNED`) |
-| 0x1D          | `EPOCH_SEAT_ANCHORS`      | Per-seat committed anchor-leadership tally (payout weight) |
-| 0x26          | `NEXT_DISTRIBUTION_EPOCH` | Distributor idempotence guard                  |
-| 0x28          | `COMMITTEE_REGISTRY`      | member_id to operator map for the settled epoch |
-| 0xF0          | `MULTISIG_SIGNERS`        | Treasury multisig signer set (FALCON pks)      |
-| 0xF1          | `MULTISIG_THRESHOLD`      | Required signature count                       |
-| 0xF2          | `MULTISIG_NONCE`          | Replay-protection counter for multisig actions |
-| 0xF3          | `IS_PAUSED`               | Emergency-pause gate                           |
+| Discriminator | Name                          | What it keys                                                        |
+| ------------- | ----------------------------- | ------------------------------------------------------------------- |
+| 0x14          | `REWARDS_PER_STAKE_UNIT`      | Legacy accrual accumulator (inert in v1; pay is the per-epoch wage) |
+| 0x15          | `TOTAL_ACTIVE_STAKE_WEIGHTED` | Legacy pool denominator (inert in v1)                               |
+| 0x16          | `TOTAL_BURNED`                | Cumulative fee burn counter                                         |
+| 0x17          | `EPOCH_FEE_INFLOW`            | Reward-pool fee inflow since the last distribution                  |
+| 0x18          | `AIRDROP_ROOT`                | Genesis airdrop Merkle root                                         |
+| 0x19          | `AIRDROP_DEADLINE`            | wave_id after which sweep is allowed                                |
+| 0x1A          | `AIRDROP_CLAIMED`             | Per-leaf-index claim bitmap                                         |
+| 0x1B          | `AIRDROP_EXPECTED_SUM`        | Genesis pool size invariant                                         |
+| 0x1C          | `TOTAL_MINTED`                | Cumulative emission mint (mirror of `TOTAL_BURNED`)                 |
+| 0x1D          | `EPOCH_SEAT_ANCHORS`          | Per-seat committed anchor-leadership tally (payout weight)          |
+| 0x26          | `NEXT_DISTRIBUTION_EPOCH`     | Distributor idempotence guard                                       |
+| 0x28          | `COMMITTEE_REGISTRY`          | member_id to operator map for the settled epoch                     |
+| 0xF0          | `MULTISIG_SIGNERS`            | Treasury multisig signer set (FALCON pks)                           |
+| 0xF1          | `MULTISIG_THRESHOLD`          | Required signature count                                            |
+| 0xF2          | `MULTISIG_NONCE`              | Replay-protection counter for multisig actions                      |
+| 0xF3          | `IS_PAUSED`                   | Emergency-pause gate                                                |
 
 This flat scheme means a single Merkle path can prove any state claim: there
 is no nested account-trie / storage-trie indirection (the classic
@@ -392,9 +394,9 @@ The shape:
 - `proof`: a single batched Merkle proof covering all entries against
   `pre_state_root`. JMT supports batch verification, so the proof is
   asymptotically smaller than `len(entries)` independent paths.
-- `pre_state_root`: the state root *before* this wave executes (taken from
+- `pre_state_root`: the state root _before_ this wave executes (taken from
   the previous wave's header).
-- `post_state_root`: the state root *after* execution, set by
+- `post_state_root`: the state root _after_ execution, set by
   `set_post_state_root()` or `finalize_witness()` once the wave is executed.
 
 Critically, `post_state_root` is **not** auto-populated at witness generation
@@ -423,15 +425,15 @@ The JMT persists through RocksDB (`PersistentJmt`, with the
 Separation is by **column family**, not by key prefix; the registry of
 on-disk CF names is `crates/state/src/cf.rs`:
 
-| Column family      | Holds                                            |
-| ------------------ | ------------------------------------------------ |
-| `state_cf`         | Live flat state mirror, keyed by PIP-2 slot key  |
-| `jmt_cf`           | Versioned, proof-bearing JMT nodes               |
-| `code_cf`          | Deployed contract bytecode                       |
-| `wave_commits_cf`  | Committed wave records                           |
-| `receipts_cf`      | Transaction receipts, keyed by tx hash           |
-| `txs_cf`           | Transaction bodies                               |
-| `events_cf` + `events_by_topic_cf` + `events_by_contract_cf` | Emitted events and their lookup indexes |
+| Column family                                                | Holds                                           |
+| ------------------------------------------------------------ | ----------------------------------------------- |
+| `state_cf`                                                   | Live flat state mirror, keyed by PIP-2 slot key |
+| `jmt_cf`                                                     | Versioned, proof-bearing JMT nodes              |
+| `code_cf`                                                    | Deployed contract bytecode                      |
+| `wave_commits_cf`                                            | Committed wave records                          |
+| `receipts_cf`                                                | Transaction receipts, keyed by tx hash          |
+| `txs_cf`                                                     | Transaction bodies                              |
+| `events_cf` + `events_by_topic_cf` + `events_by_contract_cf` | Emitted events and their lookup indexes         |
 
 The CF-name strings are part of the on-disk schema: renaming one is a
 migration, not a refactor.
@@ -456,9 +458,7 @@ When a wave commits, the state pipeline runs in this order:
 2. **Prefetch** every `(addr, slot)` pair declared across the wave's tx access lists in one batched `state_cf.multi_get` (PIP-3). Returned values land in the dashmap (PIP-4) marked Clean. Access lists are prefetch hints only; they never partition the wave or affect correctness.
 3. **Execute** every tx in parallel via the [Block-STM scheduler](../companion/BLOCK_STM_EXECUTION.md): optimistic execute through an MVCC layer → validate against canonical tx_index order → cascade-invalidate + re-incarnate on conflict → fixpoint. The final state per slot is the highest-tx_index's last write.
 4. Apply the Block-STM finalize output to the batch as one ordered slot-write set.
-5. Distribute fees: 30% to the burn counter (`TOTAL_BURNED` discriminator),
-   50% to the epoch reward pool (paid out per epoch as the validator wage,
-   Chapter 14), 20% to the treasury account.
+5. For the current Tier 3 implementation, fee distribution is: 30% burn, 50% validator reward pool, and 20% treasury.
 6. Commit the batch with `update_all`. The new root is `post_state_root`.
 7. Set the WaveCommitRecord's `state_root` and emit the per-wave `WaveCommitInputs` for the wave-committer.
 
@@ -533,20 +533,20 @@ be globally agreed.
 
 ## 4.10 Summary
 
-| Component             | Choice                                                        |
-| --------------------- | ------------------------------------------------------------- |
-| Tree structure        | Jellyfish Merkle Tree (radix-16, path-compressed)             |
-| Internal-node hash    | Blake3 (high-volume, native)                                  |
-| State root            | Blake3 (live); Poseidon2 leg designed-in but disabled (`POSEIDON2_STATE_ROOT_ENABLED = false`) |
-| Address-derivation    | Poseidon2 (ZK exposure preserved)                             |
-| Storage layout        | Flat: single tree, discriminator bytes in keys                |
-| Address format        | 32 bytes, Poseidon2 of the FALCON-512 public key              |
-| Account record size   | 141 bytes fixed + variable `auth_keys`                        |
-| Storage keying        | `Poseidon2(addr, slot)` for values; doubled for maps          |
-| Witness format        | Single batched JMT proof + entries + pre/post roots           |
-| Witness size cap      | 1 MB (rejected at verification time)                          |
-| Persistence           | RocksDB with LRU node and value caches                        |
-| Per-wave commit cost  | ~40× faster commits than the prior fixed-depth SMT design     |
+| Component            | Choice                                                                                         |
+| -------------------- | ---------------------------------------------------------------------------------------------- |
+| Tree structure       | Jellyfish Merkle Tree (radix-16, path-compressed)                                              |
+| Internal-node hash   | Blake3 (high-volume, native)                                                                   |
+| State root           | Blake3 (live); Poseidon2 leg designed-in but disabled (`POSEIDON2_STATE_ROOT_ENABLED = false`) |
+| Address-derivation   | Poseidon2 (ZK exposure preserved)                                                              |
+| Storage layout       | Flat: single tree, discriminator bytes in keys                                                 |
+| Address format       | 32 bytes, Poseidon2 of the FALCON-512 public key                                               |
+| Account record size  | 141 bytes fixed + variable `auth_keys`                                                         |
+| Storage keying       | `Poseidon2(addr, slot)` for values; doubled for maps                                           |
+| Witness format       | Single batched JMT proof + entries + pre/post roots                                            |
+| Witness size cap     | 1 MB (rejected at verification time)                                                           |
+| Persistence          | RocksDB with LRU node and value caches                                                         |
+| Per-wave commit cost | ~40× faster commits than the prior fixed-depth SMT design                                      |
 
 The next chapter covers the developer toolchain (`otigen`) that sits on top
 of this state model: how a contract's `[state]` declaration in `otigen.toml`

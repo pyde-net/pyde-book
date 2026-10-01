@@ -3,7 +3,7 @@ authors = ["zarah <zarah@pyde.network>"]
 language = "en"
 src = "src"
 title = "The Pyde Book"
-description = "Comprehensive technical reference for the Pyde blockchain protocol"
+description = "Technical reference for Pyde, distributed ledger infrastructure for a connected global economy."
 
 [build]
 build-dir = "book"

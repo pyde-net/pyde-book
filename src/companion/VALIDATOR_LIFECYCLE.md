@@ -29,21 +29,21 @@ Side states (from any active state):
 
 ## Parameters
 
-| Parameter | Value | Notes |
-|---|---|---|
-| `MIN_VALIDATOR_STAKE` | 10,000 PYDE | Single-tier minimum; any validator meeting this threshold enters the eligible pool for uniform-random committee selection |
-| `MAX_VALIDATORS_PER_OPERATOR` (cap) | 3 | Anti-Sybil; enforced on operator identity, not stake |
-| `BONDING_PERIOD` | 1 epoch (~3 hours) | Time from registration to active eligibility |
-| `UNBONDING_PERIOD` | 30 days | Long enough for safety evidence to surface |
-| `EVIDENCE_FRESHNESS_SAFETY` | 21 days | Must be < unbonding period |
-| `EVIDENCE_FRESHNESS_LIVENESS` | 1 epoch | Real-time only |
-| `KEY_ROTATION_INTERVAL` | Max once per epoch | Prevents rotation abuse |
-| `JAIL_PERIOD_1ST` | 24 hours | First jail |
-| `JAIL_PERIOD_2ND` | 7 days | Within 30 days of first |
-| `JAIL_3RD` | Permanent | 3rd jail = permanent removal |
-| `UNJAIL_FEE` | 10 PYDE | Anti-griefing |
-| `SLASHING_ESCROW` | 24 hours | Dispute window before slash finalizes |
-| `NEW_VALIDATOR_GRACE_EPOCHS` | 1 | 50% reduced slashing in first epoch |
+| Parameter                           | Value              | Notes                                                                                                                     |
+| ----------------------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| `MIN_VALIDATOR_STAKE`               | 10,000 PYDE        | Single-tier minimum; any validator meeting this threshold enters the eligible pool for uniform-random committee selection |
+| `MAX_VALIDATORS_PER_OPERATOR` (cap) | 3                  | Anti-Sybil; enforced on operator identity, not stake                                                                      |
+| `BONDING_PERIOD`                    | 1 epoch (~3 hours) | Time from registration to active eligibility                                                                              |
+| `UNBONDING_PERIOD`                  | 30 days            | Long enough for safety evidence to surface                                                                                |
+| `EVIDENCE_FRESHNESS_SAFETY`         | 21 days            | Must be < unbonding period                                                                                                |
+| `EVIDENCE_FRESHNESS_LIVENESS`       | 1 epoch            | Real-time only                                                                                                            |
+| `KEY_ROTATION_INTERVAL`             | Max once per epoch | Prevents rotation abuse                                                                                                   |
+| `JAIL_PERIOD_1ST`                   | 24 hours           | First jail                                                                                                                |
+| `JAIL_PERIOD_2ND`                   | 7 days             | Within 30 days of first                                                                                                   |
+| `JAIL_3RD`                          | Permanent          | 3rd jail = permanent removal                                                                                              |
+| `UNJAIL_FEE`                        | 10 PYDE            | Anti-griefing                                                                                                             |
+| `SLASHING_ESCROW`                   | 24 hours           | Dispute window before slash finalizes                                                                                     |
+| `NEW_VALIDATOR_GRACE_EPOCHS`        | 1                  | 50% reduced slashing in first epoch                                                                                       |
 
 > **Pseudocode convention.** Where this document writes `MIN_STAKE` in
 > pseudocode below, it refers to `MIN_VALIDATOR_STAKE` (10,000 PYDE),
@@ -236,10 +236,10 @@ Escalating bond for additional validators registered under the same
 operator identity:
 
 | Validator slot | Required stake |
-|---|---|
-| 1st | 10,000 PYDE |
-| 2nd | 10,000 PYDE |
-| 3rd | 20,000 PYDE |
+| -------------- | -------------- |
+| 1st            | 10,000 PYDE    |
+| 2nd            | 10,000 PYDE    |
+| 3rd            | 20,000 PYDE    |
 
 Reduces ROI on heavy concentration. Tracked as post-mainnet hardening;
 not in scope for v1.
@@ -248,7 +248,7 @@ not in scope for v1.
 
 ```python
 # At end of epoch N, derive committee for epoch N+1:
-eligible = [v for v in all_validators if v.stake >= MIN_STAKE 
+eligible = [v for v in all_validators if v.stake >= MIN_STAKE
             and not v.jailed
             and v.grace_period_passed]
 
@@ -260,6 +260,7 @@ for slot in 0..128:
 ```
 
 **Selection is uniform random within eligible pool.** Stake influences only:
+
 - Probability of being eligible (must meet MIN_STAKE)
 - Proportion of flat 30% stake-pool yield
 

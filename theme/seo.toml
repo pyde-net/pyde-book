@@ -19,7 +19,7 @@
 
 [default]
 title = "The Pyde Book"
-description = "Comprehensive technical reference for the Pyde blockchain protocol — post-quantum cryptography (FALCON-512, Kyber-768, Poseidon2 + Blake3), Mysticeti DAG consensus, WebAssembly execution via wasmtime, and structural MEV protection."
+description = "Technical reference for Pyde, distributed ledger infrastructure for a connected global economy, spanning sovereign networks, open settlement, and a permissionless public network."
 image = "https://book.pyde.network/assets/og-1200x630.png"
 
 # ── Top-level sections ───────────────────────────────────────────
@@ -30,19 +30,19 @@ description = "Onboarding for Pyde: what it is, why it exists, and how to start 
 
 [sections."chapters"]
 title = "Pyde — Core Protocol"
-description = "The Pyde core protocol: execution layer (WebAssembly via wasmtime), state model, Mysticeti DAG consensus, post-quantum cryptography, MEV protection, gas + tokenomics, governance, accounts, and networking."
+description = "The Pyde protocol foundation: execution, state, consensus, cryptography, MEV protection, fees, accounts, networking, governance, settlement, and security."
 
 [sections."otigen"]
 title = "Otigen — Pyde's Smart Contract Toolchain"
 description = "Otigen is Pyde's WebAssembly-targeted smart contract toolchain. Compile Pyde contracts in any wasm32-compatible language (Rust, AssemblyScript, TinyGo); deploy via the otigen CLI; standard ABI per HOST_FN_ABI v1.0."
 
 [sections."companion"]
-title = "Pyde — Authoritative Spec Documents"
-description = "Frozen authoritative specs for Pyde: HOST_FN_ABI v1.0, PIPs (Pyde Improvement Proposals), validator lifecycle, slashing rules, state sync protocol, chain halt + recovery, network protocol specifics."
+title = "Pyde — Protocol Specifications"
+description = "Detailed Pyde specifications covering execution, settlement, security, validator operations, the Otigen toolchain, and optional Tier 3 extensions including parachains."
 
 [sections."pivot"]
 title = "Pyde — Historical Design References"
-description = "Archived design decisions from Pyde's pre-pivot era: the HotStuff consensus model + the Otigen domain-specific language that were superseded by Mysticeti DAG consensus and the WASM-targeted toolchain."
+description = "Historical Pyde design records covering the HotStuff consensus era, original Otigen language era, and earlier protocol experiments."
 
 # ── Specific overrides for cross-section pages ───────────────────
 #

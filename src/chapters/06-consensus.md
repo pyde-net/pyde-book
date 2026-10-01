@@ -12,21 +12,22 @@ Pyde's previous architecture used a modified pipelined HotStuff with VRF propose
 
 The DAG approach removes the fragile parts:
 
-| Problem in HotStuff | DAG resolution |
-|---|---|
-| Single proposer bottleneck | No proposer; every member contributes |
-| View change protocol complexity | No view changes; eliminated entire failure class |
-| Timing-driven slot pipeline | Data-driven rounds advance with quorum, not clock |
-| Proposer can censor selectively | 127 honest can include; censorship requires near-unanimous |
-| Proposer can extract MEV | No single party reorders; order emerges from DAG |
-| Throughput limited by leader bandwidth | Scales with committee size |
-| HotStuff bugs cluster in view-change code | DAG doesn't have view-change code |
+| Problem in HotStuff                       | DAG resolution                                             |
+| ----------------------------------------- | ---------------------------------------------------------- |
+| Single proposer bottleneck                | No proposer; every member contributes                      |
+| View change protocol complexity           | No view changes; eliminated entire failure class           |
+| Timing-driven slot pipeline               | Data-driven rounds advance with quorum, not clock          |
+| Proposer can censor selectively           | 127 honest can include; censorship requires near-unanimous |
+| Proposer can extract MEV                  | No single party reorders; order emerges from DAG           |
+| Throughput limited by leader bandwidth    | Scales with committee size                                 |
+| HotStuff bugs cluster in view-change code | DAG doesn't have view-change code                          |
 
 The same lab/laptop devnet that hit ~4K TPS under pre-pivot HotStuff is the baseline against which DAG performance will be measured. The v1 honest throughput target (to be established by the multi-region performance harness) covers both the plaintext path and the commit-reveal mempool path (Chapter 9) under production-realistic conditions.
 
 ## 2. Worker / Primary Split (Narwhal Pattern)
 
 Each validator runs:
+
 - **Workers (1 or more processes):** handle high-volume transaction ingress, build batches, gossip batches peer-to-peer
 - **Primary (1 process per validator):** handles consensus: produces vertices, gathers parents, signs state roots
 
@@ -64,6 +65,7 @@ struct Vertex {
 ```
 
 Three categories of references in a vertex:
+
 - **batch_refs:** point to data (batch blobs in worker storage)
 - **parent_vertex_refs:** point to consensus structure (prior round's vertices)
 - **state_root_sigs + prev_anchor_attestation:** point to consensus output (recent commits)
@@ -73,6 +75,7 @@ A vertex is dual-role: **header** (declaring what data I have) AND **attestation
 ### Vertex Size
 
 Compact-encoded (parent refs as bitmap, hash truncation):
+
 - Minimal: ~830 bytes
 - Heavy (50 batches + 5 sigs + state-root attestations): ~25 KB
 - Hard limit: 64 KB
@@ -105,11 +108,13 @@ anchor_member_id = Hash(beacon, round, prev_state_root) mod 128
 ```
 
 Components:
+
 - **beacon:** epoch-scoped randomness, published in last wave of prior epoch
 - **round:** current round number
 - **prev_state_root:** state root from N=3 rounds ago (limits anchor predictability to ~450ms)
 
 Properties:
+
 - **Deterministic:** every honest validator computes the same answer
 - **Unpredictable:** depends on state root that wasn't known until recently
 - **No single proposer authority:** anchor doesn't propose, it's just a starting point for the subdag walk
@@ -122,6 +127,7 @@ The distinction matters because the two terms diverge under skips:
 - **Wave** = a successful commit. Wave IDs only increment when an anchor commits. Wave IDs are **sparse** when rounds skip.
 
 If round 5's anchor (`Hash(beacon, 5, prev_state_root) mod 128 = validator 88`) is missing:
+
 - Round 5 still happens. The other 127 validators produce their round-5 vertices.
 - No wave commits for round 5.
 - Round 6 happens; its anchor is a **different** validator (probably).
@@ -153,7 +159,7 @@ Validator's local processing:
   Hits a missing vertex V_x referenced by some V in the subdag.
 
   Issues fetch request: get_vertex(V_x_hash) to up-to-8 peers in parallel.
-  
+
   Outcome 1 (typical, ~99.9% of cases):
     A peer responds within <500ms with V_x.
     Validator verifies V_x's FALCON sig, places it in local DAG.
@@ -191,7 +197,7 @@ At round 16's commit (wave 7):
     - ...continue back through rounds 14, 13, 12, 11
     - round-11 vertices' parents = 86+ round-10 vertices ← STOP
                                     (these were committed in wave 6)
-  
+
   Subdag = vertices from rounds 11, 12, 13, 14, 15, 16
          ≈ 6 × 128 = 768 vertices total
 
@@ -207,6 +213,7 @@ At round 16's commit (wave 7):
 The wave commit record carries both state and events summaries; both are threshold-signed in the `HardFinalityCert` so light clients verify event inclusion identically to state. Full structure + indexing mechanics: [Host Function ABI Spec §15.2](../companion/HOST_FN_ABI_SPEC.md).
 
 Properties:
+
 - **Zero tx loss.** Every vertex produced eventually commits.
 - **Bounded latency cost.** Each skip adds ~150-300ms to confirmation time.
 - **No special "catch up" code.** The standard subdag-walk handles it. The BFS just walks more rounds when there's a wider gap.
@@ -217,7 +224,7 @@ Properties:
 
 ![The commit rule: rounds of DAG vertices, a deterministically selected anchor, a subdag walk into canonical order, execution, and quorum certification into wave finality.](../assets/diagrams/ch06-commit-rule.svg)
 
-*A wave is a successful commit: the round's deterministically selected anchor pins a subdag, execution runs in canonical order, and at least 86 of 128 committee members certify the same state root.*
+_A wave is a successful commit: the round's deterministically selected anchor pins a subdag, execution runs in canonical order, and at least 86 of 128 committee members certify the same state root._
 
 When the anchor vertex collects sufficient support from later rounds (Mysticeti 3-stage support), a commit fires:
 
@@ -284,6 +291,7 @@ Rewards are **contribution-weighted, not stake-weighted**: the per-epoch wage sp
 ## 8. BFT Properties
 
 For n=128 validators:
+
 - `f = ⌊(n-1)/3⌋ = 42` (maximum Byzantine)
 - `quorum = ⌊(n+f)/2⌋ + 1 = 86` (commit / vertex cert / state-root finality)
 
@@ -292,6 +300,7 @@ For n=128 validators:
 The quorum is **adaptive**: a committee smaller than 128 uses the same formula rather than the constant (n=4 → 3, n=7 → 5 for the launch committee, n=128 → 86).
 
 The number 86 appears throughout the consensus path:
+
 - Vertex certification (parent refs in next round)
 - Commit support
 - State root signatures
@@ -321,6 +330,7 @@ Each epoch's beacon is produced by the **previous** epoch's committee. The beaco
 ```
 
 Properties of the target design:
+
 - **Deterministic** given any 86 of 128 shares (Lagrange invariance: same aggregated sig regardless of which 86 contribute)
 - **Unpredictable** until ≥86 shares combine (no single party knows it)
 - **Bias-resistant:** shares determined by DKG-derived keys, no individual member can grind by choosing whether to participate; the aggregated output doesn't depend on subset selection
@@ -339,7 +349,7 @@ Properties of the target design:
 
 The v1 approximation deviates from the target design in two ways:
 
-- **Subset disagreement is structurally possible** because the hash depends on *which* 86 shares are included, not just *that* 86 contributed. v1 fixes this by hardcoding a canonical-subset rule (`combine` MUST use exactly the lowest-`member_id` 86 shares) so every validator deterministically agrees on the same 86.
+- **Subset disagreement is structurally possible** because the hash depends on _which_ 86 shares are included, not just _that_ 86 contributed. v1 fixes this by hardcoding a canonical-subset rule (`combine` MUST use exactly the lowest-`member_id` 86 shares) so every validator deterministically agrees on the same 86.
 - **Last-signer grinding bias** (~1 bit per epoch): a member who signs late sees prior shares and could compute `beacon_if_I_sign` vs `beacon_if_I_withhold`. Bounded by the `prev_beacon` hash-chain (compounds against the adversary across epochs) and by the ≥86 honest sigs always inside the hash. Full elimination waits for true threshold sigs.
 
 When `pyde-crypto` ships threshold-FALCON or an equivalent post-quantum threshold-sig primitive, the `BeaconScheme` trait swaps cleanly to the target design without consensus-side changes.
@@ -363,7 +373,7 @@ EPOCH BOUNDARY (T=3hr):
 
 Committee selection needs only the beacon and each validator's own VRF, so the handover has **no cryptographic dependency that can stall it**. Beacon production in v1 uses each member's individual FALCON `BeaconKeypair` (distinct from the consensus FALCON keypair); it does not depend on any distributed key setup.
 
-> **Historical note.** Earlier drafts ran a Pedersen DKG here to produce a per-epoch threshold *decryption* key for an encrypted mempool. That mechanism has been removed from the protocol: trustless post-quantum threshold key generation is research-blocked (lattice public keys do not combine homomorphically the way BLS does, and there is no trustless DKG for ML-KEM). The keyless commit-reveal design (Chapter 9) needs no such key. A one-shot ciphertext lane remains a v2+ research direction ([Chapter 20](./20-future-direction.md)).
+> **Historical note.** Earlier drafts ran a Pedersen DKG here to produce a per-epoch threshold _decryption_ key for an encrypted mempool. That mechanism has been removed from the protocol: trustless post-quantum threshold key generation is research-blocked (lattice public keys do not combine homomorphically the way BLS does, and there is no trustless DKG for ML-KEM). The keyless commit-reveal design (Chapter 9) needs no such key. A one-shot ciphertext lane remains a v2+ research direction.
 
 ## 11. Commit-Reveal Mempool Resolution
 
@@ -379,7 +389,7 @@ Both primitives are already post-quantum: Blake3 for the commitment, FALCON for 
 
 Because resolution is deterministic bookkeeping (match reveals to open commits, splice into commit order), it adds only a few milliseconds of post-commit work per wave. No shares propagate ahead of the commit and there is no ceremony to pipeline.
 
-> **Future work.** A one-shot ciphertext ("Threshold-LWE") lane, an *optional* encrypted-mempool alternative alongside the keyless commit-reveal default and gated on a trustless PQ threshold-keygen breakthrough, is a v2+ research direction documented in [Chapter 20](./20-future-direction.md). It is not part of the shipping protocol.
+> **Future work.** A one-shot ciphertext ("Threshold-LWE") lane, an _optional_ encrypted-mempool alternative alongside the keyless commit-reveal default and gated on a trustless PQ threshold-keygen breakthrough, is a v2+ research direction. It is not part of the shipping protocol.
 
 ## 12. State Root Attestation
 
@@ -395,6 +405,7 @@ struct StateRootSig {
 ```
 
 Sigs piggyback on next-round vertices. Finality requires:
+
 - ≥86 sigs
 - All attesting the same root hash
 - All FALCON sigs verify
@@ -405,11 +416,11 @@ If sigs attest different roots → fork detected → hard halt (see CHAIN_HALT.m
 
 Three types of halts:
 
-| Type | Trigger | Authority |
-|---|---|---|
-| Soft stall | Network / quorum issues | Emergent |
-| Hard halt | Contradictory state roots, equivocation cluster, DAG fork | Protocol-detected automatic |
-| Emergency halt | Off-chain bug report, active exploit | Governance multisig (7-of-12) |
+| Type           | Trigger                                                   | Authority                     |
+| -------------- | --------------------------------------------------------- | ----------------------------- |
+| Soft stall     | Network / quorum issues                                   | Emergent                      |
+| Hard halt      | Contradictory state roots, equivocation cluster, DAG fork | Protocol-detected automatic   |
+| Emergency halt | Off-chain bug report, active exploit                      | Governance multisig (7-of-12) |
 
 See [CHAIN_HALT.md](../companion/CHAIN_HALT.md) for full halt + recovery procedures. Rollback is bounded to 1 epoch (~3 hours): operational flexibility without arbitrary commit reversibility.
 
@@ -431,16 +442,16 @@ The chain self-heals from any subset failure that maintains ≥86 functional val
 
 ## 16. Comparison
 
-| Property | HotStuff (pre-pivot) | Mysticeti DAG (current) |
-|---|---|---|
-| Slot/round timing | 400ms clock | Data-driven (~150ms/round) |
-| Proposer model | Single per slot (VRF) | None |
-| View changes | Yes (cascade-prone) | None |
-| Finality | ~1s+ (chained QCs) | ~500ms (per-round) |
-| Throughput ceiling | Leader bandwidth | Committee parallelism |
-| Censorship resistance | Proposer-dependent | 127-of-128 can include |
-| MEV resistance | Proposer + threshold-enc (planned, never shipped) | Structural (no proposer) + keyless commit-reveal (Ch 9) |
-| Liveness under failure | View-change cascades | Graceful (lag, no halt) |
+| Property               | HotStuff (pre-pivot)                              | Mysticeti DAG (current)                                 |
+| ---------------------- | ------------------------------------------------- | ------------------------------------------------------- |
+| Slot/round timing      | 400ms clock                                       | Data-driven (~150ms/round)                              |
+| Proposer model         | Single per slot (VRF)                             | None                                                    |
+| View changes           | Yes (cascade-prone)                               | None                                                    |
+| Finality               | ~1s+ (chained QCs)                                | ~500ms (per-round)                                      |
+| Throughput ceiling     | Leader bandwidth                                  | Committee parallelism                                   |
+| Censorship resistance  | Proposer-dependent                                | 127-of-128 can include                                  |
+| MEV resistance         | Proposer + threshold-enc (planned, never shipped) | Structural (no proposer) + keyless commit-reveal (Ch 9) |
+| Liveness under failure | View-change cascades                              | Graceful (lag, no halt)                                 |
 
 ## 17. Implementation Status
 

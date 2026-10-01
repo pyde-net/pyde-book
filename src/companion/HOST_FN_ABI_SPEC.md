@@ -47,7 +47,7 @@ Example: `0x0001_0000` = ABI v1.0.
 
 ### 2.2 Compatibility rules
 
-- **Major version bump (v1 → v2)**: breaking change. *Not permitted post-mainnet.* If a future protocol upgrade fundamentally re-shapes the ABI, it ships as v2 alongside v1; the engine supports both forever; old contracts continue to execute under v1 semantics. Major bumps cost the network a hard fork.
+- **Major version bump (v1 → v2)**: breaking change. _Not permitted post-mainnet._ If a future protocol upgrade fundamentally re-shapes the ABI, it ships as v2 alongside v1; the engine supports both forever; old contracts continue to execute under v1 semantics. Major bumps cost the network a hard fork.
 
 - **Minor version bump (v1.0 → v1.1)**: backwards-compatible addition. New host functions may be added. Existing function signatures, semantics, gas costs, and error codes are **frozen**. Old contracts continue to execute without re-deployment.
 
@@ -57,7 +57,7 @@ Example: `0x0001_0000` = ABI v1.0.
 
 > **Worked example.** The `pyde::debug_log` test-only host fn (§9.3) is a canonical backwards-compatible minor bump: one new function added (in the test runner's allowlist; rejected on chain), no existing signature touched, no gas / error-code redefinition. Old contracts that don't import it are unaffected; new contracts get the printf-debug capability during development.
 
-### 2.3 What does *not* count as a breaking change
+### 2.3 What does _not_ count as a breaking change
 
 - Bug fixes in the engine's implementation that bring observed behavior into compliance with this spec
 - Performance improvements that do not change observable semantics
@@ -121,25 +121,25 @@ Parachain-only host functions are also registered under `pyde`; they are gated a
 
 Pyde host functions pass data across the WASM ⇄ host boundary using **i32 byte-pointers into WASM linear memory** plus **i32 lengths** for variable-length data. The conventions are:
 
-| Pattern | Use |
-|---|---|
-| `ptr: i32, len: i32` | Caller-allocated input buffer of known length |
-| `ptr: i32` (no length) | Caller-allocated input buffer of fixed length (e.g., 32-byte hash, 32-byte address, 16-byte u128) |
-| `out_ptr: i32` (no length) | Caller-allocated output buffer of fixed length; host writes exactly that many bytes |
+| Pattern                          | Use                                                                                                  |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `ptr: i32, len: i32`             | Caller-allocated input buffer of known length                                                        |
+| `ptr: i32` (no length)           | Caller-allocated input buffer of fixed length (e.g., 32-byte hash, 32-byte address, 16-byte u128)    |
+| `out_ptr: i32` (no length)       | Caller-allocated output buffer of fixed length; host writes exactly that many bytes                  |
 | `out_ptr: i32, out_len_ptr: i32` | Caller-allocated output buffer + a separate i32 pointer where the host writes the actual length used |
 
 All multi-byte integers are **little-endian** (matching WASM linear memory's native byte order).
 
 Fixed sizes used by the ABI:
 
-| Type | Size (bytes) |
-|---|---|
-| Address | 32 |
-| Slot hash | 32 |
-| Hash output (Blake3, Poseidon2, Keccak256) | 32 |
-| u128 (balance, value, amount) | 16 |
-| u64 (wave id, chain id, timestamp) | 8 |
-| u32 (gas, length, counter) | 4 |
+| Type                                       | Size (bytes) |
+| ------------------------------------------ | ------------ |
+| Address                                    | 32           |
+| Slot hash                                  | 32           |
+| Hash output (Blake3, Poseidon2, Keccak256) | 32           |
+| u128 (balance, value, amount)              | 16           |
+| u64 (wave id, chain id, timestamp)         | 8            |
+| u32 (gas, length, counter)                 | 4            |
 
 ### 3.3 Return values
 
@@ -153,15 +153,15 @@ Functions that conceptually return data (e.g., `balance()`) write the data to a 
 
 Convention summary:
 
-| Return shape | Function category |
-|---|---|
-| `-> i32` (error code only) | Mutating ops without return data (`transfer`, `emit_event`). Returns `0` for success; reserved slot lets v2 carry information (event ordinal, byte count, etc.) without a hard fork. |
-| `-> ()` (no return) | Mutating ops that trap on failure (`sstore`, `sdelete`) |
-| `-> i32` + writes to out_ptr | Returns fixed-size data (`caller`, `balance`): writes a known byte width into `out_ptr` |
-| `-> i32` (actual_len) + writes to out_ptr (up to `out_max_len`) | **Variable-size storage reads** (`sload`): caller passes a max length, host writes `min(actual, max)` and returns the true length. `-1` for missing. |
-| `-> i32` + writes to out_ptr + out_len_ptr | Returns variable-size data with separate length out-param (`calldata_copy`, `parachain_storage_read`) |
-| `-> i64` | Returns a single u64/i64 scalar (`wave_id`, `wave_timestamp`) |
-| `(never returns)` | Halt operations (`return`, `revert`) trap to end execution |
+| Return shape                                                    | Function category                                                                                                                                                                    |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `-> i32` (error code only)                                      | Mutating ops without return data (`transfer`, `emit_event`). Returns `0` for success; reserved slot lets v2 carry information (event ordinal, byte count, etc.) without a hard fork. |
+| `-> ()` (no return)                                             | Mutating ops that trap on failure (`sstore`, `sdelete`)                                                                                                                              |
+| `-> i32` + writes to out_ptr                                    | Returns fixed-size data (`caller`, `balance`): writes a known byte width into `out_ptr`                                                                                              |
+| `-> i32` (actual_len) + writes to out_ptr (up to `out_max_len`) | **Variable-size storage reads** (`sload`): caller passes a max length, host writes `min(actual, max)` and returns the true length. `-1` for missing.                                 |
+| `-> i32` + writes to out_ptr + out_len_ptr                      | Returns variable-size data with separate length out-param (`calldata_copy`, `parachain_storage_read`)                                                                                |
+| `-> i64`                                                        | Returns a single u64/i64 scalar (`wave_id`, `wave_timestamp`)                                                                                                                        |
+| `(never returns)`                                               | Halt operations (`return`, `revert`) trap to end execution                                                                                                                           |
 
 ### 3.4 Memory safety
 
@@ -175,16 +175,16 @@ WebAssembly itself has no concept of `view`/`payable`/`reentrant`/etc. Those are
 
 The attribute set:
 
-| Attribute | Meaning | Enforced by |
-|---|---|---|
-| `view` | Function must not modify state, transfer value, or emit events | Engine sets `view_mode` flag on `HostState`; `sstore`/`sdelete`/`transfer`/`emit_event` return `ERR_FORBIDDEN` while flag is set |
-| `payable` | Function accepts attached PYDE value (tx.value > 0). Non-payable functions reject value transfers | Engine checks attribute before call; returns `ERR_VALUE_TRANSFER_NOT_PAYABLE` if `value > 0` and attribute absent |
-| `reentrant` | Function opts in to being called while already on the call stack. Default is non-reentrant | Engine tracks `(contract_addr, fn_name)` active set; rejects re-entry of non-`reentrant` fn with `ERR_REENTRANCY_BLOCKED` |
-| `sponsored` | Gas costs charged to the contract's gas tank instead of the caller | Engine routes gas accounting to contract's tank balance before invocation |
-| `constructor` | Callable only at contract deploy time. Subsequent calls are rejected | Deploy validator allows; engine rejects post-deploy with `ERR_CONSTRUCTOR_REENTRANT` (re-using the reentrancy code is incorrect; treat constructor lockout as a distinct conceptual error category in implementation) |
-| `fallback` | Invoked when a call's function name matches no declared function. At most one per contract. Like every other entry, its WASM signature is `() -> ()` (§3.0); it reads the full unparsed calldata via `calldata_copy`. Default if absent: unmatched name returns `ERR_INVALID_FUNCTION_NAME` | Engine dispatches to fallback after name-table miss |
-| `receive` | Invoked on bare PYDE transfers (no selector, value > 0). At most one per contract. Function takes no arguments. **Must also be `payable`** (otherwise it would reject the value it's meant to accept). Default if absent: bare value transfers return `ERR_VALUE_TRANSFER_NOT_PAYABLE` | Engine dispatches to receive on bare-value tx |
-| `entry` | Declares the function is callable from outside the contract (top-level tx or cross_call). Required for any function not marked with another dispatch attribute (constructor, fallback, receive). Internal helpers omit this and are not exposed | Deploy validator strips non-`entry` non-dispatch fns from the public selector table |
+| Attribute     | Meaning                                                                                                                                                                                                                                                                                     | Enforced by                                                                                                                                                                                                           |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `view`        | Function must not modify state, transfer value, or emit events                                                                                                                                                                                                                              | Engine sets `view_mode` flag on `HostState`; `sstore`/`sdelete`/`transfer`/`emit_event` return `ERR_FORBIDDEN` while flag is set                                                                                      |
+| `payable`     | Function accepts attached PYDE value (tx.value > 0). Non-payable functions reject value transfers                                                                                                                                                                                           | Engine checks attribute before call; returns `ERR_VALUE_TRANSFER_NOT_PAYABLE` if `value > 0` and attribute absent                                                                                                     |
+| `reentrant`   | Function opts in to being called while already on the call stack. Default is non-reentrant                                                                                                                                                                                                  | Engine tracks `(contract_addr, fn_name)` active set; rejects re-entry of non-`reentrant` fn with `ERR_REENTRANCY_BLOCKED`                                                                                             |
+| `sponsored`   | Gas costs charged to the contract's gas tank instead of the caller                                                                                                                                                                                                                          | Engine routes gas accounting to contract's tank balance before invocation                                                                                                                                             |
+| `constructor` | Callable only at contract deploy time. Subsequent calls are rejected                                                                                                                                                                                                                        | Deploy validator allows; engine rejects post-deploy with `ERR_CONSTRUCTOR_REENTRANT` (re-using the reentrancy code is incorrect; treat constructor lockout as a distinct conceptual error category in implementation) |
+| `fallback`    | Invoked when a call's function name matches no declared function. At most one per contract. Like every other entry, its WASM signature is `() -> ()` (§3.0); it reads the full unparsed calldata via `calldata_copy`. Default if absent: unmatched name returns `ERR_INVALID_FUNCTION_NAME` | Engine dispatches to fallback after name-table miss                                                                                                                                                                   |
+| `receive`     | Invoked on bare PYDE transfers (no selector, value > 0). At most one per contract. Function takes no arguments. **Must also be `payable`** (otherwise it would reject the value it's meant to accept). Default if absent: bare value transfers return `ERR_VALUE_TRANSFER_NOT_PAYABLE`      | Engine dispatches to receive on bare-value tx                                                                                                                                                                         |
+| `entry`       | Declares the function is callable from outside the contract (top-level tx or cross_call). Required for any function not marked with another dispatch attribute (constructor, fallback, receive). Internal helpers omit this and are not exposed                                             | Deploy validator strips non-`entry` non-dispatch fns from the public selector table                                                                                                                                   |
 
 **Storage:** the attribute bitfield is part of the `pyde.abi` custom section (§3.7), not the WASM bytecode. The same `.wasm` would behave identically regardless of attributes: the engine wraps every call with attribute-driven pre-checks.
 
@@ -192,25 +192,25 @@ The attribute set:
 
 Some combinations are nonsensical or unsafe. The build (`otigen build`) and the deploy validator BOTH check these. Defense in depth: an author might hand-edit the `pyde.abi` section to bypass the build check, but the deploy validator catches it.
 
-| Combination | Status | Reason |
-|---|---|---|
-| `view` + `payable` | ❌ Rejected | View = no state changes; payable = receives value (state change) |
-| `view` + `constructor` | ❌ Rejected | Constructors initialise state; view can't |
-| `view` + `reentrant` | ❌ Rejected | Views are inherently reentrant (they make no state changes there's no guard to opt out of); the attribute is meaningless on a view |
-| `view` + `sponsored` | ❌ Rejected | Views are FREE (§7.8); sponsoring zero gas is meaningless |
-| `view` + `fallback` | ❌ Rejected | Fallback is the catch-all dispatch; restricting it to read-only is a footgun: authors expect to be able to do anything in a fallback |
-| `view` + `receive` | ❌ Rejected | Receive accepts value; view can't accept value |
-| `payable` + `constructor` | ✅ Allowed | Constructors can initialise with funds |
-| `payable` + `reentrant` | ⚠️ Warning, allowed | DAO-attack pattern. Build emits warning; deploy accepts |
-| `payable` + `fallback` | ✅ Allowed | Generic handler that also accepts value |
-| `constructor` + `reentrant` | ❌ Rejected | Constructors are deploy-only; can't be re-entered |
-| `constructor` + `sponsored` | ❌ Rejected | No gas tank exists at deploy time |
-| `constructor` + `fallback` | ❌ Rejected | Distinct call shapes; constructor is deploy-time, fallback is run-time |
-| `constructor` + `receive` | ❌ Rejected | Same; distinct dispatch contexts |
-| `sponsored` + `reentrant` | ⚠️ Warning, allowed | DAO-attack pattern (contract pays gas for its own re-entry) |
-| `fallback` + `receive` | ❌ Rejected | Distinct triggers (selector-miss vs bare-value); can't be the same handler |
-| `receive` + `payable` | ✅ Required | Receive without payable is a no-op contradiction |
-| `receive` + `reentrant` | ❌ Rejected | Recursive receive is meaningless and dangerous |
+| Combination                 | Status              | Reason                                                                                                                               |
+| --------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `view` + `payable`          | ❌ Rejected         | View = no state changes; payable = receives value (state change)                                                                     |
+| `view` + `constructor`      | ❌ Rejected         | Constructors initialise state; view can't                                                                                            |
+| `view` + `reentrant`        | ❌ Rejected         | Views are inherently reentrant (they make no state changes there's no guard to opt out of); the attribute is meaningless on a view   |
+| `view` + `sponsored`        | ❌ Rejected         | Views are FREE (§7.8); sponsoring zero gas is meaningless                                                                            |
+| `view` + `fallback`         | ❌ Rejected         | Fallback is the catch-all dispatch; restricting it to read-only is a footgun: authors expect to be able to do anything in a fallback |
+| `view` + `receive`          | ❌ Rejected         | Receive accepts value; view can't accept value                                                                                       |
+| `payable` + `constructor`   | ✅ Allowed          | Constructors can initialise with funds                                                                                               |
+| `payable` + `reentrant`     | ⚠️ Warning, allowed | DAO-attack pattern. Build emits warning; deploy accepts                                                                              |
+| `payable` + `fallback`      | ✅ Allowed          | Generic handler that also accepts value                                                                                              |
+| `constructor` + `reentrant` | ❌ Rejected         | Constructors are deploy-only; can't be re-entered                                                                                    |
+| `constructor` + `sponsored` | ❌ Rejected         | No gas tank exists at deploy time                                                                                                    |
+| `constructor` + `fallback`  | ❌ Rejected         | Distinct call shapes; constructor is deploy-time, fallback is run-time                                                               |
+| `constructor` + `receive`   | ❌ Rejected         | Same; distinct dispatch contexts                                                                                                     |
+| `sponsored` + `reentrant`   | ⚠️ Warning, allowed | DAO-attack pattern (contract pays gas for its own re-entry)                                                                          |
+| `fallback` + `receive`      | ❌ Rejected         | Distinct triggers (selector-miss vs bare-value); can't be the same handler                                                           |
+| `receive` + `payable`       | ✅ Required         | Receive without payable is a no-op contradiction                                                                                     |
+| `receive` + `reentrant`     | ❌ Rejected         | Recursive receive is meaningless and dangerous                                                                                       |
 
 ### 3.5.2 Per-call dispatch flow
 
@@ -347,32 +347,32 @@ One artifact, one source of truth.
 
 Negative i32 values returned by host functions. Each function lists which codes it can return; this is the master table.
 
-| Code | Symbol | Meaning |
-|---|---|---|
-| `-1` | `ERR_INVALID_INPUT` | Malformed input bytes (e.g., non-32-byte hash, non-canonical encoding) |
-| `-2` | `ERR_NOT_FOUND` | Reserved. Storage reads return zero values on missing slots (see `sload`, `balance`, `parachain_storage_read`). Currently only used as a sub-call failure indicator in some cross_call paths. Do not introduce new uses without ABI council review. |
-| `-3` | `ERR_INSUFFICIENT_BALANCE` | Caller balance too low for the requested operation |
-| `-4` | `ERR_OUT_OF_GAS` | Gas budget exhausted (typically a trap, but returned here for `consume_gas`) |
-| `-5` | `ERR_FORBIDDEN` | Operation not permitted in this context (e.g., `sstore` from a `view` function) |
-| `-6` | `ERR_ACCESS_LIST_VIOLATION` | Accessed slot not in declared access list |
-| `-7` | `ERR_OUTPUT_BUFFER_TOO_SMALL` | Caller's output buffer was smaller than required |
-| `-8` | `ERR_INVALID_ADDRESS` | Address format invalid (e.g., 32-byte all-zero, reserved sentinel) |
-| `-9` | `ERR_REENTRANCY_BLOCKED` | Cross-call would re-enter a non-`reentrant` function |
-| `-10` | `ERR_CROSS_CALL_FAILED` | Sub-call trapped or returned non-zero error code |
-| `-11` | `ERR_CROSS_CALL_OUT_OF_GAS` | Sub-call exhausted forwarded gas |
-| `-12` | `ERR_VALUE_TRANSFER_NOT_PAYABLE` | Attempted transfer to a function not marked `payable` |
-| `-13` | `ERR_INVALID_FUNCTION_NAME` | `cross_call` target function does not exist |
-| `-14` | `ERR_XCALL_RATE_LIMITED` | Parachain cross-message budget exceeded for this wave (parachain only) |
-| `-15` | `ERR_PARACHAIN_ONLY` | Function callable only from parachain context |
-| `-16` | `ERR_CIPHERTEXT_INVALID` | Threshold-decryption input malformed |
-| `-17` | `ERR_SIGNATURE_INVALID` | FALCON signature verification failed |
-| `-40` | `ERR_INSTANTIATE_CTOR_REVERTED` | Child constructor reverted during `instantiate`. The whole instantiate unwinds atomically: no child account, endowment refunded to the factory; the ctor's revert payload flows back verbatim in `return_data` (§7.12) |
-| `-43` | `ERR_TEMPLATE_NOT_FOUND` | `instantiate` template address is not a deployed contract / has no code |
-| `-44` | `ERR_CHILD_ADDRESS_OCCUPIED` | Derived child address is occupied by a NON-mergeable account (code-bearing, keyed, nonce-used, or non-EOA). A balance-only EOA shell is NOT occupied: it merges into the child (§7.12) |
-| `-45` | `ERR_CTOR_MISMATCH` | Non-empty `init_calldata` passed to a template with no constructor |
-| `-46` | `ERR_PIP2_PREFIX_COLLISION` | Child address's 16-byte prefix collides in the PIP-2 prefix registry |
-| `-48` | `ERR_INSTANTIATE_CAP_EXCEEDED` | Per-transaction instantiate cap (`MAX_INSTANTIATES_PER_TX = 64`) exceeded |
-| `-100` | `ERR_INTERNAL` | Engine-side bug or unexpected state. Should never occur in a correct implementation; surfaces as a trap in practice. Document for completeness. |
+| Code   | Symbol                           | Meaning                                                                                                                                                                                                                                             |
+| ------ | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `-1`   | `ERR_INVALID_INPUT`              | Malformed input bytes (e.g., non-32-byte hash, non-canonical encoding)                                                                                                                                                                              |
+| `-2`   | `ERR_NOT_FOUND`                  | Reserved. Storage reads return zero values on missing slots (see `sload`, `balance`, `parachain_storage_read`). Currently only used as a sub-call failure indicator in some cross_call paths. Do not introduce new uses without ABI council review. |
+| `-3`   | `ERR_INSUFFICIENT_BALANCE`       | Caller balance too low for the requested operation                                                                                                                                                                                                  |
+| `-4`   | `ERR_OUT_OF_GAS`                 | Gas budget exhausted (typically a trap, but returned here for `consume_gas`)                                                                                                                                                                        |
+| `-5`   | `ERR_FORBIDDEN`                  | Operation not permitted in this context (e.g., `sstore` from a `view` function)                                                                                                                                                                     |
+| `-6`   | `ERR_ACCESS_LIST_VIOLATION`      | Accessed slot not in declared access list                                                                                                                                                                                                           |
+| `-7`   | `ERR_OUTPUT_BUFFER_TOO_SMALL`    | Caller's output buffer was smaller than required                                                                                                                                                                                                    |
+| `-8`   | `ERR_INVALID_ADDRESS`            | Address format invalid (e.g., 32-byte all-zero, reserved sentinel)                                                                                                                                                                                  |
+| `-9`   | `ERR_REENTRANCY_BLOCKED`         | Cross-call would re-enter a non-`reentrant` function                                                                                                                                                                                                |
+| `-10`  | `ERR_CROSS_CALL_FAILED`          | Sub-call trapped or returned non-zero error code                                                                                                                                                                                                    |
+| `-11`  | `ERR_CROSS_CALL_OUT_OF_GAS`      | Sub-call exhausted forwarded gas                                                                                                                                                                                                                    |
+| `-12`  | `ERR_VALUE_TRANSFER_NOT_PAYABLE` | Attempted transfer to a function not marked `payable`                                                                                                                                                                                               |
+| `-13`  | `ERR_INVALID_FUNCTION_NAME`      | `cross_call` target function does not exist                                                                                                                                                                                                         |
+| `-14`  | `ERR_XCALL_RATE_LIMITED`         | Parachain cross-message budget exceeded for this wave (parachain only)                                                                                                                                                                              |
+| `-15`  | `ERR_PARACHAIN_ONLY`             | Function callable only from parachain context                                                                                                                                                                                                       |
+| `-16`  | `ERR_CIPHERTEXT_INVALID`         | Threshold-decryption input malformed                                                                                                                                                                                                                |
+| `-17`  | `ERR_SIGNATURE_INVALID`          | FALCON signature verification failed                                                                                                                                                                                                                |
+| `-40`  | `ERR_INSTANTIATE_CTOR_REVERTED`  | Child constructor reverted during `instantiate`. The whole instantiate unwinds atomically: no child account, endowment refunded to the factory; the ctor's revert payload flows back verbatim in `return_data` (§7.12)                              |
+| `-43`  | `ERR_TEMPLATE_NOT_FOUND`         | `instantiate` template address is not a deployed contract / has no code                                                                                                                                                                             |
+| `-44`  | `ERR_CHILD_ADDRESS_OCCUPIED`     | Derived child address is occupied by a NON-mergeable account (code-bearing, keyed, nonce-used, or non-EOA). A balance-only EOA shell is NOT occupied: it merges into the child (§7.12)                                                              |
+| `-45`  | `ERR_CTOR_MISMATCH`              | Non-empty `init_calldata` passed to a template with no constructor                                                                                                                                                                                  |
+| `-46`  | `ERR_PIP2_PREFIX_COLLISION`      | Child address's 16-byte prefix collides in the PIP-2 prefix registry                                                                                                                                                                                |
+| `-48`  | `ERR_INSTANTIATE_CAP_EXCEEDED`   | Per-transaction instantiate cap (`MAX_INSTANTIATES_PER_TX = 64`) exceeded                                                                                                                                                                           |
+| `-100` | `ERR_INTERNAL`                   | Engine-side bug or unexpected state. Should never occur in a correct implementation; surfaces as a trap in practice. Document for completeness.                                                                                                     |
 
 Critical failures (`MemoryOutOfBounds`, `StackOverflow`, `OutOfFuel`, `IntegerDivideByZero`, `UnreachableCodeReached`, host-fn-invariant violations) **trap**. Traps are unrecoverable; the transaction reverts; gas is consumed up to the trap point.
 
@@ -408,7 +408,7 @@ A correct Pyde host function call **must produce bit-identical results on every 
 - Threading or any concurrency primitive observable to the contract
 - Memory allocation patterns that depend on system state (engine uses a fixed-size arena per call)
 
-Host functions that *appear* to depend on time (`wave_timestamp`) actually return chain-state-derived values that are deterministic across validators. Same for `beacon_get`.
+Host functions that _appear_ to depend on time (`wave_timestamp`) actually return chain-state-derived values that are deterministic across validators. Same for `beacon_get`.
 
 The wasmtime configuration (see [Chapter 3 §3.2](../chapters/03-virtual-machine.md)) enforces WASM-side determinism (canonical NaN, no threads, no SIMD, no relaxed-SIMD, no bulk-memory non-determinism, no GC). Host-side determinism is the spec's contract; implementations that violate it are bugs.
 
@@ -1289,7 +1289,6 @@ Rate limit: 64 outgoing messages per wave per parachain by default
 > L1 MEV protection is the keyless commit-reveal mempool (Chapter 9), which
 > needs no committee key. A one-shot ciphertext lane (Threshold-LWE) that would back
 > these host functions remains v2+ research, gated on a trustless PQ threshold-keygen
-> breakthrough; see [Chapter 20](../chapters/20-future-direction.md). The signatures
 > below are frozen so contracts compiled against them remain forward-compatible, but
 > a v1 engine surfaces them as unavailable.
 
@@ -1339,15 +1338,15 @@ the output buffer. Not live in v1 — see the §8.5 status note.
 
 The deploy validator rejects any module whose WASM import section references any of the following. Attempting to deploy such a module returns `DeployRejected: ForbiddenImport(<name>)`.
 
-| Module | Function | Reason |
-|---|---|---|
-| `wasi_snapshot_preview1` | (any) | File I/O, system clock, env vars: non-deterministic |
-| `wasi_unstable` | (any) | Same |
-| `wasi:*` | (any) | Same |
-| `env` | (any) | Generic env-namespace functions out of scope for Pyde ABI |
-| `pyde` | `debug_log` | **Test-only.** Provided by the otigen-test runner for `console.log`-style printf debugging. Production deployments MUST strip these calls before deploy. See §9.3. |
-| `pyde` | other functions not in this spec | Future-proofing; rejects modules built against an unreleased ABI version |
-| Any other module name | (any) | Single permitted namespace is `pyde`. |
+| Module                   | Function                         | Reason                                                                                                                                                             |
+| ------------------------ | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `wasi_snapshot_preview1` | (any)                            | File I/O, system clock, env vars: non-deterministic                                                                                                                |
+| `wasi_unstable`          | (any)                            | Same                                                                                                                                                               |
+| `wasi:*`                 | (any)                            | Same                                                                                                                                                               |
+| `env`                    | (any)                            | Generic env-namespace functions out of scope for Pyde ABI                                                                                                          |
+| `pyde`                   | `debug_log`                      | **Test-only.** Provided by the otigen-test runner for `console.log`-style printf debugging. Production deployments MUST strip these calls before deploy. See §9.3. |
+| `pyde`                   | other functions not in this spec | Future-proofing; rejects modules built against an unreleased ABI version                                                                                           |
+| Any other module name    | (any)                            | Single permitted namespace is `pyde`.                                                                                                                              |
 
 ### 9.2 Parachain functions called from non-parachain modules
 
@@ -1380,13 +1379,13 @@ Use cases: ad-hoc value dumps, breadcrumb traces, asserting intermediate state i
 
 **Stripping for deploy:** `otigen build` is strict by default and rejects any bundle that imports `pyde::debug_log`, surfacing `ValidationError::TestOnlyHostFn`. Pass `--no-strict` to opt out for local inspection. `otigen deploy` always runs the strict gate and ignores `--no-strict`, so the chain never sees a `debug_log` import. The chain's deploy validator also hard-rejects modules whose import section names `debug_log` regardless of how they were bundled (defence in depth).
 
-| Path | Test-only fns accepted? |
-|---|---|
-| `otigen build` (default) | **no** (strict is default) |
-| `otigen build --no-strict` | yes (local-only escape hatch) |
-| `otigen check` | yes |
-| `otigen deploy` | **no** (strict, not opt-out-able) |
-| `otigen test` runner | mocked (writes to stderr) |
+| Path                       | Test-only fns accepted?           |
+| -------------------------- | --------------------------------- |
+| `otigen build` (default)   | **no** (strict is default)        |
+| `otigen build --no-strict` | yes (local-only escape hatch)     |
+| `otigen check`             | yes                               |
+| `otigen deploy`            | **no** (strict, not opt-out-able) |
+| `otigen test` runner       | mocked (writes to stderr)         |
 
 The honour-system rule is therefore: drop `debug_log` calls (or guard them behind `#[cfg(feature = "debug")]`) before shipping. A grep over the source tree (`grep -rn debug_log src/`) is a fast pre-flight check, but the build gate catches anything that slips.
 
@@ -1411,41 +1410,41 @@ These cannot be opted into per-contract. They are network-wide forbidden.
 
 Authoritative gas costs for every host function. This table is the source of truth; if the engine implementation diverges, the engine is wrong.
 
-| Function | Base gas | Per-byte / per-word | Notes |
-|---|---|---|---|
-| `sload` | 100 | 1 / byte copied | Returns actual length or `-1` (`SLOAD_MISSING`) |
-| `sstore` | 5,000 | 32 / byte | Variable-length value (≤ 16 KB) |
-| `sdelete` | 5,000 | none | No refund (PIP-4 `gas-no-refund`) |
-| `balance` | 100 | none | |
-| `transfer` | 7,000 | none | |
-| `caller`, `origin`, `self_address` | 5 | none | |
-| `wave_id`, `wave_timestamp`, `chain_id` | 2 | none | |
-| `tx_hash` | 5 | none | |
-| `tx_value` | 5 | none | |
-| `tx_gas_remaining` | 2 | none | |
-| `calldata_size` | 2 | none | |
-| `calldata_copy` | 8 | 1 / byte | |
-| `emit_event` | 100 | + 50 / topic + 8 / data byte | 1 to 4 topics; topic[0] conventionally signature hash |
-| `hash_blake3` | 15 | 3 / word (8 bytes) | |
-| `hash_poseidon2` | 100 | 30 / word | ZK-friendly, expensive |
-| `hash_keccak256` | 30 | 6 / word | EVM-compat |
-| `falcon_verify` | 50,000 | none | ~80μs commodity |
-| `cross_call` | 1,000 | 8 / byte calldata + sub-call gas | |
-| `cross_call_static` | 50 | none | Sub-call execution is FREE; caller pays only the dispatch base. Sub-call bounded by VIEW_FUEL_CAP (default 10M instructions ≈ 3ms) |
-| `delegate_call` | 1,200 | 8 / byte calldata + sub-call gas | Caller's storage context |
-| `return` | 0 | none | Halt op |
-| `revert` | 0 | none | Halt op |
-| `consume_gas` | 2 | + amount | Pure manual metering |
-| `beacon_get` | 50 | none | |
-| `parachain_storage_read` | 250 | 1 / byte returned | Parachain only |
-| `parachain_storage_write` | 5,500 | 10 / byte | Parachain only |
-| `parachain_storage_delete` | 250 | none | Parachain only |
-| `parachain_id` | 5 | none | Parachain only |
-| `parachain_version` | 5 | none | Parachain only |
-| `parachain_emit_event` | 100 | + 50 / topic + 8 / data byte | Parachain only; same multi-topic surface as core emit_event |
-| `send_xparachain_message` | 10,000 | 8 / byte | Parachain only |
-| `threshold_encrypt` | 80,000 | 100 / byte | Parachain only |
-| `threshold_decrypt` | 100,000 | 50 / byte | Parachain only |
+| Function                                | Base gas | Per-byte / per-word              | Notes                                                                                                                              |
+| --------------------------------------- | -------- | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `sload`                                 | 100      | 1 / byte copied                  | Returns actual length or `-1` (`SLOAD_MISSING`)                                                                                    |
+| `sstore`                                | 5,000    | 32 / byte                        | Variable-length value (≤ 16 KB)                                                                                                    |
+| `sdelete`                               | 5,000    | none                             | No refund (PIP-4 `gas-no-refund`)                                                                                                  |
+| `balance`                               | 100      | none                             |                                                                                                                                    |
+| `transfer`                              | 7,000    | none                             |                                                                                                                                    |
+| `caller`, `origin`, `self_address`      | 5        | none                             |                                                                                                                                    |
+| `wave_id`, `wave_timestamp`, `chain_id` | 2        | none                             |                                                                                                                                    |
+| `tx_hash`                               | 5        | none                             |                                                                                                                                    |
+| `tx_value`                              | 5        | none                             |                                                                                                                                    |
+| `tx_gas_remaining`                      | 2        | none                             |                                                                                                                                    |
+| `calldata_size`                         | 2        | none                             |                                                                                                                                    |
+| `calldata_copy`                         | 8        | 1 / byte                         |                                                                                                                                    |
+| `emit_event`                            | 100      | + 50 / topic + 8 / data byte     | 1 to 4 topics; topic[0] conventionally signature hash                                                                              |
+| `hash_blake3`                           | 15       | 3 / word (8 bytes)               |                                                                                                                                    |
+| `hash_poseidon2`                        | 100      | 30 / word                        | ZK-friendly, expensive                                                                                                             |
+| `hash_keccak256`                        | 30       | 6 / word                         | EVM-compat                                                                                                                         |
+| `falcon_verify`                         | 50,000   | none                             | ~80μs commodity                                                                                                                    |
+| `cross_call`                            | 1,000    | 8 / byte calldata + sub-call gas |                                                                                                                                    |
+| `cross_call_static`                     | 50       | none                             | Sub-call execution is FREE; caller pays only the dispatch base. Sub-call bounded by VIEW_FUEL_CAP (default 10M instructions ≈ 3ms) |
+| `delegate_call`                         | 1,200    | 8 / byte calldata + sub-call gas | Caller's storage context                                                                                                           |
+| `return`                                | 0        | none                             | Halt op                                                                                                                            |
+| `revert`                                | 0        | none                             | Halt op                                                                                                                            |
+| `consume_gas`                           | 2        | + amount                         | Pure manual metering                                                                                                               |
+| `beacon_get`                            | 50       | none                             |                                                                                                                                    |
+| `parachain_storage_read`                | 250      | 1 / byte returned                | Parachain only                                                                                                                     |
+| `parachain_storage_write`               | 5,500    | 10 / byte                        | Parachain only                                                                                                                     |
+| `parachain_storage_delete`              | 250      | none                             | Parachain only                                                                                                                     |
+| `parachain_id`                          | 5        | none                             | Parachain only                                                                                                                     |
+| `parachain_version`                     | 5        | none                             | Parachain only                                                                                                                     |
+| `parachain_emit_event`                  | 100      | + 50 / topic + 8 / data byte     | Parachain only; same multi-topic surface as core emit_event                                                                        |
+| `send_xparachain_message`               | 10,000   | 8 / byte                         | Parachain only                                                                                                                     |
+| `threshold_encrypt`                     | 80,000   | 100 / byte                       | Parachain only                                                                                                                     |
+| `threshold_decrypt`                     | 100,000  | 50 / byte                        | Parachain only                                                                                                                     |
 
 Per-word = per-8-bytes, rounded up. Per-byte = per-1-byte, no rounding.
 
@@ -1457,17 +1456,17 @@ These values are **initial calibration**, set against representative benchmarks 
 
 Several transaction types **bypass the WASM execution layer entirely** and run as native handlers in the engine. These do not use the Host Function ABI. They are listed here for completeness so contract authors understand which operations are "free of WASM overhead":
 
-| Transaction type | Cost | Path |
-|---|---|---|
+| Transaction type                             | Cost        | Path                                                                       |
+| -------------------------------------------- | ----------- | -------------------------------------------------------------------------- |
 | `Standard` with `value > 0` and empty `data` | ~21,000 gas | Native fast path inside the `Standard` handler (no wasmtime instantiation) |
-| `StakeDeposit` (`0x03`) | Native | |
-| `StakeWithdraw` (`0x04`) | Native | |
-| `Slash` (`0x05`) | Native | |
-| `ClaimReward` (`0x06`) | Native | |
-| `ClaimAirdrop` (`0x07`) | Native | |
-| `SweepAirdrop` (`0x08`) | Native | |
-| `MultisigTx` (`0x09`) | Native | Dispatches into native multisig handler before optional inner-call routing |
-| `MultisigSignerRotate` (`0x0A`) | Native | |
+| `StakeDeposit` (`0x03`)                      | Native      |                                                                            |
+| `StakeWithdraw` (`0x04`)                     | Native      |                                                                            |
+| `Slash` (`0x05`)                             | Native      |                                                                            |
+| `ClaimReward` (`0x06`)                       | Native      |                                                                            |
+| `ClaimAirdrop` (`0x07`)                      | Native      |                                                                            |
+| `SweepAirdrop` (`0x08`)                      | Native      |                                                                            |
+| `MultisigTx` (`0x09`)                        | Native      | Dispatches into native multisig handler before optional inner-call routing |
+| `MultisigSignerRotate` (`0x0A`)              | Native      |                                                                            |
 
 See [Chapter 3 §3.9b](../chapters/03-virtual-machine.md) for the dispatch logic.
 
@@ -1755,7 +1754,7 @@ When A invokes `cross_call(B_addr, "fn_name", calldata, value, gas_limit, return
 8. **Create a new wasmtime Store + Instance** for B with: fresh linear memory (B cannot see A's memory directly); fuel = `gas_limit`; the same `Linker` (so B has the same host functions available); `HostState` pointing to `overlay_B` and the active call stack with B pushed on.
 9. **Copy calldata** from A's memory into B's memory at a host-chosen offset (typically the start of B's memory's calldata region).
 10. **Apply value transfer**: if `value > 0`, atomically debit A's balance and credit B's by `value`. This happens before B's code runs so B's first `tx_value()` call sees the right amount.
-11. **Invoke B's entry function** with calldata. B's WASM executes in isolation: its `sload`/`sstore` operate on `overlay_B`; its own `cross_call` would push *another* overlay on top.
+11. **Invoke B's entry function** with calldata. B's WASM executes in isolation: its `sload`/`sstore` operate on `overlay_B`; its own `cross_call` would push _another_ overlay on top.
 12. **On B's exit**, handle the outcome:
     - **Success (B returned normally)**: merge `overlay_B` into `overlay_A`; copy return data from B's memory into A's memory at `return_data_out_ptr`; write actual length at `return_data_out_len_ptr`; consume B's actual fuel from A's remaining budget; return `0` to A.
     - **Trap (B hit OutOfFuel, MemoryOutOfBounds, reverted, etc.)**: discard `overlay_B` entirely; revert the value transfer from step 10; consume B's actual fuel from A's remaining; return `ERR_CROSS_CALL_FAILED` to A.
@@ -1807,8 +1806,8 @@ To prevent runaway recursion (e.g., a contract that calls itself unboundedly thr
 
 - **Reservation**: A pre-charges `gas_limit` from its remaining budget at step 2 (the host function refuses to start the sub-call if A can't afford the reservation).
 - **Forwarding**: B receives a fresh fuel counter of `gas_limit`.
-- **Consumption**: After B exits, A's budget is debited by B's *actual* fuel consumed (which may be less than `gas_limit`).
-- **No refund**: any unused portion of `gas_limit` is *not* returned to A (consistent with the no-refund policy). A consumed gas it didn't end up using. That's the tradeoff for the simpler accounting model. Authors are advised to size `gas_limit` carefully.
+- **Consumption**: After B exits, A's budget is debited by B's _actual_ fuel consumed (which may be less than `gas_limit`).
+- **No refund**: any unused portion of `gas_limit` is _not_ returned to A (consistent with the no-refund policy). A consumed gas it didn't end up using. That's the tradeoff for the simpler accounting model. Authors are advised to size `gas_limit` carefully.
 
 ### 13.6 Why `cross_call_static` exists
 
@@ -1830,7 +1829,7 @@ Each event carries **1 to 4 topics** (each 32 bytes) plus an **opaque data paylo
 
 Topics are how events are indexed and filtered on-chain. Each event has 1 to 4 topics. By convention:
 
-- **`topic[0]`** is *always* `Blake3(canonical_event_signature)`. This is the event-type identifier: what subscribers and indexers match on as the primary filter.
+- **`topic[0]`** is _always_ `Blake3(canonical_event_signature)`. This is the event-type identifier: what subscribers and indexers match on as the primary filter.
 - **`topic[1..topics_count]`** are indexed-field values, in author-declared order.
 
 Authors mark fields as indexed in `otigen.toml`:
@@ -1851,18 +1850,18 @@ Up to **3 fields can be `indexed`** (giving a total of 4 topics, signature plus 
 
 How each indexed-field value becomes a 32-byte topic:
 
-| Field type | Encoding rule |
-|---|---|
-| `address` ([u8; 32]) | Stored as-is (already 32 bytes) |
-| `uint64`, `int64` | Left-padded to 32 bytes (zeros in MSB) |
-| `uint128`, `int128` | Left-padded to 32 bytes |
-| `bool` | Left-padded to 32 bytes (`0x00...00` or `0x00...01`) |
-| `[u8; N]` where N ≤ 32 | Left-padded to 32 bytes |
-| `string` | `Blake3(utf8_bytes)` |
-| `bytes` (`Vec<u8>`) | `Blake3(bytes)` |
-| `T[]` (`Vec<T>`) | `Blake3(borsh_encode(value))` |
-| `struct { ... }` | `Blake3(borsh_encode(value))` |
-| `enum { ... }` | `Blake3(borsh_encode(value))` |
+| Field type             | Encoding rule                                        |
+| ---------------------- | ---------------------------------------------------- |
+| `address` ([u8; 32])   | Stored as-is (already 32 bytes)                      |
+| `uint64`, `int64`      | Left-padded to 32 bytes (zeros in MSB)               |
+| `uint128`, `int128`    | Left-padded to 32 bytes                              |
+| `bool`                 | Left-padded to 32 bytes (`0x00...00` or `0x00...01`) |
+| `[u8; N]` where N ≤ 32 | Left-padded to 32 bytes                              |
+| `string`               | `Blake3(utf8_bytes)`                                 |
+| `bytes` (`Vec<u8>`)    | `Blake3(bytes)`                                      |
+| `T[]` (`Vec<T>`)       | `Blake3(borsh_encode(value))`                        |
+| `struct { ... }`       | `Blake3(borsh_encode(value))`                        |
+| `enum { ... }`         | `Blake3(borsh_encode(value))`                        |
 
 Rule: **fixed-size ≤32 bytes get stored as-is (padded); variable-size or >32 bytes get hashed**. Matches EVM's `indexed` semantics.
 
@@ -1870,19 +1869,19 @@ Rule: **fixed-size ≤32 bytes get stored as-is (padded); variable-size or >32 b
 
 The signature string drives `topic[0]`. Type names mirror Solidity's for familiarity:
 
-| Pyde type | Signature token |
-|---|---|
-| `[u8; 32]` (address) | `address` |
-| `u64` | `uint64` |
-| `u128` | `uint128` |
-| `i64` | `int64` |
-| `bool` | `bool` |
-| `String` (UTF-8) | `string` |
-| `Vec<u8>` | `bytes` |
-| `Vec<T>` | `T[]` |
-| `[T; N]` | `T[N]` |
-| `enum X { ... }` | `enum` |
-| Custom struct | `tuple` (with field types in parens; rare) |
+| Pyde type            | Signature token                            |
+| -------------------- | ------------------------------------------ |
+| `[u8; 32]` (address) | `address`                                  |
+| `u64`                | `uint64`                                   |
+| `u128`               | `uint128`                                  |
+| `i64`                | `int64`                                    |
+| `bool`               | `bool`                                     |
+| `String` (UTF-8)     | `string`                                   |
+| `Vec<u8>`            | `bytes`                                    |
+| `Vec<T>`             | `T[]`                                      |
+| `[T; N]`             | `T[N]`                                     |
+| `enum X { ... }`     | `enum`                                     |
+| Custom struct        | `tuple` (with field types in parens; rare) |
 
 Examples:
 
@@ -1974,7 +1973,7 @@ import { blake3 } from "@noble/hashes/blake3";
 
 // Borsh schema only needs the NON-indexed fields:
 class TransferEventData {
-  amount: bigint;    // u128
+  amount: bigint; // u128
 }
 
 const transferTopic = blake3("Transfer(address,address,uint128)");
@@ -1984,8 +1983,8 @@ for await (const event of subscription) {
   if (!uint8ArrayEqual(event.topics[0], transferTopic)) continue;
 
   // Indexed fields come from topics[1..]:
-  const from = event.topics[1];   // 32-byte address (no padding for addresses)
-  const to   = event.topics[2];
+  const from = event.topics[1]; // 32-byte address (no padding for addresses)
+  const to = event.topics[2];
 
   // Non-indexed fields come from Borsh-decoded data:
   const { amount } = deserialize(event.data, TransferEventData);
@@ -2060,6 +2059,7 @@ events_root = [0u8; 32]   (sentinel — no events to commit)
 ```
 
 **Light client inclusion proof:** to prove "event E was emitted in wave W", a light client needs:
+
 1. The wave's `HardFinalityCert` containing the signed `events_root`.
 2. The `EventRecord` itself.
 3. A Merkle proof from the event's leaf position to the root (log₂(events_count) hashes).
@@ -2092,11 +2092,11 @@ insert(bloom, item):
 Three hash functions, 2048-bit filter. Expected false-positive rate at typical wave loads:
 
 | Events per wave | False-positive rate |
-|---|---|
-| 100 | ~0.001 % |
-| 1,000 | ~1 % |
-| 5,000 | ~17 % |
-| 10,000 | ~52 % |
+| --------------- | ------------------- |
+| 100             | ~0.001 %            |
+| 1,000           | ~1 %                |
+| 5,000           | ~17 %               |
+| 10,000          | ~52 %               |
 
 At the v1 honest throughput target (most txs not emitting events), a typical wave has <2,000 events and the bloom is highly selective. At peak load it becomes less useful but never lies (no false negatives). Historical query (§15.4) uses the bloom as a pre-filter and the indexes for exact matches.
 
@@ -2244,7 +2244,7 @@ struct LogEventNotification {
 
 - **Post-commit only.** Subscribers receive events only after the event's wave has committed. No "pending event" notifications.
 - **Canonical order.** Events arrive in `(wave_id, tx_index, event_index)` order. Subscribers can dedupe by cursor since each event carries its position.
-- **At-least-once.** If the WebSocket disconnects mid-push, the subscriber must reconnect and use `from` cursor to resume from a known-processed position. The engine does *not* track which events a specific subscriber acknowledged; subscribers reconcile via cursor.
+- **At-least-once.** If the WebSocket disconnects mid-push, the subscriber must reconnect and use `from` cursor to resume from a known-processed position. The engine does _not_ track which events a specific subscriber acknowledged; subscribers reconcile via cursor.
 
 **Filter syntax (positional, EVM-style):** identical to `pyde_getLogs` (§15.4). Per-position topic constraints are AND'd; within each position, multiple values are OR'd; the contract filter is AND'd on top.
 
@@ -2254,12 +2254,12 @@ This covers EVM-equivalent filtering ("Transfer events from address X to anyone"
 
 Events follow the same retention tiering as state (Chapter 4):
 
-| Node tier | Events retention |
-|---|---|
-| Archive | Forever |
-| Full node | Last 90 days |
-| Committee validator | Last 30 days |
-| Light client | No primary storage; verifies inclusion proofs against signed `events_root` |
+| Node tier           | Events retention                                                           |
+| ------------------- | -------------------------------------------------------------------------- |
+| Archive             | Forever                                                                    |
+| Full node           | Last 90 days                                                               |
+| Committee validator | Last 30 days                                                               |
+| Light client        | No primary storage; verifies inclusion proofs against signed `events_root` |
 
 **Pruning:** at every epoch boundary, the engine sweeps `events_cf`, `events_by_topic_cf`, and `events_by_contract_cf` together, removing entries with `wave_id < (current_wave - retention_waves)`. Lockstep, never partial. The wave commit records themselves are retained per the wave-commit retention policy (longer than events; needed for chain-of-trust during state sync).
 
@@ -2422,11 +2422,11 @@ The conformance test suite ships in the post-pivot engine repo under `wasm-exec/
 
 Existing function semantics, gas costs, and error codes are **frozen** at v1.0 mainnet. Any change requires a v2.0 major bump, which is a hard fork.
 
-If a v1.x function is discovered to have an implementation bug that diverges from this spec, the **engine** is patched to match the spec. If a v1.x function is discovered to have a *spec* bug (the spec itself is wrong), the spec is amended, the engine is patched to match the corrected spec, and the change is documented in the [Migration Notes](../MIGRATION_NOTES.md) as a clarification (not a new function and not a major bump).
+If a v1.x function is discovered to have an implementation bug that diverges from this spec, the **engine** is patched to match the spec. If a v1.x function is discovered to have a _spec_ bug (the spec itself is wrong), the spec is amended, the engine is patched to match the corrected spec, and the change is documented in the [Migration Notes](../MIGRATION_NOTES.md) as a clarification (not a new function and not a major bump).
 
 ### 17.3 Reserving for v2
 
-Functions known to be useful but requiring substantial design work (e.g., a streaming I/O abstraction, an account-abstraction policy invocation primitive, session-key authorization hooks) are *not* added to v1. They are reserved for v2 under "Beyond V1" and ship when ready.
+Functions known to be useful but requiring substantial design work (e.g., a streaming I/O abstraction, an account-abstraction policy invocation primitive, session-key authorization hooks) are _not_ added to v1. They are reserved for v2 under "Beyond V1" and ship when ready.
 
 ### 17.4 Per-language SDK alignment
 

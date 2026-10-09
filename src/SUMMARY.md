@@ -2,6 +2,7 @@
 
 [What is Pyde](preface/what-is-pyde.md)
 [Why Pyde](preface/why-pyde.md)
+[The Pivot](preface/pivot.md)
 [Get Started](preface/get-started.md)
 [Get Started: for Developers](preface/get-started-for-developers.md)
 [Get Started: for Users](preface/get-started-for-users.md)
